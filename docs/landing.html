@@ -879,9 +879,19 @@
       }
     </script>
 
-    <section>
+    <section id="waitlist">
       <div class="container" style="text-align: center;">
-        <h2>Get started in 5 seconds</h2>
+        <h2>Get Notified When Cloud API Launches</h2>
+        <p class="tagline" style="margin-bottom: 32px;">Join the waitlist for the hosted API. Free tier included. No spam.</p>
+        <form action="https://formspree.io/f/xpwzgvvz" method="POST" style="max-width: 500px; margin: 0 auto 48px; display: flex; gap: 12px;">
+          <input type="email" name="email" placeholder="you@company.com" required
+            style="flex: 1; padding: 14px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 16px; outline: none;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+          <input type="hidden" name="_subject" value="WebPeel Waitlist Signup">
+          <button type="submit" class="cta" style="border: none; cursor: pointer; white-space: nowrap;">Join Waitlist</button>
+        </form>
+        
+        <h2 style="margin-top: 64px;">Get started in 5 seconds</h2>
         <div class="code-block" style="max-width: 500px;">
           <div><span class="prompt">$</span> npx webpeel https://example.com</div>
         </div>
