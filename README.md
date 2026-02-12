@@ -1,5 +1,10 @@
 # WebPeel
 
+[![CI](https://github.com/JakeLiuMe/webpeel/actions/workflows/ci.yml/badge.svg)](https://github.com/JakeLiuMe/webpeel/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/webpeel.svg)](https://www.npmjs.com/package/webpeel)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
+
 Fast web content extraction for AI agents. Smart escalation from simple HTTP to headless browser when needed.
 
 ## Features
