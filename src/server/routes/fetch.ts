@@ -127,17 +127,20 @@ export function createFetchRouter(authStore: AuthStore): Router {
     } catch (error: any) {
       const err = error as any;
       
+      // SECURITY: Sanitize error messages to prevent information disclosure
       if (err.code) {
-        // WebPeelError from core library
+        // WebPeelError from core library - safe to expose
+        const safeMessage = err.message.replace(/[<>"']/g, ''); // Remove HTML chars
         res.status(500).json({
           error: err.code,
-          message: err.message,
+          message: safeMessage,
         });
       } else {
-        // Unexpected error
+        // Unexpected error - generic message only
+        console.error('Fetch error:', err); // Log full error server-side
         res.status(500).json({
           error: 'internal_error',
-          message: err.message || 'An unexpected error occurred',
+          message: 'An unexpected error occurred while fetching the URL',
         });
       }
     }

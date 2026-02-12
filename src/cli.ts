@@ -43,11 +43,27 @@ program
       process.exit(1);
     }
 
-    // Validate URL
+    // SECURITY: Enhanced URL validation
+    if (url.length > 2048) {
+      console.error('Error: URL too long (max 2048 characters)');
+      process.exit(1);
+    }
+
+    // Check for control characters
+    if (/[\x00-\x1F\x7F]/.test(url)) {
+      console.error('Error: URL contains invalid control characters');
+      process.exit(1);
+    }
+
+    // Validate URL format
     try {
-      new URL(url);
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        console.error('Error: Only HTTP and HTTPS protocols are allowed');
+        process.exit(1);
+      }
     } catch {
-      console.error(`Error: Invalid URL: ${url}`);
+      console.error(`Error: Invalid URL format: ${url}`);
       process.exit(1);
     }
 

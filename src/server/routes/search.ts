@@ -143,9 +143,11 @@ export function createSearchRouter(authStore: AuthStore): Router {
       });
     } catch (error) {
       const err = error as Error;
+      // SECURITY: Generic error message to prevent information disclosure
+      console.error('Search error:', err); // Log full error server-side
       res.status(500).json({
         error: 'search_failed',
-        message: err.message || 'Search request failed',
+        message: 'Search request failed. Please try again.',
       });
     }
   });

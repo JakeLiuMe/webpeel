@@ -160,8 +160,23 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         format?: 'markdown' | 'text' | 'html';
       };
 
+      // SECURITY: Validate input parameters
       if (!url || typeof url !== 'string') {
         throw new Error('Invalid URL parameter');
+      }
+
+      if (url.length > 2048) {
+        throw new Error('URL too long (max 2048 characters)');
+      }
+
+      if (wait !== undefined) {
+        if (typeof wait !== 'number' || isNaN(wait) || wait < 0 || wait > 60000) {
+          throw new Error('Invalid wait parameter: must be between 0 and 60000ms');
+        }
+      }
+
+      if (format !== undefined && !['markdown', 'text', 'html'].includes(format)) {
+        throw new Error('Invalid format parameter: must be "markdown", "text", or "html"');
       }
 
       const options: PeelOptions = {
@@ -170,7 +185,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         format: format || 'markdown',
       };
 
-      const result = await peel(url, options);
+      // SECURITY: Wrap in timeout (60 seconds max)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('MCP operation timed out after 60s')), 60000);
+      });
+
+      const result = await Promise.race([
+        peel(url, options),
+        timeoutPromise,
+      ]) as any;
 
       // SECURITY: Handle JSON serialization errors
       let resultText: string;
@@ -199,12 +222,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         count?: number;
       };
 
+      // SECURITY: Validate input parameters
       if (!query || typeof query !== 'string') {
         throw new Error('Invalid query parameter');
       }
 
+      if (query.length > 500) {
+        throw new Error('Query too long (max 500 characters)');
+      }
+
+      if (count !== undefined) {
+        if (typeof count !== 'number' || isNaN(count) || count < 1 || count > 10) {
+          throw new Error('Invalid count parameter: must be between 1 and 10');
+        }
+      }
+
       const resultCount = Math.min(Math.max(count || 5, 1), 10);
-      const results = await searchWeb(query, resultCount);
+
+      // SECURITY: Wrap in timeout (30 seconds max)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Search operation timed out after 30s')), 30000);
+      });
+
+      const results = await Promise.race([
+        searchWeb(query, resultCount),
+        timeoutPromise,
+      ]) as any;
 
       // SECURITY: Handle JSON serialization errors
       let resultText: string;

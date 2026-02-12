@@ -3,8 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebPeel — Peel the web down to what AI needs</title>
-  <meta name="description" content="A web fetcher built for AI agents. Give it any URL, get back clean markdown. Open source, local-first, free forever.">
+  <title>WebPeel — Turn any web page into clean markdown. Zero config. Free forever.</title>
+  <meta name="description" content="Smart web fetcher for AI agents. Auto-escalates from HTTP to headless browser. MCP server for Claude/Cursor. Local-first, open source, MIT licensed.">
+  <link rel="canonical" href="https://webpeel.dev">
+  
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://webpeel.dev">
+  <meta property="og:title" content="WebPeel — Turn any web page into clean markdown">
+  <meta property="og:description" content="Smart web fetcher for AI agents. Free forever.">
+  <meta property="og:image" content="https://webpeel.dev/og-image.png">
+  
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:creator" content="@JakeLiuMe">
+  
   <style>
     * {
       margin: 0;
@@ -40,6 +52,11 @@
     header {
       padding: 24px 0;
       border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      background: rgba(10, 10, 10, 0.8);
+      z-index: 100;
     }
 
     .header-content {
@@ -89,6 +106,9 @@
       font-size: 24px;
       color: var(--text-dim);
       margin-bottom: 48px;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .code-block {
@@ -110,6 +130,13 @@
 
     .code-block .comment {
       color: var(--text-dim);
+    }
+
+    .code-block .output {
+      color: var(--text-dim);
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
     }
 
     .cta {
@@ -159,6 +186,28 @@
       letter-spacing: -0.01em;
     }
 
+    /* Stats */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 32px;
+      max-width: 900px;
+      margin: 0 auto 80px;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 48px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      color: var(--text-dim);
+      font-size: 15px;
+    }
+
     /* How it works */
     .steps {
       display: grid;
@@ -195,9 +244,21 @@
       font-size: 15px;
     }
 
+    .step .perf {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 12px;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
     /* Comparison */
     .comparison-table {
-      max-width: 900px;
+      max-width: 1000px;
       margin: 0 auto;
       overflow-x: auto;
     }
@@ -216,7 +277,7 @@
     th {
       font-weight: 600;
       color: var(--text-dim);
-      font-size: 14px;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
@@ -227,14 +288,20 @@
 
     td:first-child {
       color: var(--text-dim);
+      font-weight: 500;
     }
 
     .check {
       color: var(--accent);
+      font-weight: 600;
     }
 
     .cross {
       color: #ef4444;
+    }
+
+    .warn {
+      color: #f59e0b;
     }
 
     /* Pricing */
@@ -242,7 +309,7 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 24px;
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 0 auto;
     }
 
@@ -265,7 +332,7 @@
     }
 
     .pricing-card.featured::before {
-      content: "Popular";
+      content: "Most Popular";
       position: absolute;
       top: -12px;
       left: 50%;
@@ -349,6 +416,33 @@
       border-color: var(--text-dim);
     }
 
+    /* Features */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 32px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .feature {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+    }
+
+    .feature h3 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .feature p {
+      color: var(--text-dim);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
     /* Footer */
     footer {
       padding: 48px 0;
@@ -400,6 +494,18 @@
       .pricing-grid {
         grid-template-columns: 1fr;
       }
+
+      .stat-number {
+        font-size: 36px;
+      }
+
+      table {
+        font-size: 13px;
+      }
+
+      th, td {
+        padding: 12px 8px;
+      }
     }
   </style>
 </head>
@@ -407,12 +513,13 @@
   <header>
     <div class="container">
       <div class="header-content">
-        <a href="#" class="logo">web<span>peel</span></a>
+        <a href="/" class="logo">web<span>peel</span></a>
         <nav>
-          <a href="#how">How it works</a>
+          <a href="#how">How it Works</a>
+          <a href="#comparison">Comparison</a>
           <a href="#pricing">Pricing</a>
-          <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
           <a href="https://github.com/JakeLiuMe/webpeel#readme">Docs</a>
+          <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
         </nav>
       </div>
     </div>
@@ -421,39 +528,73 @@
   <main>
     <section class="hero">
       <div class="container">
-        <h1>Peel the web down to<br>what AI needs</h1>
-        <p class="tagline">A web fetcher built for AI agents. Give it any URL, get back clean markdown.</p>
+        <h1>Turn any web page into<br>clean markdown</h1>
+        <p class="tagline">Smart web fetcher for AI agents. Auto-escalates from HTTP to headless browser. Zero config. Free forever.</p>
         
         <div class="code-block">
-          <div><span class="prompt">$</span> npx webpeel https://x.com/steipete</div>
-          <div><span class="comment"># Returns clean markdown, ready for your AI</span></div>
+          <div><span class="prompt">$</span> npx webpeel https://news.ycombinator.com</div>
+          <div class="output">
+            <div># Hacker News</div>
+            <div>## Top Stories</div>
+            <div>1. **Show HN: WebPeel** — 142 points</div>
+            <div>2. **The End of the API Era** — 89 points</div>
+          </div>
         </div>
 
-        <a href="https://github.com/JakeLiuMe/webpeel" class="cta">Get Started</a>
-        <a href="https://github.com/JakeLiuMe/webpeel#readme" class="cta-secondary">Read Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel#readme" class="cta">Get Started</a>
+        <a href="https://github.com/JakeLiuMe/webpeel" class="cta-secondary">View on GitHub</a>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="stats">
+          <div>
+            <div class="stat-number">∞</div>
+            <div class="stat-label">Free local requests</div>
+          </div>
+          <div>
+            <div class="stat-number">~200ms</div>
+            <div class="stat-label">Average response time</div>
+          </div>
+          <div>
+            <div class="stat-number">80%</div>
+            <div class="stat-label">Sites work without browser</div>
+          </div>
+          <div>
+            <div class="stat-number">MIT</div>
+            <div class="stat-label">Open source license</div>
+          </div>
+        </div>
       </div>
     </section>
 
     <section id="how">
       <div class="container">
-        <h2>How it works</h2>
+        <h2>Smart Escalation</h2>
         <div class="steps">
           <div class="step">
             <div class="step-number">1</div>
-            <h3>Simple Fetch</h3>
-            <p>Fast HTTP request (~100ms). Works for 90% of sites. No browser overhead.</p>
+            <h3>Simple HTTP</h3>
+            <p>Tries fast HTTP fetch with smart headers and Cheerio parsing first.</p>
+            <span class="perf">~200ms</span>
           </div>
           <div class="step">
             <div class="step-number">2</div>
             <h3>Browser Mode</h3>
-            <p>Headless Playwright (~2-5s). Handles JavaScript rendering and dynamic content.</p>
+            <p>Auto-escalates to Playwright if blocked or JavaScript rendering needed.</p>
+            <span class="perf">~2 seconds</span>
           </div>
           <div class="step">
             <div class="step-number">3</div>
             <h3>Stealth Mode</h3>
-            <p>Full anti-detection (~5-10s). Bypasses Cloudflare and most protections.</p>
+            <p>Full anti-detection for Cloudflare and heavily protected sites.</p>
+            <span class="perf">~5 seconds</span>
           </div>
         </div>
+        <p style="text-align: center; margin-top: 48px; color: var(--text-dim); max-width: 700px; margin-left: auto; margin-right: auto;">
+          Don't waste 2 seconds rendering when 200ms will do. WebPeel automatically detects blocked requests and retries with the right level of escalation.
+        </p>
       </div>
     </section>
 
@@ -468,47 +609,103 @@
                 <th>WebPeel</th>
                 <th>Firecrawl</th>
                 <th>Jina Reader</th>
+                <th>MCP Fetch</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Free tier</td>
-                <td>Unlimited (self-hosted)</td>
-                <td>500 credits (one-time)</td>
-                <td>Rate limited</td>
+                <td>Local execution</td>
+                <td class="check">✓ Free forever</td>
+                <td class="cross">✗ Cloud only</td>
+                <td class="cross">✗ Cloud only</td>
+                <td class="check">✓ Free</td>
               </tr>
               <tr>
-                <td>Local-first</td>
-                <td class="check">✓</td>
-                <td class="cross">✗</td>
-                <td class="cross">✗</td>
+                <td>JS rendering</td>
+                <td class="check">✓ Auto-escalates</td>
+                <td class="check">✓ Always</td>
+                <td class="cross">✗ No</td>
+                <td class="cross">✗ No</td>
               </tr>
               <tr>
-                <td>Open source</td>
-                <td class="check">✓ MIT</td>
-                <td>AGPL-3.0</td>
-                <td class="cross">✗</td>
+                <td>Anti-bot handling</td>
+                <td class="check">✓ Stealth mode</td>
+                <td class="check">✓ Yes</td>
+                <td class="warn">⚠️ Limited</td>
+                <td class="cross">✗ No</td>
               </tr>
               <tr>
-                <td>MCP server</td>
+                <td>MCP Server</td>
                 <td class="check">✓ Built-in</td>
-                <td class="cross">✗</td>
-                <td class="cross">✗</td>
+                <td class="check">✓ Separate repo</td>
+                <td class="cross">✗ No</td>
+                <td class="check">✓ Yes</td>
               </tr>
               <tr>
-                <td>Search included</td>
-                <td class="check">✓ DuckDuckGo</td>
-                <td>Google (paid)</td>
-                <td class="cross">✗</td>
+                <td>Zero config</td>
+                <td class="check">✓ npx webpeel</td>
+                <td class="cross">✗ API key required</td>
+                <td class="cross">✗ API key required</td>
+                <td class="check">✓ Yes</td>
               </tr>
               <tr>
-                <td>Cloudflare bypass</td>
-                <td class="check">✓</td>
-                <td class="check">✓</td>
-                <td class="check">✓</td>
+                <td>Free tier</td>
+                <td class="check">∞ Unlimited local</td>
+                <td>500 pages/month</td>
+                <td>1000 req/month</td>
+                <td class="check">∞ Local only</td>
+              </tr>
+              <tr>
+                <td>Hosted API price</td>
+                <td>$9/mo (50K)</td>
+                <td>$16/mo (3K)</td>
+                <td>$200/mo (Starter)</td>
+                <td>N/A</td>
+              </tr>
+              <tr>
+                <td>Markdown output</td>
+                <td class="check">✓ Optimized for AI</td>
+                <td class="check">✓ Yes</td>
+                <td class="check">✓ Yes</td>
+                <td class="warn">⚠️ Basic</td>
               </tr>
             </tbody>
           </table>
+        </div>
+        <p style="text-align: center; margin-top: 32px; color: var(--text-dim);">
+          WebPeel gives you Firecrawl's power without the price tag. Run locally for free, or use our hosted API when you need scale.
+        </p>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="container">
+        <h2>Built for AI Agents</h2>
+        <div class="features">
+          <div class="feature">
+            <h3>📦 Three Ways to Use</h3>
+            <p>CLI for quick tasks, TypeScript library for apps, MCP server for Claude Desktop, Cursor, and VS Code.</p>
+          </div>
+          <div class="feature">
+            <h3>🔍 Search Included</h3>
+            <p>DuckDuckGo search built-in. Search the web and fetch results in one MCP call.</p>
+          </div>
+          <div class="feature">
+            <h3>🎯 Clean Output</h3>
+            <p>Removes nav, footer, ads, and cookie banners. Keeps only the content your AI needs.</p>
+          </div>
+          <div class="feature">
+            <h3>📊 Token Counting</h3>
+            <p>Estimates token count for LLM context window management. Know before you send.</p>
+          </div>
+          <div class="feature">
+            <h3>🔗 Link Extraction</h3>
+            <p>Get all links from a page as absolute URLs. Perfect for crawling workflows.</p>
+          </div>
+          <div class="feature">
+            <h3>⚡ TypeScript-First</h3>
+            <p>Fully typed with complete type definitions. Autocomplete and type safety out of the box.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -518,68 +715,72 @@
         <h2>Pricing</h2>
         <div class="pricing-grid">
           <div class="pricing-card">
-            <div class="plan-name">Open Source</div>
-            <div class="plan-price">Free</div>
-            <div class="plan-desc">Self-hosted, unlimited</div>
+            <div class="plan-name">Free (Local)</div>
+            <div class="plan-price">$0</div>
+            <div class="plan-desc">Unlimited local requests</div>
             <ul class="plan-features">
               <li>Unlimited pages</li>
               <li>All features</li>
+              <li>CLI + Library + MCP</li>
               <li>MIT license</li>
-              <li>Community support</li>
             </ul>
-            <a href="https://github.com/JakeLiuMe/webpeel" class="plan-cta secondary">Get Started</a>
+            <a href="https://github.com/JakeLiuMe/webpeel#readme" class="plan-cta secondary">Get Started</a>
           </div>
 
           <div class="pricing-card featured">
-            <div class="plan-name">Free Cloud</div>
+            <div class="plan-name">Hosted Free</div>
             <div class="plan-price">$0<span>/mo</span></div>
             <div class="plan-desc">1,000 pages/month</div>
             <ul class="plan-features">
               <li>1K pages/month</li>
-              <li>All features</li>
-              <li>Email support</li>
+              <li>API access</li>
               <li>No credit card</li>
+              <li>Email support</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta">Coming Soon</a>
+            <a href="https://webpeel.dev" class="plan-cta">Join Waitlist</a>
           </div>
 
           <div class="pricing-card">
             <div class="plan-name">Pro</div>
             <div class="plan-price">$9<span>/mo</span></div>
-            <div class="plan-desc">25,000 pages/month</div>
+            <div class="plan-desc">50,000 pages/month</div>
             <ul class="plan-features">
-              <li>25K pages/month</li>
+              <li>50K pages/month</li>
+              <li>Priority queue</li>
+              <li>99.9% SLA</li>
               <li>Priority support</li>
-              <li>99.9% uptime SLA</li>
-              <li>API access</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta secondary">Coming Soon</a>
+            <a href="https://webpeel.dev" class="plan-cta secondary">Join Waitlist</a>
           </div>
 
           <div class="pricing-card">
             <div class="plan-name">Scale</div>
             <div class="plan-price">$29<span>/mo</span></div>
-            <div class="plan-desc">100,000 pages/month</div>
+            <div class="plan-desc">250,000 pages/month</div>
             <ul class="plan-features">
-              <li>100K pages/month</li>
-              <li>Dedicated Slack</li>
-              <li>Custom integrations</li>
+              <li>250K pages/month</li>
+              <li>Dedicated instances</li>
+              <li>Webhook support</li>
               <li>Volume discounts</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta secondary">Coming Soon</a>
+            <a href="https://webpeel.dev" class="plan-cta secondary">Join Waitlist</a>
           </div>
         </div>
+        <p style="text-align: center; margin-top: 32px; color: var(--text-dim);">
+          Compare: Firecrawl Starter is $16/mo for 3,000 requests. Our Pro tier gives you 50,000 for $9/mo.
+        </p>
       </div>
     </section>
 
     <section>
       <div class="container" style="text-align: center;">
-        <h2>Get started in seconds</h2>
+        <h2>Get started in 5 seconds</h2>
         <div class="code-block" style="max-width: 500px;">
           <div><span class="prompt">$</span> npx webpeel https://example.com</div>
         </div>
         <p class="tagline" style="margin-bottom: 32px;">No configuration. No API keys. Just works.</p>
         <a href="https://github.com/JakeLiuMe/webpeel#readme" class="cta">Read the Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel" class="cta-secondary">Star on GitHub</a>
       </div>
     </section>
   </main>
@@ -589,10 +790,12 @@
       <p>
         <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
         <a href="https://github.com/JakeLiuMe/webpeel#readme">Documentation</a>
+        <a href="https://github.com/JakeLiuMe/webpeel/blob/main/CONTRIBUTING.md">Contributing</a>
         <a href="https://github.com/JakeLiuMe/webpeel/blob/main/LICENSE">License</a>
         <a href="https://twitter.com/JakeLiuMe">Twitter</a>
       </p>
       <p style="margin-top: 16px;">&copy; 2026 WebPeel. Open source under MIT license.</p>
+      <p style="margin-top: 8px; font-size: 12px;">Built by <a href="https://github.com/JakeLiuMe">Jake Liu</a></p>
     </div>
   </footer>
 </body>

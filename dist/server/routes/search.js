@@ -111,9 +111,11 @@ export function createSearchRouter(authStore) {
         }
         catch (error) {
             const err = error;
+            // SECURITY: Generic error message to prevent information disclosure
+            console.error('Search error:', err); // Log full error server-side
             res.status(500).json({
                 error: 'search_failed',
-                message: err.message || 'Search request failed',
+                message: 'Search request failed. Please try again.',
             });
         }
     });

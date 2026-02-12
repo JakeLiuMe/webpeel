@@ -371,8 +371,13 @@ export async function browserFetch(url, options = {}) {
     if (waitMs < 0 || waitMs > 60000) {
         throw new WebPeelError('Wait time must be between 0 and 60000ms');
     }
-    // SECURITY: Limit concurrent browser pages
+    // SECURITY: Limit concurrent browser pages with timeout
+    const queueStartTime = Date.now();
+    const QUEUE_TIMEOUT_MS = 30000; // 30 second max wait
     while (activePagesCount >= MAX_CONCURRENT_PAGES) {
+        if (Date.now() - queueStartTime > QUEUE_TIMEOUT_MS) {
+            throw new TimeoutError('Browser page queue timeout - too many concurrent requests');
+        }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     activePagesCount++;
