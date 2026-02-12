@@ -39,3 +39,7 @@ Thumbs.db
 
 # Internal docs (business strategy, audits — NOT for public)
 .internal/
+.env
+DEPLOYMENT.md
+BUILD_SUMMARY.md
+QUICK_START.md

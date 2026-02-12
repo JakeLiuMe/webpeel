@@ -7,6 +7,7 @@ export interface ServerConfig {
     port?: number;
     corsOrigins?: string[];
     rateLimitWindowMs?: number;
+    usePostgres?: boolean;
 }
 export declare function createApp(config?: ServerConfig): Express;
 export declare function startServer(config?: ServerConfig): void;

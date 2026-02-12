@@ -6,37 +6,52 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { InMemoryAuthStore } from './auth-store.js';
+import { PostgresAuthStore } from './pg-auth-store.js';
 import { createAuthMiddleware } from './middleware/auth.js';
 import { createRateLimitMiddleware, RateLimiter } from './middleware/rate-limit.js';
 import { createHealthRouter } from './routes/health.js';
 import { createFetchRouter } from './routes/fetch.js';
 import { createSearchRouter } from './routes/search.js';
+import { createUserRouter } from './routes/users.js';
+import { createStripeRouter } from './routes/stripe.js';
 
 export interface ServerConfig {
   port?: number;
   corsOrigins?: string[];
   rateLimitWindowMs?: number;
+  usePostgres?: boolean;
 }
 
 export function createApp(config: ServerConfig = {}): Express {
   const app = express();
+
+  // SECURITY: Trust proxy for Render/production (HTTPS only)
+  app.set('trust proxy', 1);
+
+  // Stripe webhook route MUST come before express.json() to get raw body
+  const stripeRouter = createStripeRouter();
+  app.use('/v1/webhooks/stripe', express.raw({ type: 'application/json' }), stripeRouter);
 
   // Middleware
   // SECURITY: Limit request body size to prevent DoS
   app.use(express.json({ limit: '1mb' }));
   
   // SECURITY: Restrict CORS - require explicit origin whitelist
-  const corsOrigins = config.corsOrigins || [];
+  const corsOrigins = config.corsOrigins || 
+    (process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : []);
+  
   app.use(cors({
     origin: corsOrigins.length > 0 ? corsOrigins : false,
     credentials: true,
   }));
 
-  // Trust proxy (for rate limiting by IP in production)
-  app.set('trust proxy', 1);
+  // Auth store - Use PostgreSQL if DATABASE_URL is set, otherwise in-memory
+  const usePostgres = config.usePostgres ?? !!process.env.DATABASE_URL;
+  const authStore = usePostgres 
+    ? new PostgresAuthStore()
+    : new InMemoryAuthStore();
 
-  // Auth store (in-memory for now, swap to PostgreSQL later)
-  const authStore = new InMemoryAuthStore();
+  console.log(`Using ${usePostgres ? 'PostgreSQL' : 'in-memory'} auth store`);
 
   // Rate limiter
   const rateLimiter = new RateLimiter(config.rateLimitWindowMs || 60000);
@@ -56,6 +71,7 @@ export function createApp(config: ServerConfig = {}): Express {
   app.use(createHealthRouter());
   app.use(createFetchRouter(authStore));
   app.use(createSearchRouter(authStore));
+  app.use(createUserRouter());
 
   // 404 handler
   app.use((req: Request, res: Response) => {

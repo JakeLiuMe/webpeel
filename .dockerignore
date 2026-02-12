@@ -1,0 +1,14 @@
+node_modules
+.git
+.github
+.internal
+src
+tests
+*.md
+.env
+.env.*
+!.env.example
+.gitignore
+.dockerignore
+tsconfig.json
+vitest.config.ts

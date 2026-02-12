@@ -1,5 +1,5 @@
 /**
- * API key authentication middleware
+ * API key authentication middleware with usage enforcement
  */
 import { Request, Response, NextFunction } from 'express';
 import { AuthStore, ApiKeyInfo } from '../auth-store.js';
@@ -8,7 +8,7 @@ declare global {
         interface Request {
             auth?: {
                 keyInfo: ApiKeyInfo | null;
-                tier: 'free' | 'starter' | 'pro' | 'enterprise';
+                tier: 'free' | 'starter' | 'pro' | 'enterprise' | 'max';
                 rateLimit: number;
             };
         }

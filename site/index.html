@@ -13,33 +13,57 @@
   <meta property="og:title" content="WebPeel — Turn any web page into clean markdown">
   <meta property="og:description" content="Smart web fetcher for AI agents. Free forever.">
   <meta property="og:image" content="https://webpeel.dev/og-image.png">
-  
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:creator" content="@JakeLiuMe">
-  
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
   <style>
-    * {
+    *, *::before, *::after {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
     }
 
     :root {
-      --bg: #0a0a0a;
-      --text: #ffffff;
-      --text-dim: #a3a3a3;
+      --bg: #050505;
+      --bg-elevated: #0a0a0a;
+      --text: #f5f5f5;
+      --text-dim: #737373;
+      --text-muted: #525252;
       --accent: #22c55e;
+      --accent-glow: rgba(34, 197, 94, 0.15);
       --accent-hover: #16a34a;
-      --border: #262626;
-      --card-bg: #121212;
+      --accent-dim: rgba(34, 197, 94, 0.08);
+      --border: rgba(255,255,255,0.06);
+      --border-hover: rgba(255,255,255,0.12);
+      --card-bg: rgba(255,255,255,0.03);
+      --card-bg-hover: rgba(255,255,255,0.05);
+      --glow: 0 0 80px rgba(34, 197, 94, 0.08);
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Helvetica Neue", Arial, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    ::selection {
+      background: var(--accent);
+      color: var(--bg);
     }
 
     .container {
@@ -48,219 +72,514 @@
       padding: 0 24px;
     }
 
-    /* Header */
-    header {
-      padding: 24px 0;
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(10px);
-      position: sticky;
-      top: 0;
-      background: rgba(10, 10, 10, 0.8);
-      z-index: 100;
+    /* ═══════════════════════════════════════
+       GRID BACKGROUND
+       ═══════════════════════════════════════ */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%);
     }
 
-    .header-content {
+    /* ═══════════════════════════════════════
+       GLOW ORB
+       ═══════════════════════════════════════ */
+    .glow-orb {
+      position: fixed;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34,197,94,0.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+      transform: translate(-50%, -50%);
+      transition: left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: left, top;
+    }
+
+    /* ═══════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════ */
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 0 24px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    header.scrolled {
+      background: rgba(5, 5, 5, 0.8);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      height: 72px;
     }
 
     .logo {
-      font-size: 20px;
-      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
       color: var(--text);
       text-decoration: none;
+      letter-spacing: -0.02em;
+      transition: opacity 0.2s;
     }
 
-    .logo span {
-      color: var(--accent);
-    }
+    .logo:hover { opacity: 0.8; }
+    .logo span { color: var(--accent); }
+
+    nav { display: flex; align-items: center; gap: 8px; }
 
     nav a {
       color: var(--text-dim);
       text-decoration: none;
-      margin-left: 32px;
       font-size: 14px;
-      transition: color 0.2s;
+      font-weight: 450;
+      padding: 8px 16px;
+      border-radius: 8px;
+      transition: all 0.2s;
     }
 
     nav a:hover {
       color: var(--text);
+      background: var(--card-bg);
     }
 
-    /* Hero */
+    .nav-cta {
+      background: var(--accent) !important;
+      color: var(--bg) !important;
+      font-weight: 600 !important;
+    }
+
+    .nav-cta:hover {
+      background: var(--accent-hover) !important;
+      transform: translateY(-1px);
+    }
+
+    /* Mobile menu */
+    .menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    /* ═══════════════════════════════════════
+       HERO
+       ═══════════════════════════════════════ */
     .hero {
-      padding: 120px 0 80px;
+      position: relative;
+      z-index: 1;
+      padding: 180px 0 120px;
       text-align: center;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px 6px 8px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(34, 197, 94, 0.15);
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 32px;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.8s 0.2s forwards;
+    }
+
+    .hero-badge .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
     }
 
     h1 {
-      font-size: 64px;
-      font-weight: 700;
-      line-height: 1.1;
+      font-size: clamp(48px, 8vw, 80px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.035em;
       margin-bottom: 24px;
-      letter-spacing: -0.02em;
+      opacity: 0;
+      transform: translateY(30px);
+      animation: fadeUp 0.8s 0.3s forwards;
     }
 
-    .tagline {
-      font-size: 24px;
+    h1 .gradient {
+      background: linear-gradient(135deg, var(--accent), #4ade80, #86efac);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero .tagline {
+      font-size: clamp(18px, 2.5vw, 22px);
       color: var(--text-dim);
       margin-bottom: 48px;
-      max-width: 700px;
+      max-width: 600px;
       margin-left: auto;
       margin-right: auto;
+      font-weight: 400;
+      line-height: 1.6;
+      opacity: 0;
+      transform: translateY(30px);
+      animation: fadeUp 0.8s 0.5s forwards;
     }
 
-    .code-block {
-      background: var(--card-bg);
+    /* Terminal */
+    .terminal {
+      max-width: 620px;
+      margin: 0 auto 48px;
+      background: rgba(255,255,255,0.03);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
-      max-width: 600px;
-      margin: 0 auto 32px;
+      border-radius: 16px;
+      overflow: hidden;
       text-align: left;
-      font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace;
+      box-shadow: var(--glow), 0 25px 50px rgba(0,0,0,0.5);
+      opacity: 0;
+      transform: translateY(30px) scale(0.98);
+      animation: fadeUp 0.8s 0.6s forwards;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .terminal-dot:nth-child(1) { background: #ff5f57; }
+    .terminal-dot:nth-child(2) { background: #febc2e; }
+    .terminal-dot:nth-child(3) { background: #28c840; }
+
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+    }
+
+    .terminal-body {
+      padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 14px;
       line-height: 1.8;
     }
 
-    .code-block .prompt {
-      color: var(--accent);
+    .terminal-line {
+      display: flex;
+      gap: 8px;
+      opacity: 0;
     }
 
-    .code-block .comment {
-      color: var(--text-dim);
-    }
+    .terminal-line.visible { animation: terminalLine 0.5s forwards; }
 
-    .code-block .output {
+    .terminal-prompt { color: var(--accent); user-select: none; }
+    .terminal-command { color: var(--text); }
+
+    .terminal-output {
       color: var(--text-dim);
-      margin-top: 12px;
-      padding-top: 12px;
+      margin-top: 8px;
+      padding-top: 8px;
       border-top: 1px solid var(--border);
+      opacity: 0;
     }
 
-    .cta {
+    .terminal-output.visible { animation: terminalLine 0.5s forwards; }
+    .terminal-output div { padding: 2px 0; }
+
+    .cursor-blink {
       display: inline-block;
+      width: 8px;
+      height: 18px;
+      background: var(--accent);
+      animation: blink 1s step-end infinite;
+      vertical-align: middle;
+      margin-left: 2px;
+    }
+
+    /* Hero CTAs */
+    .hero-ctas {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      opacity: 0;
+      transform: translateY(30px);
+      animation: fadeUp 0.8s 0.8s forwards;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
       background: var(--accent);
       color: var(--bg);
-      padding: 14px 32px;
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 16px;
-      transition: background 0.2s;
+      box-shadow: 0 0 30px rgba(34, 197, 94, 0.2);
     }
 
-    .cta:hover {
+    .btn-primary:hover {
       background: var(--accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 0 40px rgba(34, 197, 94, 0.3);
     }
 
-    .cta-secondary {
-      display: inline-block;
+    .btn-secondary {
+      background: var(--card-bg);
       color: var(--text);
-      padding: 14px 32px;
       border: 1px solid var(--border);
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 16px;
-      margin-left: 16px;
-      transition: border-color 0.2s;
     }
 
-    .cta-secondary:hover {
-      border-color: var(--text-dim);
+    .btn-secondary:hover {
+      background: var(--card-bg-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
     }
 
-    /* Sections */
-    section {
+    /* ═══════════════════════════════════════
+       STATS
+       ═══════════════════════════════════════ */
+    .stats-section {
+      position: relative;
+      z-index: 1;
       padding: 80px 0;
-      border-top: 1px solid var(--border);
     }
 
-    h2 {
-      font-size: 40px;
-      font-weight: 700;
-      margin-bottom: 48px;
-      text-align: center;
-      letter-spacing: -0.01em;
-    }
-
-    /* Stats */
-    .stats {
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 32px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-radius: 20px;
+      overflow: hidden;
       max-width: 900px;
-      margin: 0 auto 80px;
-      text-align: center;
+      margin: 0 auto;
     }
+
+    .stat {
+      background: var(--bg-elevated);
+      padding: 48px 24px;
+      text-align: center;
+      transition: background 0.3s;
+    }
+
+    .stat:hover { background: var(--card-bg-hover); }
 
     .stat-number {
       font-size: 48px;
-      font-weight: 700;
+      font-weight: 800;
       color: var(--accent);
+      letter-spacing: -0.02em;
       margin-bottom: 8px;
+      font-variant-numeric: tabular-nums;
     }
 
     .stat-label {
       color: var(--text-dim);
-      font-size: 15px;
+      font-size: 14px;
+      font-weight: 450;
     }
 
-    /* How it works */
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 32px;
-      max-width: 900px;
-      margin: 0 auto;
+    /* ═══════════════════════════════════════
+       REVEAL ANIMATIONS
+       ═══════════════════════════════════════ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .step {
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-stagger { transition-delay: calc(var(--i, 0) * 0.1s); }
+
+    /* ═══════════════════════════════════════
+       SECTIONS
+       ═══════════════════════════════════════ */
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 120px 0;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: clamp(36px, 5vw, 52px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .section-desc {
+      font-size: 18px;
+      color: var(--text-dim);
+      max-width: 600px;
+      line-height: 1.7;
+    }
+
+    .section-desc.center {
+      margin: 0 auto 64px;
       text-align: center;
     }
 
-    .step-number {
-      display: inline-block;
-      width: 48px;
-      height: 48px;
+    .section-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    /* ═══════════════════════════════════════
+       HOW IT WORKS — ESCALATION
+       ═══════════════════════════════════════ */
+    .escalation-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .escalation-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 50%;
-      line-height: 48px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: var(--accent);
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
     }
 
-    .step h3 {
+    .escalation-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .escalation-card:hover {
+      border-color: rgba(34, 197, 94, 0.2);
+      transform: translateY(-4px);
+    }
+
+    .escalation-card:hover::before { opacity: 1; }
+
+    .escalation-number {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(34, 197, 94, 0.15);
+      border-radius: 16px;
       font-size: 20px;
-      margin-bottom: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 24px;
     }
 
-    .step p {
+    .escalation-card h3 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .escalation-card p {
       color: var(--text-dim);
       font-size: 15px;
+      line-height: 1.7;
+      margin-bottom: 16px;
+      position: relative;
     }
 
-    .step .perf {
+    .perf-badge {
       display: inline-block;
-      margin-top: 8px;
-      padding: 4px 12px;
-      background: rgba(34, 197, 94, 0.1);
-      border: 1px solid rgba(34, 197, 94, 0.2);
-      border-radius: 4px;
+      padding: 6px 16px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(34, 197, 94, 0.12);
+      border-radius: 100px;
       font-size: 13px;
       color: var(--accent);
       font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      position: relative;
     }
 
-    /* Comparison */
-    .comparison-table {
-      max-width: 1000px;
+    /* ═══════════════════════════════════════
+       COMPARISON TABLE
+       ═══════════════════════════════════════ */
+    .comparison-wrap {
+      max-width: 1050px;
       margin: 0 auto;
       overflow-x: auto;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
     }
 
     table {
@@ -269,46 +588,174 @@
     }
 
     th, td {
-      padding: 16px;
+      padding: 18px 20px;
       text-align: left;
       border-bottom: 1px solid var(--border);
+      font-size: 14px;
     }
 
     th {
       font-weight: 600;
-      color: var(--text-dim);
-      font-size: 13px;
+      color: var(--text-muted);
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
+      background: rgba(255,255,255,0.02);
     }
 
-    td {
-      font-size: 15px;
+    th:nth-child(2) {
+      color: var(--accent);
     }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr {
+      transition: background 0.2s;
+    }
+
+    tr:hover td { background: rgba(255,255,255,0.01); }
 
     td:first-child {
       color: var(--text-dim);
       font-weight: 500;
     }
 
-    .check {
+    .check { color: var(--accent); font-weight: 600; }
+    .cross { color: #ef4444; opacity: 0.8; }
+    .warn { color: #f59e0b; }
+
+    /* ═══════════════════════════════════════
+       FEATURES
+       ═══════════════════════════════════════ */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+      background: var(--card-bg-hover);
+    }
+
+    .feature-icon {
+      font-size: 32px;
+      margin-bottom: 20px;
+      display: block;
+    }
+
+    .feature-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .feature-card p {
+      color: var(--text-dim);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* ═══════════════════════════════════════
+       PRICING
+       ═══════════════════════════════════════ */
+    .pricing-free-callout {
+      max-width: 700px;
+      margin: 0 auto 56px;
+      padding: 32px;
+      background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%);
+      border: 1px solid rgba(34, 197, 94, 0.15);
+      border-radius: 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pricing-free-callout::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(34,197,94,0.05) 0%, transparent 50%);
+      animation: rotateSlow 20s linear infinite;
+    }
+
+    .pricing-free-callout h3 {
+      font-size: 24px;
+      margin-bottom: 12px;
+      color: var(--text);
+      position: relative;
+    }
+
+    .pricing-free-callout h3 span { color: var(--accent); }
+
+    .pricing-free-callout p {
+      color: var(--text-dim);
+      font-size: 15px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .pricing-free-callout code {
+      background: rgba(0,0,0,0.3);
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
       color: var(--accent);
+      font-size: 14px;
+    }
+
+    /* Pricing tabs */
+    .pricing-tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 48px;
+    }
+
+    .pricing-tab-group {
+      display: inline-flex;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+    }
+
+    .pricing-tab {
+      padding: 10px 28px;
+      background: transparent;
+      color: var(--text-dim);
+      border: none;
+      border-radius: 8px;
       font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: 'Inter', sans-serif;
     }
 
-    .cross {
-      color: #ef4444;
+    .pricing-tab.active {
+      background: var(--accent);
+      color: var(--bg);
     }
 
-    .warn {
-      color: #f59e0b;
-    }
-
-    /* Pricing */
+    /* Pricing grid */
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
       max-width: 1100px;
       margin: 0 auto;
     }
@@ -316,252 +763,419 @@
     .pricing-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
+      border-radius: 20px;
+      padding: 36px 28px;
       text-align: center;
-      transition: border-color 0.2s;
-    }
-
-    .pricing-card:hover {
-      border-color: var(--accent);
-    }
-
-    .pricing-card.featured {
-      border-color: var(--accent);
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
     }
 
-    .pricing-card.featured::before {
-      content: "Most Popular";
+    .pricing-card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-4px);
+    }
+
+    .pricing-card.featured {
+      border-color: rgba(34, 197, 94, 0.3);
+      background: linear-gradient(180deg, rgba(34,197,94,0.05) 0%, var(--card-bg) 100%);
+    }
+
+    .pricing-card.featured:hover {
+      border-color: rgba(34, 197, 94, 0.5);
+    }
+
+    .popular-badge {
       position: absolute;
       top: -12px;
       left: 50%;
       transform: translateX(-50%);
       background: var(--accent);
       color: var(--bg);
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
+      padding: 4px 16px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .plan-name {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 600;
+      color: var(--text-dim);
       margin-bottom: 8px;
     }
 
     .plan-price {
-      font-size: 40px;
-      font-weight: 700;
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
       margin-bottom: 4px;
     }
 
     .plan-price span {
       font-size: 16px;
-      color: var(--text-dim);
+      color: var(--text-muted);
       font-weight: 400;
     }
 
     .plan-desc {
-      color: var(--text-dim);
-      font-size: 14px;
-      margin-bottom: 24px;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-bottom: 28px;
     }
 
     .plan-features {
       list-style: none;
-      margin-bottom: 24px;
+      margin-bottom: 28px;
       text-align: left;
     }
 
     .plan-features li {
       padding: 8px 0;
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .plan-features li::before {
       content: "✓";
       color: var(--accent);
-      margin-right: 8px;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 12px;
+      flex-shrink: 0;
     }
 
     .plan-cta {
       display: block;
       width: 100%;
       padding: 12px;
-      background: var(--accent);
-      color: var(--bg);
-      border: none;
-      border-radius: 8px;
+      background: var(--card-bg-hover);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       font-weight: 600;
+      font-size: 14px;
       text-decoration: none;
-      transition: background 0.2s;
+      transition: all 0.3s;
       cursor: pointer;
+      font-family: 'Inter', sans-serif;
     }
 
     .plan-cta:hover {
+      border-color: var(--border-hover);
+      background: rgba(255,255,255,0.08);
+    }
+
+    .plan-cta.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+
+    .plan-cta.primary:hover {
       background: var(--accent-hover);
+      border-color: var(--accent-hover);
     }
 
-    .plan-cta.secondary {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
+    .annual-link {
+      display: block;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      opacity: 0.8;
+      transition: opacity 0.2s;
     }
 
-    .plan-cta.secondary:hover {
-      border-color: var(--text-dim);
-    }
+    .annual-link:hover { opacity: 1; }
 
-    /* Features */
-    .features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 32px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .feature {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
-    }
-
-    .feature h3 {
-      font-size: 20px;
-      margin-bottom: 12px;
-    }
-
-    .feature p {
+    .pricing-note {
+      text-align: center;
+      margin-top: 48px;
       color: var(--text-dim);
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
       font-size: 15px;
       line-height: 1.7;
     }
 
-    /* Footer */
+    .pricing-note strong { color: var(--accent); }
+
+    /* Pay-per-use grid (3 cols) */
+    .pricing-grid-ppu {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ═══════════════════════════════════════
+       WAITLIST / CTA
+       ═══════════════════════════════════════ */
+    .waitlist-section {
+      text-align: center;
+    }
+
+    .waitlist-form {
+      max-width: 480px;
+      margin: 0 auto 80px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .waitlist-form input[type="email"] {
+      flex: 1;
+      padding: 14px 18px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 15px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .waitlist-form input[type="email"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .waitlist-form input::placeholder { color: var(--text-muted); }
+
+    /* Final CTA */
+    .final-cta {
+      padding: 120px 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .final-cta::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .final-terminal {
+      max-width: 460px;
+      margin: 0 auto 40px;
+    }
+
+    /* ═══════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════ */
     footer {
       padding: 48px 0;
       border-top: 1px solid var(--border);
       text-align: center;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
       color: var(--text-dim);
-      font-size: 14px;
-    }
-
-    footer a {
-      color: var(--text);
       text-decoration: none;
-      margin: 0 16px;
+      font-size: 14px;
+      transition: color 0.2s;
     }
 
-    footer a:hover {
-      color: var(--accent);
+    .footer-links a:hover { color: var(--text); }
+
+    .footer-copy {
+      color: var(--text-muted);
+      font-size: 13px;
     }
 
-    /* Responsive */
+    .footer-copy a {
+      color: var(--text-dim);
+      text-decoration: none;
+    }
+
+    /* ═══════════════════════════════════════
+       ANIMATIONS
+       ═══════════════════════════════════════ */
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+
+    @keyframes terminalLine {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes rotateSlow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* Smooth number count-up handled by JS */
+
+    /* ═══════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════ */
+    @media (max-width: 1024px) {
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
     @media (max-width: 768px) {
-      h1 {
-        font-size: 40px;
-      }
+      .hero { padding: 140px 0 80px; min-height: auto; }
 
-      .tagline {
-        font-size: 18px;
-      }
+      nav { display: none; }
+      .menu-toggle { display: block; }
 
-      .code-block {
-        font-size: 12px;
-        padding: 24px;
-      }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
 
-      .cta, .cta-secondary {
-        display: block;
-        margin: 8px auto;
-        max-width: 300px;
-      }
+      .escalation-grid { grid-template-columns: 1fr; max-width: 400px; }
 
-      h2 {
-        font-size: 32px;
-      }
+      .features-grid { grid-template-columns: 1fr; max-width: 400px; }
 
-      nav {
-        display: none;
-      }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
+      .pricing-grid-ppu { grid-template-columns: 1fr; max-width: 400px; }
 
-      .pricing-grid {
-        grid-template-columns: 1fr;
-      }
+      .hero-ctas { flex-direction: column; align-items: center; }
+      .hero-ctas .btn { width: 100%; max-width: 300px; justify-content: center; }
 
-      .stat-number {
-        font-size: 36px;
-      }
+      .waitlist-form { flex-direction: column; }
 
-      table {
-        font-size: 13px;
-      }
+      section { padding: 80px 0; }
 
-      th, td {
-        padding: 12px 8px;
-      }
+      .comparison-wrap { border-radius: 12px; }
+      th, td { padding: 12px; font-size: 12px; }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .stat { padding: 32px 16px; }
+      .stat-number { font-size: 36px; }
+    }
+
+    /* Divider */
+    .section-divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="container">
-      <div class="header-content">
-        <a href="/" class="logo">web<span>peel</span></a>
-        <nav>
-          <a href="#how">How it Works</a>
-          <a href="#comparison">Comparison</a>
-          <a href="#pricing">Pricing</a>
-          <a href="https://github.com/JakeLiuMe/webpeel#readme">Docs</a>
-          <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
-        </nav>
-      </div>
+  <!-- Grid background -->
+  <div class="grid-bg"></div>
+  
+  <!-- Mouse-tracking glow orb -->
+  <div class="glow-orb" id="glowOrb"></div>
+
+  <!-- Header -->
+  <header id="header">
+    <div class="header-inner">
+      <a href="/" class="logo">web<span>peel</span></a>
+      <nav>
+        <a href="#how">How it Works</a>
+        <a href="#comparison">Compare</a>
+        <a href="#pricing">Pricing</a>
+        <a href="https://github.com/JakeLiuMe/webpeel#readme">Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel" class="nav-cta">★ GitHub</a>
+      </nav>
+      <button class="menu-toggle" onclick="document.querySelector('nav').style.display = document.querySelector('nav').style.display === 'flex' ? 'none' : 'flex'" aria-label="Menu">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      </button>
     </div>
   </header>
 
   <main>
+    <!-- ════════ HERO ════════ -->
     <section class="hero">
-      <div class="container">
-        <h1>Turn any web page into<br>clean markdown</h1>
-        <p class="tagline">Smart web fetcher for AI agents. Auto-escalates from HTTP to headless browser. Zero config. Free forever.</p>
-        
-        <div class="code-block">
-          <div><span class="prompt">$</span> npx webpeel https://news.ycombinator.com</div>
-          <div class="output">
-            <div># Hacker News</div>
-            <div>## Top Stories</div>
-            <div>1. **Show HN: WebPeel** — 142 points</div>
-            <div>2. **The End of the API Era** — 89 points</div>
+      <div class="container" style="width:100%">
+        <div class="hero-badge">
+          <span class="dot"></span>
+          v0.1.1 — Open Source &amp; Free Forever
+        </div>
+        <h1>Turn any URL into<br><span class="gradient">clean markdown</span></h1>
+        <p class="tagline">Smart web fetcher for AI agents. Auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor &amp; VS Code.</p>
+
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <div class="terminal-title">Terminal</div>
+          </div>
+          <div class="terminal-body">
+            <div class="terminal-line" id="tl1">
+              <span class="terminal-prompt">$</span>
+              <span class="terminal-command" id="typed-cmd"></span><span class="cursor-blink" id="cursor"></span>
+            </div>
+            <div class="terminal-output" id="terminal-output">
+              <div style="color: var(--accent)">✓ Fetched in 118ms (HTTP mode)</div>
+              <div># Hacker News</div>
+              <div>## Top Stories</div>
+              <div>1. **Show HN: WebPeel** — 142 points</div>
+              <div>2. **The End of the API Era** — 89 points</div>
+              <div style="color: var(--text-muted); margin-top:8px">📊 2,847 tokens · 12 links extracted</div>
+            </div>
           </div>
         </div>
 
-        <a href="https://github.com/JakeLiuMe/webpeel#readme" class="cta">Get Started</a>
-        <a href="https://github.com/JakeLiuMe/webpeel" class="cta-secondary">View on GitHub</a>
+        <div class="hero-ctas">
+          <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-primary">
+            Get Started Free →
+          </a>
+          <a href="https://github.com/JakeLiuMe/webpeel" class="btn btn-secondary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            Star on GitHub
+          </a>
+        </div>
       </div>
     </section>
 
-    <section>
+    <!-- ════════ STATS ════════ -->
+    <section class="stats-section">
       <div class="container">
-        <div class="stats">
-          <div>
-            <div class="stat-number">∞</div>
+        <div class="stats-grid reveal">
+          <div class="stat">
+            <div class="stat-number" data-count="unlimited">∞</div>
             <div class="stat-label">Free local requests</div>
           </div>
-          <div>
-            <div class="stat-number">~200ms</div>
+          <div class="stat">
+            <div class="stat-number"><span data-count="118">0</span>ms</div>
             <div class="stat-label">Average response time</div>
           </div>
-          <div>
-            <div class="stat-number">80%</div>
+          <div class="stat">
+            <div class="stat-number"><span data-count="80">0</span>%</div>
             <div class="stat-label">Sites work without browser</div>
           </div>
-          <div>
+          <div class="stat">
             <div class="stat-number">MIT</div>
             <div class="stat-label">Open source license</div>
           </div>
@@ -569,39 +1183,49 @@
       </div>
     </section>
 
+    <div class="section-divider"></div>
+
+    <!-- ════════ HOW IT WORKS ════════ -->
     <section id="how">
       <div class="container">
-        <h2>Smart Escalation</h2>
-        <div class="steps">
-          <div class="step">
-            <div class="step-number">1</div>
+        <div class="section-header reveal">
+          <div class="section-label">How it works</div>
+          <h2>Smart Escalation</h2>
+          <p class="section-desc center">Don't waste 2 seconds rendering when 118ms will do. WebPeel automatically detects blocked requests and retries with the right tool.</p>
+        </div>
+        <div class="escalation-grid">
+          <div class="escalation-card reveal reveal-stagger" style="--i:0">
+            <div class="escalation-number">1</div>
             <h3>Simple HTTP</h3>
-            <p>Tries fast HTTP fetch with smart headers and Cheerio parsing first.</p>
-            <span class="perf">~200ms</span>
+            <p>Fast HTTP fetch with smart headers and Cheerio parsing. Works for 80% of sites.</p>
+            <span class="perf-badge">~118ms</span>
           </div>
-          <div class="step">
-            <div class="step-number">2</div>
+          <div class="escalation-card reveal reveal-stagger" style="--i:1">
+            <div class="escalation-number">2</div>
             <h3>Browser Mode</h3>
-            <p>Auto-escalates to Playwright if blocked or JavaScript rendering needed.</p>
-            <span class="perf">~2 seconds</span>
+            <p>Auto-escalates to Playwright if blocked or JavaScript rendering is needed.</p>
+            <span class="perf-badge">~2s</span>
           </div>
-          <div class="step">
-            <div class="step-number">3</div>
+          <div class="escalation-card reveal reveal-stagger" style="--i:2">
+            <div class="escalation-number">3</div>
             <h3>Stealth Mode</h3>
             <p>Full anti-detection for Cloudflare and heavily protected sites.</p>
-            <span class="perf">~5 seconds</span>
+            <span class="perf-badge">~5s</span>
           </div>
         </div>
-        <p style="text-align: center; margin-top: 48px; color: var(--text-dim); max-width: 700px; margin-left: auto; margin-right: auto;">
-          Don't waste 2 seconds rendering when 200ms will do. WebPeel automatically detects blocked requests and retries with the right level of escalation.
-        </p>
       </div>
     </section>
 
+    <div class="section-divider"></div>
+
+    <!-- ════════ COMPARISON ════════ -->
     <section id="comparison">
       <div class="container">
-        <h2>Why WebPeel?</h2>
-        <div class="comparison-table">
+        <div class="section-header reveal">
+          <div class="section-label">Why Switch</div>
+          <h2>WebPeel vs. Everything Else</h2>
+        </div>
+        <div class="comparison-wrap reveal">
           <table>
             <thead>
               <tr>
@@ -631,121 +1255,127 @@
                 <td>Anti-bot handling</td>
                 <td class="check">✓ Stealth mode</td>
                 <td class="check">✓ Yes</td>
-                <td class="warn">⚠️ Limited</td>
+                <td class="warn">⚠ Limited</td>
                 <td class="cross">✗ No</td>
               </tr>
               <tr>
                 <td>MCP Server</td>
                 <td class="check">✓ Built-in</td>
-                <td class="check">✓ Separate repo</td>
+                <td class="check">✓ Separate</td>
                 <td class="cross">✗ No</td>
                 <td class="check">✓ Yes</td>
               </tr>
               <tr>
                 <td>Zero config</td>
                 <td class="check">✓ npx webpeel</td>
-                <td class="cross">✗ API key required</td>
-                <td class="cross">✗ API key required</td>
+                <td class="cross">✗ API key</td>
+                <td class="cross">✗ API key</td>
                 <td class="check">✓ Yes</td>
               </tr>
               <tr>
                 <td>Free tier</td>
-                <td class="check">∞ Unlimited local</td>
-                <td>500 pages (one-time)</td>
-                <td>1000 req/month</td>
-                <td class="check">∞ Local only</td>
+                <td class="check">∞ Unlimited</td>
+                <td>500 one-time</td>
+                <td>1K/month</td>
+                <td class="check">∞ Local</td>
               </tr>
               <tr>
-                <td>Hosted API price</td>
-                <td>$9/mo (5K pages)</td>
-                <td>$16/mo (3K pages)</td>
-                <td>$200/mo (Starter)</td>
-                <td>N/A</td>
+                <td>Cloud API</td>
+                <td class="check">$9/mo · 5K</td>
+                <td>$16/mo · 3K</td>
+                <td>$200/mo</td>
+                <td>—</td>
               </tr>
               <tr>
                 <td>Credit rollover</td>
-                <td class="check">✓ Up to 1 month</td>
-                <td class="cross">✗ Expire monthly</td>
-                <td class="cross">✗ N/A</td>
-                <td class="cross">✗ N/A</td>
+                <td class="check">✓ 1 month</td>
+                <td class="cross">✗ Expire</td>
+                <td class="cross">✗</td>
+                <td class="cross">✗</td>
               </tr>
               <tr>
                 <td>Soft limits</td>
                 <td class="check">✓ Never blocked</td>
                 <td class="cross">✗ Hard cut-off</td>
                 <td class="cross">✗ Rate limited</td>
-                <td class="cross">✗ N/A</td>
-              </tr>
-              <tr>
-                <td>Markdown output</td>
-                <td class="check">✓ Optimized for AI</td>
-                <td class="check">✓ Yes</td>
-                <td class="check">✓ Yes</td>
-                <td class="warn">⚠️ Basic</td>
+                <td class="cross">✗</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p style="text-align: center; margin-top: 32px; color: var(--text-dim);">
-          WebPeel gives you Firecrawl's power without the price tag. Run locally for free, or use our hosted API when you need scale.
-        </p>
       </div>
     </section>
 
+    <div class="section-divider"></div>
+
+    <!-- ════════ FEATURES ════════ -->
     <section id="features">
       <div class="container">
-        <h2>Built for AI Agents</h2>
-        <div class="features">
-          <div class="feature">
-            <h3>📦 Three Ways to Use</h3>
-            <p>CLI for quick tasks, TypeScript library for apps, MCP server for Claude Desktop, Cursor, and VS Code.</p>
+        <div class="section-header reveal">
+          <div class="section-label">Built for AI</div>
+          <h2>Everything Your Agent Needs</h2>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card reveal reveal-stagger" style="--i:0">
+            <span class="feature-icon">📦</span>
+            <h3>Three Ways to Use</h3>
+            <p>CLI for quick tasks, TypeScript library for apps, MCP server for Claude Desktop, Cursor &amp; VS Code.</p>
           </div>
-          <div class="feature">
-            <h3>🔍 Search Included</h3>
+          <div class="feature-card reveal reveal-stagger" style="--i:1">
+            <span class="feature-icon">🔍</span>
+            <h3>Search Included</h3>
             <p>DuckDuckGo search built-in. Search the web and fetch results in one MCP call.</p>
           </div>
-          <div class="feature">
-            <h3>🎯 Clean Output</h3>
-            <p>Removes nav, footer, ads, and cookie banners. Keeps only the content your AI needs.</p>
+          <div class="feature-card reveal reveal-stagger" style="--i:2">
+            <span class="feature-icon">🎯</span>
+            <h3>Clean Output</h3>
+            <p>Removes nav, footer, ads, cookie banners. Keeps only the content your AI needs.</p>
           </div>
-          <div class="feature">
-            <h3>📊 Token Counting</h3>
+          <div class="feature-card reveal reveal-stagger" style="--i:3">
+            <span class="feature-icon">📊</span>
+            <h3>Token Counting</h3>
             <p>Estimates token count for LLM context window management. Know before you send.</p>
           </div>
-          <div class="feature">
-            <h3>🔗 Link Extraction</h3>
-            <p>Get all links from a page as absolute URLs. Perfect for crawling workflows.</p>
+          <div class="feature-card reveal reveal-stagger" style="--i:4">
+            <span class="feature-icon">🔗</span>
+            <h3>Link Extraction</h3>
+            <p>All links as absolute URLs. Perfect for crawling and research workflows.</p>
           </div>
-          <div class="feature">
-            <h3>⚡ TypeScript-First</h3>
-            <p>Fully typed with complete type definitions. Autocomplete and type safety out of the box.</p>
+          <div class="feature-card reveal reveal-stagger" style="--i:5">
+            <span class="feature-icon">⚡</span>
+            <h3>TypeScript-First</h3>
+            <p>Fully typed with complete definitions. Autocomplete and type safety out of the box.</p>
           </div>
         </div>
       </div>
     </section>
 
+    <div class="section-divider"></div>
+
+    <!-- ════════ PRICING ════════ -->
     <section id="pricing">
       <div class="container">
-        <h2>Pricing</h2>
-        
-        <!-- Prominent CLI Callout -->
-        <div style="max-width: 700px; margin: 0 auto 48px; padding: 24px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%); border: 2px solid var(--accent); border-radius: 12px; text-align: center;">
-          <h3 style="font-size: 24px; margin-bottom: 12px; color: var(--accent);">🎉 CLI is always free. No limits. Run locally forever.</h3>
-          <p style="color: var(--text-dim); font-size: 15px; margin-bottom: 16px;">Full power on your machine. No API key, no credit card, no tracking. Just <code style="background: var(--card-bg); padding: 2px 8px; border-radius: 4px; color: var(--text);">npx webpeel &lt;url&gt;</code></p>
-          <a href="https://github.com/JakeLiuMe/webpeel#readme" class="cta" style="font-size: 14px; padding: 10px 24px;">Get Started →</a>
+        <div class="section-header reveal">
+          <div class="section-label">Pricing</div>
+          <h2>Simple, Honest Pricing</h2>
         </div>
 
-        <!-- Pricing Tabs -->
-        <div style="max-width: 800px; margin: 0 auto 32px; text-align: center;">
-          <div style="display: inline-flex; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 4px;">
-            <button onclick="showPricingTrack('subscription')" id="tab-subscription" style="padding: 10px 24px; background: var(--accent); color: var(--bg); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s;">Subscription Plans</button>
-            <button onclick="showPricingTrack('payperuse')" id="tab-payperuse" style="padding: 10px 24px; background: transparent; color: var(--text-dim); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-left: 4px;">Pay-per-use API</button>
+        <div class="pricing-free-callout reveal">
+          <h3>🎉 CLI is <span>always free</span>. No limits. Forever.</h3>
+          <p>Full power on your machine. No API key, no credit card, no tracking. Just <code>npx webpeel &lt;url&gt;</code></p>
+          <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-primary" style="padding:10px 24px;font-size:14px">Get Started →</a>
+        </div>
+
+        <div class="pricing-tabs reveal">
+          <div class="pricing-tab-group">
+            <button class="pricing-tab active" onclick="showTrack('sub')" id="ptab-sub">Subscription Plans</button>
+            <button class="pricing-tab" onclick="showTrack('ppu')" id="ptab-ppu">Pay-per-use API</button>
           </div>
         </div>
 
-        <!-- Track 1: Subscription Plans -->
-        <div id="pricing-subscription" class="pricing-grid">
-          <div class="pricing-card">
+        <!-- Subscription -->
+        <div id="track-sub" class="pricing-grid">
+          <div class="pricing-card reveal reveal-stagger" style="--i:0">
             <div class="plan-name">Local CLI</div>
             <div class="plan-price">$0</div>
             <div class="plan-desc">Unlimited forever</div>
@@ -756,10 +1386,9 @@
               <li>MIT open source</li>
               <li>Community support</li>
             </ul>
-            <a href="https://github.com/JakeLiuMe/webpeel#readme" class="plan-cta secondary">Get Started</a>
+            <a href="https://github.com/JakeLiuMe/webpeel#readme" class="plan-cta">Get Started</a>
           </div>
-
-          <div class="pricing-card">
+          <div class="pricing-card reveal reveal-stagger" style="--i:1">
             <div class="plan-name">Cloud Free</div>
             <div class="plan-price">$0<span>/mo</span></div>
             <div class="plan-desc">500 pages/month</div>
@@ -770,10 +1399,10 @@
               <li>No credit card</li>
               <li>Community support</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta secondary">Join Waitlist</a>
+            <a href="#waitlist" class="plan-cta">Join Waitlist</a>
           </div>
-
-          <div class="pricing-card featured">
+          <div class="pricing-card featured reveal reveal-stagger" style="--i:2">
+            <div class="popular-badge">Most Popular</div>
             <div class="plan-name">Cloud Pro</div>
             <div class="plan-price">$9<span>/mo</span></div>
             <div class="plan-desc">5,000 pages/month</div>
@@ -784,11 +1413,10 @@
               <li>Soft limits (never blocked)</li>
               <li>Email support (24hr)</li>
             </ul>
-            <a href="https://buy.stripe.com/test_5kQeVcb800BGgx7gMn3AY00" class="plan-cta">Subscribe — $9/mo</a>
-            <p style="text-align: center; margin-top: 8px; font-size: 12px; color: var(--text-dim);"><a href="https://buy.stripe.com/test_28E14mekcdosa8Jbs33AY01" style="color: var(--accent); text-decoration: none;">Save 17% — $90/year →</a></p>
+            <a href="https://buy.stripe.com/test_5kQeVcb800BGgx7gMn3AY00" class="plan-cta primary">Subscribe — $9/mo</a>
+            <a href="https://buy.stripe.com/test_28E14mekcdosa8Jbs33AY01" class="annual-link">Save 17% — $90/year →</a>
           </div>
-
-          <div class="pricing-card">
+          <div class="pricing-card reveal reveal-stagger" style="--i:3">
             <div class="plan-name">Cloud Max</div>
             <div class="plan-price">$29<span>/mo</span></div>
             <div class="plan-desc">25,000 pages/month</div>
@@ -799,14 +1427,14 @@
               <li>Priority queue</li>
               <li>Priority support (4hr)</li>
             </ul>
-            <a href="https://buy.stripe.com/test_28E7sKgskfwAdkV67J3AY02" class="plan-cta secondary">Subscribe — $29/mo</a>
-            <p style="text-align: center; margin-top: 8px; font-size: 12px; color: var(--text-dim);"><a href="https://buy.stripe.com/test_bJe9AS4JC4RW4OpgMn3AY03" style="color: var(--accent); text-decoration: none;">Save 17% — $290/year →</a></p>
+            <a href="https://buy.stripe.com/test_28E7sKgskfwAdkV67J3AY02" class="plan-cta">Subscribe — $29/mo</a>
+            <a href="https://buy.stripe.com/test_bJe9AS4JC4RW4OpgMn3AY03" class="annual-link">Save 17% — $290/year →</a>
           </div>
         </div>
 
-        <!-- Track 2: Pay-per-use API (hidden by default) -->
-        <div id="pricing-payperuse" class="pricing-grid" style="display: none;">
-          <div class="pricing-card">
+        <!-- Pay-per-use -->
+        <div id="track-ppu" class="pricing-grid-ppu" style="display:none">
+          <div class="pricing-card reveal reveal-stagger" style="--i:0">
             <div class="plan-name">Simple Fetch</div>
             <div class="plan-price">$0.50<span>/1K</span></div>
             <div class="plan-desc">HTTP-only fetching</div>
@@ -817,13 +1445,13 @@
               <li>~200ms avg response</li>
               <li>No monthly minimum</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta secondary">Join Waitlist</a>
+            <a href="#waitlist" class="plan-cta">Join Waitlist</a>
           </div>
-
-          <div class="pricing-card featured">
+          <div class="pricing-card featured reveal reveal-stagger" style="--i:1">
+            <div class="popular-badge">Best Value</div>
             <div class="plan-name">Browser Render</div>
             <div class="plan-price">$2.50<span>/1K</span></div>
-            <div class="plan-desc">Full JavaScript rendering</div>
+            <div class="plan-desc">Full JS rendering</div>
             <ul class="plan-features">
               <li>Headless browser</li>
               <li>Wait for dynamic content</li>
@@ -831,10 +1459,9 @@
               <li>~2s avg response</li>
               <li>Volume discounts at 100K+</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta">Join Waitlist</a>
+            <a href="#waitlist" class="plan-cta primary">Join Waitlist</a>
           </div>
-
-          <div class="pricing-card">
+          <div class="pricing-card reveal reveal-stagger" style="--i:2">
             <div class="plan-name">Search</div>
             <div class="plan-price">$1.00<span>/1K</span></div>
             <div class="plan-desc">DuckDuckGo search API</div>
@@ -845,77 +1472,207 @@
               <li>Perfect for research</li>
               <li>No monthly minimum</li>
             </ul>
-            <a href="https://webpeel.dev" class="plan-cta secondary">Join Waitlist</a>
+            <a href="#waitlist" class="plan-cta">Join Waitlist</a>
           </div>
         </div>
 
-        <p style="text-align: center; margin-top: 32px; color: var(--text-dim); max-width: 700px; margin-left: auto; margin-right: auto;">
-          <strong style="color: var(--accent);">Never locked out:</strong> Credits roll over for 1 month. Soft limits degrade gracefully. Overflow to pay-per-use rates when you need more. <br><br>
-          <strong>Compare:</strong> Firecrawl is $16/mo for 3,000 pages (credits expire monthly). WebPeel Pro is $9/mo for 5,000 pages with rollover.
-        </p>
+        <div class="pricing-note reveal">
+          <strong>Never locked out:</strong> Credits roll over for 1 month. Soft limits degrade gracefully. Overflow to pay-per-use when you need more.<br><br>
+          <strong>Compare:</strong> Firecrawl is $16/mo for 3K pages (credits expire monthly). WebPeel Pro is $9/mo for 5K pages with rollover.
+        </div>
       </div>
     </section>
 
-    <script>
-      function showPricingTrack(track) {
-        const subBtn = document.getElementById('tab-subscription');
-        const ppuBtn = document.getElementById('tab-payperuse');
-        const subDiv = document.getElementById('pricing-subscription');
-        const ppuDiv = document.getElementById('pricing-payperuse');
+    <div class="section-divider"></div>
 
-        if (track === 'subscription') {
-          subBtn.style.background = 'var(--accent)';
-          subBtn.style.color = 'var(--bg)';
-          ppuBtn.style.background = 'transparent';
-          ppuBtn.style.color = 'var(--text-dim)';
-          subDiv.style.display = 'grid';
-          ppuDiv.style.display = 'none';
-        } else {
-          ppuBtn.style.background = 'var(--accent)';
-          ppuBtn.style.color = 'var(--bg)';
-          subBtn.style.background = 'transparent';
-          subBtn.style.color = 'var(--text-dim)';
-          ppuDiv.style.display = 'grid';
-          subDiv.style.display = 'none';
-        }
-      }
-    </script>
-
-    <section id="waitlist">
-      <div class="container" style="text-align: center;">
-        <h2>Get Notified When Cloud API Launches</h2>
-        <p class="tagline" style="margin-bottom: 32px;">Join the waitlist for the hosted API. Free tier included. No spam.</p>
-        <form action="https://formspree.io/f/xpwzgvvz" method="POST" style="max-width: 500px; margin: 0 auto 48px; display: flex; gap: 12px;">
-          <input type="email" name="email" placeholder="you@company.com" required
-            style="flex: 1; padding: 14px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 16px; outline: none;"
-            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
-          <input type="hidden" name="_subject" value="WebPeel Waitlist Signup">
-          <button type="submit" class="cta" style="border: none; cursor: pointer; white-space: nowrap;">Join Waitlist</button>
-        </form>
-        
-        <h2 style="margin-top: 64px;">Get started in 5 seconds</h2>
-        <div class="code-block" style="max-width: 500px;">
-          <div><span class="prompt">$</span> npx webpeel https://example.com</div>
+    <!-- ════════ WAITLIST ════════ -->
+    <section id="waitlist" class="waitlist-section">
+      <div class="container">
+        <div class="section-header reveal">
+          <div class="section-label">Early Access</div>
+          <h2>Get Notified When<br>Cloud API Launches</h2>
+          <p class="section-desc center" style="margin-bottom:40px">Join the waitlist. Free tier included. No spam, ever.</p>
         </div>
-        <p class="tagline" style="margin-bottom: 32px;">No configuration. No API keys. Just works.</p>
-        <a href="https://github.com/JakeLiuMe/webpeel#readme" class="cta">Read the Docs</a>
-        <a href="https://github.com/JakeLiuMe/webpeel" class="cta-secondary">Star on GitHub</a>
+        <form action="https://formspree.io/f/xpwzgvvz" method="POST" class="waitlist-form reveal">
+          <input type="email" name="email" placeholder="you@company.com" required>
+          <input type="hidden" name="_subject" value="WebPeel Waitlist Signup">
+          <button type="submit" class="btn btn-primary" style="white-space:nowrap;border:none;cursor:pointer;font-family:'Inter',sans-serif">Join Waitlist</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ════════ FINAL CTA ════════ -->
+    <section class="final-cta">
+      <div class="container">
+        <div class="reveal">
+          <div class="section-label">Get Started</div>
+          <h2>One command. That's it.</h2>
+          <div class="terminal final-terminal" style="opacity:1;transform:none">
+            <div class="terminal-bar">
+              <div class="terminal-dot"></div>
+              <div class="terminal-dot"></div>
+              <div class="terminal-dot"></div>
+              <div class="terminal-title">Terminal</div>
+            </div>
+            <div class="terminal-body">
+              <div class="terminal-line" style="opacity:1">
+                <span class="terminal-prompt">$</span>
+                <span class="terminal-command">npx webpeel https://example.com</span>
+              </div>
+            </div>
+          </div>
+          <p style="color:var(--text-dim);margin-bottom:40px;font-size:17px">No configuration. No API keys. Just works.</p>
+          <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+            <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-primary">Read the Docs →</a>
+            <a href="https://github.com/JakeLiuMe/webpeel" class="btn btn-secondary">★ Star on GitHub</a>
+          </div>
+        </div>
       </div>
     </section>
   </main>
 
+  <!-- Footer -->
   <footer>
     <div class="container">
-      <p>
+      <div class="footer-links">
         <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
         <a href="https://github.com/JakeLiuMe/webpeel#readme">Documentation</a>
         <a href="https://github.com/JakeLiuMe/webpeel/blob/main/CONTRIBUTING.md">Contributing</a>
         <a href="https://github.com/JakeLiuMe/webpeel/blob/main/LICENSE">License</a>
         <a href="https://twitter.com/JakeLiuMe">Twitter</a>
-      </p>
-      <p style="margin-top: 16px;">&copy; 2026 WebPeel. Open source under MIT license.</p>
-      <p style="margin-top: 8px; font-size: 12px;">Built by <a href="https://github.com/JakeLiuMe">Jake Liu</a></p>
+      </div>
+      <p class="footer-copy">&copy; 2026 WebPeel. Open source under MIT. Built by <a href="https://github.com/JakeLiuMe">Jake Liu</a></p>
     </div>
   </footer>
+
+  <script>
+    // ═══════════════════════════════════════
+    // GLOW ORB — follows mouse
+    // ═══════════════════════════════════════
+    const orb = document.getElementById('glowOrb');
+    document.addEventListener('mousemove', (e) => {
+      orb.style.left = e.clientX + 'px';
+      orb.style.top = e.clientY + 'px';
+    });
+
+    // ═══════════════════════════════════════
+    // HEADER — scrolled state
+    // ═══════════════════════════════════════
+    const header = document.getElementById('header');
+    window.addEventListener('scroll', () => {
+      header.classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // ═══════════════════════════════════════
+    // TYPING ANIMATION — hero terminal
+    // ═══════════════════════════════════════
+    const command = 'npx webpeel https://news.ycombinator.com';
+    const typedEl = document.getElementById('typed-cmd');
+    const cursorEl = document.getElementById('cursor');
+    const outputEl = document.getElementById('terminal-output');
+    const tl1 = document.getElementById('tl1');
+    let charIndex = 0;
+
+    function typeCommand() {
+      tl1.style.opacity = '1';
+      if (charIndex < command.length) {
+        typedEl.textContent += command[charIndex];
+        charIndex++;
+        setTimeout(typeCommand, 30 + Math.random() * 40);
+      } else {
+        // Typing done — show output after brief pause
+        setTimeout(() => {
+          cursorEl.style.display = 'none';
+          outputEl.style.opacity = '1';
+          outputEl.classList.add('visible');
+        }, 600);
+      }
+    }
+
+    // Start typing when hero is in view (immediate on load)
+    setTimeout(typeCommand, 1200);
+
+    // ═══════════════════════════════════════
+    // SCROLL REVEAL — IntersectionObserver
+    // ═══════════════════════════════════════
+    const reveals = document.querySelectorAll('.reveal');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    reveals.forEach(el => revealObserver.observe(el));
+
+    // ═══════════════════════════════════════
+    // COUNT-UP ANIMATION — stats
+    // ═══════════════════════════════════════
+    const counters = document.querySelectorAll('[data-count]');
+    const counterObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const target = parseInt(el.dataset.count);
+          if (isNaN(target)) return;
+          
+          let current = 0;
+          const duration = 1500;
+          const step = target / (duration / 16);
+          
+          function update() {
+            current += step;
+            if (current >= target) {
+              el.textContent = target;
+            } else {
+              el.textContent = Math.floor(current);
+              requestAnimationFrame(update);
+            }
+          }
+          update();
+          counterObserver.unobserve(el);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    counters.forEach(el => counterObserver.observe(el));
+
+    // ═══════════════════════════════════════
+    // PRICING TABS
+    // ═══════════════════════════════════════
+    function showTrack(track) {
+      const subTab = document.getElementById('ptab-sub');
+      const ppuTab = document.getElementById('ptab-ppu');
+      const subDiv = document.getElementById('track-sub');
+      const ppuDiv = document.getElementById('track-ppu');
+
+      if (track === 'sub') {
+        subTab.classList.add('active');
+        ppuTab.classList.remove('active');
+        subDiv.style.display = 'grid';
+        ppuDiv.style.display = 'none';
+      } else {
+        ppuTab.classList.add('active');
+        subTab.classList.remove('active');
+        ppuDiv.style.display = 'grid';
+        subDiv.style.display = 'none';
+      }
+    }
+
+    // ═══════════════════════════════════════
+    // SMOOTH ANCHOR SCROLLING
+    // ═══════════════════════════════════════
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
 </body>
 </html>

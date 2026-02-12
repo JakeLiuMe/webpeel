@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: webpeel-api
+    runtime: docker
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGINS
+        value: https://webpeel.dev
+    healthCheckPath: /health
