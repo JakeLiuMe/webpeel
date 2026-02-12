@@ -94,13 +94,28 @@ export function createSearchRouter(authStore: AuthStore): Router {
         if (results.length >= resultCount) return;
 
         const $result = $(elem);
-        const title = $result.find('.result__title').text().trim();
-        const url = $result.find('.result__url').attr('href') || '';
-        const snippet = $result.find('.result__snippet').text().trim();
+        let title = $result.find('.result__title').text().trim();
+        let url = $result.find('.result__url').attr('href') || '';
+        let snippet = $result.find('.result__snippet').text().trim();
 
-        if (title && url) {
-          results.push({ title, url, snippet });
+        // SECURITY: Validate and sanitize results
+        if (!title || !url) return;
+        
+        // Only allow HTTP/HTTPS URLs
+        try {
+          const parsed = new URL(url);
+          if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return;
+          }
+        } catch {
+          return;
         }
+
+        // Limit text lengths to prevent bloat
+        title = title.slice(0, 200);
+        snippet = snippet.slice(0, 500);
+
+        results.push({ title, url, snippet });
       });
 
       const elapsed = Date.now() - startTime;

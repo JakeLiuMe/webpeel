@@ -134,23 +134,19 @@ export function extractLinks(html: string, baseUrl: string): string[] {
     if (!href) return;
 
     try {
-      const absoluteUrl = new URL(href, baseUrl).href;
+      const absoluteUrl = new URL(href, baseUrl);
       
-      // Skip non-HTTP(S) links
-      if (!absoluteUrl.startsWith('http://') && !absoluteUrl.startsWith('https://')) {
+      // SECURITY: Only allow HTTP and HTTPS protocols
+      if (!['http:', 'https:'].includes(absoluteUrl.protocol)) {
         return;
       }
 
-      // Skip common junk links
-      if (
-        absoluteUrl.includes('javascript:') ||
-        absoluteUrl.includes('mailto:') ||
-        absoluteUrl.includes('#')
-      ) {
+      // Skip anchor links
+      if (absoluteUrl.hash && absoluteUrl.href === baseUrl + absoluteUrl.hash) {
         return;
       }
 
-      links.add(absoluteUrl);
+      links.add(absoluteUrl.href);
     } catch {
       // Invalid URL, skip
     }

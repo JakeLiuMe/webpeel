@@ -35,6 +35,11 @@ const JUNK_SELECTORS = [
  * Remove navigation, ads, cookie banners, and other junk
  */
 function cleanHTML(html: string): string {
+  // SECURITY: Limit HTML size to prevent DoS
+  if (html.length > 10 * 1024 * 1024) { // 10MB
+    throw new Error('HTML too large to process (max 10MB)');
+  }
+  
   const $ = cheerio.load(html);
 
   // Remove junk elements
@@ -102,8 +107,19 @@ export function htmlToMarkdown(html: string): string {
 
   let markdown = turndown.turndown(cleanedHTML);
 
-  // Clean up excessive newlines
-  markdown = markdown.replace(/\n{3,}/g, '\n\n');
+  // SECURITY: Protect against ReDoS - limit input size before regex
+  if (markdown.length > 1024 * 1024) { // 1MB limit for markdown
+    markdown = markdown.slice(0, 1024 * 1024);
+  }
+
+  // Clean up excessive newlines (use non-backtracking approach)
+  markdown = markdown.split('\n').reduce((acc, line, i, arr) => {
+    if (i === 0) return line;
+    const prevEmpty = arr[i - 1].trim() === '';
+    const currEmpty = line.trim() === '';
+    if (prevEmpty && currEmpty) return acc;
+    return acc + '\n' + line;
+  }, '');
 
   // Remove leading/trailing whitespace
   markdown = markdown.trim();
