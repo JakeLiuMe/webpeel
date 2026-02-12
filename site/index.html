@@ -3,54 +3,45 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebPeel — Turn any web page into clean markdown. Zero config. Free forever.</title>
-  <meta name="description" content="Smart web fetcher for AI agents. Auto-escalates from HTTP to headless browser. MCP server for Claude/Cursor. Local-first, open source, MIT licensed.">
+  <title>WebPeel — Web fetching for AI agents</title>
+  <meta name="description" content="Smart web fetcher that auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor & VS Code. Free and open source.">
   <link rel="canonical" href="https://webpeel.dev">
-  
-  <!-- Open Graph / Social -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://webpeel.dev">
-  <meta property="og:title" content="WebPeel — Turn any web page into clean markdown">
-  <meta property="og:description" content="Smart web fetcher for AI agents. Free forever.">
+  <meta property="og:title" content="WebPeel — Web fetching for AI agents">
+  <meta property="og:description" content="Smart web fetcher that auto-escalates from HTTP to headless browser. Free and open source.">
   <meta property="og:image" content="https://webpeel.dev/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:creator" content="@JakeLiuMe">
-
-  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
   <style>
-    *, *::before, *::after {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #050505;
-      --bg-elevated: #0a0a0a;
-      --text: #f5f5f5;
-      --text-dim: #737373;
-      --text-muted: #525252;
-      --accent: #22c55e;
-      --accent-glow: rgba(34, 197, 94, 0.15);
-      --accent-hover: #16a34a;
-      --accent-dim: rgba(34, 197, 94, 0.08);
+      --bg: #000000;
+      --surface: #0A0A0A;
+      --card: rgba(255,255,255,0.03);
+      --card-hover: rgba(255,255,255,0.06);
+      --text: #FAFAFA;
+      --text-secondary: #A1A1AA;
+      --text-muted: #71717A;
+      --text-faint: #52525B;
+      --accent: #8B5CF6;
+      --accent-hover: #7C3AED;
+      --accent-light: #A78BFA;
+      --accent-glow: rgba(139,92,246,0.12);
+      --accent-dim: rgba(139,92,246,0.06);
+      --green: #22C55E;
+      --red: #EF4444;
       --border: rgba(255,255,255,0.06);
       --border-hover: rgba(255,255,255,0.12);
-      --card-bg: rgba(255,255,255,0.03);
-      --card-bg-hover: rgba(255,255,255,0.05);
-      --glow: 0 0 80px rgba(34, 197, 94, 0.08);
+      --radius: 12px;
+      --radius-lg: 20px;
     }
 
-    html {
-      scroll-behavior: smooth;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
-    }
-
+    html { scroll-behavior: smooth; }
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg);
@@ -60,1617 +51,983 @@
       -moz-osx-font-smoothing: grayscale;
       overflow-x: hidden;
     }
+    ::selection { background: var(--accent); color: white; }
 
-    ::selection {
-      background: var(--accent);
-      color: var(--bg);
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+    /* ═══ AMBIENT BACKGROUND ═══ */
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 50% at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 80% 20%, rgba(139,92,246,0.04) 0%, transparent 50%);
     }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* ═══════════════════════════════════════
-       GRID BACKGROUND
-       ═══════════════════════════════════════ */
-    .grid-bg {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      pointer-events: none;
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
       background-image:
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-      background-size: 60px 60px;
-      mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%);
-      -webkit-mask-image: radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%);
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 64px 64px;
+      mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, black, transparent);
+      -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 0%, black, transparent);
     }
 
-    /* ═══════════════════════════════════════
-       GLOW ORB
-       ═══════════════════════════════════════ */
-    .glow-orb {
-      position: fixed;
-      width: 600px;
-      height: 600px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(34,197,94,0.07) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
-      transform: translate(-50%, -50%);
-      transition: left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-      will-change: left, top;
-    }
-
-    /* ═══════════════════════════════════════
-       HEADER
-       ═══════════════════════════════════════ */
+    /* ═══ HEADER ═══ */
     header {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1000;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
       padding: 0 24px;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.3s ease;
     }
-
     header.scrolled {
-      background: rgba(5, 5, 5, 0.8);
+      background: rgba(0,0,0,0.8);
       backdrop-filter: blur(20px) saturate(180%);
       -webkit-backdrop-filter: blur(20px) saturate(180%);
       border-bottom: 1px solid var(--border);
     }
-
     .header-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 72px;
+      max-width: 1120px; margin: 0 auto;
+      display: flex; justify-content: space-between; align-items: center;
+      height: 64px;
     }
-
     .logo {
-      font-family: 'Inter', sans-serif;
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
-      text-decoration: none;
-      letter-spacing: -0.02em;
-      transition: opacity 0.2s;
+      font-size: 18px; font-weight: 700; color: var(--text);
+      text-decoration: none; letter-spacing: -0.02em;
+      display: flex; align-items: center; gap: 10px;
     }
-
-    .logo:hover { opacity: 0.8; }
+    .logo-mark {
+      width: 28px; height: 28px; position: relative;
+    }
     .logo span { color: var(--accent); }
-
-    nav { display: flex; align-items: center; gap: 8px; }
-
+    nav { display: flex; align-items: center; gap: 4px; }
     nav a {
-      color: var(--text-dim);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 450;
-      padding: 8px 16px;
-      border-radius: 8px;
-      transition: all 0.2s;
-    }
-
-    nav a:hover {
-      color: var(--text);
-      background: var(--card-bg);
-    }
-
-    .nav-cta {
-      background: var(--accent) !important;
-      color: var(--bg) !important;
-      font-weight: 600 !important;
-    }
-
-    .nav-cta:hover {
-      background: var(--accent-hover) !important;
-      transform: translateY(-1px);
-    }
-
-    /* Mobile menu */
-    .menu-toggle {
-      display: none;
-      background: none;
-      border: none;
-      color: var(--text);
-      cursor: pointer;
-      padding: 8px;
-    }
-
-    /* ═══════════════════════════════════════
-       HERO
-       ═══════════════════════════════════════ */
-    .hero {
-      position: relative;
-      z-index: 1;
-      padding: 180px 0 120px;
-      text-align: center;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-    }
-
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 16px 6px 8px;
-      background: var(--accent-dim);
-      border: 1px solid rgba(34, 197, 94, 0.15);
-      border-radius: 100px;
-      font-size: 13px;
-      color: var(--accent);
-      font-weight: 500;
-      margin-bottom: 32px;
-      opacity: 0;
-      transform: translateY(20px);
-      animation: fadeUp 0.8s 0.2s forwards;
-    }
-
-    .hero-badge .dot {
-      width: 8px;
-      height: 8px;
-      background: var(--accent);
-      border-radius: 50%;
-      animation: pulse 2s infinite;
-    }
-
-    h1 {
-      font-size: clamp(48px, 8vw, 80px);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.035em;
-      margin-bottom: 24px;
-      opacity: 0;
-      transform: translateY(30px);
-      animation: fadeUp 0.8s 0.3s forwards;
-    }
-
-    h1 .gradient {
-      background: linear-gradient(135deg, var(--accent), #4ade80, #86efac);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .hero .tagline {
-      font-size: clamp(18px, 2.5vw, 22px);
-      color: var(--text-dim);
-      margin-bottom: 48px;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
-      font-weight: 400;
-      line-height: 1.6;
-      opacity: 0;
-      transform: translateY(30px);
-      animation: fadeUp 0.8s 0.5s forwards;
-    }
-
-    /* Terminal */
-    .terminal {
-      max-width: 620px;
-      margin: 0 auto 48px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      overflow: hidden;
-      text-align: left;
-      box-shadow: var(--glow), 0 25px 50px rgba(0,0,0,0.5);
-      opacity: 0;
-      transform: translateY(30px) scale(0.98);
-      animation: fadeUp 0.8s 0.6s forwards;
-    }
-
-    .terminal-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 20px;
-      background: rgba(255,255,255,0.03);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .terminal-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.08);
-    }
-
-    .terminal-dot:nth-child(1) { background: #ff5f57; }
-    .terminal-dot:nth-child(2) { background: #febc2e; }
-    .terminal-dot:nth-child(3) { background: #28c840; }
-
-    .terminal-title {
-      flex: 1;
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-muted);
-      font-family: 'Inter', sans-serif;
-    }
-
-    .terminal-body {
-      padding: 24px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 14px;
-      line-height: 1.8;
-    }
-
-    .terminal-line {
-      display: flex;
-      gap: 8px;
-      opacity: 0;
-    }
-
-    .terminal-line.visible { animation: terminalLine 0.5s forwards; }
-
-    .terminal-prompt { color: var(--accent); user-select: none; }
-    .terminal-command { color: var(--text); }
-
-    .terminal-output {
-      color: var(--text-dim);
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
-      opacity: 0;
-    }
-
-    .terminal-output.visible { animation: terminalLine 0.5s forwards; }
-    .terminal-output div { padding: 2px 0; }
-
-    .cursor-blink {
-      display: inline-block;
-      width: 8px;
-      height: 18px;
-      background: var(--accent);
-      animation: blink 1s step-end infinite;
-      vertical-align: middle;
-      margin-left: 2px;
-    }
-
-    /* Hero CTAs */
-    .hero-ctas {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-      opacity: 0;
-      transform: translateY(30px);
-      animation: fadeUp 0.8s 0.8s forwards;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 14px 28px;
-      border-radius: 12px;
-      font-size: 15px;
-      font-weight: 600;
-      text-decoration: none;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      cursor: pointer;
-      border: none;
-    }
-
-    .btn-primary {
-      background: var(--accent);
-      color: var(--bg);
-      box-shadow: 0 0 30px rgba(34, 197, 94, 0.2);
-    }
-
-    .btn-primary:hover {
-      background: var(--accent-hover);
-      transform: translateY(-2px);
-      box-shadow: 0 0 40px rgba(34, 197, 94, 0.3);
-    }
-
-    .btn-secondary {
-      background: var(--card-bg);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .btn-secondary:hover {
-      background: var(--card-bg-hover);
-      border-color: var(--border-hover);
-      transform: translateY(-2px);
-    }
-
-    /* ═══════════════════════════════════════
-       STATS
-       ═══════════════════════════════════════ */
-    .stats-section {
-      position: relative;
-      z-index: 1;
-      padding: 80px 0;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1px;
-      background: var(--border);
-      border-radius: 20px;
-      overflow: hidden;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .stat {
-      background: var(--bg-elevated);
-      padding: 48px 24px;
-      text-align: center;
-      transition: background 0.3s;
-    }
-
-    .stat:hover { background: var(--card-bg-hover); }
-
-    .stat-number {
-      font-size: 48px;
-      font-weight: 800;
-      color: var(--accent);
-      letter-spacing: -0.02em;
-      margin-bottom: 8px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .stat-label {
-      color: var(--text-dim);
-      font-size: 14px;
-      font-weight: 450;
-    }
-
-    /* ═══════════════════════════════════════
-       REVEAL ANIMATIONS
-       ═══════════════════════════════════════ */
-    .reveal {
-      opacity: 0;
-      transform: translateY(40px);
-      transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .reveal.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .reveal-stagger { transition-delay: calc(var(--i, 0) * 0.1s); }
-
-    /* ═══════════════════════════════════════
-       SECTIONS
-       ═══════════════════════════════════════ */
-    section {
-      position: relative;
-      z-index: 1;
-      padding: 120px 0;
-    }
-
-    .section-label {
-      display: inline-block;
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--accent);
-      margin-bottom: 16px;
-    }
-
-    h2 {
-      font-size: clamp(36px, 5vw, 52px);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
-      margin-bottom: 20px;
-    }
-
-    .section-desc {
-      font-size: 18px;
-      color: var(--text-dim);
-      max-width: 600px;
-      line-height: 1.7;
-    }
-
-    .section-desc.center {
-      margin: 0 auto 64px;
-      text-align: center;
-    }
-
-    .section-header {
-      text-align: center;
-      margin-bottom: 64px;
-    }
-
-    /* ═══════════════════════════════════════
-       HOW IT WORKS — ESCALATION
-       ═══════════════════════════════════════ */
-    .escalation-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .escalation-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 40px 32px;
-      text-align: center;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .escalation-card::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at 50% 0%, var(--accent-glow) 0%, transparent 60%);
-      opacity: 0;
-      transition: opacity 0.4s;
-    }
-
-    .escalation-card:hover {
-      border-color: rgba(34, 197, 94, 0.2);
-      transform: translateY(-4px);
-    }
-
-    .escalation-card:hover::before { opacity: 1; }
-
-    .escalation-number {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 56px;
-      height: 56px;
-      background: var(--accent-dim);
-      border: 1px solid rgba(34, 197, 94, 0.15);
-      border-radius: 16px;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--accent);
-      margin-bottom: 24px;
-    }
-
-    .escalation-card h3 {
-      font-size: 22px;
-      font-weight: 700;
-      margin-bottom: 12px;
-      position: relative;
-    }
-
-    .escalation-card p {
-      color: var(--text-dim);
-      font-size: 15px;
-      line-height: 1.7;
-      margin-bottom: 16px;
-      position: relative;
-    }
-
-    .perf-badge {
-      display: inline-block;
-      padding: 6px 16px;
-      background: var(--accent-dim);
-      border: 1px solid rgba(34, 197, 94, 0.12);
-      border-radius: 100px;
-      font-size: 13px;
-      color: var(--accent);
-      font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
-      position: relative;
-    }
-
-    /* ═══════════════════════════════════════
-       COMPARISON TABLE
-       ═══════════════════════════════════════ */
-    .comparison-wrap {
-      max-width: 1050px;
-      margin: 0 auto;
-      overflow-x: auto;
-      border-radius: 20px;
-      border: 1px solid var(--border);
-      background: var(--card-bg);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 18px 20px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-    }
-
-    th {
-      font-weight: 600;
-      color: var(--text-muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      background: rgba(255,255,255,0.02);
-    }
-
-    th:nth-child(2) {
-      color: var(--accent);
-    }
-
-    tr:last-child td { border-bottom: none; }
-
-    tr {
-      transition: background 0.2s;
-    }
-
-    tr:hover td { background: rgba(255,255,255,0.01); }
-
-    td:first-child {
-      color: var(--text-dim);
-      font-weight: 500;
-    }
-
-    .check { color: var(--accent); font-weight: 600; }
-    .cross { color: #ef4444; opacity: 0.8; }
-    .warn { color: #f59e0b; }
-
-    /* ═══════════════════════════════════════
-       FEATURES
-       ═══════════════════════════════════════ */
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-
-    .feature-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 36px;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    .feature-card:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-4px);
-      background: var(--card-bg-hover);
-    }
-
-    .feature-icon {
-      font-size: 32px;
-      margin-bottom: 20px;
-      display: block;
-    }
-
-    .feature-card h3 {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 10px;
-    }
-
-    .feature-card p {
-      color: var(--text-dim);
-      font-size: 14px;
-      line-height: 1.7;
-    }
-
-    /* ═══════════════════════════════════════
-       PRICING
-       ═══════════════════════════════════════ */
-    .pricing-free-callout {
-      max-width: 700px;
-      margin: 0 auto 56px;
-      padding: 32px;
-      background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%);
-      border: 1px solid rgba(34, 197, 94, 0.15);
-      border-radius: 20px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .pricing-free-callout::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(34,197,94,0.05) 0%, transparent 50%);
-      animation: rotateSlow 20s linear infinite;
-    }
-
-    .pricing-free-callout h3 {
-      font-size: 24px;
-      margin-bottom: 12px;
-      color: var(--text);
-      position: relative;
-    }
-
-    .pricing-free-callout h3 span { color: var(--accent); }
-
-    .pricing-free-callout p {
-      color: var(--text-dim);
-      font-size: 15px;
-      margin-bottom: 20px;
-      position: relative;
-    }
-
-    .pricing-free-callout code {
-      background: rgba(0,0,0,0.3);
-      padding: 3px 10px;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--accent);
-      font-size: 14px;
-    }
-
-    /* Pricing tabs */
-    .pricing-tabs {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 48px;
-    }
-
-    .pricing-tab-group {
-      display: inline-flex;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 4px;
-    }
-
-    .pricing-tab {
-      padding: 10px 28px;
-      background: transparent;
-      color: var(--text-dim);
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.3s;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .pricing-tab.active {
-      background: var(--accent);
-      color: var(--bg);
-    }
-
-    /* Pricing grid */
-    .pricing-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .pricing-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 36px 28px;
-      text-align: center;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-      position: relative;
-    }
-
-    .pricing-card:hover {
-      border-color: var(--border-hover);
-      transform: translateY(-4px);
-    }
-
-    .pricing-card.featured {
-      border-color: rgba(34, 197, 94, 0.3);
-      background: linear-gradient(180deg, rgba(34,197,94,0.05) 0%, var(--card-bg) 100%);
-    }
-
-    .pricing-card.featured:hover {
-      border-color: rgba(34, 197, 94, 0.5);
-    }
-
-    .popular-badge {
-      position: absolute;
-      top: -12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--accent);
-      color: var(--bg);
-      padding: 4px 16px;
-      border-radius: 100px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .plan-name {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-dim);
-      margin-bottom: 8px;
-    }
-
-    .plan-price {
-      font-size: 44px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      margin-bottom: 4px;
-    }
-
-    .plan-price span {
-      font-size: 16px;
-      color: var(--text-muted);
-      font-weight: 400;
-    }
-
-    .plan-desc {
-      color: var(--text-muted);
-      font-size: 13px;
-      margin-bottom: 28px;
-    }
-
-    .plan-features {
-      list-style: none;
-      margin-bottom: 28px;
-      text-align: left;
-    }
-
-    .plan-features li {
-      padding: 8px 0;
-      font-size: 13px;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .plan-features li::before {
-      content: "✓";
-      color: var(--accent);
-      font-weight: 700;
-      font-size: 12px;
-      flex-shrink: 0;
-    }
-
-    .plan-cta {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      background: var(--card-bg-hover);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 14px;
-      text-decoration: none;
-      transition: all 0.3s;
-      cursor: pointer;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .plan-cta:hover {
-      border-color: var(--border-hover);
-      background: rgba(255,255,255,0.08);
-    }
-
-    .plan-cta.primary {
-      background: var(--accent);
-      color: var(--bg);
-      border-color: var(--accent);
-    }
-
-    .plan-cta.primary:hover {
-      background: var(--accent-hover);
-      border-color: var(--accent-hover);
-    }
-
-    .annual-link {
-      display: block;
-      margin-top: 10px;
-      font-size: 12px;
-      color: var(--accent);
-      text-decoration: none;
-      opacity: 0.8;
-      transition: opacity 0.2s;
-    }
-
-    .annual-link:hover { opacity: 1; }
-
-    .pricing-note {
-      text-align: center;
-      margin-top: 48px;
-      color: var(--text-dim);
-      max-width: 700px;
-      margin-left: auto;
-      margin-right: auto;
-      font-size: 15px;
-      line-height: 1.7;
-    }
-
-    .pricing-note strong { color: var(--accent); }
-
-    /* Pay-per-use grid (3 cols) */
-    .pricing-grid-ppu {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    /* ═══════════════════════════════════════
-       WAITLIST / CTA
-       ═══════════════════════════════════════ */
-    .waitlist-section {
-      text-align: center;
-    }
-
-    .waitlist-form {
-      max-width: 480px;
-      margin: 0 auto 80px;
-      display: flex;
-      gap: 12px;
-    }
-
-    .waitlist-form input[type="email"] {
-      flex: 1;
-      padding: 14px 18px;
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      color: var(--text);
-      font-size: 15px;
-      font-family: 'Inter', sans-serif;
-      outline: none;
-      transition: border-color 0.3s;
-    }
-
-    .waitlist-form input[type="email"]:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-    }
-
-    .waitlist-form input::placeholder { color: var(--text-muted); }
-
-    /* Final CTA */
-    .final-cta {
-      padding: 120px 0;
-      text-align: center;
-      position: relative;
-    }
-
-    .final-cta::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%);
-      pointer-events: none;
-    }
-
-    .final-terminal {
-      max-width: 460px;
-      margin: 0 auto 40px;
-    }
-
-    /* ═══════════════════════════════════════
-       FOOTER
-       ═══════════════════════════════════════ */
-    footer {
-      padding: 48px 0;
-      border-top: 1px solid var(--border);
-      text-align: center;
-    }
-
-    .footer-links {
-      display: flex;
-      justify-content: center;
-      gap: 32px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-
-    .footer-links a {
-      color: var(--text-dim);
-      text-decoration: none;
-      font-size: 14px;
+      color: var(--text-muted); text-decoration: none; font-size: 14px;
+      font-weight: 450; padding: 8px 14px; border-radius: 8px;
       transition: color 0.2s;
     }
+    nav a:hover { color: var(--text); }
+    .nav-cta {
+      background: var(--text) !important; color: var(--bg) !important;
+      font-weight: 600 !important; margin-left: 8px; border-radius: 8px !important;
+      font-size: 13px !important; padding: 8px 16px !important;
+    }
+    .nav-cta:hover { opacity: 0.9; }
+    .menu-btn {
+      display: none; background: none; border: none; color: var(--text);
+      cursor: pointer; padding: 8px;
+    }
 
-    .footer-links a:hover { color: var(--text); }
+    /* ═══ HERO ═══ */
+    .hero {
+      position: relative; z-index: 1;
+      padding: 160px 0 100px;
+    }
+    .hero-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 80px; align-items: center;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 5px 14px 5px 6px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(139,92,246,0.12);
+      border-radius: 100px; font-size: 13px;
+      color: var(--accent-light); font-weight: 500;
+      margin-bottom: 28px;
+      opacity: 0; transform: translateY(16px);
+      animation: fadeUp 0.6s 0.1s forwards;
+    }
+    .hero-badge .dot {
+      width: 7px; height: 7px; background: var(--accent-light);
+      border-radius: 50%; margin-left: 4px;
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .hero h1 {
+      font-size: clamp(40px, 5vw, 64px);
+      font-weight: 800; line-height: 1.08;
+      letter-spacing: -0.035em;
+      margin-bottom: 24px;
+      opacity: 0; transform: translateY(20px);
+      animation: fadeUp 0.6s 0.2s forwards;
+    }
+    .hero h1 .accent {
+      background: linear-gradient(135deg, var(--accent-light), var(--accent), #C084FC);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .subtitle {
+      font-size: 17px; color: var(--text-secondary);
+      line-height: 1.7; max-width: 460px; margin-bottom: 36px;
+      opacity: 0; transform: translateY(20px);
+      animation: fadeUp 0.6s 0.35s forwards;
+    }
+    .hero-ctas {
+      display: flex; gap: 12px;
+      opacity: 0; transform: translateY(20px);
+      animation: fadeUp 0.6s 0.45s forwards;
+    }
 
-    .footer-copy {
-      color: var(--text-muted);
+    /* ═══ BUTTONS ═══ */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border-radius: 10px;
+      font-size: 14px; font-weight: 600;
+      text-decoration: none; transition: all 0.2s ease;
+      cursor: pointer; border: none; font-family: inherit;
+    }
+    .btn-primary {
+      background: var(--accent); color: white;
+    }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+    .btn-ghost {
+      background: transparent; color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--border-hover); background: var(--card); }
+
+    /* ═══ TERMINAL ═══ */
+    .terminal {
+      background: rgba(10,10,10,0.8);
+      border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5), 0 0 80px rgba(139,92,246,0.06);
+      opacity: 0; transform: translateY(20px);
+      animation: fadeUp 0.7s 0.3s forwards;
+    }
+    .terminal-chrome {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot:nth-child(1) { background: #FF5F57; }
+    .terminal-dot:nth-child(2) { background: #FEBC2E; }
+    .terminal-dot:nth-child(3) { background: #28C840; }
+    .terminal-title {
+      flex: 1; text-align: center;
+      font-size: 12px; color: var(--text-faint);
+      font-family: 'Inter', sans-serif;
+    }
+    .terminal-body {
+      padding: 20px 22px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; line-height: 1.8;
+    }
+    .t-line { display: flex; gap: 8px; }
+    .t-prompt { color: var(--accent-light); user-select: none; }
+    .t-cmd { color: var(--text); }
+    .t-output {
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid var(--border);
+      color: var(--text-secondary);
+      opacity: 0; transition: opacity 0.5s ease;
+    }
+    .t-output.show { opacity: 1; }
+    .t-green { color: var(--green); }
+    .t-muted { color: var(--text-faint); }
+    .t-accent { color: var(--accent-light); }
+    .cursor-blink {
+      display: inline-block; width: 7px; height: 15px;
+      background: var(--accent-light); vertical-align: middle;
+      animation: blink 1s step-end infinite; margin-left: 1px;
+    }
+
+    /* ═══ TRUST BAR ═══ */
+    .trust-bar {
+      position: relative; z-index: 1;
+      padding: 60px 0; border-top: 1px solid var(--border);
+    }
+    .trust-label {
+      text-align: center; font-size: 12px;
+      color: var(--text-faint); text-transform: uppercase;
+      letter-spacing: 0.08em; font-weight: 500;
+      margin-bottom: 28px;
+    }
+    .trust-logos {
+      display: flex; justify-content: center; align-items: center;
+      gap: 40px; flex-wrap: wrap; opacity: 0.5;
+    }
+    .trust-logo {
+      font-size: 15px; font-weight: 600; color: var(--text-muted);
+      letter-spacing: -0.01em;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .trust-logo svg { opacity: 0.7; }
+
+    /* ═══ SECTIONS ═══ */
+    section { position: relative; z-index: 1; padding: 120px 0; }
+    .section-label {
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--accent-light); margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(32px, 4vw, 48px); font-weight: 800;
+      letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px;
+    }
+    .section-desc {
+      font-size: 17px; color: var(--text-secondary);
+      max-width: 540px; line-height: 1.7;
+    }
+    .section-header { margin-bottom: 64px; }
+    .section-header.center { text-align: center; }
+    .section-header.center .section-desc { margin: 0 auto; }
+    .divider {
+      width: 100%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+
+    /* ═══ REVEAL ═══ */
+    .reveal {
+      opacity: 0; transform: translateY(30px);
+      transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+
+    /* ═══ HOW IT WORKS ═══ */
+    .steps-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    }
+    .step-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 36px 28px;
+      transition: all 0.3s ease; position: relative; overflow: hidden;
+    }
+    .step-card::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .step-card:hover { border-color: rgba(139,92,246,0.15); transform: translateY(-2px); }
+    .step-card:hover::after { opacity: 0.5; }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
+      background: var(--accent-dim); border: 1px solid rgba(139,92,246,0.12);
+      border-radius: 10px; font-size: 14px; font-weight: 700;
+      color: var(--accent-light); margin-bottom: 20px;
+    }
+    .step-card h3 {
+      font-size: 18px; font-weight: 700;
+      margin-bottom: 8px; letter-spacing: -0.01em;
+    }
+    .step-card p {
+      color: var(--text-secondary); font-size: 14px; line-height: 1.7;
+      margin-bottom: 16px;
+    }
+    .step-badge {
+      display: inline-block; padding: 4px 12px;
+      background: var(--accent-dim); border: 1px solid rgba(139,92,246,0.1);
+      border-radius: 6px; font-size: 12px; color: var(--accent-light);
+      font-weight: 600; font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ═══ CODE TABS ═══ */
+    .code-section { position: relative; z-index: 1; padding: 120px 0; }
+    .code-container {
+      max-width: 720px; margin: 0 auto;
+      background: rgba(10,10,10,0.6);
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .code-tabs {
+      display: flex; border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .code-tab {
+      padding: 12px 20px; font-size: 13px; font-weight: 500;
+      color: var(--text-faint); cursor: pointer; border: none;
+      background: none; font-family: inherit; transition: color 0.2s;
+      position: relative;
+    }
+    .code-tab:hover { color: var(--text-secondary); }
+    .code-tab.active {
+      color: var(--text);
+    }
+    .code-tab.active::after {
+      content: ''; position: absolute; bottom: -1px; left: 0; right: 0;
+      height: 1px; background: var(--accent);
+    }
+    .code-panel {
+      display: none; padding: 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; line-height: 1.9;
+      overflow-x: auto;
+    }
+    .code-panel.active { display: block; }
+    .code-panel pre { margin: 0; white-space: pre; }
+    .c-kw { color: #C084FC; }       /* keyword: violet */
+    .c-fn { color: #67E8F9; }       /* function: cyan */
+    .c-str { color: #6EE7B7; }      /* string: emerald */
+    .c-cmt { color: #52525B; }      /* comment: zinc-600 */
+    .c-prop { color: #FAFAFA; }     /* property: white */
+    .c-num { color: #FCD34D; }      /* number: amber */
+    .c-punc { color: #71717A; }     /* punctuation: zinc-500 */
+    .copy-btn {
+      position: absolute; top: 12px; right: 12px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 10px;
+      color: var(--text-muted); cursor: pointer; font-size: 12px;
+      font-family: inherit; transition: all 0.2s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--border-hover); }
+    .code-body { position: relative; }
+
+    /* ═══ COMPARISON TABLE ═══ */
+    .table-wrap {
+      max-width: 920px; margin: 0 auto;
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      overflow: hidden; background: var(--card);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 16px 20px; text-align: left;
+      border-bottom: 1px solid var(--border); font-size: 14px;
+    }
+    th {
+      font-weight: 600; color: var(--text-faint); font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      background: rgba(255,255,255,0.02);
+    }
+    th:nth-child(2) { color: var(--accent-light); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.01); }
+    td:first-child { color: var(--text-secondary); font-weight: 500; }
+    .check { color: var(--green); font-weight: 600; }
+    .cross { color: var(--red); opacity: 0.7; }
+
+    /* ═══ FEATURES ═══ */
+    .features-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    }
+    .feature-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px 24px;
+      transition: all 0.3s ease;
+    }
+    .feature-card:hover {
+      border-color: var(--border-hover); transform: translateY(-2px);
+      background: var(--card-hover);
+    }
+    .feature-icon {
+      width: 40px; height: 40px; margin-bottom: 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-dim); border: 1px solid rgba(139,92,246,0.1);
+      border-radius: 10px;
+    }
+    .feature-icon svg { width: 20px; height: 20px; stroke: var(--accent-light); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+    .feature-card h3 {
+      font-size: 16px; font-weight: 700; margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+    .feature-card p {
+      color: var(--text-secondary); font-size: 14px; line-height: 1.6;
+    }
+
+    /* ═══ PRICING ═══ */
+    .pricing-callout {
+      max-width: 600px; margin: 0 auto 48px;
+      padding: 28px 32px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(139,92,246,0.12);
+      border-radius: var(--radius-lg);
+      text-align: center;
+    }
+    .pricing-callout h3 {
+      font-size: 20px; margin-bottom: 8px;
+    }
+    .pricing-callout h3 span { color: var(--accent-light); }
+    .pricing-callout p {
+      color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;
+    }
+    .pricing-callout code {
+      background: rgba(0,0,0,0.4); padding: 3px 10px; border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace; color: var(--accent-light);
       font-size: 13px;
     }
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 20px; max-width: 640px; margin: 0 auto;
+    }
+    .pricing-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 32px 28px;
+      transition: all 0.3s; position: relative;
+    }
+    .pricing-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .pricing-card.featured {
+      border-color: rgba(139,92,246,0.25);
+      background: linear-gradient(180deg, rgba(139,92,246,0.04) 0%, var(--card) 100%);
+    }
+    .popular-tag {
+      position: absolute; top: -11px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: white; padding: 3px 14px;
+      border-radius: 100px; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .plan-name { font-size: 14px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+    .plan-price {
+      font-size: 40px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px;
+    }
+    .plan-price span { font-size: 15px; color: var(--text-faint); font-weight: 400; }
+    .plan-desc { color: var(--text-faint); font-size: 13px; margin-bottom: 24px; }
+    .plan-features { list-style: none; margin-bottom: 24px; }
+    .plan-features li {
+      padding: 6px 0; font-size: 13px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .plan-features li::before {
+      content: "✓"; color: var(--accent-light); font-weight: 700;
+      font-size: 12px; flex-shrink: 0;
+    }
+    .plan-cta {
+      display: block; width: 100%; padding: 11px; text-align: center;
+      background: var(--card-hover); color: var(--text);
+      border: 1px solid var(--border); border-radius: 10px;
+      font-weight: 600; font-size: 14px; text-decoration: none;
+      transition: all 0.2s; cursor: pointer; font-family: inherit;
+    }
+    .plan-cta:hover { border-color: var(--border-hover); background: rgba(255,255,255,0.08); }
+    .plan-cta.primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .plan-cta.primary:hover { background: var(--accent-hover); }
+    .annual-link {
+      display: block; margin-top: 8px; font-size: 12px;
+      color: var(--accent-light); text-decoration: none; text-align: center;
+      opacity: 0.8; transition: opacity 0.2s;
+    }
+    .annual-link:hover { opacity: 1; }
+    .pricing-note {
+      text-align: center; margin-top: 40px;
+      color: var(--text-muted); font-size: 14px; line-height: 1.7;
+      max-width: 560px; margin-left: auto; margin-right: auto;
+    }
+    .pricing-note strong { color: var(--accent-light); font-weight: 600; }
 
-    .footer-copy a {
-      color: var(--text-dim);
-      text-decoration: none;
+    /* ═══ CTA FINAL ═══ */
+    .final-cta {
+      padding: 120px 0 140px; text-align: center;
+      position: relative;
+    }
+    .final-cta::before {
+      content: ''; position: absolute; bottom: 0; left: 50%;
+      transform: translateX(-50%); width: 500px; height: 400px;
+      background: radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .final-cta .terminal {
+      max-width: 460px; margin: 0 auto 32px;
+      opacity: 1; transform: none; animation: none;
     }
 
-    /* ═══════════════════════════════════════
-       ANIMATIONS
-       ═══════════════════════════════════════ */
-    @keyframes fadeUp {
-      to { opacity: 1; transform: translateY(0) scale(1); }
+    /* ═══ FOOTER ═══ */
+    footer {
+      padding: 64px 0 48px; border-top: 1px solid var(--border);
+      position: relative; z-index: 1;
     }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.8); }
+    .footer-grid {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+      gap: 48px; margin-bottom: 48px;
     }
-
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0; }
+    .footer-brand p {
+      color: var(--text-muted); font-size: 14px;
+      line-height: 1.7; margin-top: 16px; max-width: 280px;
     }
-
-    @keyframes terminalLine {
-      from { opacity: 0; transform: translateX(-10px); }
-      to { opacity: 1; transform: translateX(0); }
+    .footer-col h4 {
+      font-size: 13px; font-weight: 600; color: var(--text-faint);
+      text-transform: uppercase; letter-spacing: 0.06em;
+      margin-bottom: 16px;
     }
-
-    @keyframes rotateSlow {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+    .footer-col a {
+      display: block; color: var(--text-muted); text-decoration: none;
+      font-size: 14px; padding: 4px 0; transition: color 0.2s;
     }
-
-    @keyframes float {
-      0%, 100% { transform: translateY(0px); }
-      50% { transform: translateY(-10px); }
+    .footer-col a:hover { color: var(--text); }
+    .footer-bottom {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 32px; border-top: 1px solid var(--border);
     }
+    .footer-copy { color: var(--text-faint); font-size: 13px; }
+    .footer-copy a { color: var(--text-muted); text-decoration: none; }
+    .footer-social { display: flex; gap: 16px; }
+    .footer-social a {
+      color: var(--text-faint); transition: color 0.2s; display: flex;
+    }
+    .footer-social a:hover { color: var(--text); }
 
-    /* Smooth number count-up handled by JS */
+    /* ═══ ANIMATIONS ═══ */
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-    /* ═══════════════════════════════════════
-       RESPONSIVE
-       ═══════════════════════════════════════ */
+    /* ═══ RESPONSIVE ═══ */
     @media (max-width: 1024px) {
-      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+      .hero-grid { grid-template-columns: 1fr; gap: 48px; }
     }
-
     @media (max-width: 768px) {
-      .hero { padding: 140px 0 80px; min-height: auto; }
-
       nav { display: none; }
-      .menu-toggle { display: block; }
-
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-
-      .escalation-grid { grid-template-columns: 1fr; max-width: 400px; }
-
-      .features-grid { grid-template-columns: 1fr; max-width: 400px; }
-
-      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
-      .pricing-grid-ppu { grid-template-columns: 1fr; max-width: 400px; }
-
-      .hero-ctas { flex-direction: column; align-items: center; }
-      .hero-ctas .btn { width: 100%; max-width: 300px; justify-content: center; }
-
-      .waitlist-form { flex-direction: column; }
-
+      .menu-btn { display: block; }
+      .hero { padding: 120px 0 80px; }
       section { padding: 80px 0; }
-
-      .comparison-wrap { border-radius: 12px; }
+      .steps-grid, .features-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+      .pricing-grid { grid-template-columns: 1fr; max-width: 380px; }
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+      .hero-ctas { flex-direction: column; }
+      .hero-ctas .btn { justify-content: center; }
+      .trust-logos { gap: 24px; }
+      .table-wrap { border-radius: 12px; }
       th, td { padding: 12px; font-size: 12px; }
-    }
-
-    @media (max-width: 480px) {
-      .stats-grid { grid-template-columns: 1fr 1fr; }
-      .stat { padding: 32px 16px; }
-      .stat-number { font-size: 36px; }
-    }
-
-    /* Divider */
-    .section-divider {
-      width: 100%;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      .footer-bottom { flex-direction: column; gap: 16px; text-align: center; }
     }
   </style>
 </head>
 <body>
-  <!-- Grid background -->
-  <div class="grid-bg"></div>
-  
-  <!-- Mouse-tracking glow orb -->
-  <div class="glow-orb" id="glowOrb"></div>
+  <div class="bg-glow"></div>
+  <div class="bg-grid"></div>
 
-  <!-- Header -->
+  <!-- ═══ HEADER ═══ -->
   <header id="header">
     <div class="header-inner">
-      <a href="/" class="logo">web<span>peel</span></a>
+      <a href="/" class="logo">
+        <svg class="logo-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="2" width="22" height="24" rx="4" fill="rgba(139,92,246,0.15)" stroke="rgba(139,92,246,0.3)" stroke-width="1"/>
+          <path d="M9 9h6M9 13h10M9 17h8" stroke="#A78BFA" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M19 2v5a2 2 0 002 2h4" stroke="#8B5CF6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M19 2l6 7" stroke="#8B5CF6" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        web<span>peel</span>
+      </a>
       <nav>
-        <a href="#how">How it Works</a>
-        <a href="#comparison">Compare</a>
+        <a href="#how">How It Works</a>
+        <a href="#compare">Compare</a>
         <a href="#pricing">Pricing</a>
         <a href="https://github.com/JakeLiuMe/webpeel#readme">Docs</a>
-        <a href="https://github.com/JakeLiuMe/webpeel" class="nav-cta">★ GitHub</a>
+        <a href="https://github.com/JakeLiuMe/webpeel" class="nav-cta">GitHub →</a>
       </nav>
-      <button class="menu-toggle" onclick="document.querySelector('nav').style.display = document.querySelector('nav').style.display === 'flex' ? 'none' : 'flex'" aria-label="Menu">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+      <button class="menu-btn" onclick="document.querySelector('nav').style.display=document.querySelector('nav').style.display==='flex'?'none':'flex'" aria-label="Menu">
+        <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
     </div>
   </header>
 
   <main>
-    <!-- ════════ HERO ════════ -->
+    <!-- ═══ HERO ═══ -->
     <section class="hero">
-      <div class="container" style="width:100%">
-        <div class="hero-badge">
-          <span class="dot"></span>
-          v0.1.1 — Open Source &amp; Free Forever
-        </div>
-        <h1>Turn any URL into<br><span class="gradient">clean markdown</span></h1>
-        <p class="tagline">Smart web fetcher for AI agents. Auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor &amp; VS Code.</p>
-
-        <div class="terminal">
-          <div class="terminal-bar">
-            <div class="terminal-dot"></div>
-            <div class="terminal-dot"></div>
-            <div class="terminal-dot"></div>
-            <div class="terminal-title">Terminal</div>
-          </div>
-          <div class="terminal-body">
-            <div class="terminal-line" id="tl1">
-              <span class="terminal-prompt">$</span>
-              <span class="terminal-command" id="typed-cmd"></span><span class="cursor-blink" id="cursor"></span>
-            </div>
-            <div class="terminal-output" id="terminal-output">
-              <div style="color: var(--accent)">✓ Fetched in 118ms (HTTP mode)</div>
-              <div># Hacker News</div>
-              <div>## Top Stories</div>
-              <div>1. **Show HN: WebPeel** — 142 points</div>
-              <div>2. **The End of the API Era** — 89 points</div>
-              <div style="color: var(--text-muted); margin-top:8px">📊 2,847 tokens · 12 links extracted</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="hero-ctas">
-          <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-primary">
-            Get Started Free →
-          </a>
-          <a href="https://github.com/JakeLiuMe/webpeel" class="btn btn-secondary">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-            Star on GitHub
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- ════════ STATS ════════ -->
-    <section class="stats-section">
       <div class="container">
-        <div class="stats-grid reveal">
-          <div class="stat">
-            <div class="stat-number" data-count="unlimited">∞</div>
-            <div class="stat-label">Free local requests</div>
+        <div class="hero-grid">
+          <div>
+            <div class="hero-badge"><span class="dot"></span> v0.1.1 · Open Source</div>
+            <h1>Web fetching<br><span class="accent">for AI agents.</span></h1>
+            <p class="subtitle">Smart fetcher that auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor & VS Code. Free forever.</p>
+            <div class="hero-ctas">
+              <a href="https://github.com/JakeLiuMe/webpeel#quick-start" class="btn btn-primary">Get Started →</a>
+              <a href="https://github.com/JakeLiuMe/webpeel" class="btn btn-ghost">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                View on GitHub
+              </a>
+            </div>
           </div>
-          <div class="stat">
-            <div class="stat-number"><span data-count="118">0</span>ms</div>
-            <div class="stat-label">Average response time</div>
-          </div>
-          <div class="stat">
-            <div class="stat-number"><span data-count="80">0</span>%</div>
-            <div class="stat-label">Sites work without browser</div>
-          </div>
-          <div class="stat">
-            <div class="stat-number">MIT</div>
-            <div class="stat-label">Open source license</div>
+          <div>
+            <div class="terminal">
+              <div class="terminal-chrome">
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+                <div class="terminal-dot"></div>
+                <div class="terminal-title">Terminal</div>
+              </div>
+              <div class="terminal-body">
+                <div class="t-line">
+                  <span class="t-prompt">$</span>
+                  <span class="t-cmd" id="typed-cmd"></span><span class="cursor-blink" id="cursor"></span>
+                </div>
+                <div class="t-output" id="t-output">
+                  <div class="t-green">✓ Fetched in 118ms · HTTP mode</div>
+                  <div style="margin-top:8px"><span class="t-accent">#</span> Hacker News</div>
+                  <div>1. <strong>Show HN: WebPeel</strong> — 142 points</div>
+                  <div>2. Why AI agents need better web access</div>
+                  <div style="margin-top:8px" class="t-muted">↳ 2,847 tokens · 38 links extracted</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <div class="section-divider"></div>
+    <!-- ═══ TRUST BAR ═══ -->
+    <div class="trust-bar">
+      <div class="container">
+        <p class="trust-label">Works with</p>
+        <div class="trust-logos">
+          <span class="trust-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            Claude
+          </span>
+          <span class="trust-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+            Cursor
+          </span>
+          <span class="trust-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3l8 4v10l-8-4V3zM21 3l-8 4v10l8-4V3zM11 7L3 3M11 7l10-4"/></svg>
+            VS Code
+          </span>
+          <span class="trust-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+            Windsurf
+          </span>
+          <span class="trust-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg>
+            Cline
+          </span>
+          <span class="trust-logo">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Any MCP Client
+          </span>
+        </div>
+      </div>
+    </div>
 
-    <!-- ════════ HOW IT WORKS ════════ -->
+    <div class="divider"></div>
+
+    <!-- ═══ HOW IT WORKS ═══ -->
     <section id="how">
       <div class="container">
-        <div class="section-header reveal">
-          <div class="section-label">How it works</div>
-          <h2>Smart Escalation</h2>
-          <p class="section-desc center">Don't waste 2 seconds rendering when 118ms will do. WebPeel automatically detects blocked requests and retries with the right tool.</p>
+        <div class="section-header center reveal">
+          <div class="section-label">How It Works</div>
+          <h2 class="section-title">Smart escalation</h2>
+          <p class="section-desc">Don't waste 2 seconds rendering when 118ms will do.<br>WebPeel auto-detects blocked requests and retries with the right tool.</p>
         </div>
-        <div class="escalation-grid">
-          <div class="escalation-card reveal reveal-stagger" style="--i:0">
-            <div class="escalation-number">1</div>
-            <h3>Simple HTTP</h3>
-            <p>Fast HTTP fetch with smart headers and Cheerio parsing. Works for 80% of sites.</p>
-            <span class="perf-badge">~118ms</span>
+        <div class="steps-grid">
+          <div class="step-card reveal reveal-delay-1">
+            <div class="step-num">1</div>
+            <h3>HTTP Fetch</h3>
+            <p>Fast HTTP fetch with smart headers and content extraction. Handles 80% of pages without a browser.</p>
+            <span class="step-badge">~118ms</span>
           </div>
-          <div class="escalation-card reveal reveal-stagger" style="--i:1">
-            <div class="escalation-number">2</div>
+          <div class="step-card reveal reveal-delay-2">
+            <div class="step-num">2</div>
             <h3>Browser Mode</h3>
-            <p>Auto-escalates to Playwright if blocked or JavaScript rendering is needed.</p>
-            <span class="perf-badge">~2s</span>
+            <p>Automatically launches Playwright when JavaScript rendering is required or content is blocked.</p>
+            <span class="step-badge">~2s</span>
           </div>
-          <div class="escalation-card reveal reveal-stagger" style="--i:2">
-            <div class="escalation-number">3</div>
+          <div class="step-card reveal reveal-delay-3">
+            <div class="step-num">3</div>
             <h3>Stealth Mode</h3>
-            <p>Full anti-detection for Cloudflare and heavily protected sites.</p>
-            <span class="perf-badge">~5s</span>
+            <p>Full anti-detection for Cloudflare and heavily protected sites. Handles what others can't.</p>
+            <span class="step-badge">~5s</span>
           </div>
         </div>
       </div>
     </section>
 
-    <div class="section-divider"></div>
+    <div class="divider"></div>
 
-    <!-- ════════ COMPARISON ════════ -->
-    <section id="comparison">
+    <!-- ═══ CODE EXAMPLES ═══ -->
+    <section class="code-section">
       <div class="container">
-        <div class="section-header reveal">
-          <div class="section-label">Why Switch</div>
-          <h2>WebPeel vs. Everything Else</h2>
+        <div class="section-header center reveal">
+          <div class="section-label">Integrate</div>
+          <h2 class="section-title">Three lines. That's it.</h2>
+          <p class="section-desc">CLI, TypeScript library, or MCP config — pick how you want to use it.</p>
         </div>
-        <div class="comparison-wrap reveal">
+        <div class="code-container reveal" style="position:relative">
+          <div class="code-tabs">
+            <button class="code-tab active" data-tab="cli">CLI</button>
+            <button class="code-tab" data-tab="typescript">TypeScript</button>
+            <button class="code-tab" data-tab="mcp">MCP Config</button>
+          </div>
+          <div class="code-body">
+            <div class="code-panel active" id="tab-cli"><pre><span class="c-cmt"># Install and run in one command</span>
+<span class="c-fn">$</span> npx webpeel <span class="c-str">https://news.ycombinator.com</span>
+
+<span class="c-cmt"># Output: clean markdown with metadata</span>
+<span class="c-kw"># Hacker News</span>
+<span class="c-prop">1. **Show HN: WebPeel** — 142 points</span>
+<span class="c-prop">2. Why AI agents need better web access</span>
+<span class="c-cmt">↳ 2,847 tokens · 38 links · 118ms</span></pre></div>
+            <div class="code-panel" id="tab-typescript"><pre><span class="c-kw">import</span> <span class="c-punc">{</span> <span class="c-prop">fetch</span> <span class="c-punc">}</span> <span class="c-kw">from</span> <span class="c-str">'webpeel'</span><span class="c-punc">;</span>
+
+<span class="c-kw">const</span> <span class="c-prop">result</span> <span class="c-punc">=</span> <span class="c-kw">await</span> <span class="c-fn">fetch</span><span class="c-punc">(</span><span class="c-str">'https://example.com'</span><span class="c-punc">);</span>
+
+console<span class="c-punc">.</span><span class="c-fn">log</span><span class="c-punc">(</span>result<span class="c-punc">.</span><span class="c-prop">markdown</span><span class="c-punc">);</span>   <span class="c-cmt">// Clean markdown</span>
+console<span class="c-punc">.</span><span class="c-fn">log</span><span class="c-punc">(</span>result<span class="c-punc">.</span><span class="c-prop">title</span><span class="c-punc">);</span>      <span class="c-cmt">// Page title</span>
+console<span class="c-punc">.</span><span class="c-fn">log</span><span class="c-punc">(</span>result<span class="c-punc">.</span><span class="c-prop">links</span><span class="c-punc">);</span>      <span class="c-cmt">// Extracted links</span>
+console<span class="c-punc">.</span><span class="c-fn">log</span><span class="c-punc">(</span>result<span class="c-punc">.</span><span class="c-prop">tokens</span><span class="c-punc">);</span>     <span class="c-cmt">// Token estimate</span></pre></div>
+            <div class="code-panel" id="tab-mcp"><pre><span class="c-cmt">// Claude Desktop — claude_desktop_config.json</span>
+<span class="c-punc">{</span>
+  <span class="c-str">"mcpServers"</span><span class="c-punc">:</span> <span class="c-punc">{</span>
+    <span class="c-str">"webpeel"</span><span class="c-punc">:</span> <span class="c-punc">{</span>
+      <span class="c-str">"command"</span><span class="c-punc">:</span> <span class="c-str">"npx"</span><span class="c-punc">,</span>
+      <span class="c-str">"args"</span><span class="c-punc">:</span> <span class="c-punc">[</span><span class="c-str">"-y"</span><span class="c-punc">,</span> <span class="c-str">"webpeel"</span><span class="c-punc">,</span> <span class="c-str">"--mcp"</span><span class="c-punc">]</span>
+    <span class="c-punc">}</span>
+  <span class="c-punc">}</span>
+<span class="c-punc">}</span></pre></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ═══ COMPARISON ═══ -->
+    <section id="compare">
+      <div class="container">
+        <div class="section-header center reveal">
+          <div class="section-label">Compare</div>
+          <h2 class="section-title">Why WebPeel</h2>
+        </div>
+        <div class="table-wrap reveal">
           <table>
             <thead>
-              <tr>
-                <th>Feature</th>
-                <th>WebPeel</th>
-                <th>Firecrawl</th>
-                <th>Jina Reader</th>
-                <th>MCP Fetch</th>
-              </tr>
+              <tr><th>Feature</th><th>WebPeel</th><th>Firecrawl</th><th>Jina Reader</th><th>MCP Fetch</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <td>Local execution</td>
-                <td class="check">✓ Free forever</td>
-                <td class="cross">✗ Cloud only</td>
-                <td class="cross">✗ Cloud only</td>
-                <td class="check">✓ Free</td>
-              </tr>
-              <tr>
-                <td>JS rendering</td>
-                <td class="check">✓ Auto-escalates</td>
-                <td class="check">✓ Always</td>
-                <td class="cross">✗ No</td>
-                <td class="cross">✗ No</td>
-              </tr>
-              <tr>
-                <td>Anti-bot handling</td>
-                <td class="check">✓ Stealth mode</td>
-                <td class="check">✓ Yes</td>
-                <td class="warn">⚠ Limited</td>
-                <td class="cross">✗ No</td>
-              </tr>
-              <tr>
-                <td>MCP Server</td>
-                <td class="check">✓ Built-in</td>
-                <td class="check">✓ Separate</td>
-                <td class="cross">✗ No</td>
-                <td class="check">✓ Yes</td>
-              </tr>
-              <tr>
-                <td>Zero config</td>
-                <td class="check">✓ npx webpeel</td>
-                <td class="cross">✗ API key</td>
-                <td class="cross">✗ API key</td>
-                <td class="check">✓ Yes</td>
-              </tr>
-              <tr>
-                <td>Free tier</td>
-                <td class="check">∞ Unlimited</td>
-                <td>500 one-time</td>
-                <td>1K/month</td>
-                <td class="check">∞ Local</td>
-              </tr>
-              <tr>
-                <td>Cloud API</td>
-                <td class="check">$9/mo · 5K</td>
-                <td>$16/mo · 3K</td>
-                <td>$200/mo</td>
-                <td>—</td>
-              </tr>
-              <tr>
-                <td>Credit rollover</td>
-                <td class="check">✓ 1 month</td>
-                <td class="cross">✗ Expire</td>
-                <td class="cross">✗</td>
-                <td class="cross">✗</td>
-              </tr>
-              <tr>
-                <td>Soft limits</td>
-                <td class="check">✓ Never blocked</td>
-                <td class="cross">✗ Hard cut-off</td>
-                <td class="cross">✗ Rate limited</td>
-                <td class="cross">✗</td>
-              </tr>
+              <tr><td>Free local use</td><td class="check">✓ Unlimited</td><td class="cross">✗ Cloud only</td><td class="cross">✗ Cloud only</td><td class="check">✓ Yes</td></tr>
+              <tr><td>JS rendering</td><td class="check">✓ Auto-escalates</td><td class="check">✓ Always on</td><td class="cross">✗ No</td><td class="cross">✗ No</td></tr>
+              <tr><td>MCP server</td><td class="check">✓ Built-in</td><td>Separate pkg</td><td class="cross">✗ No</td><td class="check">✓ Yes</td></tr>
+              <tr><td>Zero config</td><td class="check">✓ npx webpeel</td><td class="cross">Needs API key</td><td class="cross">Needs API key</td><td class="check">✓ Yes</td></tr>
+              <tr><td>Cheapest plan</td><td class="check">$9/mo · 5K</td><td>$16/mo · 3K</td><td>$200/mo</td><td>—</td></tr>
+              <tr><td>Credit rollover</td><td class="check">✓ 1 month</td><td class="cross">✗ Expire</td><td class="cross">✗ Expire</td><td>—</td></tr>
+              <tr><td>Open source</td><td class="check">✓ MIT</td><td>Partial</td><td class="cross">✗ No</td><td class="check">✓ MIT</td></tr>
             </tbody>
           </table>
         </div>
       </div>
     </section>
 
-    <div class="section-divider"></div>
+    <div class="divider"></div>
 
-    <!-- ════════ FEATURES ════════ -->
+    <!-- ═══ FEATURES ═══ -->
     <section id="features">
       <div class="container">
-        <div class="section-header reveal">
-          <div class="section-label">Built for AI</div>
-          <h2>Everything Your Agent Needs</h2>
+        <div class="section-header center reveal">
+          <div class="section-label">Features</div>
+          <h2 class="section-title">Built for AI workflows</h2>
         </div>
         <div class="features-grid">
-          <div class="feature-card reveal reveal-stagger" style="--i:0">
-            <span class="feature-icon">📦</span>
-            <h3>Three Ways to Use</h3>
-            <p>CLI for quick tasks, TypeScript library for apps, MCP server for Claude Desktop, Cursor &amp; VS Code.</p>
+          <div class="feature-card reveal reveal-delay-1">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+            <h3>Smart Escalation</h3>
+            <p>Tries HTTP first. Auto-escalates to headless browser only when needed. Fast by default.</p>
           </div>
-          <div class="feature-card reveal reveal-stagger" style="--i:1">
-            <span class="feature-icon">🔍</span>
+          <div class="feature-card reveal reveal-delay-1">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
             <h3>Search Included</h3>
             <p>DuckDuckGo search built-in. Search the web and fetch results in one MCP call.</p>
           </div>
-          <div class="feature-card reveal reveal-stagger" style="--i:2">
-            <span class="feature-icon">🎯</span>
+          <div class="feature-card reveal reveal-delay-2">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M9 9h6M9 13h4"/></svg></div>
             <h3>Clean Output</h3>
-            <p>Removes nav, footer, ads, cookie banners. Keeps only the content your AI needs.</p>
+            <p>Strips nav, footer, ads, banners. Returns only the content your LLM actually needs.</p>
           </div>
-          <div class="feature-card reveal reveal-stagger" style="--i:3">
-            <span class="feature-icon">📊</span>
+          <div class="feature-card reveal reveal-delay-2">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 20V10M6 20V4M18 20v-6"/></svg></div>
             <h3>Token Counting</h3>
-            <p>Estimates token count for LLM context window management. Know before you send.</p>
+            <p>Estimates token count so you can manage LLM context windows before sending.</p>
           </div>
-          <div class="feature-card reveal reveal-stagger" style="--i:4">
-            <span class="feature-icon">🔗</span>
+          <div class="feature-card reveal reveal-delay-3">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div>
             <h3>Link Extraction</h3>
-            <p>All links as absolute URLs. Perfect for crawling and research workflows.</p>
+            <p>All links extracted as absolute URLs. Perfect for crawling and research workflows.</p>
           </div>
-          <div class="feature-card reveal reveal-stagger" style="--i:5">
-            <span class="feature-icon">⚡</span>
+          <div class="feature-card reveal reveal-delay-3">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/></svg></div>
             <h3>TypeScript-First</h3>
-            <p>Fully typed with complete definitions. Autocomplete and type safety out of the box.</p>
+            <p>Full type definitions. Autocomplete and type safety out of the box.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <div class="section-divider"></div>
+    <div class="divider"></div>
 
-    <!-- ════════ PRICING ════════ -->
+    <!-- ═══ PRICING ═══ -->
     <section id="pricing">
       <div class="container">
-        <div class="section-header reveal">
+        <div class="section-header center reveal">
           <div class="section-label">Pricing</div>
-          <h2>Simple, Honest Pricing</h2>
+          <h2 class="section-title">Simple, honest pricing</h2>
         </div>
 
-        <div class="pricing-free-callout reveal">
-          <h3>🎉 CLI is <span>always free</span>. No limits. Forever.</h3>
-          <p>Full power on your machine. No API key, no credit card, no tracking. Just <code>npx webpeel &lt;url&gt;</code></p>
-          <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-primary" style="padding:10px 24px;font-size:14px">Get Started →</a>
+        <div class="pricing-callout reveal">
+          <h3>The CLI is <span>free forever</span></h3>
+          <p>Unlimited local fetches. No API key, no credit card, no limits.</p>
+          <code>npx webpeel &lt;url&gt;</code>
         </div>
 
-        <div class="pricing-tabs reveal">
-          <div class="pricing-tab-group">
-            <button class="pricing-tab active" onclick="showTrack('sub')" id="ptab-sub">Subscription Plans</button>
-            <button class="pricing-tab" onclick="showTrack('ppu')" id="ptab-ppu">Pay-per-use API</button>
-          </div>
-        </div>
-
-        <!-- Subscription -->
-        <div id="track-sub" class="pricing-grid">
-          <div class="pricing-card reveal reveal-stagger" style="--i:0">
-            <div class="plan-name">Local CLI</div>
-            <div class="plan-price">$0</div>
-            <div class="plan-desc">Unlimited forever</div>
-            <ul class="plan-features">
-              <li>∞ Unlimited pages</li>
-              <li>JS rendering included</li>
-              <li>CLI + Library + MCP</li>
-              <li>MIT open source</li>
-              <li>Community support</li>
-            </ul>
-            <a href="https://github.com/JakeLiuMe/webpeel#readme" class="plan-cta">Get Started</a>
-          </div>
-          <div class="pricing-card reveal reveal-stagger" style="--i:1">
-            <div class="plan-name">Cloud Free</div>
-            <div class="plan-price">$0<span>/mo</span></div>
-            <div class="plan-desc">500 pages/month</div>
-            <ul class="plan-features">
-              <li>500 fetches/month</li>
-              <li>HTTP only (no JS)</li>
-              <li>API access</li>
-              <li>No credit card</li>
-              <li>Community support</li>
-            </ul>
-            <a href="#waitlist" class="plan-cta">Join Waitlist</a>
-          </div>
-          <div class="pricing-card featured reveal reveal-stagger" style="--i:2">
-            <div class="popular-badge">Most Popular</div>
-            <div class="plan-name">Cloud Pro</div>
+        <div class="pricing-grid">
+          <div class="pricing-card featured reveal reveal-delay-1">
+            <div class="popular-tag">Popular</div>
+            <div class="plan-name">Pro</div>
             <div class="plan-price">$9<span>/mo</span></div>
             <div class="plan-desc">5,000 pages/month</div>
             <ul class="plan-features">
-              <li>5K fetches/month</li>
-              <li>JS rendering enabled</li>
+              <li>5K cloud API fetches</li>
+              <li>JavaScript rendering</li>
               <li>Credits roll over 1 month</li>
-              <li>Soft limits (never blocked)</li>
-              <li>Email support (24hr)</li>
+              <li>Soft limits — never blocked</li>
+              <li>Email support</li>
             </ul>
-            <a href="https://buy.stripe.com/test_5kQeVcb800BGgx7gMn3AY00" class="plan-cta primary">Subscribe — $9/mo</a>
-            <a href="https://buy.stripe.com/test_28E14mekcdosa8Jbs33AY01" class="annual-link">Save 17% — $90/year →</a>
+            <a href="https://buy.stripe.com/test_5kQeVcb800BGgx7gMn3AY00" class="plan-cta primary">Get Pro — $9/mo</a>
+            <a href="https://buy.stripe.com/test_28E14mekcdosa8Jbs33AY01" class="annual-link">or $90/year (save 17%) →</a>
           </div>
-          <div class="pricing-card reveal reveal-stagger" style="--i:3">
-            <div class="plan-name">Cloud Max</div>
+          <div class="pricing-card reveal reveal-delay-2">
+            <div class="plan-name">Max</div>
             <div class="plan-price">$29<span>/mo</span></div>
             <div class="plan-desc">25,000 pages/month</div>
             <ul class="plan-features">
-              <li>25K fetches/month</li>
-              <li>JS rendering enabled</li>
+              <li>25K cloud API fetches</li>
+              <li>JavaScript rendering</li>
               <li>Credits roll over 1 month</li>
               <li>Priority queue</li>
-              <li>Priority support (4hr)</li>
+              <li>Priority support</li>
             </ul>
-            <a href="https://buy.stripe.com/test_28E7sKgskfwAdkV67J3AY02" class="plan-cta">Subscribe — $29/mo</a>
-            <a href="https://buy.stripe.com/test_bJe9AS4JC4RW4OpgMn3AY03" class="annual-link">Save 17% — $290/year →</a>
-          </div>
-        </div>
-
-        <!-- Pay-per-use -->
-        <div id="track-ppu" class="pricing-grid-ppu" style="display:none">
-          <div class="pricing-card reveal reveal-stagger" style="--i:0">
-            <div class="plan-name">Simple Fetch</div>
-            <div class="plan-price">$0.50<span>/1K</span></div>
-            <div class="plan-desc">HTTP-only fetching</div>
-            <ul class="plan-features">
-              <li>Fast HTTP requests</li>
-              <li>Markdown conversion</li>
-              <li>Smart headers</li>
-              <li>~200ms avg response</li>
-              <li>No monthly minimum</li>
-            </ul>
-            <a href="#waitlist" class="plan-cta">Join Waitlist</a>
-          </div>
-          <div class="pricing-card featured reveal reveal-stagger" style="--i:1">
-            <div class="popular-badge">Best Value</div>
-            <div class="plan-name">Browser Render</div>
-            <div class="plan-price">$2.50<span>/1K</span></div>
-            <div class="plan-desc">Full JS rendering</div>
-            <ul class="plan-features">
-              <li>Headless browser</li>
-              <li>Wait for dynamic content</li>
-              <li>Anti-bot bypass</li>
-              <li>~2s avg response</li>
-              <li>Volume discounts at 100K+</li>
-            </ul>
-            <a href="#waitlist" class="plan-cta primary">Join Waitlist</a>
-          </div>
-          <div class="pricing-card reveal reveal-stagger" style="--i:2">
-            <div class="plan-name">Search</div>
-            <div class="plan-price">$1.00<span>/1K</span></div>
-            <div class="plan-desc">DuckDuckGo search API</div>
-            <ul class="plan-features">
-              <li>Web search results</li>
-              <li>Auto-fetch top results</li>
-              <li>Metadata extraction</li>
-              <li>Perfect for research</li>
-              <li>No monthly minimum</li>
-            </ul>
-            <a href="#waitlist" class="plan-cta">Join Waitlist</a>
+            <a href="https://buy.stripe.com/test_28E7sKgskfwAdkV67J3AY02" class="plan-cta">Get Max — $29/mo</a>
+            <a href="https://buy.stripe.com/test_bJe9AS4JC4RW4OpgMn3AY03" class="annual-link">or $290/year (save 17%) →</a>
           </div>
         </div>
 
         <div class="pricing-note reveal">
-          <strong>Never locked out:</strong> Credits roll over for 1 month. Soft limits degrade gracefully. Overflow to pay-per-use when you need more.<br><br>
-          <strong>Compare:</strong> Firecrawl is $16/mo for 3K pages (credits expire monthly). WebPeel Pro is $9/mo for 5K pages with rollover.
+          <strong>Credits roll over</strong> for 1 month — unused pages carry forward.<br>
+          <strong>Soft limits</strong> — at 100%, we degrade to HTTP-only instead of blocking you.<br>
+          Compare: Firecrawl charges $16/mo for 3K pages. Credits expire monthly.
         </div>
       </div>
     </section>
 
-    <div class="section-divider"></div>
+    <div class="divider"></div>
 
-    <!-- ════════ WAITLIST ════════ -->
-    <section id="waitlist" class="waitlist-section">
-      <div class="container">
-        <div class="section-header reveal">
-          <div class="section-label">Early Access</div>
-          <h2>Get Notified When<br>Cloud API Launches</h2>
-          <p class="section-desc center" style="margin-bottom:40px">Join the waitlist. Free tier included. No spam, ever.</p>
-        </div>
-        <form action="https://formspree.io/f/xpwzgvvz" method="POST" class="waitlist-form reveal">
-          <input type="email" name="email" placeholder="you@company.com" required>
-          <input type="hidden" name="_subject" value="WebPeel Waitlist Signup">
-          <button type="submit" class="btn btn-primary" style="white-space:nowrap;border:none;cursor:pointer;font-family:'Inter',sans-serif">Join Waitlist</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- ════════ FINAL CTA ════════ -->
+    <!-- ═══ FINAL CTA ═══ -->
     <section class="final-cta">
       <div class="container">
         <div class="reveal">
           <div class="section-label">Get Started</div>
-          <h2>One command. That's it.</h2>
-          <div class="terminal final-terminal" style="opacity:1;transform:none">
-            <div class="terminal-bar">
-              <div class="terminal-dot"></div>
-              <div class="terminal-dot"></div>
-              <div class="terminal-dot"></div>
+          <h2 class="section-title" style="margin-bottom:32px">One command.<br>That's it.</h2>
+          <div class="terminal" style="max-width:480px; margin:0 auto 28px">
+            <div class="terminal-chrome">
+              <div class="terminal-dot"></div><div class="terminal-dot"></div><div class="terminal-dot"></div>
               <div class="terminal-title">Terminal</div>
             </div>
             <div class="terminal-body">
-              <div class="terminal-line" style="opacity:1">
-                <span class="terminal-prompt">$</span>
-                <span class="terminal-command">npx webpeel https://example.com</span>
-              </div>
+              <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">npx webpeel https://example.com</span></div>
             </div>
           </div>
-          <p style="color:var(--text-dim);margin-bottom:40px;font-size:17px">No configuration. No API keys. Just works.</p>
-          <div style="display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+          <p style="color:var(--text-secondary);margin-bottom:32px;font-size:16px">No configuration. No API key. No signup.</p>
+          <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
             <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-primary">Read the Docs →</a>
-            <a href="https://github.com/JakeLiuMe/webpeel" class="btn btn-secondary">★ Star on GitHub</a>
+            <a href="https://github.com/JakeLiuMe/webpeel" class="btn btn-ghost">Star on GitHub</a>
           </div>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- Footer -->
+  <!-- ═══ FOOTER ═══ -->
   <footer>
     <div class="container">
-      <div class="footer-links">
-        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
-        <a href="https://github.com/JakeLiuMe/webpeel#readme">Documentation</a>
-        <a href="https://github.com/JakeLiuMe/webpeel/blob/main/CONTRIBUTING.md">Contributing</a>
-        <a href="https://github.com/JakeLiuMe/webpeel/blob/main/LICENSE">License</a>
-        <a href="https://twitter.com/JakeLiuMe">Twitter</a>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="/" class="logo" style="margin-bottom:0">
+            <svg class="logo-mark" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:24px;height:24px">
+              <rect x="3" y="2" width="22" height="24" rx="4" fill="rgba(139,92,246,0.15)" stroke="rgba(139,92,246,0.3)" stroke-width="1"/>
+              <path d="M9 9h6M9 13h10M9 17h8" stroke="#A78BFA" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M19 2v5a2 2 0 002 2h4" stroke="#8B5CF6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M19 2l6 7" stroke="#8B5CF6" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            web<span>peel</span>
+          </a>
+          <p>Smart web fetcher for AI agents. Open source, MIT licensed. Built by developers, for developers.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#how">How It Works</a>
+          <a href="#compare">Compare</a>
+          <a href="#pricing">Pricing</a>
+          <a href="https://github.com/JakeLiuMe/webpeel/releases">Changelog</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="https://github.com/JakeLiuMe/webpeel#readme">Documentation</a>
+          <a href="https://github.com/JakeLiuMe/webpeel#mcp-server">MCP Setup</a>
+          <a href="https://www.npmjs.com/package/webpeel">npm Package</a>
+          <a href="https://github.com/JakeLiuMe/webpeel/blob/main/CONTRIBUTING.md">Contributing</a>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+          <a href="https://github.com/JakeLiuMe/webpeel/issues">Issues</a>
+          <a href="https://github.com/JakeLiuMe/webpeel/discussions">Discussions</a>
+          <a href="https://twitter.com/JakeLiuMe">Twitter</a>
+        </div>
       </div>
-      <p class="footer-copy">&copy; 2026 WebPeel. Open source under MIT. Built by <a href="https://github.com/JakeLiuMe">Jake Liu</a></p>
+      <div class="footer-bottom">
+        <span class="footer-copy">© 2026 WebPeel. MIT License. Built by <a href="https://github.com/JakeLiuMe">Jake Liu</a>.</span>
+        <div class="footer-social">
+          <a href="https://github.com/JakeLiuMe/webpeel" aria-label="GitHub">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          </a>
+          <a href="https://twitter.com/JakeLiuMe" aria-label="Twitter">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </a>
+        </div>
+      </div>
     </div>
   </footer>
 
   <script>
-    // ═══════════════════════════════════════
-    // GLOW ORB — follows mouse
-    // ═══════════════════════════════════════
-    const orb = document.getElementById('glowOrb');
-    document.addEventListener('mousemove', (e) => {
-      orb.style.left = e.clientX + 'px';
-      orb.style.top = e.clientY + 'px';
-    });
-
-    // ═══════════════════════════════════════
-    // HEADER — scrolled state
-    // ═══════════════════════════════════════
+    // Header scroll effect
     const header = document.getElementById('header');
     window.addEventListener('scroll', () => {
-      header.classList.toggle('scrolled', window.scrollY > 50);
+      header.classList.toggle('scrolled', window.scrollY > 40);
     });
 
-    // ═══════════════════════════════════════
-    // TYPING ANIMATION — hero terminal
-    // ═══════════════════════════════════════
-    const command = 'npx webpeel https://news.ycombinator.com';
+    // Typing animation
+    const cmd = 'npx webpeel https://news.ycombinator.com';
     const typedEl = document.getElementById('typed-cmd');
     const cursorEl = document.getElementById('cursor');
-    const outputEl = document.getElementById('terminal-output');
-    const tl1 = document.getElementById('tl1');
-    let charIndex = 0;
-
-    function typeCommand() {
-      tl1.style.opacity = '1';
-      if (charIndex < command.length) {
-        typedEl.textContent += command[charIndex];
-        charIndex++;
-        setTimeout(typeCommand, 30 + Math.random() * 40);
+    const outputEl = document.getElementById('t-output');
+    let i = 0;
+    function type() {
+      if (i < cmd.length) {
+        typedEl.textContent += cmd[i++];
+        setTimeout(type, 22 + Math.random() * 30);
       } else {
-        // Typing done — show output after brief pause
         setTimeout(() => {
           cursorEl.style.display = 'none';
-          outputEl.style.opacity = '1';
-          outputEl.classList.add('visible');
-        }, 600);
+          outputEl.classList.add('show');
+        }, 400);
       }
     }
+    setTimeout(type, 800);
 
-    // Start typing when hero is in view (immediate on load)
-    setTimeout(typeCommand, 1200);
-
-    // ═══════════════════════════════════════
-    // SCROLL REVEAL — IntersectionObserver
-    // ═══════════════════════════════════════
+    // Scroll reveal
     const reveals = document.querySelectorAll('.reveal');
-    const revealObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          revealObserver.unobserve(entry.target);
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          observer.unobserve(e.target);
         }
       });
-    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+    reveals.forEach(el => observer.observe(el));
 
-    reveals.forEach(el => revealObserver.observe(el));
-
-    // ═══════════════════════════════════════
-    // COUNT-UP ANIMATION — stats
-    // ═══════════════════════════════════════
-    const counters = document.querySelectorAll('[data-count]');
-    const counterObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const el = entry.target;
-          const target = parseInt(el.dataset.count);
-          if (isNaN(target)) return;
-          
-          let current = 0;
-          const duration = 1500;
-          const step = target / (duration / 16);
-          
-          function update() {
-            current += step;
-            if (current >= target) {
-              el.textContent = target;
-            } else {
-              el.textContent = Math.floor(current);
-              requestAnimationFrame(update);
-            }
-          }
-          update();
-          counterObserver.unobserve(el);
-        }
+    // Code tabs
+    document.querySelectorAll('.code-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.code-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
       });
-    }, { threshold: 0.5 });
+    });
 
-    counters.forEach(el => counterObserver.observe(el));
-
-    // ═══════════════════════════════════════
-    // PRICING TABS
-    // ═══════════════════════════════════════
-    function showTrack(track) {
-      const subTab = document.getElementById('ptab-sub');
-      const ppuTab = document.getElementById('ptab-ppu');
-      const subDiv = document.getElementById('track-sub');
-      const ppuDiv = document.getElementById('track-ppu');
-
-      if (track === 'sub') {
-        subTab.classList.add('active');
-        ppuTab.classList.remove('active');
-        subDiv.style.display = 'grid';
-        ppuDiv.style.display = 'none';
-      } else {
-        ppuTab.classList.add('active');
-        subTab.classList.remove('active');
-        ppuDiv.style.display = 'grid';
-        subDiv.style.display = 'none';
-      }
-    }
-
-    // ═══════════════════════════════════════
-    // SMOOTH ANCHOR SCROLLING
-    // ═══════════════════════════════════════
+    // Smooth scroll
     document.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', (e) => {
+      a.addEventListener('click', e => {
         const target = document.querySelector(a.getAttribute('href'));
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
       });
     });
   </script>
