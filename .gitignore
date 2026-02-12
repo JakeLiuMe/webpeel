@@ -7,3 +7,6 @@ coverage/
 .vitest/
 playwright-report/
 test-results/
+
+# Internal docs
+.internal/

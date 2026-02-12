@@ -22,9 +22,13 @@ export function createApp(config: ServerConfig = {}): Express {
   const app = express();
 
   // Middleware
-  app.use(express.json());
+  // SECURITY: Limit request body size to prevent DoS
+  app.use(express.json({ limit: '1mb' }));
+  
+  // SECURITY: Restrict CORS - require explicit origin whitelist
+  const corsOrigins = config.corsOrigins || [];
   app.use(cors({
-    origin: config.corsOrigins || '*',
+    origin: corsOrigins.length > 0 ? corsOrigins : false,
     credentials: true,
   }));
 
@@ -62,7 +66,8 @@ export function createApp(config: ServerConfig = {}): Express {
   });
 
   // Error handler
-  app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Unhandled error:', err);
     res.status(500).json({
       error: 'internal_error',

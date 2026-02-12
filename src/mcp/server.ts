@@ -55,8 +55,8 @@ async function searchWeb(query: string, count: number = 5): Promise<Array<{
 
     const results: Array<{ title: string; url: string; snippet: string }> = [];
 
-    $('.result').each((i, elem) => {
-      if (results.length >= count) return false;
+    $('.result').each((_i, elem) => {
+      if (results.length >= count) return;
 
       const $result = $(elem);
       const title = $result.find('.result__title').text().trim();

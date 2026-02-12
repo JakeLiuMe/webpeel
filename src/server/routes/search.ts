@@ -22,10 +22,14 @@ interface CacheEntry {
 export function createSearchRouter(authStore: AuthStore): Router {
   const router = Router();
 
-  // LRU cache: 15 minute TTL, max 500 entries
+  // LRU cache: 15 minute TTL, max 500 entries, 50MB total size
   const cache = new LRUCache<string, CacheEntry>({
     max: 500,
     ttl: 15 * 60 * 1000, // 15 minutes
+    maxSize: 50 * 1024 * 1024, // 50MB
+    sizeCalculation: (entry) => {
+      return JSON.stringify(entry).length;
+    },
   });
 
   router.get('/v1/search', async (req: Request, res: Response) => {
@@ -86,8 +90,8 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
       const results: SearchResult[] = [];
 
-      $('.result').each((i, elem) => {
-        if (results.length >= resultCount) return false;
+      $('.result').each((_i, elem) => {
+        if (results.length >= resultCount) return;
 
         const $result = $(elem);
         const title = $result.find('.result__title').text().trim();

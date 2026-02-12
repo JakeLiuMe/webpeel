@@ -44,7 +44,8 @@ export function createApp(config = {}) {
         });
     });
     // Error handler
-    app.use((err, req, res, next) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    app.use((err, _req, res, _next) => {
         console.error('Unhandled error:', err);
         res.status(500).json({
             error: 'internal_error',

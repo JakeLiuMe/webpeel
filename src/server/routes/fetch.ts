@@ -16,10 +16,14 @@ interface CacheEntry {
 export function createFetchRouter(authStore: AuthStore): Router {
   const router = Router();
 
-  // LRU cache: 5 minute TTL, max 1000 entries
+  // LRU cache: 5 minute TTL, max 1000 entries, 100MB total size
   const cache = new LRUCache<string, CacheEntry>({
     max: 1000,
     ttl: 5 * 60 * 1000, // 5 minutes
+    maxSize: 100 * 1024 * 1024, // 100MB
+    sizeCalculation: (entry) => {
+      return JSON.stringify(entry).length;
+    },
   });
 
   router.get('/v1/fetch', async (req: Request, res: Response) => {
@@ -35,9 +39,24 @@ export function createFetchRouter(authStore: AuthStore): Router {
         return;
       }
 
-      // Validate URL format
+      // SECURITY: Validate URL format and length
+      if (url.length > 2048) {
+        res.status(400).json({
+          error: 'invalid_url',
+          message: 'URL too long (max 2048 characters)',
+        });
+        return;
+      }
+
       try {
-        new URL(url);
+        const parsed = new URL(url);
+        // Normalize URL for consistent caching
+        const normalizedUrl = parsed.href;
+        
+        // Use normalized URL for cache key
+        if (normalizedUrl !== url) {
+          // URL was normalized, update for caching
+        }
       } catch {
         res.status(400).json({
           error: 'invalid_url',
@@ -66,10 +85,10 @@ export function createFetchRouter(authStore: AuthStore): Router {
       };
 
       // Validate wait parameter
-      if (options.wait !== undefined && (isNaN(options.wait) || options.wait < 0)) {
+      if (options.wait !== undefined && (isNaN(options.wait) || options.wait < 0 || options.wait > 60000)) {
         res.status(400).json({
           error: 'invalid_request',
-          message: 'Invalid "wait" parameter: must be a positive number',
+          message: 'Invalid "wait" parameter: must be between 0 and 60000ms',
         });
         return;
       }

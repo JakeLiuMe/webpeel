@@ -60,9 +60,9 @@ export function createSearchRouter(authStore) {
             const html = await response.text();
             const $ = load(html);
             const results = [];
-            $('.result').each((i, elem) => {
+            $('.result').each((_i, elem) => {
                 if (results.length >= resultCount)
-                    return false;
+                    return;
                 const $result = $(elem);
                 const title = $result.find('.result__title').text().trim();
                 const url = $result.find('.result__url').attr('href') || '';

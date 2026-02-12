@@ -13,7 +13,6 @@
   "exports": {
     ".": {
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     }
   },
@@ -32,13 +31,26 @@
     "serve": "node dist/server/app.js",
     "mcp": "node dist/mcp/server.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JakeLiuMe/webpeel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JakeLiuMe/webpeel/issues"
+  },
+  "homepage": "https://webpeel.dev",
   "keywords": [
     "web-scraper",
     "ai-agent",
+    "mcp-server",
+    "mcp",
     "playwright",
     "markdown",
     "fetcher",
-    "web-fetcher"
+    "web-fetcher",
+    "claude",
+    "cursor",
+    "codex"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
