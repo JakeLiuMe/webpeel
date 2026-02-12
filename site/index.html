@@ -620,13 +620,13 @@
             </div>
             <div class="code-panel" id="tab-ts">
               <div class="code-lines">
-                <div class="code-line"><span class="line-num">1</span><span class="line-code"><span class="c-kw">import</span> <span class="c-punc">{</span> fetch <span class="c-punc">}</span> <span class="c-kw">from</span> <span class="c-str">'webpeel'</span><span class="c-punc">;</span></span></div>
+                <div class="code-line"><span class="line-num">1</span><span class="line-code"><span class="c-kw">import</span> <span class="c-punc">{</span> peel <span class="c-punc">}</span> <span class="c-kw">from</span> <span class="c-str">'webpeel'</span><span class="c-punc">;</span></span></div>
                 <div class="code-line"><span class="line-num">2</span><span class="line-code"></span></div>
-                <div class="code-line"><span class="line-num">3</span><span class="line-code"><span class="c-kw">const</span> result <span class="c-punc">=</span> <span class="c-kw">await</span> <span class="c-fn">fetch</span><span class="c-punc">(</span><span class="c-str">'https://example.com'</span><span class="c-punc">);</span></span></div>
+                <div class="code-line"><span class="line-num">3</span><span class="line-code"><span class="c-kw">const</span> result <span class="c-punc">=</span> <span class="c-kw">await</span> <span class="c-fn">peel</span><span class="c-punc">(</span><span class="c-str">'https://example.com'</span><span class="c-punc">);</span></span></div>
                 <div class="code-line"><span class="line-num">4</span><span class="line-code"></span></div>
-                <div class="code-line"><span class="line-num">5</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.markdown<span class="c-punc">);</span>   <span class="c-cmt">// Clean markdown</span></span></div>
-                <div class="code-line"><span class="line-num">6</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.title<span class="c-punc">);</span>      <span class="c-cmt">// Page title</span></span></div>
-                <div class="code-line"><span class="line-num">7</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.links<span class="c-punc">);</span>      <span class="c-cmt">// All links</span></span></div>
+                <div class="code-line"><span class="line-num">5</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.content<span class="c-punc">);</span>    <span class="c-cmt">// Clean markdown</span></span></div>
+                <div class="code-line"><span class="line-num">6</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.title<span class="c-punc">);</span>       <span class="c-cmt">// Page title</span></span></div>
+                <div class="code-line"><span class="line-num">7</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.links<span class="c-punc">);</span>       <span class="c-cmt">// All links</span></span></div>
                 <div class="code-line"><span class="line-num">8</span><span class="line-code">console.<span class="c-fn">log</span><span class="c-punc">(</span>result.tokens<span class="c-punc">);</span>     <span class="c-cmt">// Token estimate</span></span></div>
               </div>
             </div>
@@ -637,7 +637,7 @@
                 <div class="code-line"><span class="line-num">3</span><span class="line-code">  <span class="c-str">"mcpServers"</span><span class="c-punc">:</span> <span class="c-punc">{</span></span></div>
                 <div class="code-line"><span class="line-num">4</span><span class="line-code">    <span class="c-str">"webpeel"</span><span class="c-punc">:</span> <span class="c-punc">{</span></span></div>
                 <div class="code-line"><span class="line-num">5</span><span class="line-code">      <span class="c-str">"command"</span><span class="c-punc">:</span> <span class="c-str">"npx"</span><span class="c-punc">,</span></span></div>
-                <div class="code-line"><span class="line-num">6</span><span class="line-code">      <span class="c-str">"args"</span><span class="c-punc">:</span> <span class="c-punc">[</span><span class="c-str">"-y"</span><span class="c-punc">,</span> <span class="c-str">"webpeel"</span><span class="c-punc">,</span> <span class="c-str">"--mcp"</span><span class="c-punc">]</span></span></div>
+                <div class="code-line"><span class="line-num">6</span><span class="line-code">      <span class="c-str">"args"</span><span class="c-punc">:</span> <span class="c-punc">[</span><span class="c-str">"-y"</span><span class="c-punc">,</span> <span class="c-str">"webpeel"</span><span class="c-punc">,</span> <span class="c-str">"mcp"</span><span class="c-punc">]</span></span></div>
                 <div class="code-line"><span class="line-num">7</span><span class="line-code">    <span class="c-punc">}</span></span></div>
                 <div class="code-line"><span class="line-num">8</span><span class="line-code">  <span class="c-punc">}</span></span></div>
                 <div class="code-line"><span class="line-num">9</span><span class="line-code"><span class="c-punc">}</span></span></div>

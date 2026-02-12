@@ -11,7 +11,7 @@
     "type": "mcp",
     "url": "npx webpeel mcp"
   },
-  "logo_url": "https://webpeel.dev/logo.png",
+  "logo_url": "https://webpeel.dev/favicon.svg",
   "contact_email": "jake@webpeel.dev",
   "legal_info_url": "https://github.com/JakeLiuMe/webpeel/blob/main/LICENSE"
 }

@@ -310,7 +310,7 @@ webpeel/
 │   │   ├── strategies.ts  # Smart escalation logic
 │   │   ├── markdown.ts    # HTML → Markdown conversion
 │   │   └── metadata.ts    # Metadata extraction
-│   ├── server/            # API server (Hono)
+│   ├── server/            # API server (Express)
 │   │   ├── app.ts         # Server entry point
 │   │   ├── routes/        # API routes
 │   │   └── middleware/    # Auth, rate limiting
@@ -351,7 +351,7 @@ All contributors are recognized in:
 ## Questions?
 
 - Open a [Discussion](https://github.com/JakeLiuMe/webpeel/discussions)
-- DM [@jakeliu](https://twitter.com/jakeliu) on X/Twitter
+- DM [@JakeLiuMe](https://twitter.com/JakeLiuMe) on X/Twitter
 - Email: jake@webpeel.dev
 
 Thank you for contributing! 🎉
