@@ -298,8 +298,9 @@ export async function handleLogin() {
         console.log('Run `webpeel logout` first if you want to use a different API key.');
         return;
     }
-    console.log('\nWebPeel CLI Authentication');
-    console.log('==========================\n');
+    console.log('\n🔑 WebPeel CLI Authentication');
+    console.log('==============================\n');
+    console.log('Get your API key at: https://app.webpeel.dev/keys\n');
     const apiKey = await promptForApiKey();
     if (!apiKey) {
         console.error('Error: API key cannot be empty');

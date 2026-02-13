@@ -382,8 +382,9 @@ export async function handleLogin(): Promise<void> {
     return;
   }
 
-  console.log('\nWebPeel CLI Authentication');
-  console.log('==========================\n');
+  console.log('\n🔑 WebPeel CLI Authentication');
+  console.log('==============================\n');
+  console.log('Get your API key at: https://app.webpeel.dev/keys\n');
   
   const apiKey = await promptForApiKey();
 
