@@ -19,6 +19,7 @@ import ora from 'ora';
 import { writeFileSync } from 'fs';
 import { peel, peelBatch, cleanup } from './index.js';
 import type { PeelOptions } from './types.js';
+import { checkUsage, showUsageFooter, handleLogin, handleLogout, handleUsage } from './cli-auth.js';
 
 const program = new Command();
 

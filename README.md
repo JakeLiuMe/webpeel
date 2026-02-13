@@ -35,7 +35,7 @@ npx webpeel https://news.ycombinator.com
 
 |  | **WebPeel** | Firecrawl | Jina Reader | MCP Fetch |
 |---|:---:|:---:|:---:|:---:|
-| **Local execution** | ✅ Free forever | ❌ Cloud only | ❌ Cloud only | ✅ Free |
+| **Free tier** | ✅ 125/week | ❌ Cloud only | ❌ Cloud only | ✅ Unlimited |
 | **JS rendering** | ✅ Auto-escalates | ✅ Always | ❌ No | ❌ No |
 | **Stealth mode** | ✅ Built-in | ✅ Yes | ⚠️ Limited | ❌ No |
 | **Crawl mode** | ✅ Built-in | ✅ Yes | ❌ No | ❌ No |

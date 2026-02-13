@@ -17,6 +17,7 @@ import { createStripeRouter } from './routes/stripe.js';
 import { createOAuthRouter } from './routes/oauth.js';
 import { createStatsRouter } from './routes/stats.js';
 import { createActivityRouter } from './routes/activity.js';
+import { createCLIUsageRouter } from './routes/cli-usage.js';
 
 export interface ServerConfig {
   port?: number;
@@ -85,6 +86,7 @@ export function createApp(config: ServerConfig = {}): Express {
   app.use(createOAuthRouter());
   app.use(createStatsRouter(authStore));
   app.use(createActivityRouter(authStore));
+  app.use(createCLIUsageRouter());
 
   // 404 handler
   app.use((req: Request, res: Response) => {
