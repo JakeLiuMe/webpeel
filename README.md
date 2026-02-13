@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Turn any web page into clean markdown. **Stealth mode. Crawl mode. Zero config. Free forever.**
+Turn any web page into clean markdown. **Smart escalation. Stealth mode. Crawl mode. Free to start.**
 
 ```bash
 npx webpeel https://news.ycombinator.com
@@ -37,16 +37,13 @@ npx webpeel https://news.ycombinator.com
 |---|:---:|:---:|:---:|:---:|
 | **Free tier** | ✅ 125/week | ❌ Cloud only | ❌ Cloud only | ✅ Unlimited |
 | **JS rendering** | ✅ Auto-escalates | ✅ Always | ❌ No | ❌ No |
-| **Stealth mode** | ✅ Built-in | ✅ Yes | ⚠️ Limited | ❌ No |
-| **Crawl mode** | ✅ Built-in | ✅ Yes | ❌ No | ❌ No |
+| **Stealth mode** | ✅ Pro plan | ✅ Yes | ⚠️ Limited | ❌ No |
+| **Crawl mode** | ✅ Pro plan | ✅ Yes | ❌ No | ❌ No |
 | **MCP Server** | ✅ Built-in | ✅ Separate repo | ❌ No | ✅ Yes |
 | **Zero config** | ✅ `npx webpeel` | ❌ API key required | ❌ API key required | ✅ Yes |
-| **Free tier** | 125/week | 500 pages (one-time) | 1000 req/month | ∞ Unlimited |
 | **Hosted API** | $9/mo (1,250/wk) | $16/mo (3K/mo) | $200/mo (Starter) | N/A |
-| **Weekly reset** | N/A | ❌ Monthly only | ❌ Monthly only | ❌ N/A |
-| **Extra usage** | N/A | ✅ Pay-as-you-go | ❌ Upgrade only | N/A |
-| **Rollover** | N/A | ✅ 1 week | ❌ Expire monthly | ❌ N/A |
-| **Soft limits** | ✅ Never blocked | ❌ Hard cut-off | ❌ Rate limited | ❌ N/A |
+| **Weekly reset** | ✅ Every Monday | ❌ Monthly only | ❌ Monthly only | N/A |
+| **Soft limits** | ✅ Never blocked | ❌ Hard cut-off | ❌ Rate limited | N/A |
 | **Markdown output** | ✅ Optimized for AI | ✅ Yes | ✅ Yes | ⚠️ Basic |
 
 **WebPeel gives you Firecrawl's power with a generous free tier.** Like Claude Code — pay only when you need more.
@@ -66,9 +63,9 @@ WebPeel uses a **weekly usage budget** for all users (CLI and API):
 
 ### Highlights
 
-1. **🎭 Stealth Mode** — Bypass bot detection with playwright-extra stealth plugin. Works on sites that block regular scrapers.
-2. **🕷️ Crawl Mode** — Follow links and extract entire sites. Respects robots.txt and rate limits automatically.
-3. **💰 Generous Free Tier** — Like Claude Code: 125 free fetches every week. First 25 work instantly, no signup. Open source MIT.
+1. **🎭 Stealth Mode** *(Pro)* — Bypass bot detection with playwright-extra stealth plugin. Works on sites that block regular scrapers.
+2. **🕷️ Crawl Mode** *(Pro)* — Follow links and extract entire sites. Respects robots.txt and rate limits automatically.
+3. **💰 Generous Free Tier** — 125 free fetches every week. First 25 work instantly with no signup. Basic fetch + JS rendering included free.
 
 ---
 
