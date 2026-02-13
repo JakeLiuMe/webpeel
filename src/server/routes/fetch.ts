@@ -124,19 +124,18 @@ export function createFetchRouter(authStore: AuthStore): Router {
       // Log request to database (PostgreSQL only)
       const pgStore = authStore as any;
       if (req.auth?.keyInfo?.accountId && typeof pgStore.pool !== 'undefined') {
-        // Log to usage_logs table
+        // Log to usage_logs table (user_id = accountId from keyInfo)
         pgStore.pool.query(
           `INSERT INTO usage_logs 
-            (account_id, api_key_id, endpoint, url, method, processing_time_ms, status_code, ip_address, user_agent)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            (user_id, endpoint, url, method, processing_time_ms, status_code, ip_address, user_agent)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             req.auth.keyInfo.accountId,
-            null, // api_key_id not easily accessible here
             'fetch',
             url,
             fetchType,
             elapsed,
-            200, // Success status
+            200,
             req.ip || req.socket.remoteAddress,
             req.get('user-agent'),
           ]
@@ -200,7 +199,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         
         pgStore.pool.query(
           `INSERT INTO usage_logs 
-            (account_id, endpoint, url, method, status_code, error, ip_address, user_agent)
+            (user_id, endpoint, url, method, status_code, error, ip_address, user_agent)
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             req.auth.keyInfo.accountId,

@@ -20,7 +20,7 @@ export function createStatsRouter(authStore: AuthStore): Router {
         return;
       }
 
-      const accountId = req.auth.keyInfo.accountId;
+      const userId = req.auth.keyInfo.accountId; // accountId maps to user_id in DB
 
       // Only works with PostgreSQL backend
       if (!(authStore instanceof PostgresAuthStore)) {
@@ -31,6 +31,7 @@ export function createStatsRouter(authStore: AuthStore): Router {
         return;
       }
 
+      // Access pool via any cast (pool is private but we need direct DB access)
       const pgStore = authStore as any;
 
       // Get stats from usage_logs table
@@ -40,10 +41,10 @@ export function createStatsRouter(authStore: AuthStore): Router {
           AVG(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1.0 ELSE 0.0 END) * 100 as success_rate,
           AVG(processing_time_ms) as avg_response_time
         FROM usage_logs
-        WHERE account_id = $1
+        WHERE user_id = $1
       `;
 
-      const result = await pgStore.pool.query(statsQuery, [accountId]);
+      const result = await pgStore.pool.query(statsQuery, [userId]);
       
       if (result.rows.length === 0) {
         // No data yet - return defaults

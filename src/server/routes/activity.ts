@@ -20,7 +20,7 @@ export function createActivityRouter(authStore: AuthStore): Router {
         return;
       }
 
-      const accountId = req.auth.keyInfo.accountId;
+      const userId = req.auth.keyInfo.accountId; // accountId maps to user_id in DB
 
       // Only works with PostgreSQL backend
       if (!(authStore instanceof PostgresAuthStore)) {
@@ -31,8 +31,9 @@ export function createActivityRouter(authStore: AuthStore): Router {
         return;
       }
 
+      // Access pool via any cast (pool is private but we need direct DB access)
       const pgStore = authStore as any;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
 
       // Get recent requests from usage_logs
       const activityQuery = `
@@ -44,12 +45,12 @@ export function createActivityRouter(authStore: AuthStore): Router {
           processing_time_ms,
           created_at
         FROM usage_logs
-        WHERE account_id = $1
+        WHERE user_id = $1
         ORDER BY created_at DESC
         LIMIT $2
       `;
 
-      const result = await pgStore.pool.query(activityQuery, [accountId, limit]);
+      const result = await pgStore.pool.query(activityQuery, [userId, limit]);
 
       // Transform to frontend format
       const requests = result.rows.map((row: any) => ({
