@@ -141,7 +141,7 @@ function shouldResetAnonymousUsage(config: CLIConfig): boolean {
 /**
  * Check usage quota before making a request
  */
-export async function checkUsage(stealth: boolean = false): Promise<UsageCheckResult> {
+export async function checkUsage(): Promise<UsageCheckResult> {
   const config = loadConfig();
 
   // Check if anonymous usage needs reset
@@ -244,12 +244,10 @@ export function showUsageFooter(
 
   // Only show footer for anonymous or free users
   if (isAnonymous) {
-    const creditCost = stealth ? 5 : 1;
     const costText = stealth ? ' (costs 5 credits)' : '';
     console.error(`⚡ ${usageInfo.remaining}/${usageInfo.limit} free fetches remaining${costText}. Run \`webpeel login\` to get 125/week free.`);
   } else if (usageInfo.limit <= 125) {
     // Free tier authenticated users
-    const creditCost = stealth ? 5 : 1;
     const costText = stealth ? ' (costs 5 credits)' : '';
     console.error(`⚡ ${usageInfo.remaining}/${usageInfo.limit} fetches remaining this week${costText}.`);
   }

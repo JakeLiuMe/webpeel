@@ -16,6 +16,7 @@ import { Command } from 'commander';
 import ora from 'ora';
 import { writeFileSync } from 'fs';
 import { peel, peelBatch, cleanup } from './index.js';
+import { checkUsage, showUsageFooter, handleLogin, handleLogout, handleUsage } from './cli-auth.js';
 const program = new Command();
 program
     .name('webpeel')
@@ -65,6 +66,13 @@ program
     }
     catch {
         console.error(`Error: Invalid URL format: ${url}`);
+        process.exit(1);
+    }
+    // Check usage quota
+    const useStealth = options.stealth || false;
+    const usageCheck = await checkUsage();
+    if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
         process.exit(1);
     }
     const spinner = options.silent ? null : ora('Fetching...').start();
@@ -118,6 +126,10 @@ program
         const result = await peel(url, peelOptions);
         if (spinner) {
             spinner.succeed(`Fetched in ${result.elapsed}ms using ${result.method} method`);
+        }
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !options.silent) {
+            showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, useStealth);
         }
         // Handle screenshot saving
         if (options.screenshot && result.screenshot) {
@@ -185,6 +197,12 @@ program
     const isJson = options.json;
     const isSilent = options.silent;
     const count = parseInt(options.count) || 5;
+    // Check usage quota
+    const usageCheck = await checkUsage();
+    if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
+        process.exit(1);
+    }
     const spinner = isSilent ? null : ora('Searching...').start();
     try {
         // Import the search function dynamically
@@ -243,6 +261,10 @@ program
         if (spinner) {
             spinner.succeed(`Found ${results.length} results`);
         }
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !isSilent) {
+            showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, false);
+        }
         if (isJson) {
             const jsonStr = JSON.stringify(results, null, 2);
             await new Promise((resolve, reject) => {
@@ -291,6 +313,12 @@ program
     const isSilent = options.silent;
     const shouldRender = options.render;
     const selector = options.selector;
+    // Check usage quota
+    const usageCheck = await checkUsage();
+    if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
+        process.exit(1);
+    }
     const spinner = isSilent ? null : ora('Loading URLs...').start();
     try {
         const { readFileSync } = await import('fs');
@@ -320,6 +348,10 @@ program
         if (spinner) {
             const successCount = results.filter(r => 'content' in r).length;
             spinner.succeed(`Completed: ${successCount}/${urls.length} successful`);
+        }
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !isSilent) {
+            showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, false);
         }
         // Output results
         if (isJson) {
@@ -396,6 +428,12 @@ program
     .option('-s, --silent', 'Silent mode (no spinner)')
     .option('--json', 'Output as JSON')
     .action(async (url, options) => {
+    // Check usage quota
+    const usageCheck = await checkUsage();
+    if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
+        process.exit(1);
+    }
     const { crawl } = await import('./core/crawler.js');
     const spinner = options.silent ? null : ora('Crawling...').start();
     try {
@@ -411,6 +449,10 @@ program
         });
         if (spinner) {
             spinner.succeed(`Crawled ${results.length} pages`);
+        }
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !options.silent) {
+            showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, options.stealth || false);
         }
         if (options.json) {
             console.log(JSON.stringify(results, null, 2));
@@ -445,6 +487,45 @@ program
             console.error('\nError: Unknown error occurred');
         }
         await cleanup();
+        process.exit(1);
+    }
+});
+program
+    .command('login')
+    .description('Authenticate the CLI with your API key')
+    .action(async () => {
+    try {
+        await handleLogin();
+        process.exit(0);
+    }
+    catch (error) {
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        process.exit(1);
+    }
+});
+program
+    .command('logout')
+    .description('Clear your saved credentials')
+    .action(() => {
+    try {
+        handleLogout();
+        process.exit(0);
+    }
+    catch (error) {
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        process.exit(1);
+    }
+});
+program
+    .command('usage')
+    .description('Show your current usage and quota')
+    .action(async () => {
+    try {
+        await handleUsage();
+        process.exit(0);
+    }
+    catch (error) {
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         process.exit(1);
     }
 });
