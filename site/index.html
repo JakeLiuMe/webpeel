@@ -133,7 +133,8 @@
     .stats { display: flex; justify-content: center; gap: 48px; padding: 48px 0; margin-top: 24px; }
     .stat { text-align: center; background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 32px; transition: all 0.3s; min-width: 200px; }
     .stat:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-2px); }
-    .stat-icon { font-size: 28px; margin-bottom: 8px; }
+    .stat-icon { display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; border-radius: 10px; background: var(--accent-light); margin: 0 auto 12px; }
+    .stat-icon svg { width: 20px; height: 20px; }
     .stat-num { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; position: relative; display: inline-block; }
     .stat-num::after { content: ''; position: absolute; bottom: -6px; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); border-radius: 2px; }
     .stat-label { font-size: 13px; color: var(--text-3); margin-top: 12px; }
@@ -181,14 +182,14 @@
     .code-body .hl-cm { color: #52525B; }
 
     /* COMPARE TABLE */
-    .compare-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+    .compare-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); border: 1px solid var(--border); }
     .compare-table th, .compare-table td { padding: 12px 20px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--border-light); }
     .compare-table th { font-weight: 500; color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; background: #FAFAFA; }
     .compare-table td:first-child { font-weight: 500; position: relative; }
     .feature-tooltip { position: relative; display: inline-flex; align-items: center; gap: 6px; }
     .tooltip-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--border-light); color: var(--text-3); font-size: 11px; cursor: help; position: relative; }
-    .tooltip-text { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 8px 12px; background: #27272A; color: white; font-size: 12px; font-weight: 400; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; }
-    .tooltip-text::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: #27272A; }
+    .tooltip-text { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); padding: 8px 12px; background: #27272A; color: white; font-size: 12px; font-weight: 400; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .tooltip-text::after { content: ''; position: absolute; right: 100%; top: 50%; transform: translateY(-50%); border: 4px solid transparent; border-right-color: #27272A; }
     .tooltip-icon:hover .tooltip-text { opacity: 1; }
     .check { color: var(--green); }
     .cross { color: var(--red-light); }
@@ -198,8 +199,9 @@
     .works-with-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px; max-width: 900px; margin: 0 auto; }
     .works-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: var(--radius); transition: all 0.3s; }
     .works-item:hover { transform: translateY(-2px); }
-    .works-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; color: white; }
-    .works-name { font-size: 14px; font-weight: 500; color: var(--text-2); }
+    .works-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+    .works-icon svg { width: 28px; height: 28px; }
+    .works-name { font-size: 13px; font-weight: 500; color: var(--text-3); }
 
     /* PRICING */
     .pricing-toggle { display: flex; justify-content: center; margin-bottom: 32px; }
@@ -250,7 +252,6 @@
     footer { border-top: 1px solid var(--border); padding: 40px 0; }
     .footer-inner { display: flex; justify-content: space-between; align-items: center; }
     .footer-left { font-size: 13px; color: var(--text-4); }
-    .footer-credit { margin-top: 8px; font-size: 12px; color: var(--text-4); }
     .footer-links { display: flex; gap: 20px; }
     .footer-links a { font-size: 13px; color: var(--text-3); transition: color 0.15s; }
     .footer-links a:hover { color: var(--text); }
@@ -288,7 +289,7 @@
       .code-body { font-size: 12px; padding: 16px; overflow-x: auto; }
       .compare-table { font-size: 11px; display: block; overflow-x: auto; }
       .compare-table th, .compare-table td { padding: 8px 10px; white-space: nowrap; }
-      .tooltip-text { white-space: normal; max-width: 200px; }
+      .tooltip-text { white-space: normal; max-width: 200px; left: auto; right: auto; position: fixed; }
       .price-card { padding: 24px; }
       .price-amount { font-size: 28px; }
       .step-card { padding: 20px; }
@@ -376,19 +377,25 @@
   <div class="container">
     <div class="stats reveal-stagger" data-reveal>
       <div class="stat">
-        <div class="stat-icon">⚡</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8.5"/><polyline points="12 9 12 13 15 15"/><line x1="12" y1="4.5" x2="12" y2="2.5"/><line x1="9.5" y1="2.5" x2="14.5" y2="2.5"/></svg>
+        </div>
         <div class="stat-num" data-target="118">0</div>
-        <div class="stat-label">Average response (ms)</div>
+        <div class="stat-label">Avg. response time (ms)</div>
       </div>
       <div class="stat">
-        <div class="stat-icon">🛡️</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L3 7l9 5 9-5-9-5z" fill="#EDE9FE"/><polyline points="3 12 12 17 21 12"/><polyline points="3 17 12 22 21 17"/></svg>
+        </div>
         <div class="stat-num" data-target="3">0</div>
-        <div class="stat-label">HTTP → Browser → Stealth</div>
+        <div class="stat-label">Escalation modes</div>
       </div>
       <div class="stat">
-        <div class="stat-icon">🎁</div>
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><circle cx="18" cy="16" r="2" fill="#EDE9FE"/></svg>
+        </div>
         <div class="stat-num" data-target="125">0</div>
-        <div class="stat-label">Free tier per week</div>
+        <div class="stat-label">Free requests / week</div>
       </div>
     </div>
   </div>
@@ -619,31 +626,45 @@
       <div style="font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 32px;">Works with</div>
       <div class="works-with-grid reveal-stagger" data-reveal>
         <div class="works-item">
-          <div class="works-icon" style="background: #D97757;">C</div>
+          <div class="works-icon" style="background: #D97757;">
+            <svg viewBox="0 0 24 24" fill="white"><path d="M12 3l1.5 3.2 3.5.5-2.5 2.5.6 3.5L12 11l-3.1 1.7.6-3.5L7 6.7l3.5-.5L12 3zm0 13l-4 2.2 1-4.5L5.5 10l4.5-.7L12 5l2 4.3 4.5.7-3.5 3.7 1 4.5L12 16z"/></svg>
+          </div>
           <div class="works-name">Claude</div>
         </div>
         <div class="works-item">
-          <div class="works-icon" style="background: #16A34A;">C</div>
+          <div class="works-icon" style="background: #16A34A;">
+            <svg viewBox="0 0 24 24" fill="white"><path d="M6 3l12 8-4.5.8L11 18l-1-6.5L6 3z"/></svg>
+          </div>
           <div class="works-name">Cursor</div>
         </div>
         <div class="works-item">
-          <div class="works-icon" style="background: #3B82F6;">V</div>
+          <div class="works-icon" style="background: #3B82F6;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 4 3 12 8 20"/><polyline points="16 4 21 12 16 20"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
+          </div>
           <div class="works-name">VS Code</div>
         </div>
         <div class="works-item">
-          <div class="works-icon" style="background: #06B6D4;">W</div>
+          <div class="works-icon" style="background: #06B6D4;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M2 12c3-4 5-4 8 0s5 4 8 0"/><path d="M6 17c3-4 5-4 8 0"/></svg>
+          </div>
           <div class="works-name">Windsurf</div>
         </div>
         <div class="works-item">
-          <div class="works-icon" style="background: #71717A;">C</div>
+          <div class="works-icon" style="background: #52525B;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 10 13 6 17"/><line x1="13" y1="17" x2="18" y2="17"/></svg>
+          </div>
           <div class="works-name">Cline</div>
         </div>
         <div class="works-item">
-          <div class="works-icon" style="background: #18181B;">O</div>
+          <div class="works-icon" style="background: #18181B;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 016.36 2.64" stroke-width="2.5" stroke-linecap="round"/><circle cx="12" cy="12" r="4"/></svg>
+          </div>
           <div class="works-name">OpenAI</div>
         </div>
         <div class="works-item">
-          <div class="works-icon" style="background: #DC2626;">🦞</div>
+          <div class="works-icon" style="background: #DC2626;">
+            <svg viewBox="0 0 24 24" fill="white"><path d="M9 4C7.5 4 6 5.5 6 7.5c0 1.5.8 2.8 2 3.5v2c0 .3.2.5.5.5h7c.3 0 .5-.2.5-.5v-2c1.2-.7 2-2 2-3.5C18 5.5 16.5 4 15 4c-.8 0-1.5.3-2 .8L12 6l-1-.8C10.5 4.5 9.8 4 9 4zM8 15v3c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2v-3H8z"/></svg>
+          </div>
           <div class="works-name">OpenClaw</div>
         </div>
       </div>
@@ -790,7 +811,6 @@
     <div class="container footer-inner">
       <div class="footer-left">
         <div>© 2026 WebPeel. Open source under MIT.</div>
-        <div class="footer-credit">Built with ❤️ by Jake Liu</div>
       </div>
       <div class="footer-links">
         <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
