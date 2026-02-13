@@ -18,6 +18,23 @@ const fetcher = async <T,>(url: string, token: string): Promise<T> => {
   return apiClient<T>(url, { token });
 };
 
+interface StatsData {
+  totalRequests: number;
+  successRate: number;
+  avgResponseTime: number;
+}
+
+interface ActivityData {
+  requests: Array<{
+    id: string;
+    url: string;
+    status: 'success' | 'error';
+    responseTime: number;
+    mode: 'basic' | 'stealth';
+    timestamp: string;
+  }>;
+}
+
 export default function DashboardPage() {
   const { data: session } = useSession();
   const token = (session as any)?.apiToken;
@@ -34,15 +51,27 @@ export default function DashboardPage() {
     ([url, token]: [string, string]) => fetcher<{ keys: ApiKey[] }>(url, token)
   );
 
+  const { data: stats, isLoading: statsLoading } = useSWR<StatsData>(
+    token ? ['/v1/stats', token] : null,
+    ([url, token]: [string, string]) => fetcher<StatsData>(url, token),
+    { refreshInterval: 60000 }
+  );
+
+  const { data: activity, isLoading: activityLoading } = useSWR<ActivityData>(
+    token ? ['/v1/activity', token] : null,
+    ([url, token]: [string, string]) => fetcher<ActivityData>(url, token),
+    { refreshInterval: 30000 }
+  );
+
   const primaryKey = keys?.keys?.[0];
   const apiKey = primaryKey ? `${primaryKey.prefix}_${primaryKey.id}` : 'YOUR_API_KEY';
   const userName = session?.user?.name?.split(' ')[0] || session?.user?.email?.split('@')[0] || 'there';
 
   // Calculate stats
-  const totalRequests = usage?.weekly?.totalUsed || 0;
+  const totalRequests = stats?.totalRequests || 0;
   const remaining = usage?.weekly ? usage.weekly.totalAvailable - usage.weekly.totalUsed : 0;
-  const successRate = 98.5; // Placeholder - would come from API
-  const avgResponseTime = 245; // Placeholder - would come from API
+  const successRate = stats?.successRate || 100;
+  const avgResponseTime = stats?.avgResponseTime || 0;
   const weeklyPercentage = usage?.weekly ? (usage.weekly.totalUsed / usage.weekly.totalAvailable) * 100 : 0;
 
   const handleCopy = (text: string) => {
@@ -82,37 +111,47 @@ data = response.json()`
 
       {/* Stat Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <StatCard
-          icon={Activity}
-          label="Total Requests"
-          value={totalRequests.toLocaleString()}
-          trend={{ value: '12%', isPositive: true }}
-          delay={0}
-        />
-        <StatCard
-          icon={Zap}
-          label="Remaining"
-          value={remaining.toLocaleString()}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-100"
-          delay={100}
-        />
-        <StatCard
-          icon={CheckCircle2}
-          label="Success Rate"
-          value={`${successRate}%`}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-100"
-          delay={200}
-        />
-        <StatCard
-          icon={Clock}
-          label="Avg Response"
-          value={`${avgResponseTime}ms`}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-100"
-          delay={300}
-        />
+        {statsLoading ? (
+          <>
+            <div className="h-32 animate-pulse rounded-lg bg-zinc-100" />
+            <div className="h-32 animate-pulse rounded-lg bg-zinc-100" />
+            <div className="h-32 animate-pulse rounded-lg bg-zinc-100" />
+            <div className="h-32 animate-pulse rounded-lg bg-zinc-100" />
+          </>
+        ) : (
+          <>
+            <StatCard
+              icon={Activity}
+              label="Total Requests"
+              value={totalRequests.toLocaleString()}
+              delay={0}
+            />
+            <StatCard
+              icon={Zap}
+              label="Remaining"
+              value={remaining.toLocaleString()}
+              iconColor="text-emerald-600"
+              iconBg="bg-emerald-100"
+              delay={100}
+            />
+            <StatCard
+              icon={CheckCircle2}
+              label="Success Rate"
+              value={`${successRate.toFixed(1)}%`}
+              iconColor="text-blue-600"
+              iconBg="bg-blue-100"
+              delay={200}
+            />
+            <StatCard
+              icon={Clock}
+              label="Avg Response"
+              value={`${avgResponseTime}ms`}
+              iconColor="text-amber-600"
+              iconBg="bg-amber-100"
+              delay={300}
+            />
+          </>
+        )}
       </div>
 
       {/* Usage Section with Visual Ring */}
@@ -330,7 +369,11 @@ data = response.json()`
           </div>
         </CardHeader>
         <CardContent>
-          <ActivityTable requests={[]} />
+          {activityLoading ? (
+            <div className="h-64 animate-pulse rounded-lg bg-zinc-100" />
+          ) : (
+            <ActivityTable requests={activity?.requests || []} />
+          )}
         </CardContent>
       </Card>
     </div>

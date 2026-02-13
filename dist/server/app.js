@@ -14,6 +14,8 @@ import { createSearchRouter } from './routes/search.js';
 import { createUserRouter } from './routes/users.js';
 import { createStripeRouter } from './routes/stripe.js';
 import { createOAuthRouter } from './routes/oauth.js';
+import { createStatsRouter } from './routes/stats.js';
+import { createActivityRouter } from './routes/activity.js';
 export function createApp(config = {}) {
     const app = express();
     // SECURITY: Trust proxy for Render/production (HTTPS only)
@@ -60,6 +62,8 @@ export function createApp(config = {}) {
     app.use(createSearchRouter(authStore));
     app.use(createUserRouter());
     app.use(createOAuthRouter());
+    app.use(createStatsRouter(authStore));
+    app.use(createActivityRouter(authStore));
     // 404 handler
     app.use((req, res) => {
         res.status(404).json({

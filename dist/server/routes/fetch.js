@@ -97,8 +97,27 @@ export function createFetchRouter(authStore) {
             // Determine fetch type based on request parameters
             // TODO: This is a simplified version - enhance based on actual peel() behavior
             const fetchType = options.render ? 'stealth' : 'basic';
-            // Track usage (check for trackBurstUsage method to detect PostgresAuthStore)
+            // Log request to database (PostgreSQL only)
             const pgStore = authStore;
+            if (req.auth?.keyInfo?.accountId && typeof pgStore.pool !== 'undefined') {
+                // Log to usage_logs table
+                pgStore.pool.query(`INSERT INTO usage_logs 
+            (account_id, api_key_id, endpoint, url, method, processing_time_ms, status_code, ip_address, user_agent)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [
+                    req.auth.keyInfo.accountId,
+                    null, // api_key_id not easily accessible here
+                    'fetch',
+                    url,
+                    fetchType,
+                    elapsed,
+                    200, // Success status
+                    req.ip || req.socket.remoteAddress,
+                    req.get('user-agent'),
+                ]).catch((err) => {
+                    console.error('Failed to log request to usage_logs:', err);
+                });
+            }
+            // Track usage (check for trackBurstUsage method to detect PostgresAuthStore)
             if (req.auth?.keyInfo?.key && typeof pgStore.trackBurstUsage === 'function') {
                 // Track burst usage (always)
                 await pgStore.trackBurstUsage(req.auth.keyInfo.key);
@@ -135,6 +154,27 @@ export function createFetchRouter(authStore) {
         }
         catch (error) {
             const err = error;
+            // Log error to database (PostgreSQL only)
+            const pgStore = authStore;
+            if (req.auth?.keyInfo?.accountId && typeof pgStore.pool !== 'undefined') {
+                const url = req.query.url;
+                const render = req.query.render === 'true';
+                const fetchType = render ? 'stealth' : 'basic';
+                pgStore.pool.query(`INSERT INTO usage_logs 
+            (account_id, endpoint, url, method, status_code, error, ip_address, user_agent)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [
+                    req.auth.keyInfo.accountId,
+                    'fetch',
+                    url,
+                    fetchType,
+                    500,
+                    err.message || 'Unknown error',
+                    req.ip || req.socket.remoteAddress,
+                    req.get('user-agent'),
+                ]).catch((logErr) => {
+                    console.error('Failed to log error to usage_logs:', logErr);
+                });
+            }
             // SECURITY: Sanitize error messages to prevent information disclosure
             if (err.code) {
                 // WebPeelError from core library - safe to expose

@@ -42,7 +42,7 @@ export function createStripeRouter() {
      * Handle Stripe webhook events
      * SECURITY: Verifies webhook signature
      */
-    router.post('/v1/webhooks/stripe', async (req, res) => {
+    router.post('/', async (req, res) => {
         try {
             const sig = req.headers['stripe-signature'];
             if (!sig || typeof sig !== 'string') {
