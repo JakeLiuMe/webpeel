@@ -6,12 +6,12 @@
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
-import { peel } from '../index.js';
+import { peel, peelBatch } from '../index.js';
 import { fetch as undiciFetch } from 'undici';
 import { load } from 'cheerio';
 const server = new Server({
     name: 'webpeel',
-    version: '1.0.0',
+    version: '0.2.0',
 }, {
     capabilities: {
         tools: {},
@@ -100,6 +100,31 @@ const tools = [
                     description: 'Output format: markdown (default), text, or html',
                     default: 'markdown',
                 },
+                screenshot: {
+                    type: 'boolean',
+                    description: 'Capture a screenshot of the page (returns base64-encoded PNG)',
+                    default: false,
+                },
+                screenshotFullPage: {
+                    type: 'boolean',
+                    description: 'Full-page screenshot (default: viewport only)',
+                    default: false,
+                },
+                selector: {
+                    type: 'string',
+                    description: 'CSS selector to extract specific content (e.g., "article", ".main-content")',
+                },
+                exclude: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'CSS selectors to exclude from content (e.g., [".sidebar", ".ads"])',
+                },
+                headers: {
+                    type: 'object',
+                    description: 'Custom HTTP headers to send',
+                },
             },
             required: ['url'],
         },
@@ -132,6 +157,52 @@ const tools = [
             required: ['query'],
         },
     },
+    {
+        name: 'webpeel_batch',
+        description: 'Fetch multiple URLs in batch with concurrency control. Returns an array of results or errors.',
+        annotations: {
+            title: 'Batch Fetch URLs',
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: true,
+        },
+        inputSchema: {
+            type: 'object',
+            properties: {
+                urls: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Array of URLs to fetch',
+                },
+                concurrency: {
+                    type: 'number',
+                    description: 'Max concurrent fetches (default: 3)',
+                    default: 3,
+                    minimum: 1,
+                    maximum: 10,
+                },
+                render: {
+                    type: 'boolean',
+                    description: 'Force browser rendering for all URLs',
+                    default: false,
+                },
+                format: {
+                    type: 'string',
+                    enum: ['markdown', 'text', 'html'],
+                    description: 'Output format for all URLs',
+                    default: 'markdown',
+                },
+                selector: {
+                    type: 'string',
+                    description: 'CSS selector to extract specific content',
+                },
+            },
+            required: ['urls'],
+        },
+    },
 ];
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools,
@@ -140,7 +211,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
         if (name === 'webpeel_fetch') {
-            const { url, render, wait, format } = args;
+            const { url, render, wait, format, screenshot, screenshotFullPage, selector, exclude, headers } = args;
             // SECURITY: Validate input parameters
             if (!url || typeof url !== 'string') {
                 throw new Error('Invalid URL parameter');
@@ -156,10 +227,24 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (format !== undefined && !['markdown', 'text', 'html'].includes(format)) {
                 throw new Error('Invalid format parameter: must be "markdown", "text", or "html"');
             }
+            if (selector !== undefined && typeof selector !== 'string') {
+                throw new Error('Invalid selector parameter: must be a string');
+            }
+            if (exclude !== undefined && !Array.isArray(exclude)) {
+                throw new Error('Invalid exclude parameter: must be an array');
+            }
+            if (headers !== undefined && typeof headers !== 'object') {
+                throw new Error('Invalid headers parameter: must be an object');
+            }
             const options = {
                 render: render || false,
                 wait: wait || 0,
                 format: format || 'markdown',
+                screenshot: screenshot || false,
+                screenshotFullPage: screenshotFullPage || false,
+                selector,
+                exclude,
+                headers,
             };
             // SECURITY: Wrap in timeout (60 seconds max)
             const timeoutPromise = new Promise((_, reject) => {
@@ -221,6 +306,65 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 resultText = JSON.stringify({
                     error: 'serialization_error',
                     message: 'Failed to serialize results',
+                });
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: resultText,
+                    },
+                ],
+            };
+        }
+        if (name === 'webpeel_batch') {
+            const { urls, concurrency, render, format, selector } = args;
+            // SECURITY: Validate input parameters
+            if (!urls || !Array.isArray(urls)) {
+                throw new Error('Invalid urls parameter: must be an array');
+            }
+            if (urls.length === 0) {
+                throw new Error('URLs array cannot be empty');
+            }
+            if (urls.length > 50) {
+                throw new Error('Too many URLs (max 50)');
+            }
+            for (const url of urls) {
+                if (!url || typeof url !== 'string') {
+                    throw new Error('Invalid URL in array');
+                }
+                if (url.length > 2048) {
+                    throw new Error('URL too long (max 2048 characters)');
+                }
+            }
+            if (concurrency !== undefined) {
+                if (typeof concurrency !== 'number' || isNaN(concurrency) || concurrency < 1 || concurrency > 10) {
+                    throw new Error('Invalid concurrency parameter: must be between 1 and 10');
+                }
+            }
+            const options = {
+                concurrency: concurrency || 3,
+                render: render || false,
+                format: format || 'markdown',
+                selector,
+            };
+            // SECURITY: Wrap in timeout (5 minutes max for batch)
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Batch operation timed out after 5 minutes')), 300000);
+            });
+            const results = await Promise.race([
+                peelBatch(urls, options),
+                timeoutPromise,
+            ]);
+            // SECURITY: Handle JSON serialization errors
+            let resultText;
+            try {
+                resultText = JSON.stringify(results, null, 2);
+            }
+            catch (jsonError) {
+                resultText = JSON.stringify({
+                    error: 'serialization_error',
+                    message: 'Failed to serialize batch results',
                 });
             }
             return {

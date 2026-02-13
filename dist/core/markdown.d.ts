@@ -2,6 +2,11 @@
  * HTML to Markdown conversion with smart cleanup
  */
 /**
+ * Extract content matching a CSS selector
+ * Returns filtered HTML or full HTML if selector matches nothing
+ */
+export declare function selectContent(html: string, selector: string, exclude?: string[]): string;
+/**
  * Convert HTML to clean, readable Markdown
  */
 export declare function htmlToMarkdown(html: string): string;

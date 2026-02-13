@@ -24,6 +24,27 @@ export * from './types.js';
  */
 export declare function peel(url: string, options?: PeelOptions): Promise<PeelResult>;
 /**
+ * Fetch multiple URLs in batch with concurrency control
+ *
+ * @param urls - Array of URLs to fetch
+ * @param options - Fetch options (including concurrency)
+ * @returns Array of results or errors
+ *
+ * @example
+ * ```typescript
+ * import { peelBatch } from 'webpeel';
+ *
+ * const urls = ['https://example.com', 'https://example.org'];
+ * const results = await peelBatch(urls, { concurrency: 3 });
+ * ```
+ */
+export declare function peelBatch(urls: string[], options?: PeelOptions & {
+    concurrency?: number;
+}): Promise<(PeelResult | {
+    url: string;
+    error: string;
+})[]>;
+/**
  * Clean up any browser resources
  * Call this when you're done using WebPeel
  */

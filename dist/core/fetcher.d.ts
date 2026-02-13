@@ -5,13 +5,15 @@ export interface FetchResult {
     html: string;
     url: string;
     statusCode?: number;
+    screenshot?: Buffer;
+    contentType?: string;
 }
 /**
  * Simple HTTP fetch using native fetch + Cheerio
  * Fast and lightweight, but can be blocked by Cloudflare/bot detection
  * SECURITY: Manual redirect handling with SSRF re-validation
  */
-export declare function simpleFetch(url: string, userAgent?: string, timeoutMs?: number): Promise<FetchResult>;
+export declare function simpleFetch(url: string, userAgent?: string, timeoutMs?: number, customHeaders?: Record<string, string>): Promise<FetchResult>;
 /**
  * Fetch using headless Chromium via Playwright
  * Slower but can handle JavaScript-heavy sites and bypass some bot detection
@@ -20,6 +22,10 @@ export declare function browserFetch(url: string, options?: {
     userAgent?: string;
     waitMs?: number;
     timeoutMs?: number;
+    screenshot?: boolean;
+    screenshotFullPage?: boolean;
+    headers?: Record<string, string>;
+    cookies?: string[];
 }): Promise<FetchResult>;
 /**
  * Retry a fetch operation with exponential backoff

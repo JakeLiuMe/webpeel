@@ -11,6 +11,14 @@ export interface StrategyOptions {
     userAgent?: string;
     /** Request timeout (ms) */
     timeoutMs?: number;
+    /** Capture a screenshot of the page */
+    screenshot?: boolean;
+    /** Full-page screenshot (default: viewport only) */
+    screenshotFullPage?: boolean;
+    /** Custom HTTP headers to send */
+    headers?: Record<string, string>;
+    /** Cookies to set (key=value pairs) */
+    cookies?: string[];
 }
 export interface StrategyResult extends FetchResult {
     /** Which strategy succeeded: 'simple' | 'browser' */

@@ -14,11 +14,13 @@ import { BlockedError, NetworkError } from '../types.js';
  * Returns the result along with which method worked
  */
 export async function smartFetch(url, options = {}) {
-    const { forceBrowser = false, waitMs = 0, userAgent, timeoutMs = 30000 } = options;
-    // Strategy 1: Simple fetch (unless browser is forced)
-    if (!forceBrowser) {
+    const { forceBrowser = false, waitMs = 0, userAgent, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies } = options;
+    // If screenshot is requested, force browser mode
+    const shouldUseBrowser = forceBrowser || screenshot;
+    // Strategy 1: Simple fetch (unless browser is forced or screenshot is requested)
+    if (!shouldUseBrowser) {
         try {
-            const result = await retryFetch(() => simpleFetch(url, userAgent, timeoutMs), 3);
+            const result = await retryFetch(() => simpleFetch(url, userAgent, timeoutMs, headers), 3);
             return {
                 ...result,
                 method: 'simple',
@@ -41,6 +43,10 @@ export async function smartFetch(url, options = {}) {
             userAgent,
             waitMs,
             timeoutMs,
+            screenshot,
+            screenshotFullPage,
+            headers,
+            cookies,
         });
         return {
             ...result,
@@ -55,6 +61,10 @@ export async function smartFetch(url, options = {}) {
                 userAgent,
                 waitMs: 5000, // Wait 5s for Cloudflare challenge
                 timeoutMs,
+                screenshot,
+                screenshotFullPage,
+                headers,
+                cookies,
             });
             return {
                 ...result,

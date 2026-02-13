@@ -13,6 +13,18 @@ export interface PeelOptions {
   timeout?: number;
   /** Custom user agent */
   userAgent?: string;
+  /** Capture a screenshot of the page */
+  screenshot?: boolean;
+  /** Full-page screenshot (default: viewport only) */
+  screenshotFullPage?: boolean;
+  /** CSS selector to extract specific content (e.g., "article", ".main-content", "#post") */
+  selector?: string;
+  /** CSS selectors to exclude from content (e.g., [".sidebar", ".ads"]) */
+  exclude?: string[];
+  /** Custom HTTP headers to send */
+  headers?: Record<string, string>;
+  /** Cookies to set (key=value pairs) */
+  cookies?: string[];
 }
 
 export interface PeelResult {
@@ -32,6 +44,8 @@ export interface PeelResult {
   method: 'simple' | 'browser';
   /** Time elapsed in milliseconds */
   elapsed: number;
+  /** Base64-encoded screenshot (PNG), only if screenshot option was set */
+  screenshot?: string;
 }
 
 export interface PageMetadata {

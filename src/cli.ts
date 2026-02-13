@@ -16,7 +16,8 @@
 
 import { Command } from 'commander';
 import ora from 'ora';
-import { peel, cleanup } from './index.js';
+import { writeFileSync } from 'fs';
+import { peel, peelBatch, cleanup } from './index.js';
 import type { PeelOptions } from './types.js';
 
 const program = new Command();
@@ -24,7 +25,8 @@ const program = new Command();
 program
   .name('webpeel')
   .description('Fast web fetcher for AI agents')
-  .version('0.1.2');
+  .version('0.2.0')
+  .enablePositionalOptions();
 
 program
   .argument('[url]', 'URL to fetch')
@@ -36,6 +38,12 @@ program
   .option('-t, --timeout <ms>', 'Request timeout (ms)', parseInt, 30000)
   .option('--ua <agent>', 'Custom user agent')
   .option('-s, --silent', 'Silent mode (no spinner)')
+  .option('--screenshot [path]', 'Take a screenshot (optionally save to file path)')
+  .option('--full-page', 'Full-page screenshot (use with --screenshot)')
+  .option('--selector <css>', 'CSS selector to extract (e.g., "article", ".content")')
+  .option('--exclude <selectors...>', 'CSS selectors to exclude (e.g., ".sidebar" ".ads")')
+  .option('-H, --header <header...>', 'Custom headers (e.g., "Authorization: Bearer token")')
+  .option('--cookie <cookie...>', 'Cookies to set (e.g., "session=abc123")')
   .action(async (url: string | undefined, options) => {
     if (!url) {
       console.error('Error: URL is required\n');
@@ -76,12 +84,35 @@ program
         process.exit(1);
       }
 
+      // Parse custom headers
+      let headers: Record<string, string> | undefined;
+      if (options.header && options.header.length > 0) {
+        headers = {};
+        for (const header of options.header) {
+          const colonIndex = header.indexOf(':');
+          if (colonIndex === -1) {
+            console.error(`Error: Invalid header format: ${header}`);
+            console.error('Expected format: "Key: Value"');
+            process.exit(1);
+          }
+          const key = header.slice(0, colonIndex).trim();
+          const value = header.slice(colonIndex + 1).trim();
+          headers[key] = value;
+        }
+      }
+
       // Build peel options
       const peelOptions: PeelOptions = {
         render: options.render || false,
         wait: options.wait || 0,
         timeout: options.timeout,
         userAgent: options.ua,
+        screenshot: options.screenshot !== undefined,
+        screenshotFullPage: options.fullPage || false,
+        selector: options.selector,
+        exclude: options.exclude,
+        headers,
+        cookies: options.cookie,
       };
 
       // Determine format
@@ -100,11 +131,41 @@ program
         spinner.succeed(`Fetched in ${result.elapsed}ms using ${result.method} method`);
       }
 
-      // Output results
+      // Handle screenshot saving
+      if (options.screenshot && result.screenshot) {
+        const screenshotPath = typeof options.screenshot === 'string' 
+          ? options.screenshot 
+          : 'screenshot.png';
+        
+        const screenshotBuffer = Buffer.from(result.screenshot, 'base64');
+        writeFileSync(screenshotPath, screenshotBuffer);
+        
+        if (!options.silent) {
+          console.error(`Screenshot saved to: ${screenshotPath}`);
+        }
+
+        // Remove screenshot from JSON output if saving to file
+        if (typeof options.screenshot === 'string') {
+          delete result.screenshot;
+        }
+      }
+
+      // Output results with proper stdout flushing
       if (options.json) {
-        console.log(JSON.stringify(result, null, 2));
+        const jsonStr = JSON.stringify(result, null, 2);
+        await new Promise<void>((resolve, reject) => {
+          process.stdout.write(jsonStr + '\n', (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
       } else {
-        console.log(result.content);
+        await new Promise<void>((resolve, reject) => {
+          process.stdout.write(result.content + '\n', (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
       }
 
       // Clean up and exit
@@ -126,15 +187,229 @@ program
     }
   });
 
-// Future commands
+// Search command
 program
-  .command('search')
-  .argument('<query>', 'Search query')
-  .description('Search using DuckDuckGo (future)')
-  .action(() => {
-    console.log('Search command not yet implemented');
-    console.log('Coming soon: DuckDuckGo search integration');
-    process.exit(1);
+  .command('search <query>')
+  .description('Search using DuckDuckGo')
+  .option('-n, --count <n>', 'Number of results (1-10)', '5')
+  .option('--json', 'Output as JSON')
+  .option('-s, --silent', 'Silent mode')
+  .action(async (query: string, options) => {
+    const isJson = options.json;
+    const isSilent = options.silent;
+    const count = parseInt(options.count) || 5;
+    
+    const spinner = isSilent ? null : ora('Searching...').start();
+
+    try {
+      // Import the search function dynamically
+      const { fetch: undiciFetch } = await import('undici');
+      const { load } = await import('cheerio');
+
+      const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+      
+      const response = await undiciFetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search failed: HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+      const $ = load(html);
+
+      const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+      $('.result').each((_i, elem) => {
+        if (results.length >= count) return;
+
+        const $result = $(elem);
+        const title = $result.find('.result__title').text().trim();
+        const rawUrl = $result.find('.result__a').attr('href') || '';
+        const snippet = $result.find('.result__snippet').text().trim();
+
+        if (!title || !rawUrl) return;
+        
+        // Extract actual URL from DuckDuckGo redirect
+        let url = rawUrl;
+        try {
+          const ddgUrl = new URL(rawUrl, 'https://duckduckgo.com');
+          const uddg = ddgUrl.searchParams.get('uddg');
+          if (uddg) {
+            url = decodeURIComponent(uddg);
+          }
+        } catch {
+          // Use raw URL if parsing fails
+        }
+
+        // Validate final URL
+        try {
+          const parsed = new URL(url);
+          if (!['http:', 'https:'].includes(parsed.protocol)) {
+            return;
+          }
+          url = parsed.href;
+        } catch {
+          return;
+        }
+
+        results.push({ 
+          title: title.slice(0, 200), 
+          url, 
+          snippet: snippet.slice(0, 500) 
+        });
+      });
+
+      if (spinner) {
+        spinner.succeed(`Found ${results.length} results`);
+      }
+
+      if (isJson) {
+        const jsonStr = JSON.stringify(results, null, 2);
+        await new Promise<void>((resolve, reject) => {
+          process.stdout.write(jsonStr + '\n', (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      } else {
+        for (const result of results) {
+          console.log(`\n${result.title}`);
+          console.log(result.url);
+          console.log(result.snippet);
+        }
+      }
+
+      process.exit(0);
+    } catch (error) {
+      if (spinner) {
+        spinner.fail('Search failed');
+      }
+
+      if (error instanceof Error) {
+        console.error(`\nError: ${error.message}`);
+      } else {
+        console.error('\nError: Unknown error occurred');
+      }
+
+      process.exit(1);
+    }
+  });
+
+// Batch command
+program
+  .command('batch <file>')
+  .description('Fetch multiple URLs')
+  .option('-c, --concurrency <n>', 'Max concurrent fetches (default: 3)', '3')
+  .option('-o, --output <dir>', 'Output directory (one file per URL)')
+  .option('--json', 'Output as JSON array')
+  .option('-s, --silent', 'Silent mode')
+  .option('-r, --render', 'Use headless browser')
+  .option('--selector <css>', 'CSS selector to extract')
+  .action(async (file: string, options) => {
+    const isJson = options.json;
+    const isSilent = options.silent;
+    const shouldRender = options.render;
+    const selector = options.selector;
+    
+    const spinner = isSilent ? null : ora('Loading URLs...').start();
+
+    try {
+      const { readFileSync } = await import('fs');
+
+      // Read URLs from file
+      let urls: string[];
+      try {
+        const content = readFileSync(file, 'utf-8');
+        urls = content.split('\n')
+          .map(line => line.trim())
+          .filter(line => line && !line.startsWith('#'));
+      } catch (error) {
+        throw new Error(`Failed to read file: ${file}`);
+      }
+
+      if (urls.length === 0) {
+        throw new Error('No URLs found in file');
+      }
+
+      if (spinner) {
+        spinner.text = `Fetching ${urls.length} URLs (concurrency: ${options.concurrency})...`;
+      }
+
+      // Batch fetch
+      const results = await peelBatch(urls, {
+        concurrency: parseInt(options.concurrency) || 3,
+        render: shouldRender,
+        selector: selector,
+      });
+
+      if (spinner) {
+        const successCount = results.filter(r => 'content' in r).length;
+        spinner.succeed(`Completed: ${successCount}/${urls.length} successful`);
+      }
+
+      // Output results
+      if (isJson) {
+        const jsonStr = JSON.stringify(results, null, 2);
+        await new Promise<void>((resolve, reject) => {
+          process.stdout.write(jsonStr + '\n', (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      } else if (options.output) {
+        const { writeFileSync, mkdirSync } = await import('fs');
+        const { join } = await import('path');
+        
+        // Create output directory
+        mkdirSync(options.output, { recursive: true });
+
+        results.forEach((result, i) => {
+          const urlObj = new URL(urls[i]);
+          const filename = `${i + 1}_${urlObj.hostname.replace(/[^a-z0-9]/gi, '_')}.md`;
+          const filepath = join(options.output, filename);
+
+          if ('content' in result) {
+            writeFileSync(filepath, result.content);
+          } else {
+            writeFileSync(filepath, `Error: ${result.error}`);
+          }
+        });
+
+        if (!isSilent) {
+          console.log(`\nResults saved to: ${options.output}`);
+        }
+      } else {
+        // Print results to stdout
+        results.forEach((result, i) => {
+          console.log(`\n=== ${urls[i]} ===\n`);
+          if ('content' in result) {
+            console.log(result.content.slice(0, 500) + '...');
+          } else {
+            console.log(`Error: ${result.error}`);
+          }
+        });
+      }
+
+      await cleanup();
+      process.exit(0);
+    } catch (error) {
+      if (spinner) {
+        spinner.fail('Batch fetch failed');
+      }
+
+      if (error instanceof Error) {
+        console.error(`\nError: ${error.message}`);
+      } else {
+        console.error('\nError: Unknown error occurred');
+      }
+
+      await cleanup();
+      process.exit(1);
+    }
   });
 
 program

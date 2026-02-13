@@ -31,6 +31,29 @@ const JUNK_SELECTORS = [
 ];
 
 /**
+ * Extract content matching a CSS selector
+ * Returns filtered HTML or full HTML if selector matches nothing
+ */
+export function selectContent(html: string, selector: string, exclude?: string[]): string {
+  const $ = cheerio.load(html);
+  
+  // Apply excludes first
+  if (exclude?.length) {
+    exclude.forEach(sel => $(sel).remove());
+  }
+  
+  // Select matching elements
+  const selected = $(selector);
+  if (selected.length === 0) {
+    // Fallback to full page if selector matches nothing
+    return html;
+  }
+  
+  // Return the HTML of all matched elements
+  return selected.map((_, el) => $.html(el)).get().join('\n');
+}
+
+/**
  * Clean HTML before conversion
  * Remove navigation, ads, cookie banners, and other junk
  */

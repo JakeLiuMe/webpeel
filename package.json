@@ -1,6 +1,6 @@
 {
   "name": "webpeel",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Fast web fetcher for AI agents - smart escalation from simple HTTP to headless browser",
   "author": "Jake Liu",
   "license": "MIT",
@@ -93,6 +93,7 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.18.0",
     "stripe": "^20.3.1"
   },

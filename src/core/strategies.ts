@@ -14,6 +14,14 @@ export interface StrategyOptions {
   userAgent?: string;
   /** Request timeout (ms) */
   timeoutMs?: number;
+  /** Capture a screenshot of the page */
+  screenshot?: boolean;
+  /** Full-page screenshot (default: viewport only) */
+  screenshotFullPage?: boolean;
+  /** Custom HTTP headers to send */
+  headers?: Record<string, string>;
+  /** Cookies to set (key=value pairs) */
+  cookies?: string[];
 }
 
 export interface StrategyResult extends FetchResult {
@@ -32,13 +40,25 @@ export interface StrategyResult extends FetchResult {
  * Returns the result along with which method worked
  */
 export async function smartFetch(url: string, options: StrategyOptions = {}): Promise<StrategyResult> {
-  const { forceBrowser = false, waitMs = 0, userAgent, timeoutMs = 30000 } = options;
+  const { 
+    forceBrowser = false, 
+    waitMs = 0, 
+    userAgent, 
+    timeoutMs = 30000,
+    screenshot = false,
+    screenshotFullPage = false,
+    headers,
+    cookies
+  } = options;
 
-  // Strategy 1: Simple fetch (unless browser is forced)
-  if (!forceBrowser) {
+  // If screenshot is requested, force browser mode
+  const shouldUseBrowser = forceBrowser || screenshot;
+
+  // Strategy 1: Simple fetch (unless browser is forced or screenshot is requested)
+  if (!shouldUseBrowser) {
     try {
       const result = await retryFetch(
-        () => simpleFetch(url, userAgent, timeoutMs),
+        () => simpleFetch(url, userAgent, timeoutMs, headers),
         3
       );
       return {
@@ -62,6 +82,10 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
       userAgent,
       waitMs,
       timeoutMs,
+      screenshot,
+      screenshotFullPage,
+      headers,
+      cookies,
     });
     return {
       ...result,
@@ -77,6 +101,10 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
         userAgent,
         waitMs: 5000, // Wait 5s for Cloudflare challenge
         timeoutMs,
+        screenshot,
+        screenshotFullPage,
+        headers,
+        cookies,
       });
       return {
         ...result,

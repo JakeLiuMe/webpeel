@@ -224,11 +224,31 @@ function validateUserAgent(userAgent) {
  * Fast and lightweight, but can be blocked by Cloudflare/bot detection
  * SECURITY: Manual redirect handling with SSRF re-validation
  */
-export async function simpleFetch(url, userAgent, timeoutMs = 30000) {
+export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeaders) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
     // Validate user agent if provided
     const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
+    // SECURITY: Merge custom headers with defaults, block Host header override
+    const defaultHeaders = {
+        'User-Agent': validatedUserAgent,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    };
+    const mergedHeaders = { ...defaultHeaders };
+    if (customHeaders) {
+        for (const [key, value] of Object.entries(customHeaders)) {
+            // SECURITY: Block Host header override
+            if (key.toLowerCase() === 'host') {
+                throw new WebPeelError('Custom Host header is not allowed');
+            }
+            mergedHeaders[key] = value;
+        }
+    }
     const MAX_REDIRECTS = 10;
     let redirectCount = 0;
     let currentUrl = url;
@@ -245,15 +265,7 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000) {
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
             const response = await fetch(currentUrl, {
-                headers: {
-                    'User-Agent': validatedUserAgent,
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'DNT': '1',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1',
-                },
+                headers: mergedHeaders,
                 signal: controller.signal,
                 redirect: 'manual', // SECURITY: Manual redirect handling
             });
@@ -277,8 +289,10 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000) {
             }
             // SECURITY: Validate Content-Type
             const contentType = response.headers.get('content-type') || '';
-            if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
-                throw new WebPeelError('Unsupported content type. Only HTML is supported.');
+            if (!contentType.includes('text/html') &&
+                !contentType.includes('application/xhtml+xml') &&
+                !contentType.includes('application/pdf')) {
+                throw new WebPeelError(`Unsupported content type: ${contentType}. Supported: HTML, PDF`);
             }
             // SECURITY: Stream response with size limit (prevent memory exhaustion)
             const chunks = [];
@@ -323,6 +337,7 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000) {
                 html,
                 url: currentUrl,
                 statusCode: response.status,
+                contentType,
             };
         }
         catch (error) {
@@ -364,12 +379,24 @@ async function getBrowser() {
 export async function browserFetch(url, options = {}) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
-    const { userAgent, waitMs = 0, timeoutMs = 30000 } = options;
+    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies } = options;
     // Validate user agent if provided
     const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
     // Validate wait time
     if (waitMs < 0 || waitMs > 60000) {
         throw new WebPeelError('Wait time must be between 0 and 60000ms');
+    }
+    // SECURITY: Validate custom headers if provided
+    if (headers) {
+        for (const [key, value] of Object.entries(headers)) {
+            // Block Host header override
+            if (key.toLowerCase() === 'host') {
+                throw new WebPeelError('Custom Host header is not allowed');
+            }
+            if (typeof value !== 'string' || value.length > 500) {
+                throw new WebPeelError('Invalid header value');
+            }
+        }
     }
     // SECURITY: Limit concurrent browser pages with timeout
     const queueStartTime = Date.now();
@@ -387,16 +414,42 @@ export async function browserFetch(url, options = {}) {
         page = await browser.newPage({
             userAgent: validatedUserAgent,
         });
-        // Block images, fonts, and other heavy resources for speed
-        await page.route('**/*', (route) => {
-            const resourceType = route.request().resourceType();
-            if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
-                route.abort();
-            }
-            else {
-                route.continue();
-            }
-        });
+        // Set custom headers if provided
+        if (headers && Object.keys(headers).length > 0) {
+            await page.setExtraHTTPHeaders(headers);
+        }
+        // Set cookies if provided
+        if (cookies && cookies.length > 0) {
+            const parsedCookies = cookies.map(cookie => {
+                const [nameValue] = cookie.split(';').map(s => s.trim());
+                const [name, value] = nameValue.split('=');
+                if (!name || value === undefined) {
+                    throw new WebPeelError(`Invalid cookie format: ${cookie}`);
+                }
+                return {
+                    name: name.trim(),
+                    value: value.trim(),
+                    url,
+                };
+            });
+            await page.context().addCookies(parsedCookies);
+        }
+        // Block images, fonts, and other heavy resources for speed (unless screenshot is requested)
+        if (!screenshot) {
+            await page.route('**/*', (route) => {
+                const resourceType = route.request().resourceType();
+                if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
+                    route.abort();
+                }
+                else {
+                    route.continue();
+                }
+            });
+        }
+        else {
+            // For screenshots, allow all resources
+            await page.route('**/*', (route) => route.continue());
+        }
         // SECURITY: Wrap entire operation in timeout
         const fetchPromise = (async () => {
             await page.goto(url, {
@@ -422,9 +475,18 @@ export async function browserFetch(url, options = {}) {
         if (!html || html.length < 100) {
             throw new BlockedError('Empty or suspiciously small response from browser.');
         }
+        // Capture screenshot if requested
+        let screenshotBuffer;
+        if (screenshot) {
+            screenshotBuffer = await page.screenshot({
+                fullPage: screenshotFullPage,
+                type: 'png'
+            });
+        }
         return {
             html,
             url: finalUrl,
+            screenshot: screenshotBuffer,
         };
     }
     catch (error) {
