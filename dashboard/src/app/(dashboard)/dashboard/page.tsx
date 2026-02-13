@@ -82,17 +82,17 @@ export default function DashboardPage() {
 
   // Code examples for different languages
   const codeExamples = {
-    curl: `curl "https://webpeel-api.onrender.com/v1/fetch?url=https://example.com" \\
+    curl: `curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \\
   -H "Authorization: Bearer ${apiKey}"`,
     node: `const response = await fetch(
-  'https://webpeel-api.onrender.com/v1/fetch?url=https://example.com',
+  'https://api.webpeel.dev/v1/fetch?url=https://example.com',
   { headers: { 'Authorization': 'Bearer ${apiKey}' } }
 );
 const data = await response.json();`,
     python: `import requests
 
 response = requests.get(
-    'https://webpeel-api.onrender.com/v1/fetch',
+    'https://api.webpeel.dev/v1/fetch',
     params={'url': 'https://example.com'},
     headers={'Authorization': f'Bearer ${apiKey}'}
 )

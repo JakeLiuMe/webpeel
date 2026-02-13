@@ -320,16 +320,16 @@ await cleanup();  // Close browser instances
 
 ## Hosted API
 
-Live at `https://webpeel-api.onrender.com` — authentication required after first 25 fetches.
+Live at `https://api.webpeel.dev` — authentication required after first 25 fetches.
 
 ```bash
 # Register and get your API key
-curl -X POST https://webpeel-api.onrender.com/v1/auth/register \
+curl -X POST https://api.webpeel.dev/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"you@example.com","password":"your-password"}'
 
 # Fetch a page
-curl "https://webpeel-api.onrender.com/v1/fetch?url=https://example.com" \
+curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
   -H "Authorization: Bearer wp_live_your_api_key"
 ```
 
@@ -514,7 +514,7 @@ A: WebPeel is a tool — how you use it is up to you. Always check a site's ToS 
 A: WebPeel handles most Cloudflare challenges automatically via stealth mode. AI-powered CAPTCHA solving is on our roadmap.
 
 **Q: Can I use this in production?**  
-A: Yes! The hosted API at `https://webpeel-api.onrender.com` is production-ready with authentication, rate limiting, and usage tracking.
+A: Yes! The hosted API at `https://api.webpeel.dev` is production-ready with authentication, rate limiting, and usage tracking.
 
 ---
 
