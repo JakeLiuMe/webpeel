@@ -62,15 +62,16 @@ export function createFetchRouter(authStore) {
             }
             // Parse options
             const isSoftLimited = req.auth?.softLimited === true;
+            const hasExtraUsage = req.auth?.extraUsageAvailable === true;
             const options = {
-                // SOFT LIMIT: When over quota, force HTTP-only (no browser rendering)
-                // Users can still fetch — they just don't get JS rendering
-                render: isSoftLimited ? false : render === 'true',
-                wait: isSoftLimited ? 0 : (wait ? parseInt(wait, 10) : undefined),
+                // SOFT LIMIT: When over quota AND no extra usage, force HTTP-only
+                // If extra usage is available, allow full functionality
+                render: (isSoftLimited && !hasExtraUsage) ? false : render === 'true',
+                wait: (isSoftLimited && !hasExtraUsage) ? 0 : (wait ? parseInt(wait, 10) : undefined),
                 format: format || 'markdown',
             };
             // Inform the user if their request was degraded
-            if (isSoftLimited && render === 'true') {
+            if (isSoftLimited && !hasExtraUsage && render === 'true') {
                 res.setHeader('X-Degraded', 'render=true downgraded to HTTP-only (quota exceeded)');
             }
             // Validate wait parameter
@@ -93,9 +94,32 @@ export function createFetchRouter(authStore) {
             const startTime = Date.now();
             const result = await peel(url, options);
             const elapsed = Date.now() - startTime;
-            // Track usage (1 credit per fetch)
-            if (req.auth?.keyInfo?.key) {
-                await authStore.trackUsage(req.auth.keyInfo.key, 1);
+            // Determine fetch type based on request parameters
+            // TODO: This is a simplified version - enhance based on actual peel() behavior
+            const fetchType = options.render ? 'stealth' : 'basic';
+            // Track usage (check for trackBurstUsage method to detect PostgresAuthStore)
+            const pgStore = authStore;
+            if (req.auth?.keyInfo?.key && typeof pgStore.trackBurstUsage === 'function') {
+                // Track burst usage (always)
+                await pgStore.trackBurstUsage(req.auth.keyInfo.key);
+                // If soft-limited with extra usage available, charge to extra usage
+                if (isSoftLimited && hasExtraUsage) {
+                    const extraResult = await pgStore.trackExtraUsage(req.auth.keyInfo.key, fetchType, url, elapsed, 200 // PeelResult doesn't include statusCode, assume success
+                    );
+                    if (extraResult.success) {
+                        res.setHeader('X-Extra-Usage-Charged', `$${extraResult.cost.toFixed(4)}`);
+                        res.setHeader('X-Extra-Usage-New-Balance', extraResult.newBalance.toFixed(2));
+                    }
+                    else {
+                        // Extra usage failed - fall back to soft limit
+                        res.setHeader('X-Degraded', 'Extra usage insufficient, degraded to soft limit');
+                    }
+                }
+                else if (!isSoftLimited) {
+                    // Normal weekly usage tracking
+                    await pgStore.trackUsage(req.auth.keyInfo.key, fetchType);
+                }
+                // If soft-limited WITHOUT extra usage, don't track (already over quota)
             }
             // Cache result
             cache.set(cacheKey, {
@@ -106,6 +130,7 @@ export function createFetchRouter(authStore) {
             res.setHeader('X-Cache', 'MISS');
             res.setHeader('X-Credits-Used', '1');
             res.setHeader('X-Processing-Time', elapsed.toString());
+            res.setHeader('X-Fetch-Type', fetchType);
             res.json(result);
         }
         catch (error) {

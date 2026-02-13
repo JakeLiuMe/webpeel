@@ -69,7 +69,9 @@ export class InMemoryAuthStore {
         // Constant-time operation for invalid key
         return null;
     }
-    async trackUsage(key, credits) {
+    async trackUsage(key, creditsOrType) {
+        // For in-memory store, just count everything as 1 credit
+        const credits = typeof creditsOrType === 'number' ? creditsOrType : 1;
         const current = this.usage.get(key) || 0;
         this.usage.set(key, current + credits);
     }

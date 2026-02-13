@@ -1,9 +1,9 @@
 /**
  * API key authentication middleware with SOFT LIMIT enforcement
  *
- * Philosophy: Never fully block users. When limits are exceeded,
+ * Philosophy: Never fully block users. When weekly limits are exceeded,
  * degrade to HTTP-only mode instead of returning 429.
- * This applies to ALL tiers including free.
+ * BURST limits (hourly) are HARD limits and return 429.
  */
 import { Request, Response, NextFunction } from 'express';
 import { AuthStore, ApiKeyInfo } from '../auth-store.js';
@@ -15,6 +15,7 @@ declare global {
                 tier: 'free' | 'starter' | 'pro' | 'enterprise' | 'max';
                 rateLimit: number;
                 softLimited: boolean;
+                extraUsageAvailable: boolean;
             };
         }
     }

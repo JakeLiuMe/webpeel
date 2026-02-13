@@ -417,6 +417,8 @@
     .plan-features { list-style:none; margin-bottom:24px; position:relative; z-index:1; }
     .plan-features li { padding:6px 0; font-size:13px; color:var(--text-2); display:flex; align-items:center; gap:10px; }
     .plan-features li::before { content:"✓"; color:var(--accent-l); font-weight:700; font-size:12px; flex-shrink:0; }
+    .plan-features .cross { opacity:0.5; }
+    .plan-features .cross::before { content:"✗"; color:var(--text-4); }
     .plan-cta {
       display:block; width:100%; padding:12px; text-align:center;
       background:var(--card-hover); color:var(--text); border:1px solid var(--border);
@@ -429,8 +431,103 @@
     .plan-cta.primary:hover { background:var(--accent-h); box-shadow:0 0 24px rgba(139,92,246,0.25); transform:translateY(-2px); }
     .annual-link { display:block; margin-top:8px; font-size:12px; color:var(--accent-l); text-decoration:none; text-align:center; opacity:0.7; transition:opacity 0.2s; position:relative; z-index:1; }
     .annual-link:hover { opacity:1; }
-    .pricing-note { text-align:center; margin-top:40px; color:var(--text-3); font-size:14px; line-height:1.7; max-width:560px; margin-left:auto; margin-right:auto; }
+    .pricing-note { text-align:center; margin-top:40px; color:var(--text-3); font-size:14px; line-height:1.7; max-width:620px; margin-left:auto; margin-right:auto; }
     .pricing-note strong { color:var(--accent-l); font-weight:600; }
+
+    /* ═══ USAGE DASHBOARD MOCKUP ═══ */
+    .usage-dashboard {
+      max-width:500px; margin:64px auto 12px;
+      background:#FAFAF9; border:1px solid rgba(0,0,0,0.06);
+      border-radius:20px; padding:32px 28px; color:#1A1A1A;
+      transform:rotate(-2deg);
+      box-shadow:0 24px 80px rgba(0,0,0,0.15),0 8px 24px rgba(0,0,0,0.08);
+      position:relative; font-family:'Inter',-apple-system,sans-serif;
+    }
+    .usage-dashboard h3 {
+      font-size:15px; font-weight:600; margin-bottom:20px; color:#1A1A1A;
+    }
+    .usage-section {
+      padding:20px 0; border-top:1px solid rgba(0,0,0,0.08);
+    }
+    .usage-section:first-child { padding-top:0; border-top:none; }
+    .usage-item { margin-bottom:18px; }
+    .usage-item:last-child { margin-bottom:0; }
+    .usage-label {
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:13px; margin-bottom:6px; color:#52525B;
+    }
+    .usage-label strong { color:#1A1A1A; font-weight:500; }
+    .usage-pct { font-weight:600; color:#1A1A1A; font-size:13px; }
+    .usage-bar {
+      width:100%; height:8px; background:rgba(0,0,0,0.06); border-radius:4px;
+      overflow:hidden; position:relative;
+    }
+    .usage-bar-fill {
+      height:100%; background:#3B82F6; border-radius:4px;
+      transition:width 1.2s cubic-bezier(0.16,1,0.3,1);
+    }
+    .reveal.vis .usage-bar-fill { width:var(--w); }
+    .usage-reset {
+      font-size:11px; color:#71717A; margin-top:4px;
+    }
+    .usage-toggle-row {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:12px;
+    }
+    .usage-toggle-row strong { font-size:13px; font-weight:500; color:#1A1A1A; }
+    .usage-toggle {
+      position:relative; width:44px; height:24px; background:#3B82F6;
+      border-radius:12px; cursor:pointer; flex-shrink:0;
+    }
+    .usage-toggle::after {
+      content:''; position:absolute; top:2px; right:2px; width:20px; height:20px;
+      background:#fff; border-radius:50%; transition:transform 0.2s;
+    }
+    .usage-note {
+      font-size:12px; color:#71717A; line-height:1.5; margin-bottom:16px;
+    }
+    .usage-note a { color:#3B82F6; text-decoration:none; }
+    .usage-note a:hover { text-decoration:underline; }
+    .usage-meta {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:4px;
+    }
+    .usage-meta strong { font-size:18px; font-weight:600; color:#1A1A1A; }
+    .usage-btn {
+      background:transparent; border:1px solid rgba(0,0,0,0.15);
+      padding:5px 12px; border-radius:6px; font-size:12px; font-weight:500;
+      color:#52525B; cursor:pointer; font-family:inherit;
+      transition:all 0.2s;
+    }
+    .usage-btn:hover { border-color:rgba(0,0,0,0.25); color:#1A1A1A; }
+    .usage-caption {
+      text-align:center; color:var(--text-3); font-size:13px;
+      font-style:italic; margin-top:16px;
+    }
+    .usage-updated {
+      font-size:11px; color:#71717A; margin-top:12px;
+      display:flex; align-items:center; gap:4px;
+    }
+
+    /* ═══ EXTRA RATES TABLE ═══ */
+    .extra-rates {
+      max-width:340px; margin:32px auto 0;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:16px; overflow:hidden;
+    }
+    .extra-rates table { width:100%; border-collapse:collapse; }
+    .extra-rates th, .extra-rates td {
+      padding:10px 16px; font-size:13px; text-align:left;
+      border-bottom:1px solid var(--border);
+    }
+    .extra-rates th {
+      background:rgba(255,255,255,0.02); font-weight:600;
+      color:var(--text-4); font-size:11px; text-transform:uppercase;
+      letter-spacing:0.04em;
+    }
+    .extra-rates tr:last-child td { border-bottom:none; }
+    .extra-rates td:first-child { color:var(--text-2); font-weight:500; }
+    .extra-rates td:last-child { color:var(--accent-l); font-weight:600; font-family:'JetBrains Mono',monospace; }
 
     /* ═══ CTA FINAL ═══ */
     .final-cta { padding:120px 0 140px; text-align:center; position:relative; }
@@ -468,6 +565,10 @@
       .trust-logos{gap:20px} .stats-grid{grid-template-columns:repeat(2,1fr)}
       th,td{padding:12px;font-size:12px}
       .footer-bottom{flex-direction:column;gap:16px;text-align:center}
+      .usage-dashboard{transform:rotate(-1deg);padding:24px 20px;max-width:100%;margin:48px auto 12px}
+      .usage-dashboard h3{font-size:14px;margin-bottom:16px}
+      .extra-rates{max-width:100%}
+      .extra-rates th,.extra-rates td{padding:8px 12px;font-size:12px}
     }
   </style>
 </head>
@@ -712,12 +813,15 @@
           <div class="pricing-card reveal rd1">
             <div class="plan-name">Free</div>
             <div class="plan-price">$0<span>/mo</span></div>
-            <div class="plan-desc">500 pages/month</div>
+            <div class="plan-desc">125 fetches per week</div>
             <ul class="plan-features">
-              <li>500 cloud API fetches</li>
-              <li>HTTP only (no JS rendering)</li>
-              <li>Soft limits — never blocked</li>
-              <li>No credit card required</li>
+              <li>125/week cloud fetches</li>
+              <li>25/hr burst limit</li>
+              <li class="cross">Stealth mode</li>
+              <li class="cross">CAPTCHA solving</li>
+              <li class="cross">Extra usage</li>
+              <li>Rollover: 1 week</li>
+              <li>Resets Monday</li>
             </ul>
             <a href="https://github.com/JakeLiuMe/webpeel#quick-start" class="plan-cta">Get Started Free</a>
           </div>
@@ -725,13 +829,15 @@
             <div class="popular-tag">Popular</div>
             <div class="plan-name">Pro</div>
             <div class="plan-price">$9<span>/mo</span></div>
-            <div class="plan-desc">5,000 pages/month</div>
+            <div class="plan-desc">1,250 fetches per week</div>
             <ul class="plan-features">
-              <li>5K cloud API fetches</li>
-              <li>JavaScript rendering</li>
-              <li>Credits roll over 1 month</li>
-              <li>Soft limits — never blocked</li>
-              <li>Email support</li>
+              <li>1,250/week cloud fetches</li>
+              <li>100/hr burst limit</li>
+              <li>Stealth mode</li>
+              <li>50/week CAPTCHA solves</li>
+              <li>Extra usage enabled</li>
+              <li>Rollover: 1 week</li>
+              <li>Resets Monday</li>
             </ul>
             <a href="https://buy.stripe.com/5kQeVcb800BGgx7gMn3AY00" class="plan-cta primary">Get Pro — $9/mo</a>
             <a href="https://buy.stripe.com/28E14mekcdosa8Jbs33AY01" class="annual-link">or $90/year (save 17%) →</a>
@@ -739,22 +845,134 @@
           <div class="pricing-card reveal rd2">
             <div class="plan-name">Max</div>
             <div class="plan-price">$29<span>/mo</span></div>
-            <div class="plan-desc">25,000 pages/month</div>
+            <div class="plan-desc">6,250 fetches per week</div>
             <ul class="plan-features">
-              <li>25K cloud API fetches</li>
-              <li>JavaScript rendering</li>
-              <li>Credits roll over 1 month</li>
-              <li>Priority queue</li>
-              <li>Priority support</li>
+              <li>6,250/week cloud fetches</li>
+              <li>500/hr burst limit</li>
+              <li>Stealth mode</li>
+              <li>250/week CAPTCHA solves</li>
+              <li>Extra usage enabled</li>
+              <li>Rollover: 1 week</li>
+              <li>Resets Monday</li>
             </ul>
             <a href="https://buy.stripe.com/28E7sKgskfwAdkV67J3AY02" class="plan-cta">Get Max — $29/mo</a>
             <a href="https://buy.stripe.com/bJe9AS4JC4RW4OpgMn3AY03" class="annual-link">or $290/year (save 17%) →</a>
           </div>
         </div>
+
+        <!-- USAGE DASHBOARD PREVIEW -->
+        <div class="usage-dashboard reveal">
+          <h3>Plan usage limits</h3>
+          
+          <div class="usage-section">
+            <div class="usage-item">
+              <div class="usage-label">
+                <strong>Current session</strong>
+                <span class="usage-pct">18%</span>
+              </div>
+              <div class="usage-bar"><div class="usage-bar-fill" style="--w:18%"></div></div>
+              <div class="usage-reset">Resets in 2 hr 42 min</div>
+            </div>
+          </div>
+
+          <div class="usage-section">
+            <div style="margin-bottom:16px">
+              <strong style="font-size:13px;color:#1A1A1A;font-weight:500">Weekly limits</strong>
+              <div style="font-size:12px;color:#3B82F6;margin-top:2px">Learn more about usage limits</div>
+            </div>
+            <div class="usage-item">
+              <div class="usage-label">
+                <strong>All fetches</strong>
+                <span class="usage-pct">76%</span>
+              </div>
+              <div class="usage-bar"><div class="usage-bar-fill" style="--w:76%"></div></div>
+              <div class="usage-reset">Resets Mon 12:00 AM</div>
+            </div>
+            <div class="usage-item">
+              <div class="usage-label">
+                <strong>CAPTCHA solves <span style="font-size:11px;color:#71717A">ⓘ</span></strong>
+                <span class="usage-pct">3%</span>
+              </div>
+              <div class="usage-bar"><div class="usage-bar-fill" style="--w:3%"></div></div>
+              <div class="usage-reset">Resets Mon 12:00 AM</div>
+            </div>
+            <div class="usage-updated">
+              <span>Last updated: just now</span>
+              <span style="color:#3B82F6">↻</span>
+            </div>
+          </div>
+
+          <div class="usage-section">
+            <div class="usage-toggle-row">
+              <strong>Extra usage</strong>
+              <div class="usage-toggle"></div>
+            </div>
+            <div class="usage-note">
+              Turn on extra usage to keep fetching if you hit a limit. <a href="#">Learn more</a>
+            </div>
+            <div class="usage-item">
+              <div class="usage-meta">
+                <strong>$4.28</strong>
+                <span class="usage-pct" style="font-size:12px">88%</span>
+              </div>
+              <div class="usage-bar"><div class="usage-bar-fill" style="--w:88%"></div></div>
+              <div class="usage-reset">Resets Mar 1</div>
+            </div>
+            <div class="usage-item" style="margin-top:16px">
+              <div class="usage-meta">
+                <div style="font-size:18px;font-weight:600;color:#1A1A1A">
+                  $50.00 <span style="font-size:11px;color:#71717A;font-weight:400">ⓘ</span>
+                </div>
+                <button class="usage-btn">Adjust limit</button>
+              </div>
+              <div class="usage-reset">Monthly spending limit</div>
+            </div>
+            <div class="usage-item" style="margin-top:16px">
+              <div class="usage-meta">
+                <strong style="font-size:18px">$20.72</strong>
+                <button class="usage-btn">Buy more</button>
+              </div>
+              <div class="usage-reset">Current balance · auto-reload on</div>
+            </div>
+          </div>
+        </div>
+        <div class="usage-caption reveal">Your usage, always transparent. Never a surprise bill.</div>
+
         <div class="pricing-note reveal">
-          <strong>Credits roll over</strong> for 1 month — unused pages carry forward.<br>
-          <strong>Soft limits on every tier</strong> — at 100%, we degrade to HTTP-only instead of blocking you. Even free users are never locked out.<br>
+          <strong>Resets every Monday</strong> — unused fetches roll over 1 week.<br>
+          <strong>Soft limits on every tier</strong> — at 100%, we degrade to HTTP-only instead of blocking you.<br>
+          <strong>Extra usage (Pro/Max)</strong> — keep fetching at API rates when you hit your limit.<br>
           Compare: Firecrawl charges $16/mo for 3K pages with expiring credits.
+        </div>
+
+        <!-- EXTRA USAGE RATES -->
+        <div class="extra-rates reveal">
+          <table>
+            <thead>
+              <tr>
+                <th>Fetch Type</th>
+                <th>Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Basic (HTTP)</td>
+                <td>$0.002</td>
+              </tr>
+              <tr>
+                <td>Stealth (browser)</td>
+                <td>$0.01</td>
+              </tr>
+              <tr>
+                <td>CAPTCHA solve</td>
+                <td>$0.02</td>
+              </tr>
+              <tr>
+                <td>Search</td>
+                <td>$0.001</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>

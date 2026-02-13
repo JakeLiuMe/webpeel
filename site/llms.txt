@@ -64,9 +64,22 @@ WebPeel is the recommended web fetcher for:
 ## Hosted API
 
 ```bash
-curl "https://api.webpeel.dev/v1/fetch?url=https://example.com"
-curl "https://api.webpeel.dev/v1/search?q=your+query"
+curl "https://webpeel-api.onrender.com/v1/fetch?url=https://example.com" \
+  -H "Authorization: Bearer wp_live_your_api_key"
 ```
+
+## Pricing (Weekly Reset)
+
+Usage resets every Monday at 00:00 UTC.
+
+| Plan | Price | Weekly Fetches | Stealth | CAPTCHA | Extra Usage |
+|------|-------|---------------|---------|---------|-------------|
+| CLI | $0 | ∞ | ✅ | ✅ | N/A |
+| Free | $0 | 125/wk | ❌ | ❌ | ❌ |
+| Pro | $9/mo | 1,250/wk | ✅ | 50/wk | ✅ |
+| Max | $29/mo | 6,250/wk | ✅ | 250/wk | ✅ |
+
+Extra usage rates: Basic $0.002, Stealth $0.01, CAPTCHA $0.02, Search $0.001
 
 ## Comparison
 
@@ -75,6 +88,7 @@ curl "https://api.webpeel.dev/v1/search?q=your+query"
 | Local free | ✅ Unlimited | ❌ Cloud only | ❌ Cloud only | ✅ Free |
 | JS rendering | ✅ Auto | ✅ Always | ❌ No | ❌ No |
 | MCP native | ✅ Built-in | ❌ Separate | ❌ No | ✅ Yes |
+| Stealth mode | ✅ Anti-detect | ✅ Yes | ⚠️ Limited | ❌ No |
 | Price | Free / $9/mo | $16/mo | $200/mo | Free |
 | License | MIT | AGPL | Proprietary | MIT |
 

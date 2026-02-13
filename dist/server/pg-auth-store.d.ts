@@ -1,18 +1,37 @@
 /**
  * PostgreSQL-backed auth store for production deployments
- * Uses SHA-256 hashing for API keys and tracks monthly usage with rollover
+ * Uses SHA-256 hashing for API keys and tracks WEEKLY usage with burst limits
  */
 import { AuthStore, ApiKeyInfo } from './auth-store.js';
-export interface UsageInfo {
-    period: string;
-    fetchCount: number;
+export interface WeeklyUsageInfo {
+    week: string;
+    basicCount: number;
+    stealthCount: number;
+    captchaCount: number;
     searchCount: number;
-    browserCount: number;
-    rolloverCredits: number;
-    monthlyLimit: number;
     totalUsed: number;
+    weeklyLimit: number;
+    rolloverCredits: number;
     totalAvailable: number;
     remaining: number;
+    percentUsed: number;
+    resetsAt: string;
+}
+export interface BurstInfo {
+    hourBucket: string;
+    count: number;
+    limit: number;
+    remaining: number;
+    resetsIn: string;
+}
+export interface ExtraUsageInfo {
+    enabled: boolean;
+    balance: number;
+    spent: number;
+    spendingLimit: number;
+    autoReload: boolean;
+    percentUsed: number;
+    resetsAt: string;
 }
 /**
  * PostgreSQL auth store for production
@@ -26,33 +45,72 @@ export declare class PostgresAuthStore implements AuthStore {
      */
     private hashKey;
     /**
-     * Get current period in YYYY-MM format
+     * Get current ISO week in YYYY-WXX format (e.g., "2026-W07")
      */
-    private getCurrentPeriod;
+    private getCurrentWeek;
     /**
-     * Get previous period in YYYY-MM format
+     * Get previous ISO week in YYYY-WXX format
      */
-    private getPreviousPeriod;
+    private getPreviousWeek;
+    /**
+     * Get next Monday 00:00 UTC (week reset time)
+     */
+    private getWeekResetTime;
+    /**
+     * Get current hour bucket in YYYY-MM-DDTHH format (UTC)
+     */
+    private getCurrentHour;
+    /**
+     * Get human-readable time until next hour
+     */
+    private getTimeUntilNextHour;
     /**
      * Validate API key and return user info
      * SECURITY: Uses SHA-256 hash comparison, updates last_used_at
      */
     validateKey(key: string): Promise<ApiKeyInfo | null>;
     /**
-     * Track usage for an API key
+     * Track weekly usage for an API key
      * SECURITY: Uses UPSERT to prevent race conditions
      */
-    trackUsage(key: string, credits: number): Promise<void>;
+    trackUsage(key: string, fetchType: 'basic' | 'stealth' | 'captcha' | 'search'): Promise<void>;
     /**
-     * Get usage info for an API key with rollover calculation
+     * Track burst usage (hourly limit)
      */
-    getUsage(key: string): Promise<UsageInfo | null>;
+    trackBurstUsage(key: string): Promise<void>;
     /**
-     * Check if API key has exceeded monthly limit
+     * Check burst limit (hourly)
+     */
+    checkBurstLimit(key: string): Promise<{
+        allowed: boolean;
+        burst: BurstInfo;
+    }>;
+    /**
+     * Get weekly usage info for an API key with rollover calculation
+     */
+    getUsage(key: string): Promise<WeeklyUsageInfo | null>;
+    /**
+     * Check if API key has exceeded weekly limit
      */
     checkLimit(key: string): Promise<{
         allowed: boolean;
-        usage?: UsageInfo;
+        usage?: WeeklyUsageInfo;
+    }>;
+    /**
+     * Get extra usage info for a user
+     */
+    getExtraUsageInfo(key: string): Promise<ExtraUsageInfo | null>;
+    /**
+     * Check if extra usage can be used
+     */
+    canUseExtraUsage(key: string): Promise<boolean>;
+    /**
+     * Track extra usage and deduct from balance
+     */
+    trackExtraUsage(key: string, fetchType: 'basic' | 'stealth' | 'captcha' | 'search', url?: string, processingTimeMs?: number, statusCode?: number): Promise<{
+        success: boolean;
+        cost: number;
+        newBalance: number;
     }>;
     /**
      * Generate a cryptographically secure API key

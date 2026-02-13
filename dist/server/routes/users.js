@@ -104,9 +104,9 @@ export function createUserRouter() {
             // Hash password
             const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
             // Create user
-            const userResult = await pool.query(`INSERT INTO users (email, password_hash, tier, monthly_limit, rate_limit)
-        VALUES ($1, $2, 'free', 500, 10)
-        RETURNING id, email, tier, monthly_limit, rate_limit, created_at`, [email, passwordHash]);
+            const userResult = await pool.query(`INSERT INTO users (email, password_hash, tier, weekly_limit, burst_limit, rate_limit)
+        VALUES ($1, $2, 'free', 125, 25, 10)
+        RETURNING id, email, tier, weekly_limit, burst_limit, rate_limit, created_at`, [email, passwordHash]);
             const user = userResult.rows[0];
             // Generate API key
             const apiKey = PostgresAuthStore.generateApiKey();
@@ -120,7 +120,8 @@ export function createUserRouter() {
                     id: user.id,
                     email: user.email,
                     tier: user.tier,
-                    monthlyLimit: user.monthly_limit,
+                    weeklyLimit: user.weekly_limit,
+                    burstLimit: user.burst_limit,
                     rateLimit: user.rate_limit,
                     createdAt: user.created_at,
                 },
@@ -210,7 +211,7 @@ export function createUserRouter() {
         try {
             const { userId } = req.user;
             const result = await pool.query(`SELECT 
-          u.id, u.email, u.tier, u.monthly_limit, u.rate_limit, u.created_at,
+          u.id, u.email, u.tier, u.weekly_limit, u.burst_limit, u.rate_limit, u.created_at,
           u.stripe_customer_id, u.stripe_subscription_id
         FROM users u
         WHERE u.id = $1`, [userId]);
@@ -226,7 +227,8 @@ export function createUserRouter() {
                 id: user.id,
                 email: user.email,
                 tier: user.tier,
-                monthlyLimit: user.monthly_limit,
+                weeklyLimit: user.weekly_limit,
+                burstLimit: user.burst_limit,
                 rateLimit: user.rate_limit,
                 createdAt: user.created_at,
                 hasStripe: !!user.stripe_customer_id,
@@ -338,46 +340,136 @@ export function createUserRouter() {
     });
     /**
      * GET /v1/usage
-     * Get current month usage + limits + rollover
+     * Get current week usage + limits + burst + extra usage
      */
     router.get('/v1/usage', jwtAuth, async (req, res) => {
         try {
             const { userId } = req.user;
-            const now = new Date();
-            const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            const result = await pool.query(`SELECT 
-          u.monthly_limit,
-          COALESCE(SUM(usage.fetch_count), 0) as fetch_count,
-          COALESCE(SUM(usage.search_count), 0) as search_count,
-          COALESCE(SUM(usage.browser_count), 0) as browser_count,
-          COALESCE(MAX(usage.rollover_credits), 0) as rollover_credits
-        FROM users u
-        LEFT JOIN api_keys ak ON ak.user_id = u.id
-        LEFT JOIN usage ON usage.api_key_id = ak.id AND usage.period = $2
-        WHERE u.id = $1
-        GROUP BY u.monthly_limit`, [userId, currentPeriod]);
-            if (result.rows.length === 0) {
+            // Helper: Get current ISO week
+            const getCurrentWeek = () => {
+                const now = new Date();
+                const year = now.getUTCFullYear();
+                const jan4 = new Date(Date.UTC(year, 0, 4));
+                const weekNum = Math.ceil(((now.getTime() - jan4.getTime()) / 86400000 + jan4.getUTCDay() + 1) / 7);
+                return `${year}-W${String(weekNum).padStart(2, '0')}`;
+            };
+            // Helper: Get current hour bucket
+            const getCurrentHour = () => {
+                return new Date().toISOString().substring(0, 13);
+            };
+            // Helper: Get week reset time
+            const getWeekResetTime = () => {
+                const now = new Date();
+                const dayOfWeek = now.getUTCDay();
+                const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+                const nextMonday = new Date(now);
+                nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+                nextMonday.setUTCHours(0, 0, 0, 0);
+                return nextMonday.toISOString();
+            };
+            // Helper: Get time until next hour
+            const getTimeUntilNextHour = () => {
+                const now = new Date();
+                const minutesRemaining = 59 - now.getUTCMinutes();
+                if (minutesRemaining === 0)
+                    return '< 1 min';
+                return `${minutesRemaining} min`;
+            };
+            // Helper: Get next month reset
+            const getMonthResetTime = () => {
+                const now = new Date();
+                return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0)).toISOString();
+            };
+            const currentWeek = getCurrentWeek();
+            const currentHour = getCurrentHour();
+            // Get user plan info
+            const planResult = await pool.query(`SELECT tier, weekly_limit, burst_limit FROM users WHERE id = $1`, [userId]);
+            if (planResult.rows.length === 0) {
                 res.status(404).json({
                     error: 'user_not_found',
                     message: 'User not found',
                 });
                 return;
             }
-            const usage = result.rows[0];
-            const totalUsed = usage.fetch_count + usage.search_count + usage.browser_count;
-            const totalAvailable = usage.monthly_limit + usage.rollover_credits;
-            const remaining = Math.max(0, totalAvailable - totalUsed);
+            const plan = planResult.rows[0];
+            // Get weekly usage
+            const weeklyResult = await pool.query(`SELECT 
+          COALESCE(SUM(wu.basic_count), 0) as basic_used,
+          COALESCE(SUM(wu.stealth_count), 0) as stealth_used,
+          COALESCE(SUM(wu.captcha_count), 0) as captcha_used,
+          COALESCE(SUM(wu.search_count), 0) as search_used,
+          COALESCE(SUM(wu.total_count), 0) as total_used,
+          COALESCE(MAX(wu.rollover_credits), 0) as rollover_credits
+        FROM users u
+        LEFT JOIN api_keys ak ON ak.user_id = u.id
+        LEFT JOIN weekly_usage wu ON wu.api_key_id = ak.id AND wu.week = $2
+        WHERE u.id = $1
+        GROUP BY u.id`, [userId, currentWeek]);
+            const weeklyUsage = weeklyResult.rows[0] || {
+                basic_used: 0,
+                stealth_used: 0,
+                captcha_used: 0,
+                search_used: 0,
+                total_used: 0,
+                rollover_credits: 0,
+            };
+            const totalAvailable = plan.weekly_limit + weeklyUsage.rollover_credits;
+            const remaining = Math.max(0, totalAvailable - weeklyUsage.total_used);
+            const percentUsed = totalAvailable > 0 ? Math.round((weeklyUsage.total_used / totalAvailable) * 100) : 0;
+            // Get burst usage (current hour)
+            const burstResult = await pool.query(`SELECT COALESCE(SUM(bu.count), 0) as burst_used
+        FROM users u
+        LEFT JOIN api_keys ak ON ak.user_id = u.id
+        LEFT JOIN burst_usage bu ON bu.api_key_id = ak.id AND bu.hour_bucket = $2
+        WHERE u.id = $1`, [userId, currentHour]);
+            const burstUsed = burstResult.rows[0]?.burst_used || 0;
+            const burstPercent = plan.burst_limit > 0 ? Math.round((burstUsed / plan.burst_limit) * 100) : 0;
+            // Get extra usage info
+            const extraResult = await pool.query(`SELECT 
+          extra_usage_enabled,
+          extra_usage_balance,
+          extra_usage_spent,
+          extra_usage_spending_limit,
+          auto_reload_enabled
+        FROM users
+        WHERE id = $1`, [userId]);
+            const extra = extraResult.rows[0];
+            const extraPercent = extra.extra_usage_spending_limit > 0
+                ? Math.round((parseFloat(extra.extra_usage_spent) / parseFloat(extra.extra_usage_spending_limit)) * 100)
+                : 0;
             res.json({
-                period: currentPeriod,
-                monthlyLimit: usage.monthly_limit,
-                rolloverCredits: usage.rollover_credits,
-                totalAvailable,
-                totalUsed,
-                remaining,
-                breakdown: {
-                    fetch: usage.fetch_count,
-                    search: usage.search_count,
-                    browser: usage.browser_count,
+                plan: {
+                    tier: plan.tier,
+                    weeklyLimit: plan.weekly_limit,
+                    burstLimit: plan.burst_limit,
+                },
+                session: {
+                    burstUsed,
+                    burstLimit: plan.burst_limit,
+                    resetsIn: getTimeUntilNextHour(),
+                    percentUsed: burstPercent,
+                },
+                weekly: {
+                    week: currentWeek,
+                    basicUsed: weeklyUsage.basic_used,
+                    stealthUsed: weeklyUsage.stealth_used,
+                    captchaUsed: weeklyUsage.captcha_used,
+                    searchUsed: weeklyUsage.search_used,
+                    totalUsed: weeklyUsage.total_used,
+                    totalAvailable,
+                    rolloverCredits: weeklyUsage.rollover_credits,
+                    remaining,
+                    percentUsed,
+                    resetsAt: getWeekResetTime(),
+                },
+                extraUsage: {
+                    enabled: extra.extra_usage_enabled,
+                    spent: parseFloat(extra.extra_usage_spent),
+                    spendingLimit: parseFloat(extra.extra_usage_spending_limit),
+                    balance: parseFloat(extra.extra_usage_balance),
+                    autoReload: extra.auto_reload_enabled,
+                    percentUsed: extraPercent,
+                    resetsAt: getMonthResetTime(),
                 },
             });
         }
@@ -386,6 +478,102 @@ export function createUserRouter() {
             res.status(500).json({
                 error: 'usage_failed',
                 message: 'Failed to get usage',
+            });
+        }
+    });
+    /**
+     * POST /v1/extra-usage/toggle
+     * Enable/disable extra usage
+     */
+    router.post('/v1/extra-usage/toggle', jwtAuth, async (req, res) => {
+        try {
+            const { userId } = req.user;
+            const { enabled } = req.body;
+            if (typeof enabled !== 'boolean') {
+                res.status(400).json({
+                    error: 'invalid_request',
+                    message: 'enabled must be a boolean',
+                });
+                return;
+            }
+            await pool.query('UPDATE users SET extra_usage_enabled = $1, updated_at = now() WHERE id = $2', [enabled, userId]);
+            res.json({
+                success: true,
+                enabled,
+            });
+        }
+        catch (error) {
+            console.error('Toggle extra usage error:', error);
+            res.status(500).json({
+                error: 'toggle_failed',
+                message: 'Failed to toggle extra usage',
+            });
+        }
+    });
+    /**
+     * POST /v1/extra-usage/limit
+     * Adjust spending limit
+     */
+    router.post('/v1/extra-usage/limit', jwtAuth, async (req, res) => {
+        try {
+            const { userId } = req.user;
+            const { limit } = req.body;
+            if (typeof limit !== 'number' || limit < 10 || limit > 500) {
+                res.status(400).json({
+                    error: 'invalid_limit',
+                    message: 'Limit must be a number between 10 and 500',
+                });
+                return;
+            }
+            await pool.query('UPDATE users SET extra_usage_spending_limit = $1, updated_at = now() WHERE id = $2', [limit, userId]);
+            res.json({
+                success: true,
+                limit,
+            });
+        }
+        catch (error) {
+            console.error('Set limit error:', error);
+            res.status(500).json({
+                error: 'limit_failed',
+                message: 'Failed to set spending limit',
+            });
+        }
+    });
+    /**
+     * POST /v1/extra-usage/buy
+     * Add to extra usage balance (future: Stripe checkout)
+     */
+    router.post('/v1/extra-usage/buy', jwtAuth, async (req, res) => {
+        try {
+            const { userId } = req.user;
+            const { amount } = req.body;
+            // Validate amount (must be one of the preset values)
+            const validAmounts = [10, 25, 50, 100];
+            if (!validAmounts.includes(amount)) {
+                res.status(400).json({
+                    error: 'invalid_amount',
+                    message: `Amount must be one of: ${validAmounts.join(', ')}`,
+                });
+                return;
+            }
+            // TODO: Integrate with Stripe checkout
+            // For now, just add directly (testing only)
+            const result = await pool.query(`UPDATE users 
+        SET extra_usage_balance = extra_usage_balance + $1, updated_at = now() 
+        WHERE id = $2
+        RETURNING extra_usage_balance`, [amount, userId]);
+            res.json({
+                success: true,
+                amount,
+                newBalance: parseFloat(result.rows[0].extra_usage_balance),
+                message: 'Balance added (Stripe integration pending)',
+            });
+        }
+        catch (error) {
+            console.error('Buy extra usage error:', error);
+            res.status(500).json({
+                error: 'purchase_failed',
+                message: 'Failed to purchase extra usage',
             });
         }
     });

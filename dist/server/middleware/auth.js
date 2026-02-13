@@ -1,9 +1,9 @@
 /**
  * API key authentication middleware with SOFT LIMIT enforcement
  *
- * Philosophy: Never fully block users. When limits are exceeded,
+ * Philosophy: Never fully block users. When weekly limits are exceeded,
  * degrade to HTTP-only mode instead of returning 429.
- * This applies to ALL tiers including free.
+ * BURST limits (hourly) are HARD limits and return 429.
  */
 import { PostgresAuthStore } from '../pg-auth-store.js';
 export function createAuthMiddleware(authStore) {
@@ -19,9 +19,16 @@ export function createAuthMiddleware(authStore) {
                 req.path === '/v1/webhooks/stripe' ||
                 req.path === '/v1/me' ||
                 req.path.startsWith('/v1/keys') ||
-                req.path === '/v1/usage';
+                req.path === '/v1/usage' ||
+                req.path.startsWith('/v1/extra-usage');
             if (isPublicEndpoint) {
-                req.auth = { keyInfo: null, tier: 'free', rateLimit: 10, softLimited: false };
+                req.auth = {
+                    keyInfo: null,
+                    tier: 'free',
+                    rateLimit: 10,
+                    softLimited: false,
+                    extraUsageAvailable: false,
+                };
                 return next();
             }
             let apiKey = null;
@@ -41,6 +48,7 @@ export function createAuthMiddleware(authStore) {
             // Validate API key if provided
             let keyInfo = null;
             let softLimited = false;
+            let extraUsageAvailable = false;
             if (apiKey) {
                 keyInfo = await authStore.validateKey(apiKey);
                 if (!keyInfo) {
@@ -50,27 +58,60 @@ export function createAuthMiddleware(authStore) {
                     });
                     return;
                 }
-                // Check usage limits (only for PostgresAuthStore)
+                // Check limits (only for PostgresAuthStore)
                 if (authStore instanceof PostgresAuthStore) {
-                    const { allowed, usage } = await authStore.checkLimit(apiKey);
-                    // SOFT LIMITS: Don't block — degrade instead
-                    // When over quota, set softLimited flag. The fetch route
-                    // will force HTTP-only mode and still serve the request.
-                    if (!allowed && usage) {
-                        softLimited = true;
-                        res.setHeader('X-Soft-Limited', 'true');
-                        res.setHeader('X-Soft-Limit-Reason', 'Monthly quota exceeded. Requests degraded to HTTP-only mode.');
-                        res.setHeader('X-Upgrade-URL', 'https://webpeel.dev/pricing');
+                    // HARD LIMIT: Check burst limit first (per-hour cap)
+                    const { allowed: burstAllowed, burst } = await authStore.checkBurstLimit(apiKey);
+                    if (!burstAllowed) {
+                        // Burst limit exceeded - HARD 429 with Retry-After
+                        const retryAfterSeconds = 60 * parseInt(burst.resetsIn.match(/\d+/)?.[0] || '1', 10);
+                        res.setHeader('Retry-After', retryAfterSeconds.toString());
+                        res.setHeader('X-Burst-Limit', burst.limit.toString());
+                        res.setHeader('X-Burst-Used', burst.count.toString());
+                        res.status(429).json({
+                            error: 'burst_limit_exceeded',
+                            message: `Hourly burst limit exceeded (${burst.count}/${burst.limit}). Please wait ${burst.resetsIn} before making more requests.`,
+                            retryAfter: burst.resetsIn,
+                        });
+                        return;
                     }
-                    // Add usage headers
+                    // Add burst headers
+                    res.setHeader('X-Burst-Limit', burst.limit.toString());
+                    res.setHeader('X-Burst-Used', burst.count.toString());
+                    res.setHeader('X-Burst-Remaining', burst.remaining.toString());
+                    // SOFT LIMIT: Check weekly usage
+                    const { allowed, usage } = await authStore.checkLimit(apiKey);
+                    // Check if extra usage is available
+                    if (!allowed) {
+                        extraUsageAvailable = await authStore.canUseExtraUsage(apiKey);
+                        if (!extraUsageAvailable) {
+                            // Over weekly quota, no extra usage — SOFT LIMIT (degrade to HTTP-only)
+                            softLimited = true;
+                            res.setHeader('X-Soft-Limited', 'true');
+                            res.setHeader('X-Soft-Limit-Reason', 'Weekly quota exceeded. Requests degraded to HTTP-only mode.');
+                            res.setHeader('X-Upgrade-URL', 'https://webpeel.dev/pricing');
+                        }
+                    }
+                    // Add weekly usage headers
                     if (usage) {
-                        res.setHeader('X-Monthly-Limit', usage.totalAvailable.toString());
-                        res.setHeader('X-Monthly-Used', usage.totalUsed.toString());
-                        res.setHeader('X-Monthly-Remaining', Math.max(0, usage.remaining).toString());
-                        // Warn if over 80% usage
-                        const usagePercent = (usage.totalUsed / usage.totalAvailable) * 100;
-                        if (usagePercent >= 80 && !softLimited) {
-                            res.setHeader('X-Usage-Warning', `You've used ${usagePercent.toFixed(0)}% of your monthly quota. Consider upgrading at https://webpeel.dev/pricing`);
+                        res.setHeader('X-Weekly-Limit', usage.totalAvailable.toString());
+                        res.setHeader('X-Weekly-Used', usage.totalUsed.toString());
+                        res.setHeader('X-Weekly-Remaining', Math.max(0, usage.remaining).toString());
+                        res.setHeader('X-Weekly-Percent', usage.percentUsed.toString());
+                        res.setHeader('X-Weekly-Resets-At', usage.resetsAt);
+                        // Warn if over 80% usage and not using extra usage
+                        if (usage.percentUsed >= 80 && !softLimited && !extraUsageAvailable) {
+                            res.setHeader('X-Usage-Warning', `You've used ${usage.percentUsed}% of your weekly quota. Consider upgrading at https://webpeel.dev/pricing`);
+                        }
+                    }
+                    // Add extra usage headers if available
+                    const extraInfo = await authStore.getExtraUsageInfo(apiKey);
+                    if (extraInfo) {
+                        res.setHeader('X-Extra-Usage-Enabled', extraInfo.enabled ? 'true' : 'false');
+                        res.setHeader('X-Extra-Usage-Balance', extraInfo.balance.toFixed(2));
+                        if (extraInfo.enabled) {
+                            res.setHeader('X-Extra-Usage-Spent', extraInfo.spent.toFixed(2));
+                            res.setHeader('X-Extra-Usage-Limit', extraInfo.spendingLimit.toFixed(2));
                         }
                     }
                 }
@@ -81,6 +122,7 @@ export function createAuthMiddleware(authStore) {
                 tier: keyInfo?.tier || 'free',
                 rateLimit: keyInfo?.rateLimit || 10,
                 softLimited,
+                extraUsageAvailable,
             };
             next();
         }

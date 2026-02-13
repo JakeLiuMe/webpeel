@@ -1,10 +1,17 @@
 /**
  * PostgreSQL-backed auth store for production deployments
- * Uses SHA-256 hashing for API keys and tracks monthly usage with rollover
+ * Uses SHA-256 hashing for API keys and tracks WEEKLY usage with burst limits
  */
 import pg from 'pg';
 import crypto from 'crypto';
 const { Pool } = pg;
+// Extra usage cost constants
+const EXTRA_USAGE_RATES = {
+    basic: 0.002, // $0.002 per basic fetch
+    stealth: 0.01, // $0.01 per stealth fetch
+    captcha: 0.02, // $0.02 per CAPTCHA solve
+    search: 0.001, // $0.001 per search
+};
 /**
  * PostgreSQL auth store for production
  */
@@ -31,19 +38,55 @@ export class PostgresAuthStore {
         return crypto.createHash('sha256').update(key).digest('hex');
     }
     /**
-     * Get current period in YYYY-MM format
+     * Get current ISO week in YYYY-WXX format (e.g., "2026-W07")
      */
-    getCurrentPeriod() {
+    getCurrentWeek() {
         const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const year = now.getUTCFullYear();
+        const jan4 = new Date(Date.UTC(year, 0, 4));
+        const weekNum = Math.ceil(((now.getTime() - jan4.getTime()) / 86400000 + jan4.getUTCDay() + 1) / 7);
+        return `${year}-W${String(weekNum).padStart(2, '0')}`;
     }
     /**
-     * Get previous period in YYYY-MM format
+     * Get previous ISO week in YYYY-WXX format
      */
-    getPreviousPeriod() {
+    getPreviousWeek() {
         const now = new Date();
-        const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        return `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+        const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const year = lastWeek.getUTCFullYear();
+        const jan4 = new Date(Date.UTC(year, 0, 4));
+        const weekNum = Math.ceil(((lastWeek.getTime() - jan4.getTime()) / 86400000 + jan4.getUTCDay() + 1) / 7);
+        return `${year}-W${String(weekNum).padStart(2, '0')}`;
+    }
+    /**
+     * Get next Monday 00:00 UTC (week reset time)
+     */
+    getWeekResetTime() {
+        const now = new Date();
+        const dayOfWeek = now.getUTCDay();
+        const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+        const nextMonday = new Date(now);
+        nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+        nextMonday.setUTCHours(0, 0, 0, 0);
+        return nextMonday;
+    }
+    /**
+     * Get current hour bucket in YYYY-MM-DDTHH format (UTC)
+     */
+    getCurrentHour() {
+        const now = new Date();
+        return now.toISOString().substring(0, 13); // "2026-02-12T20"
+    }
+    /**
+     * Get human-readable time until next hour
+     */
+    getTimeUntilNextHour() {
+        const now = new Date();
+        const minutesRemaining = 59 - now.getUTCMinutes();
+        if (minutesRemaining === 0) {
+            return '< 1 min';
+        }
+        return `${minutesRemaining} min`;
     }
     /**
      * Validate API key and return user info
@@ -62,7 +105,8 @@ export class PostgresAuthStore {
           ak.name,
           u.tier,
           u.rate_limit,
-          u.monthly_limit,
+          u.weekly_limit,
+          u.burst_limit,
           u.email
         FROM api_keys ak
         JOIN users u ON ak.user_id = u.id
@@ -87,12 +131,12 @@ export class PostgresAuthStore {
         }
     }
     /**
-     * Track usage for an API key
+     * Track weekly usage for an API key
      * SECURITY: Uses UPSERT to prevent race conditions
      */
-    async trackUsage(key, credits) {
+    async trackUsage(key, fetchType) {
         const keyHash = this.hashKey(key);
-        const period = this.getCurrentPeriod();
+        const week = this.getCurrentWeek();
         try {
             // Get API key ID and user ID
             const keyResult = await this.pool.query('SELECT id, user_id FROM api_keys WHERE key_hash = $1', [keyHash]);
@@ -100,13 +144,21 @@ export class PostgresAuthStore {
                 return;
             }
             const { id: apiKeyId, user_id: userId } = keyResult.rows[0];
-            // UPSERT usage record
-            await this.pool.query(`INSERT INTO usage (user_id, api_key_id, period, fetch_count, updated_at)
-        VALUES ($1, $2, $3, $4, now())
-        ON CONFLICT (api_key_id, period)
+            // Determine which counter to increment
+            const columnMap = {
+                basic: 'basic_count',
+                stealth: 'stealth_count',
+                captcha: 'captcha_count',
+                search: 'search_count',
+            };
+            const column = columnMap[fetchType];
+            // UPSERT usage record (total_count is GENERATED, don't touch it)
+            await this.pool.query(`INSERT INTO weekly_usage (user_id, api_key_id, week, ${column})
+        VALUES ($1, $2, $3, 1)
+        ON CONFLICT (api_key_id, week)
         DO UPDATE SET 
-          fetch_count = usage.fetch_count + $4,
-          updated_at = now()`, [userId, apiKeyId, period, credits]);
+          ${column} = weekly_usage.${column} + 1,
+          updated_at = now()`, [userId, apiKeyId, week]);
         }
         catch (error) {
             console.error('Failed to track usage:', error);
@@ -114,58 +166,141 @@ export class PostgresAuthStore {
         }
     }
     /**
-     * Get usage info for an API key with rollover calculation
+     * Track burst usage (hourly limit)
+     */
+    async trackBurstUsage(key) {
+        const keyHash = this.hashKey(key);
+        const hourBucket = this.getCurrentHour();
+        try {
+            const keyResult = await this.pool.query('SELECT id FROM api_keys WHERE key_hash = $1', [keyHash]);
+            if (keyResult.rows.length === 0) {
+                return;
+            }
+            const apiKeyId = keyResult.rows[0].id;
+            // UPSERT burst usage
+            await this.pool.query(`INSERT INTO burst_usage (api_key_id, hour_bucket, count)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (api_key_id, hour_bucket)
+        DO UPDATE SET 
+          count = burst_usage.count + 1,
+          updated_at = now()`, [apiKeyId, hourBucket]);
+        }
+        catch (error) {
+            console.error('Failed to track burst usage:', error);
+            throw error;
+        }
+    }
+    /**
+     * Check burst limit (hourly)
+     */
+    async checkBurstLimit(key) {
+        const keyHash = this.hashKey(key);
+        const hourBucket = this.getCurrentHour();
+        try {
+            const result = await this.pool.query(`SELECT 
+          u.burst_limit,
+          COALESCE(bu.count, 0) as count
+        FROM api_keys ak
+        JOIN users u ON ak.user_id = u.id
+        LEFT JOIN burst_usage bu ON bu.api_key_id = ak.id AND bu.hour_bucket = $2
+        WHERE ak.key_hash = $1`, [keyHash, hourBucket]);
+            if (result.rows.length === 0) {
+                return {
+                    allowed: false,
+                    burst: {
+                        hourBucket,
+                        count: 0,
+                        limit: 0,
+                        remaining: 0,
+                        resetsIn: this.getTimeUntilNextHour(),
+                    },
+                };
+            }
+            const row = result.rows[0];
+            const allowed = row.count < row.burst_limit;
+            return {
+                allowed,
+                burst: {
+                    hourBucket,
+                    count: row.count,
+                    limit: row.burst_limit,
+                    remaining: Math.max(0, row.burst_limit - row.count),
+                    resetsIn: this.getTimeUntilNextHour(),
+                },
+            };
+        }
+        catch (error) {
+            console.error('Failed to check burst limit:', error);
+            return {
+                allowed: false,
+                burst: {
+                    hourBucket,
+                    count: 0,
+                    limit: 0,
+                    remaining: 0,
+                    resetsIn: this.getTimeUntilNextHour(),
+                },
+            };
+        }
+    }
+    /**
+     * Get weekly usage info for an API key with rollover calculation
      */
     async getUsage(key) {
         const keyHash = this.hashKey(key);
-        const currentPeriod = this.getCurrentPeriod();
-        const previousPeriod = this.getPreviousPeriod();
+        const currentWeek = this.getCurrentWeek();
+        const previousWeek = this.getPreviousWeek();
         try {
             const result = await this.pool.query(`SELECT 
-          u.monthly_limit,
-          COALESCE(curr.fetch_count, 0) + COALESCE(curr.search_count, 0) + COALESCE(curr.browser_count, 0) as current_used,
-          COALESCE(prev.fetch_count, 0) + COALESCE(prev.search_count, 0) + COALESCE(prev.browser_count, 0) as prev_used,
-          COALESCE(curr.rollover_credits, 0) as rollover_credits,
-          COALESCE(curr.fetch_count, 0) as fetch_count,
+          u.weekly_limit,
+          COALESCE(curr.basic_count, 0) as basic_count,
+          COALESCE(curr.stealth_count, 0) as stealth_count,
+          COALESCE(curr.captcha_count, 0) as captcha_count,
           COALESCE(curr.search_count, 0) as search_count,
-          COALESCE(curr.browser_count, 0) as browser_count
+          COALESCE(curr.total_count, 0) as current_used,
+          COALESCE(prev.total_count, 0) as prev_used,
+          COALESCE(curr.rollover_credits, 0) as rollover_credits
         FROM api_keys ak
         JOIN users u ON ak.user_id = u.id
-        LEFT JOIN usage curr ON curr.api_key_id = ak.id AND curr.period = $2
-        LEFT JOIN usage prev ON prev.api_key_id = ak.id AND prev.period = $3
-        WHERE ak.key_hash = $1`, [keyHash, currentPeriod, previousPeriod]);
+        LEFT JOIN weekly_usage curr ON curr.api_key_id = ak.id AND curr.week = $2
+        LEFT JOIN weekly_usage prev ON prev.api_key_id = ak.id AND prev.week = $3
+        WHERE ak.key_hash = $1`, [keyHash, currentWeek, previousWeek]);
             if (result.rows.length === 0) {
                 return null;
             }
             const row = result.rows[0];
-            const monthlyLimit = row.monthly_limit;
+            const weeklyLimit = row.weekly_limit;
             const currentUsed = row.current_used;
             const prevUsed = row.prev_used;
             const rolloverCredits = row.rollover_credits;
-            // Calculate rollover: MIN(unused_last_month, monthly_limit)
-            const prevUnused = Math.max(0, monthlyLimit - prevUsed);
-            const calculatedRollover = Math.min(prevUnused, monthlyLimit);
-            // Update rollover if it's the first access this month
+            // Calculate rollover: MIN(unused_last_week, weekly_limit)
+            const prevUnused = Math.max(0, weeklyLimit - prevUsed);
+            const calculatedRollover = Math.min(prevUnused, weeklyLimit);
+            // Update rollover if it's the first access this week
             if (rolloverCredits === 0 && calculatedRollover > 0) {
-                await this.pool.query(`INSERT INTO usage (user_id, api_key_id, period, rollover_credits, updated_at)
+                await this.pool.query(`INSERT INTO weekly_usage (user_id, api_key_id, week, rollover_credits, updated_at)
           SELECT user_id, id, $2, $3, now()
           FROM api_keys WHERE key_hash = $1
-          ON CONFLICT (api_key_id, period)
-          DO UPDATE SET rollover_credits = $3`, [keyHash, currentPeriod, calculatedRollover]);
+          ON CONFLICT (api_key_id, week)
+          DO UPDATE SET rollover_credits = $3`, [keyHash, currentWeek, calculatedRollover]);
             }
             const effectiveRollover = rolloverCredits > 0 ? rolloverCredits : calculatedRollover;
-            const totalAvailable = monthlyLimit + effectiveRollover;
+            const totalAvailable = weeklyLimit + effectiveRollover;
             const remaining = Math.max(0, totalAvailable - currentUsed);
+            const percentUsed = totalAvailable > 0 ? Math.round((currentUsed / totalAvailable) * 100) : 0;
             return {
-                period: currentPeriod,
-                fetchCount: row.fetch_count,
+                week: currentWeek,
+                basicCount: row.basic_count,
+                stealthCount: row.stealth_count,
+                captchaCount: row.captcha_count,
                 searchCount: row.search_count,
-                browserCount: row.browser_count,
-                rolloverCredits: effectiveRollover,
-                monthlyLimit,
                 totalUsed: currentUsed,
+                weeklyLimit,
+                rolloverCredits: effectiveRollover,
                 totalAvailable,
                 remaining,
+                percentUsed,
+                resetsAt: this.getWeekResetTime().toISOString(),
             };
         }
         catch (error) {
@@ -174,7 +309,7 @@ export class PostgresAuthStore {
         }
     }
     /**
-     * Check if API key has exceeded monthly limit
+     * Check if API key has exceeded weekly limit
      */
     async checkLimit(key) {
         const usage = await this.getUsage(key);
@@ -183,6 +318,115 @@ export class PostgresAuthStore {
         }
         const allowed = usage.remaining > 0;
         return { allowed, usage };
+    }
+    /**
+     * Get extra usage info for a user
+     */
+    async getExtraUsageInfo(key) {
+        const keyHash = this.hashKey(key);
+        try {
+            const result = await this.pool.query(`SELECT 
+          u.extra_usage_enabled,
+          u.extra_usage_balance,
+          u.extra_usage_spent,
+          u.extra_usage_spending_limit,
+          u.auto_reload_enabled,
+          u.extra_usage_period_start
+        FROM api_keys ak
+        JOIN users u ON ak.user_id = u.id
+        WHERE ak.key_hash = $1`, [keyHash]);
+            if (result.rows.length === 0) {
+                return null;
+            }
+            const row = result.rows[0];
+            // Calculate next month reset (1st of next month, 00:00 UTC)
+            const now = new Date();
+            const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+            const percentUsed = row.extra_usage_spending_limit > 0
+                ? Math.round((parseFloat(row.extra_usage_spent) / parseFloat(row.extra_usage_spending_limit)) * 100)
+                : 0;
+            return {
+                enabled: row.extra_usage_enabled,
+                balance: parseFloat(row.extra_usage_balance),
+                spent: parseFloat(row.extra_usage_spent),
+                spendingLimit: parseFloat(row.extra_usage_spending_limit),
+                autoReload: row.auto_reload_enabled,
+                percentUsed,
+                resetsAt: nextMonth.toISOString(),
+            };
+        }
+        catch (error) {
+            console.error('Failed to get extra usage info:', error);
+            return null;
+        }
+    }
+    /**
+     * Check if extra usage can be used
+     */
+    async canUseExtraUsage(key) {
+        const info = await this.getExtraUsageInfo(key);
+        if (!info || !info.enabled) {
+            return false;
+        }
+        // Check if under spending limit and has balance
+        return info.balance > 0 && info.spent < info.spendingLimit;
+    }
+    /**
+     * Track extra usage and deduct from balance
+     */
+    async trackExtraUsage(key, fetchType, url, processingTimeMs, statusCode) {
+        const keyHash = this.hashKey(key);
+        const cost = EXTRA_USAGE_RATES[fetchType];
+        try {
+            // Get API key and user info
+            const keyResult = await this.pool.query(`SELECT 
+          ak.id as api_key_id,
+          ak.user_id,
+          u.extra_usage_balance,
+          u.extra_usage_spent
+        FROM api_keys ak
+        JOIN users u ON ak.user_id = u.id
+        WHERE ak.key_hash = $1`, [keyHash]);
+            if (keyResult.rows.length === 0) {
+                return { success: false, cost: 0, newBalance: 0 };
+            }
+            const { api_key_id, user_id, extra_usage_balance } = keyResult.rows[0];
+            const currentBalance = parseFloat(extra_usage_balance);
+            if (currentBalance < cost) {
+                return { success: false, cost, newBalance: currentBalance };
+            }
+            // Start transaction
+            const client = await this.pool.connect();
+            try {
+                await client.query('BEGIN');
+                // Deduct from balance and add to spent
+                const updateResult = await client.query(`UPDATE users 
+          SET 
+            extra_usage_balance = extra_usage_balance - $1,
+            extra_usage_spent = extra_usage_spent + $1,
+            updated_at = now()
+          WHERE id = $2
+          RETURNING extra_usage_balance`, [cost, user_id]);
+                const newBalance = parseFloat(updateResult.rows[0].extra_usage_balance);
+                // Log to extra_usage_logs
+                await client.query(`INSERT INTO extra_usage_logs 
+            (user_id, api_key_id, fetch_type, url, cost, processing_time_ms, status_code)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)`, [user_id, api_key_id, fetchType, url, cost, processingTimeMs, statusCode]);
+                await client.query('COMMIT');
+                return { success: true, cost, newBalance };
+            }
+            catch (error) {
+                await client.query('ROLLBACK');
+                throw error;
+            }
+            finally {
+                client.release();
+            }
+        }
+        catch (error) {
+            console.error('Failed to track extra usage:', error);
+            return { success: false, cost, newBalance: 0 };
+        }
     }
     /**
      * Generate a cryptographically secure API key

@@ -7,7 +7,7 @@ import { timingSafeEqual } from 'crypto';
 
 export interface ApiKeyInfo {
   key: string;
-  tier: 'free' | 'starter' | 'pro' | 'enterprise';
+  tier: 'free' | 'starter' | 'pro' | 'enterprise' | 'max';
   rateLimit: number;
   accountId?: string;
   createdAt: Date;
@@ -15,7 +15,7 @@ export interface ApiKeyInfo {
 
 export interface AuthStore {
   validateKey(key: string): Promise<ApiKeyInfo | null>;
-  trackUsage(key: string, credits: number): Promise<void>;
+  trackUsage(key: string, creditsOrType: number | 'basic' | 'stealth' | 'captcha' | 'search'): Promise<void>;
 }
 
 /**
@@ -93,7 +93,9 @@ export class InMemoryAuthStore implements AuthStore {
     return null;
   }
 
-  async trackUsage(key: string, credits: number): Promise<void> {
+  async trackUsage(key: string, creditsOrType: number | 'basic' | 'stealth' | 'captcha' | 'search'): Promise<void> {
+    // For in-memory store, just count everything as 1 credit
+    const credits = typeof creditsOrType === 'number' ? creditsOrType : 1;
     const current = this.usage.get(key) || 0;
     this.usage.set(key, current + credits);
   }

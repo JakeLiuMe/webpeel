@@ -6,12 +6,12 @@ import Stripe from 'stripe';
 import pg from 'pg';
 const { Pool } = pg;
 /**
- * Tier configuration
+ * Tier configuration (weekly usage model)
  */
 const TIER_LIMITS = {
-    free: { monthly_limit: 500, rate_limit: 10 },
-    pro: { monthly_limit: 5000, rate_limit: 60 },
-    max: { monthly_limit: 25000, rate_limit: 200 },
+    free: { weekly_limit: 125, burst_limit: 25, rate_limit: 10 },
+    pro: { weekly_limit: 1250, burst_limit: 100, rate_limit: 60 },
+    max: { weekly_limit: 6250, burst_limit: 500, rate_limit: 200 },
 };
 /**
  * Create Stripe webhook router
@@ -123,14 +123,16 @@ async function handleCheckoutCompleted(pool, session) {
         stripe_customer_id = $1,
         stripe_subscription_id = $2,
         tier = $3,
-        monthly_limit = $4,
-        rate_limit = $5,
+        weekly_limit = $4,
+        burst_limit = $5,
+        rate_limit = $6,
         updated_at = now()
-      WHERE stripe_customer_id = $1 OR email = $6`, [
+      WHERE stripe_customer_id = $1 OR email = $7`, [
             customerId,
             subscriptionId,
             tier,
-            limits.monthly_limit,
+            limits.weekly_limit,
+            limits.burst_limit,
             limits.rate_limit,
             session.customer_email,
         ]);
@@ -154,11 +156,12 @@ async function handleSubscriptionUpdated(pool, subscription) {
         await pool.query(`UPDATE users 
       SET 
         tier = $1,
-        monthly_limit = $2,
-        rate_limit = $3,
-        stripe_subscription_id = $4,
+        weekly_limit = $2,
+        burst_limit = $3,
+        rate_limit = $4,
+        stripe_subscription_id = $5,
         updated_at = now()
-      WHERE stripe_customer_id = $5`, [tier, limits.monthly_limit, limits.rate_limit, subscription.id, customerId]);
+      WHERE stripe_customer_id = $6`, [tier, limits.weekly_limit, limits.burst_limit, limits.rate_limit, subscription.id, customerId]);
         console.log(`Subscription updated for customer ${customerId}: tier=${tier}`);
     }
     catch (error) {
@@ -177,11 +180,12 @@ async function handleSubscriptionDeleted(pool, subscription) {
         await pool.query(`UPDATE users 
       SET 
         tier = 'free',
-        monthly_limit = $1,
-        rate_limit = $2,
+        weekly_limit = $1,
+        burst_limit = $2,
+        rate_limit = $3,
         stripe_subscription_id = NULL,
         updated_at = now()
-      WHERE stripe_customer_id = $3`, [limits.monthly_limit, limits.rate_limit, customerId]);
+      WHERE stripe_customer_id = $4`, [limits.weekly_limit, limits.burst_limit, limits.rate_limit, customerId]);
         console.log(`Subscription deleted for customer ${customerId}: downgraded to free`);
     }
     catch (error) {

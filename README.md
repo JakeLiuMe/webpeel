@@ -40,8 +40,10 @@ npx webpeel https://news.ycombinator.com
 | **MCP Server** | ✅ Built-in | ✅ Separate repo | ❌ No | ✅ Yes |
 | **Zero config** | ✅ `npx webpeel` | ❌ API key required | ❌ API key required | ✅ Yes |
 | **Free tier** | ∞ Unlimited local | 500 pages (one-time) | 1000 req/month | ∞ Local only |
-| **Hosted API** | $9/mo (5K pages) | $16/mo (3K pages) | $200/mo (Starter) | N/A |
-| **Credit rollover** | ✅ Up to 1 month | ❌ Expire monthly | ❌ N/A | ❌ N/A |
+| **Hosted API** | $9/mo (1,250/wk) | $16/mo (3K/mo) | $200/mo (Starter) | N/A |
+| **Weekly reset** | N/A | ❌ Monthly only | ❌ Monthly only | ❌ N/A |
+| **Extra usage** | N/A | ✅ Pay-as-you-go | ❌ Upgrade only | N/A |
+| **Rollover** | N/A | ✅ 1 week | ❌ Expire monthly | ❌ N/A |
 | **Soft limits** | ✅ Never blocked | ❌ Hard cut-off | ❌ Rate limited | ❌ N/A |
 | **Markdown output** | ✅ Optimized for AI | ✅ Yes | ✅ Yes | ⚠️ Basic |
 
@@ -156,16 +158,16 @@ WebPeel tries the fastest method first, then escalates only when needed:
 │                    Smart Escalation                          │
 └─────────────────────────────────────────────────────────────┘
 
-Simple HTTP Fetch          Browser Rendering         Stealth Mode
-    ~200ms                      ~2 seconds             ~5 seconds
+Simple HTTP Fetch     →     Browser Rendering    →     Stealth Mode       →     CAPTCHA Solve
+    ~200ms                      ~2 seconds               ~5 seconds               ~8 seconds
+       │                            │                       │                        │
+       ├─ User-Agent headers        ├─ Full JS execution   ├─ Anti-detect           ├─ AI vision
+       ├─ Cheerio parsing           ├─ Wait for content    ├─ Fingerprint mask      ├─ Auto-solve
+       ├─ Fast & cheap              ├─ Screenshots         ├─ Cloudflare bypass     └─ reCAPTCHA/Turnstile
        │                            │                       │
-       ├─ User-Agent headers        ├─ Full JS execution   ├─ Anti-detect
-       ├─ Cheerio parsing           ├─ Wait for content    ├─ Proxy rotation
-       ├─ Fast & cheap              ├─ Screenshots         └─ Cloudflare bypass
-       │                            │
-       ▼                            ▼
-   Works for 80%              Works for 19%            Works for 1%
-   of websites                (JS-heavy sites)         (heavily protected)
+       ▼                            ▼                       ▼
+   Works for 80%              Works for 15%            Works for 4%           Works for 1%
+   of websites                (JS-heavy sites)         (bot-protected)        (CAPTCHA-gated)
 ```
 
 **Why this matters:**
@@ -257,29 +259,47 @@ curl "https://webpeel-api.onrender.com/v1/fetch?url=https://example.com" \
   -H "Authorization: Bearer wp_live_your_api_key"
 ```
 
-### Pricing
+### Pricing — Weekly Reset Model
 
-| Plan | Price | Fetches/Month | JS Rendering | Key Features |
-|------|------:|---------------:|:------------:|----------|
-| **Local CLI** | $0 | ∞ Unlimited | ✅ | Full power, your machine |
-| **Cloud Free** | $0 | 500 | ❌ | Soft limits — never blocked |
-| **Cloud Pro** | $9/mo | 5,000 | ✅ | Credit rollover, soft limits |
-| **Cloud Max** | $29/mo | 25,000 | ✅ | Priority queue, credit rollover |
+Usage resets every **Monday at 00:00 UTC**, just like Claude Code.
 
-### Why WebPeel Pro Beats Firecrawl
+| Plan | Price | Weekly Fetches | Stealth Mode | CAPTCHA Solving | Extra Usage |
+|------|------:|---------------:|:------------:|:---------------:|:-----------:|
+| **Local CLI** | $0 | ∞ Unlimited | ✅ | ✅ | N/A |
+| **Cloud Free** | $0 | 125/wk (~500/mo) | ❌ | ❌ | ❌ |
+| **Cloud Pro** | $9/mo | 1,250/wk (~5K/mo) | ✅ | 50/wk | ✅ |
+| **Cloud Max** | $29/mo | 6,250/wk (~25K/mo) | ✅ | 250/wk | ✅ |
+
+**Three layers of usage control:**
+1. **Burst limit** — Per-hour cap (25/hr free, 100/hr Pro, 500/hr Max) prevents hammering
+2. **Weekly limit** — Main usage gate, resets every Monday
+3. **Extra usage** — When you hit your weekly limit, keep fetching at pay-as-you-go rates
+
+**Extra usage rates (Pro/Max only):**
+| Fetch Type | Cost |
+|-----------|------|
+| Basic (HTTP) | $0.002 |
+| Stealth (browser) | $0.01 |
+| CAPTCHA solve | $0.02 |
+| Search | $0.001 |
+
+### Why WebPeel Beats Firecrawl
 
 | Feature | WebPeel Local | WebPeel Pro | Firecrawl Hobby |
 |---------|:-------------:|:-----------:|:---------------:|
 | **Price** | $0 | $9/mo | $16/mo |
-| **Monthly Fetches** | ∞ | 5,000 | 3,000 |
-| **Credit Rollover** | N/A | ✅ 1 month | ❌ Expire monthly |
+| **Weekly Fetches** | ∞ | 1,250/wk | ~750/wk |
+| **Rollover** | N/A | ✅ 1 week | ❌ Expire monthly |
 | **Soft Limits** | ✅ Always | ✅ Never locked out | ❌ Hard cut-off |
+| **Extra Usage** | N/A | ✅ Pay-as-you-go | ❌ Upgrade only |
 | **Self-Host** | ✅ MIT | N/A | ❌ AGPL |
 
 **Key differentiators:**
-- **Soft limits on every tier** — When you hit your limit, we degrade to HTTP-only instead of blocking you. Even free users are never locked out.
-- **Credits roll over** — Unused fetches carry forward for 1 month (Firecrawl expires monthly)
-- **CLI is always free** — No vendor lock-in. Run unlimited locally forever.
+- **Weekly resets** — Your usage refreshes every Monday, not once a month
+- **Soft limits on every tier** — At 100%, we degrade to HTTP-only instead of blocking you
+- **Extra usage** — Pro/Max users can toggle on pay-as-you-go with spending caps (no surprise bills)
+- **Rollover** — Unused fetches carry forward 1 week
+- **CLI is always free** — No vendor lock-in. Run unlimited locally forever
 
 See pricing at [webpeel.dev](https://webpeel.dev/#pricing)
 
@@ -388,10 +408,17 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] CLI with smart escalation
 - [x] TypeScript library
 - [x] MCP server for Claude/Cursor/VS Code
-- [ ] Hosted API with authentication
-- [ ] Rate limiting and caching
-- [ ] Batch processing API
-- [ ] Screenshot capture
+- [x] Hosted API with authentication and usage tracking
+- [x] Rate limiting and caching
+- [x] Batch processing API (`batch <file>`)
+- [x] Screenshot capture (`--screenshot`)
+- [x] CSS selector filtering (`--selector`, `--exclude`)
+- [x] DuckDuckGo search (`search <query>`)
+- [x] Custom headers and cookies
+- [x] Weekly reset usage model with extra usage
+- [ ] Stealth mode (playwright-extra + anti-detect)
+- [ ] AI CAPTCHA solving (vision model)
+- [ ] Crawl mode (follow links, build sitemaps)
 - [ ] PDF extraction
 - [ ] Webhook notifications for monitoring
 
@@ -411,10 +438,10 @@ A: Yes! Run `npm run serve` to start the API server. See [docs/self-hosting.md](
 A: WebPeel is a tool — how you use it is up to you. Always check a site's ToS before fetching at scale. We recommend respecting `robots.txt` in your own workflows.
 
 **Q: What about CAPTCHA and Cloudflare?**  
-A: WebPeel handles most Cloudflare challenges automatically. For CAPTCHAs, you'll need a solving service (not included).
+A: WebPeel handles most Cloudflare challenges automatically via stealth mode. CAPTCHA solving (AI vision-based) is included for Pro and Max cloud plans.
 
 **Q: Can I use this in production?**  
-A: Yes, but be mindful of rate limits. The hosted API (coming soon) is better for high-volume production use.
+A: Yes! The hosted API at `https://webpeel-api.onrender.com` is production-ready with authentication, rate limiting, and usage tracking.
 
 ---
 

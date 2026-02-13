@@ -90,9 +90,25 @@ export function createSearchRouter(authStore) {
                 results.push({ title, url, snippet });
             });
             const elapsed = Date.now() - startTime;
-            // Track usage (1 credit per search)
-            if (req.auth?.keyInfo?.key) {
-                await authStore.trackUsage(req.auth.keyInfo.key, 1);
+            // Track usage
+            const isSoftLimited = req.auth?.softLimited === true;
+            const hasExtraUsage = req.auth?.extraUsageAvailable === true;
+            const pgStore = authStore;
+            if (req.auth?.keyInfo?.key && typeof pgStore.trackBurstUsage === 'function') {
+                // Track burst usage (always)
+                await pgStore.trackBurstUsage(req.auth.keyInfo.key);
+                // If soft-limited with extra usage available, charge to extra usage
+                if (isSoftLimited && hasExtraUsage) {
+                    const extraResult = await pgStore.trackExtraUsage(req.auth.keyInfo.key, 'search', searchUrl, elapsed, response.status);
+                    if (extraResult.success) {
+                        res.setHeader('X-Extra-Usage-Charged', `$${extraResult.cost.toFixed(4)}`);
+                        res.setHeader('X-Extra-Usage-New-Balance', extraResult.newBalance.toFixed(2));
+                    }
+                }
+                else if (!isSoftLimited) {
+                    // Normal weekly usage tracking
+                    await pgStore.trackUsage(req.auth.keyInfo.key, 'search');
+                }
             }
             // Cache results
             cache.set(cacheKey, {
@@ -103,6 +119,7 @@ export function createSearchRouter(authStore) {
             res.setHeader('X-Cache', 'MISS');
             res.setHeader('X-Credits-Used', '1');
             res.setHeader('X-Processing-Time', elapsed.toString());
+            res.setHeader('X-Fetch-Type', 'search');
             res.json({
                 query: q,
                 count: results.length,
