@@ -83,4 +83,4 @@ curl "https://api.webpeel.dev/v1/search?q=your+query"
 - Website: https://webpeel.dev
 - GitHub: https://github.com/JakeLiuMe/webpeel
 - npm: https://www.npmjs.com/package/webpeel
-- MCP Registry: dev.webpeel/webpeel
+- MCP Registry: io.github.JakeLiuMe/webpeel
