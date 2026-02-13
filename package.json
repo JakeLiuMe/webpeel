@@ -33,7 +33,11 @@
     "dist/mcp",
     "README.md",
     "LICENSE",
-    "llms.txt"
+    "llms.txt",
+    "dist/cli-auth.js",
+    "dist/cli-auth.js.map",
+    "dist/cli-auth.d.ts",
+    "dist/cli-auth.d.ts.map"
   ],
   "scripts": {
     "build": "tsc",
