@@ -20,11 +20,12 @@ const program = new Command();
 program
     .name('webpeel')
     .description('Fast web fetcher for AI agents')
-    .version('0.2.0')
+    .version('0.3.0')
     .enablePositionalOptions();
 program
     .argument('[url]', 'URL to fetch')
     .option('-r, --render', 'Use headless browser (for JS-heavy sites)')
+    .option('--stealth', 'Use stealth mode to bypass bot detection (auto-enables --render)')
     .option('-w, --wait <ms>', 'Wait time after page load (ms)', parseInt)
     .option('--html', 'Output raw HTML instead of markdown')
     .option('--text', 'Output plain text instead of markdown')
@@ -92,6 +93,7 @@ program
         // Build peel options
         const peelOptions = {
             render: options.render || false,
+            stealth: options.stealth || false,
             wait: options.wait || 0,
             timeout: options.timeout,
             userAgent: options.ua,
@@ -369,6 +371,72 @@ program
     catch (error) {
         if (spinner) {
             spinner.fail('Batch fetch failed');
+        }
+        if (error instanceof Error) {
+            console.error(`\nError: ${error.message}`);
+        }
+        else {
+            console.error('\nError: Unknown error occurred');
+        }
+        await cleanup();
+        process.exit(1);
+    }
+});
+program
+    .command('crawl <url>')
+    .description('Crawl a website starting from a URL')
+    .option('--max-pages <number>', 'Maximum number of pages to crawl (default: 10, max: 100)', parseInt, 10)
+    .option('--max-depth <number>', 'Maximum depth to crawl (default: 2, max: 5)', parseInt, 2)
+    .option('--allowed-domains <domains...>', 'Only crawl these domains (default: same as starting URL)')
+    .option('--exclude <patterns...>', 'Exclude URLs matching these regex patterns')
+    .option('--ignore-robots', 'Ignore robots.txt (default: respect robots.txt)')
+    .option('--rate-limit <ms>', 'Rate limit between requests in ms (default: 1000)', parseInt, 1000)
+    .option('-r, --render', 'Use headless browser for all pages')
+    .option('--stealth', 'Use stealth mode for all pages')
+    .option('-s, --silent', 'Silent mode (no spinner)')
+    .option('--json', 'Output as JSON')
+    .action(async (url, options) => {
+    const { crawl } = await import('./core/crawler.js');
+    const spinner = options.silent ? null : ora('Crawling...').start();
+    try {
+        const results = await crawl(url, {
+            maxPages: options.maxPages,
+            maxDepth: options.maxDepth,
+            allowedDomains: options.allowedDomains,
+            excludePatterns: options.exclude,
+            respectRobotsTxt: !options.ignoreRobots,
+            rateLimitMs: options.rateLimit,
+            render: options.render || false,
+            stealth: options.stealth || false,
+        });
+        if (spinner) {
+            spinner.succeed(`Crawled ${results.length} pages`);
+        }
+        if (options.json) {
+            console.log(JSON.stringify(results, null, 2));
+        }
+        else {
+            results.forEach((result, i) => {
+                console.log(`\n${'='.repeat(60)}`);
+                console.log(`[${i + 1}/${results.length}] ${result.title}`);
+                console.log(`URL: ${result.url}`);
+                console.log(`Depth: ${result.depth}${result.parent ? ` (from: ${result.parent})` : ''}`);
+                console.log(`Links found: ${result.links.length}`);
+                console.log(`Elapsed: ${result.elapsed}ms`);
+                if (result.error) {
+                    console.log(`ERROR: ${result.error}`);
+                }
+                else {
+                    console.log(`\n${result.markdown.slice(0, 500)}${result.markdown.length > 500 ? '...' : ''}`);
+                }
+            });
+        }
+        await cleanup();
+        process.exit(0);
+    }
+    catch (error) {
+        if (spinner) {
+            spinner.fail('Crawl failed');
         }
         if (error instanceof Error) {
             console.error(`\nError: ${error.message}`);

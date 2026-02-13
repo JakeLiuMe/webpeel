@@ -3,7 +3,12 @@
  */
 
 import { chromium, type Browser, type Page } from 'playwright';
+import { chromium as stealthChromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
+
+// Add stealth plugin to playwright-extra
+stealthChromium.use(StealthPlugin());
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -427,6 +432,7 @@ export async function simpleFetch(
 }
 
 let sharedBrowser: Browser | null = null;
+let sharedStealthBrowser: Browser | null = null;
 let activePagesCount = 0;
 const MAX_CONCURRENT_PAGES = 5;
 
@@ -447,6 +453,23 @@ async function getBrowser(): Promise<Browser> {
   return sharedBrowser;
 }
 
+async function getStealthBrowser(): Promise<Browser> {
+  // SECURITY: Check if stealth browser is still connected and healthy
+  if (sharedStealthBrowser) {
+    try {
+      if (sharedStealthBrowser.isConnected()) {
+        return sharedStealthBrowser;
+      }
+    } catch {
+      // Browser is dead, recreate
+      sharedStealthBrowser = null;
+    }
+  }
+  
+  sharedStealthBrowser = await stealthChromium.launch({ headless: true });
+  return sharedStealthBrowser;
+}
+
 /**
  * Fetch using headless Chromium via Playwright
  * Slower but can handle JavaScript-heavy sites and bypass some bot detection
@@ -461,6 +484,7 @@ export async function browserFetch(
     screenshotFullPage?: boolean;
     headers?: Record<string, string>;
     cookies?: string[];
+    stealth?: boolean;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -473,7 +497,8 @@ export async function browserFetch(
     screenshot = false, 
     screenshotFullPage = false,
     headers,
-    cookies 
+    cookies,
+    stealth = false
   } = options;
 
   // Validate user agent if provided
@@ -512,7 +537,7 @@ export async function browserFetch(
   let page: Page | null = null;
 
   try {
-    const browser = await getBrowser();
+    const browser = stealth ? await getStealthBrowser() : await getBrowser();
     page = await browser.newPage({
       userAgent: validatedUserAgent,
     });
@@ -663,5 +688,9 @@ export async function cleanup(): Promise<void> {
   if (sharedBrowser) {
     await sharedBrowser.close();
     sharedBrowser = null;
+  }
+  if (sharedStealthBrowser) {
+    await sharedStealthBrowser.close();
+    sharedStealthBrowser = null;
   }
 }

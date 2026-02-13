@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WebPeel — Web fetching for AI agents</title>
-  <meta name="description" content="Smart web fetcher that auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor & VS Code. Free and open source.">
+  <meta name="description" content="Smart web fetcher with stealth mode and crawl mode. Auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor & VS Code. Free and open source.">
   <link rel="canonical" href="https://webpeel.dev">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://webpeel.dev">
   <meta property="og:title" content="WebPeel — Web fetching for AI agents">
-  <meta property="og:description" content="Smart web fetcher that auto-escalates from HTTP to headless browser. Free and open source.">
+  <meta property="og:description" content="Smart web fetcher with stealth mode and crawl mode. Auto-escalates from HTTP to headless browser. Free and open source.">
   <meta property="og:image" content="https://webpeel.dev/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:creator" content="@JakeLiuMe">
@@ -275,12 +275,12 @@
             <span class="terminal-title">Terminal</span>
           </div>
           <div class="terminal-body">
-            <div class="terminal-line"><span class="t-prompt">$ </span><span class="t-cmd">npx</span> <span class="t-result">webpeel</span> <span class="t-url">"https://openai.com/blog/gpt-5"</span></div>
-            <div class="terminal-line" style="margin-top:12px"><span class="t-success">✓</span> <span class="t-dim">Done in 164ms</span> <span class="t-badge t-badge-http">HTTP</span></div>
+            <div class="terminal-line"><span class="t-prompt">$ </span><span class="t-cmd">npx</span> <span class="t-result">webpeel</span> <span class="t-url">"https://protected-site.com"</span> <span class="t-cmd">--stealth</span></div>
+            <div class="terminal-line" style="margin-top:12px"><span class="t-success">✓</span> <span class="t-dim">Done in 2.3s</span> <span class="t-badge t-badge-browser">STEALTH</span></div>
             <div style="margin-top:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
-              <div class="terminal-line"><span class="t-accent"># Introducing GPT-5</span></div>
-              <div class="terminal-line" style="margin-top:4px"><span class="t-result">Today we announce our most capable model yet,</span></div>
-              <div class="terminal-line"><span class="t-result">with breakthrough performance across...</span></div>
+              <div class="terminal-line"><span class="t-accent"># Premium Content</span></div>
+              <div class="terminal-line" style="margin-top:4px"><span class="t-result">Bypassed bot detection. Extracted full article...</span></div>
+              <div class="terminal-line"><span class="t-result">Clean markdown ready for your AI agent.</span></div>
             </div>
           </div>
         </div>
@@ -292,7 +292,7 @@
   <div class="container">
     <div class="stats">
       <div class="stat"><div class="stat-num">~118ms</div><div class="stat-label">Average response time</div></div>
-      <div class="stat"><div class="stat-num">4 modes</div><div class="stat-label">HTTP → Browser → Stealth → CAPTCHA</div></div>
+      <div class="stat"><div class="stat-num">5 modes</div><div class="stat-label">HTTP → Browser → Stealth → Crawl → CAPTCHA</div></div>
       <div class="stat"><div class="stat-num">125/wk</div><div class="stat-label">Free tier included</div></div>
     </div>
   </div>
@@ -376,12 +376,30 @@
           <tr><td>MCP server</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
           <tr><td>Browser rendering</td><td class="highlight-col"><span class="check">✓</span> Auto</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
           <tr><td>Smart escalation</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Stealth mode</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td>Crawl mode</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
           <tr><td>Search built-in</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
           <tr><td>Open source</td><td class="highlight-col"><span class="check">✓</span> MIT</td><td>Partial</td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
           <tr><td>Self-hostable</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
           <tr><td>Price</td><td class="highlight-col" style="font-weight:600;color:var(--accent)">Free / $9/mo</td><td>$16/mo</td><td>$10/mo</td><td>Free</td></tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- WORKS WITH -->
+  <section style="padding: 60px 0; background: white; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+    <div class="container" style="text-align: center;">
+      <div style="font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 32px;">Works with</div>
+      <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 48px; max-width: 800px; margin: 0 auto;">
+        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Claude</div>
+        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Cursor</div>
+        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">VS Code</div>
+        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Windsurf</div>
+        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Cline</div>
+        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">OpenAI</div>
+      </div>
+      <div style="margin-top: 24px; font-size: 14px; color: var(--text-3);">Install as an MCP server or use the CLI directly</div>
     </div>
   </section>
 

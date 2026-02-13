@@ -11,7 +11,7 @@ import { fetch as undiciFetch } from 'undici';
 import { load } from 'cheerio';
 const server = new Server({
     name: 'webpeel',
-    version: '0.2.0',
+    version: '0.3.0',
 }, {
     capabilities: {
         tools: {},
@@ -69,7 +69,7 @@ async function searchWeb(query, count = 5) {
 const tools = [
     {
         name: 'webpeel_fetch',
-        description: 'Fetch a URL and return clean, AI-ready markdown content. Handles JavaScript rendering and anti-bot protections automatically. Use this when you need to read the content of a web page.',
+        description: 'Fetch a URL and return clean, AI-ready markdown content. Handles JavaScript rendering and anti-bot protections automatically. Use this when you need to read the content of a web page. For protected sites, use stealth=true to bypass bot detection.',
         annotations: {
             title: 'Fetch Web Page',
             readOnlyHint: true,
@@ -87,6 +87,11 @@ const tools = [
                 render: {
                     type: 'boolean',
                     description: 'Force browser rendering (slower but handles JavaScript-heavy sites)',
+                    default: false,
+                },
+                stealth: {
+                    type: 'boolean',
+                    description: 'Use stealth mode to bypass bot detection (auto-enables render=true)',
                     default: false,
                 },
                 wait: {
@@ -203,6 +208,76 @@ const tools = [
             required: ['urls'],
         },
     },
+    {
+        name: 'webpeel_crawl',
+        description: 'Crawl a website starting from a URL, following links and extracting content. Respects robots.txt and rate limits. Perfect for gathering documentation or site content.',
+        annotations: {
+            title: 'Crawl Website',
+            readOnlyHint: true,
+            destructiveHint: false,
+            idempotentHint: true,
+            openWorldHint: true,
+        },
+        inputSchema: {
+            type: 'object',
+            properties: {
+                url: {
+                    type: 'string',
+                    description: 'Starting URL to crawl from',
+                },
+                maxPages: {
+                    type: 'number',
+                    description: 'Maximum number of pages to crawl (default: 10, max: 100)',
+                    default: 10,
+                    minimum: 1,
+                    maximum: 100,
+                },
+                maxDepth: {
+                    type: 'number',
+                    description: 'Maximum depth to crawl (default: 2, max: 5)',
+                    default: 2,
+                    minimum: 1,
+                    maximum: 5,
+                },
+                allowedDomains: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Only crawl URLs from these domains (default: same domain as starting URL)',
+                },
+                excludePatterns: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Exclude URLs matching these regex patterns',
+                },
+                respectRobotsTxt: {
+                    type: 'boolean',
+                    description: 'Respect robots.txt (default: true)',
+                    default: true,
+                },
+                rateLimitMs: {
+                    type: 'number',
+                    description: 'Rate limit between requests in milliseconds (default: 1000)',
+                    default: 1000,
+                    minimum: 100,
+                },
+                render: {
+                    type: 'boolean',
+                    description: 'Use browser rendering for all pages',
+                    default: false,
+                },
+                stealth: {
+                    type: 'boolean',
+                    description: 'Use stealth mode for all pages',
+                    default: false,
+                },
+            },
+            required: ['url'],
+        },
+    },
 ];
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools,
@@ -211,7 +286,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
         if (name === 'webpeel_fetch') {
-            const { url, render, wait, format, screenshot, screenshotFullPage, selector, exclude, headers } = args;
+            const { url, render, stealth, wait, format, screenshot, screenshotFullPage, selector, exclude, headers } = args;
             // SECURITY: Validate input parameters
             if (!url || typeof url !== 'string') {
                 throw new Error('Invalid URL parameter');
@@ -238,6 +313,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }
             const options = {
                 render: render || false,
+                stealth: stealth || false,
                 wait: wait || 0,
                 format: format || 'markdown',
                 screenshot: screenshot || false,
@@ -365,6 +441,74 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 resultText = JSON.stringify({
                     error: 'serialization_error',
                     message: 'Failed to serialize batch results',
+                });
+            }
+            return {
+                content: [
+                    {
+                        type: 'text',
+                        text: resultText,
+                    },
+                ],
+            };
+        }
+        if (name === 'webpeel_crawl') {
+            const { crawl } = await import('../core/crawler.js');
+            const { url, maxPages, maxDepth, allowedDomains, excludePatterns, respectRobotsTxt, rateLimitMs, render, stealth, } = args;
+            // SECURITY: Validate input parameters
+            if (!url || typeof url !== 'string') {
+                throw new Error('Invalid URL parameter');
+            }
+            if (url.length > 2048) {
+                throw new Error('URL too long (max 2048 characters)');
+            }
+            if (maxPages !== undefined) {
+                if (typeof maxPages !== 'number' || isNaN(maxPages) || maxPages < 1 || maxPages > 100) {
+                    throw new Error('Invalid maxPages parameter: must be between 1 and 100');
+                }
+            }
+            if (maxDepth !== undefined) {
+                if (typeof maxDepth !== 'number' || isNaN(maxDepth) || maxDepth < 1 || maxDepth > 5) {
+                    throw new Error('Invalid maxDepth parameter: must be between 1 and 5');
+                }
+            }
+            if (allowedDomains !== undefined && !Array.isArray(allowedDomains)) {
+                throw new Error('Invalid allowedDomains parameter: must be an array');
+            }
+            if (excludePatterns !== undefined && !Array.isArray(excludePatterns)) {
+                throw new Error('Invalid excludePatterns parameter: must be an array');
+            }
+            if (rateLimitMs !== undefined) {
+                if (typeof rateLimitMs !== 'number' || isNaN(rateLimitMs) || rateLimitMs < 100) {
+                    throw new Error('Invalid rateLimitMs parameter: must be at least 100ms');
+                }
+            }
+            // SECURITY: Wrap in timeout (10 minutes max for crawling)
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Crawl operation timed out after 10 minutes')), 600000);
+            });
+            const results = await Promise.race([
+                crawl(url, {
+                    maxPages,
+                    maxDepth,
+                    allowedDomains,
+                    excludePatterns,
+                    respectRobotsTxt,
+                    rateLimitMs,
+                    render,
+                    stealth,
+                }),
+                timeoutPromise,
+            ]);
+            // SECURITY: Handle JSON serialization errors
+            let resultText;
+            try {
+                resultText = JSON.stringify(results, null, 2);
+            }
+            catch (jsonError) {
+                resultText = JSON.stringify({
+                    error: 'serialization_error',
+                    message: 'Failed to serialize crawl results',
                 });
             }
             return {

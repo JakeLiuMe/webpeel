@@ -8,6 +8,8 @@ import { BlockedError, NetworkError } from '../types.js';
 export interface StrategyOptions {
   /** Force browser mode (skip simple fetch) */
   forceBrowser?: boolean;
+  /** Use stealth mode to bypass bot detection */
+  stealth?: boolean;
   /** Wait time after page load in browser mode (ms) */
   waitMs?: number;
   /** Custom user agent */
@@ -25,8 +27,8 @@ export interface StrategyOptions {
 }
 
 export interface StrategyResult extends FetchResult {
-  /** Which strategy succeeded: 'simple' | 'browser' */
-  method: 'simple' | 'browser';
+  /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' */
+  method: 'simple' | 'browser' | 'stealth';
 }
 
 /**
@@ -35,13 +37,15 @@ export interface StrategyResult extends FetchResult {
  * Strategy:
  * 1. Try simple HTTP fetch first (fast, ~200ms)
  * 2. If blocked (403, 503, Cloudflare, empty body) → try browser
- * 3. If browser encounters Cloudflare challenge → wait 5s and retry
+ * 3. If browser gets blocked (403, CAPTCHA) → try stealth mode
+ * 4. If stealth mode is explicitly requested → skip to stealth
  * 
  * Returns the result along with which method worked
  */
 export async function smartFetch(url: string, options: StrategyOptions = {}): Promise<StrategyResult> {
   const { 
-    forceBrowser = false, 
+    forceBrowser = false,
+    stealth = false,
     waitMs = 0, 
     userAgent, 
     timeoutMs = 30000,
@@ -51,8 +55,8 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     cookies
   } = options;
 
-  // If screenshot is requested, force browser mode
-  const shouldUseBrowser = forceBrowser || screenshot;
+  // If stealth is requested, force browser mode (stealth requires browser)
+  const shouldUseBrowser = forceBrowser || screenshot || stealth;
 
   // Strategy 1: Simple fetch (unless browser is forced or screenshot is requested)
   if (!shouldUseBrowser) {
@@ -76,7 +80,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     }
   }
 
-  // Strategy 2: Browser fetch
+  // Strategy 2: Browser fetch (with or without stealth)
   try {
     const result = await browserFetch(url, {
       userAgent,
@@ -86,12 +90,36 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
       screenshotFullPage,
       headers,
       cookies,
+      stealth,
     });
     return {
       ...result,
-      method: 'browser',
+      method: stealth ? 'stealth' : 'browser',
     };
   } catch (error) {
+    // Strategy 3: If browser gets blocked, try stealth mode as fallback (unless already using stealth)
+    if (!stealth && error instanceof BlockedError) {
+      try {
+        const result = await browserFetch(url, {
+          userAgent,
+          waitMs,
+          timeoutMs,
+          screenshot,
+          screenshotFullPage,
+          headers,
+          cookies,
+          stealth: true, // Escalate to stealth mode
+        });
+        return {
+          ...result,
+          method: 'stealth',
+        };
+      } catch (stealthError) {
+        // If stealth also fails, throw the original error
+        throw stealthError;
+      }
+    }
+
     // If browser encounters Cloudflare, retry with extra wait time
     if (
       error instanceof NetworkError &&
@@ -105,10 +133,11 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
         screenshotFullPage,
         headers,
         cookies,
+        stealth, // Keep stealth setting
       });
       return {
         ...result,
-        method: 'browser',
+        method: stealth ? 'stealth' : 'browser',
       };
     }
 

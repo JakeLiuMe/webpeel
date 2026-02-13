@@ -5,6 +5,8 @@ import { type FetchResult } from './fetcher.js';
 export interface StrategyOptions {
     /** Force browser mode (skip simple fetch) */
     forceBrowser?: boolean;
+    /** Use stealth mode to bypass bot detection */
+    stealth?: boolean;
     /** Wait time after page load in browser mode (ms) */
     waitMs?: number;
     /** Custom user agent */
@@ -21,8 +23,8 @@ export interface StrategyOptions {
     cookies?: string[];
 }
 export interface StrategyResult extends FetchResult {
-    /** Which strategy succeeded: 'simple' | 'browser' */
-    method: 'simple' | 'browser';
+    /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' */
+    method: 'simple' | 'browser' | 'stealth';
 }
 /**
  * Smart fetch with automatic escalation
@@ -30,7 +32,8 @@ export interface StrategyResult extends FetchResult {
  * Strategy:
  * 1. Try simple HTTP fetch first (fast, ~200ms)
  * 2. If blocked (403, 503, Cloudflare, empty body) → try browser
- * 3. If browser encounters Cloudflare challenge → wait 5s and retry
+ * 3. If browser gets blocked (403, CAPTCHA) → try stealth mode
+ * 4. If stealth mode is explicitly requested → skip to stealth
  *
  * Returns the result along with which method worked
  */

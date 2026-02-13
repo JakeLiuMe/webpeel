@@ -4,6 +4,8 @@
 export interface PeelOptions {
     /** Use headless browser instead of simple HTTP fetch */
     render?: boolean;
+    /** Use stealth mode to bypass bot detection (requires render=true, auto-enables if not set) */
+    stealth?: boolean;
     /** Wait time in milliseconds after page load (only with render=true) */
     wait?: number;
     /** Output format */
@@ -38,8 +40,8 @@ export interface PeelResult {
     links: string[];
     /** Estimated token count (rough: content.length / 4) */
     tokens: number;
-    /** Method used: 'simple' | 'browser' */
-    method: 'simple' | 'browser';
+    /** Method used: 'simple' | 'browser' | 'stealth' */
+    method: 'simple' | 'browser' | 'stealth';
     /** Time elapsed in milliseconds */
     elapsed: number;
     /** Base64-encoded screenshot (PNG), only if screenshot option was set */

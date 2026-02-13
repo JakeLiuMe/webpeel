@@ -8,6 +8,7 @@ import { htmlToMarkdown, htmlToText, estimateTokens, selectContent } from './cor
 import { extractMetadata, extractLinks } from './core/metadata.js';
 import { cleanup } from './core/fetcher.js';
 export * from './types.js';
+export { crawl } from './core/crawler.js';
 /**
  * Fetch and extract content from a URL
  *
@@ -26,7 +27,7 @@ export * from './types.js';
  */
 export async function peel(url, options = {}) {
     const startTime = Date.now();
-    let { render = false, wait = 0, format = 'markdown', timeout = 30000, userAgent, screenshot = false, screenshotFullPage = false, selector, exclude, headers, cookies, } = options;
+    let { render = false, stealth = false, wait = 0, format = 'markdown', timeout = 30000, userAgent, screenshot = false, screenshotFullPage = false, selector, exclude, headers, cookies, } = options;
     // Detect PDF URLs and force browser rendering
     const isPdf = url.toLowerCase().endsWith('.pdf');
     if (isPdf) {
@@ -36,10 +37,15 @@ export async function peel(url, options = {}) {
     if (screenshot) {
         render = true;
     }
+    // If stealth is requested, force render mode
+    if (stealth) {
+        render = true;
+    }
     try {
         // Fetch the page
         const fetchResult = await smartFetch(url, {
             forceBrowser: render,
+            stealth,
             waitMs: wait,
             userAgent,
             timeoutMs: timeout,

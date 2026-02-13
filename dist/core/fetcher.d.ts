@@ -26,6 +26,7 @@ export declare function browserFetch(url: string, options?: {
     screenshotFullPage?: boolean;
     headers?: Record<string, string>;
     cookies?: string[];
+    stealth?: boolean;
 }): Promise<FetchResult>;
 /**
  * Retry a fetch operation with exponential backoff

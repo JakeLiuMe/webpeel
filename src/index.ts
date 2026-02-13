@@ -11,6 +11,7 @@ import { cleanup } from './core/fetcher.js';
 import type { PeelOptions, PeelResult } from './types.js';
 
 export * from './types.js';
+export { crawl, type CrawlOptions, type CrawlResult } from './core/crawler.js';
 
 /**
  * Fetch and extract content from a URL
@@ -33,6 +34,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
 
   let {
     render = false,
+    stealth = false,
     wait = 0,
     format = 'markdown',
     timeout = 30000,
@@ -56,10 +58,16 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     render = true;
   }
 
+  // If stealth is requested, force render mode
+  if (stealth) {
+    render = true;
+  }
+
   try {
     // Fetch the page
     const fetchResult = await smartFetch(url, {
       forceBrowser: render,
+      stealth,
       waitMs: wait,
       userAgent,
       timeoutMs: timeout,

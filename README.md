@@ -2,11 +2,12 @@
 
 [![npm version](https://img.shields.io/npm/v/webpeel.svg)](https://www.npmjs.com/package/webpeel)
 [![npm downloads](https://img.shields.io/npm/dm/webpeel.svg)](https://www.npmjs.com/package/webpeel)
+[![GitHub stars](https://img.shields.io/github/stars/JakeLiuMe/webpeel.svg)](https://github.com/JakeLiuMe/webpeel/stargazers)
 [![CI](https://github.com/JakeLiuMe/webpeel/actions/workflows/ci.yml/badge.svg)](https://github.com/JakeLiuMe/webpeel/actions/workflows/ci.yml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Turn any web page into clean markdown. Zero config. Free forever.
+Turn any web page into clean markdown. **Stealth mode. Crawl mode. Zero config. Free forever.**
 
 ```bash
 npx webpeel https://news.ycombinator.com
@@ -36,7 +37,8 @@ npx webpeel https://news.ycombinator.com
 |---|:---:|:---:|:---:|:---:|
 | **Local execution** | ✅ Free forever | ❌ Cloud only | ❌ Cloud only | ✅ Free |
 | **JS rendering** | ✅ Auto-escalates | ✅ Always | ❌ No | ❌ No |
-| **Anti-bot handling** | ✅ Stealth mode | ✅ Yes | ⚠️ Limited | ❌ No |
+| **Stealth mode** | ✅ Built-in | ✅ Yes | ⚠️ Limited | ❌ No |
+| **Crawl mode** | ✅ Built-in | ✅ Yes | ❌ No | ❌ No |
 | **MCP Server** | ✅ Built-in | ✅ Separate repo | ❌ No | ✅ Yes |
 | **Zero config** | ✅ `npx webpeel` | ❌ API key required | ❌ API key required | ✅ Yes |
 | **Free tier** | ∞ Unlimited local | 500 pages (one-time) | 1000 req/month | ∞ Local only |
@@ -49,6 +51,12 @@ npx webpeel https://news.ycombinator.com
 
 **WebPeel gives you Firecrawl's power without the price tag.** Run locally for free, or use our hosted API when you need scale.
 
+## Why WebPeel?
+
+1. **🎭 Stealth Mode** — Bypass bot detection with playwright-extra stealth plugin. Works on sites that block regular scrapers.
+2. **🕷️ Crawl Mode** — Follow links and extract entire sites. Respects robots.txt and rate limits automatically.
+3. **💰 Actually Free** — Run unlimited requests locally. No API keys, no credit cards, no surprises. Open source MIT.
+
 ---
 
 ## Quick Start
@@ -58,6 +66,12 @@ npx webpeel https://news.ycombinator.com
 ```bash
 # Basic usage
 npx webpeel https://example.com
+
+# Stealth mode (bypass bot detection)
+npx webpeel https://protected-site.com --stealth
+
+# Crawl a website (follow links, respect robots.txt)
+npx webpeel crawl https://example.com --max-pages 20 --max-depth 2
 
 # JSON output with metadata
 npx webpeel https://example.com --json

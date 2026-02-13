@@ -2,7 +2,11 @@
  * Core fetching logic: simple HTTP and browser-based fetching
  */
 import { chromium } from 'playwright';
+import { chromium as stealthChromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
+// Add stealth plugin to playwright-extra
+stealthChromium.use(StealthPlugin());
 const USER_AGENTS = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -354,6 +358,7 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
     throw new WebPeelError(`Too many redirects (max ${MAX_REDIRECTS})`);
 }
 let sharedBrowser = null;
+let sharedStealthBrowser = null;
 let activePagesCount = 0;
 const MAX_CONCURRENT_PAGES = 5;
 async function getBrowser() {
@@ -372,6 +377,22 @@ async function getBrowser() {
     sharedBrowser = await chromium.launch({ headless: true });
     return sharedBrowser;
 }
+async function getStealthBrowser() {
+    // SECURITY: Check if stealth browser is still connected and healthy
+    if (sharedStealthBrowser) {
+        try {
+            if (sharedStealthBrowser.isConnected()) {
+                return sharedStealthBrowser;
+            }
+        }
+        catch {
+            // Browser is dead, recreate
+            sharedStealthBrowser = null;
+        }
+    }
+    sharedStealthBrowser = await stealthChromium.launch({ headless: true });
+    return sharedStealthBrowser;
+}
 /**
  * Fetch using headless Chromium via Playwright
  * Slower but can handle JavaScript-heavy sites and bypass some bot detection
@@ -379,7 +400,7 @@ async function getBrowser() {
 export async function browserFetch(url, options = {}) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
-    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies } = options;
+    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false } = options;
     // Validate user agent if provided
     const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
     // Validate wait time
@@ -410,7 +431,7 @@ export async function browserFetch(url, options = {}) {
     activePagesCount++;
     let page = null;
     try {
-        const browser = await getBrowser();
+        const browser = stealth ? await getStealthBrowser() : await getBrowser();
         page = await browser.newPage({
             userAgent: validatedUserAgent,
         });
@@ -536,6 +557,10 @@ export async function cleanup() {
     if (sharedBrowser) {
         await sharedBrowser.close();
         sharedBrowser = null;
+    }
+    if (sharedStealthBrowser) {
+        await sharedStealthBrowser.close();
+        sharedStealthBrowser = null;
     }
 }
 //# sourceMappingURL=fetcher.js.map
