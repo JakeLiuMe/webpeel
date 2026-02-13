@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated comparison table with "Stealth mode" and "Crawl mode" rows
   - Updated terminal demo to show `--stealth` flag example
   - Updated meta description to mention stealth and crawl modes
-  - Updated stats: "5 modes" (HTTP → Browser → Stealth → Crawl → CAPTCHA)
+  - Updated stats: "3 modes" (HTTP → Browser → Stealth)
 
 - **README Improvements**
   - Added GitHub stars badge
