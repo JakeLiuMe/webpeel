@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WebPeel — Web fetching for AI agents</title>
   <meta name="description" content="Smart web fetcher with stealth mode and crawl mode. Auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor & VS Code. Free and open source.">
+  <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://webpeel.dev">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://webpeel.dev">
@@ -16,10 +17,34 @@
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="sitemap" href="/sitemap.xml">
   <meta name="theme-color" content="#FAFAF8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "WebPeel",
+    "applicationCategory": "DeveloperApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "operatingSystem": "Cross-platform",
+    "description": "Smart web fetcher with stealth mode and crawl mode. Auto-escalates from HTTP to headless browser.",
+    "url": "https://webpeel.dev",
+    "creator": {
+      "@type": "Person",
+      "name": "Jake Liu"
+    }
+  }
+  </script>
+  
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     :root {
@@ -34,6 +59,7 @@
       --border: #E4E4E7;
       --border-light: #F4F4F5;
       --green: #16A34A;
+      --red-light: #FDA4AF;
       --radius: 12px;
     }
     html { scroll-behavior: smooth; }
@@ -52,11 +78,11 @@
     .nav-links { display: flex; align-items: center; gap: 24px; }
     .nav-links a { font-size: 14px; color: var(--text-3); transition: color 0.15s; }
     .nav-links a:hover { color: var(--text); }
-    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-btn-primary { background: var(--text); color: white; }
-    .nav-btn-primary:hover { background: #27272A; }
+    .nav-btn-primary { background: var(--text); color: #FFFFFF; }
+    .nav-btn-primary:hover { background: #27272A; box-shadow: 0 0 0 3px rgba(139,92,246,0.2); }
     
     /* MOBILE NAV */
     .nav-hamburger { display: none; padding: 8px; cursor: pointer; background: none; border: none; }
@@ -79,14 +105,15 @@
     .btn-secondary { background: white; color: var(--text); border: 1px solid var(--border); }
     .btn-secondary:hover { background: var(--border-light); border-color: #D4D4D8; }
 
-    /* TERMINAL DEMO */
+    /* TERMINAL DEMO - ANIMATED */
     .demo { max-width: 680px; margin: 60px auto 0; }
     .terminal { border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04); }
     .terminal-bar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; background: #FAFAFA; border-bottom: 1px solid var(--border); }
     .terminal-dot { width: 10px; height: 10px; border-radius: 50%; background: #D4D4D8; }
     .terminal-title { font-size: 11px; color: var(--text-4); margin-left: 8px; font-family: 'JetBrains Mono', monospace; }
-    .terminal-body { background: #18181B; padding: 20px; min-height: 200px; }
-    .terminal-line { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.8; }
+    .terminal-body { background: #18181B; padding: 20px; min-height: 240px; position: relative; }
+    .terminal-line { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.8; opacity: 0; }
+    .terminal-line.visible { opacity: 1; }
     .t-prompt { color: #71717A; }
     .t-cmd { color: #4ADE80; }
     .t-url { color: #FDE047; }
@@ -94,15 +121,22 @@
     .t-accent { color: #A78BFA; }
     .t-result { color: #D4D4D8; }
     .t-success { color: #4ADE80; }
+    .t-cursor { animation: blink 1s infinite; }
+    @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
     .t-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
     .t-badge-http { background: rgba(74,222,128,0.15); color: #4ADE80; }
-    .t-badge-browser { background: rgba(167,139,250,0.15); color: #A78BFA; }
+    .t-badge-stealth { background: rgba(167,139,250,0.15); color: #A78BFA; }
+    .t-badge-search { background: rgba(253,224,71,0.15); color: #FDE047; }
+    .terminal-output { margin-top: 12px; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
 
     /* STATS ROW */
     .stats { display: flex; justify-content: center; gap: 48px; padding: 48px 0; margin-top: 24px; }
-    .stat { text-align: center; }
-    .stat-num { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
-    .stat-label { font-size: 13px; color: var(--text-3); margin-top: 4px; }
+    .stat { text-align: center; background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 32px; transition: all 0.3s; min-width: 200px; }
+    .stat:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-2px); }
+    .stat-icon { font-size: 28px; margin-bottom: 8px; }
+    .stat-num { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; position: relative; display: inline-block; }
+    .stat-num::after { content: ''; position: absolute; bottom: -6px; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); border-radius: 2px; }
+    .stat-label { font-size: 13px; color: var(--text-3); margin-top: 12px; }
 
     /* SECTIONS */
     section { padding: 80px 0; }
@@ -110,10 +144,25 @@
     .section-header h2 { font-family: 'Instrument Serif', serif; font-size: 36px; font-weight: 400; margin-bottom: 12px; }
     .section-header p { font-size: 16px; color: var(--text-2); max-width: 500px; margin: 0 auto; }
 
+    /* SCROLL ANIMATIONS */
+    .reveal { opacity: 0; transform: translateY(24px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-stagger > * { opacity: 0; transform: translateY(16px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+    .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(2) { transition-delay: 80ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(3) { transition-delay: 160ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(4) { transition-delay: 240ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(5) { transition-delay: 320ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(6) { transition-delay: 400ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(7) { transition-delay: 480ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(8) { transition-delay: 560ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(9) { transition-delay: 640ms; opacity: 1; transform: translateY(0); }
+    .reveal-stagger.visible > *:nth-child(10) { transition-delay: 720ms; opacity: 1; transform: translateY(0); }
+
     /* STEPS */
     .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .step-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: all 0.2s; }
-    .step-card:hover { border-color: #D4D4D8; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .step-card:hover { border-color: #D4D4D8; box-shadow: 0 4px 16px rgba(0,0,0,0.06); transform: translateY(-2px); }
     .step-num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-light); color: var(--accent); font-size: 13px; font-weight: 600; margin-bottom: 16px; }
     .step-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
     .step-card p { font-size: 14px; color: var(--text-2); line-height: 1.6; }
@@ -135,19 +184,37 @@
     .compare-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
     .compare-table th, .compare-table td { padding: 12px 20px; text-align: left; font-size: 14px; border-bottom: 1px solid var(--border-light); }
     .compare-table th { font-weight: 500; color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; background: #FAFAFA; }
-    .compare-table td:first-child { font-weight: 500; }
+    .compare-table td:first-child { font-weight: 500; position: relative; }
+    .feature-tooltip { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+    .tooltip-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--border-light); color: var(--text-3); font-size: 11px; cursor: help; position: relative; }
+    .tooltip-text { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 8px; padding: 8px 12px; background: #27272A; color: white; font-size: 12px; font-weight: 400; border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 10; }
+    .tooltip-text::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: #27272A; }
+    .tooltip-icon:hover .tooltip-text { opacity: 1; }
     .check { color: var(--green); }
-    .cross { color: #D4D4D8; }
+    .cross { color: var(--red-light); }
     .highlight-col { background: rgba(139,92,246,0.04); }
 
+    /* WORKS WITH */
+    .works-with-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px; max-width: 900px; margin: 0 auto; }
+    .works-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: var(--radius); transition: all 0.3s; }
+    .works-item:hover { transform: translateY(-2px); }
+    .works-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 20px; color: white; }
+    .works-name { font-size: 14px; font-weight: 500; color: var(--text-2); }
+
     /* PRICING */
+    .pricing-toggle { display: flex; justify-content: center; margin-bottom: 32px; }
+    .toggle-container { display: inline-flex; background: white; border: 1px solid var(--border); border-radius: 100px; padding: 4px; }
+    .toggle-btn { padding: 8px 24px; border-radius: 100px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; background: none; }
+    .toggle-btn.active { background: var(--text); color: white; }
     .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-    .price-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
-    .price-card.featured { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 4px 16px rgba(139,92,246,0.1); }
+    .price-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: all 0.3s; }
+    .price-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .price-card.featured { border: 2px solid var(--accent); box-shadow: 0 0 20px rgba(139,92,246,0.12); }
     .price-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; background: var(--accent); color: white; font-size: 11px; font-weight: 600; margin-bottom: 12px; }
     .price-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
     .price-amount { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
     .price-amount span { font-size: 14px; font-weight: 400; color: var(--text-3); }
+    .price-save { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 4px; background: rgba(22,163,74,0.1); color: var(--green); font-size: 11px; font-weight: 600; }
     .price-desc { font-size: 13px; color: var(--text-3); margin: 8px 0 20px; }
     .price-features { list-style: none; margin-bottom: 24px; }
     .price-features li { font-size: 13px; color: var(--text-2); padding: 5px 0; display: flex; align-items: center; gap: 8px; }
@@ -158,21 +225,37 @@
     .price-btn-secondary { background: var(--border-light); color: var(--text); }
     .price-btn-secondary:hover { background: var(--border); }
 
+    /* FAQ */
+    .faq-section { max-width: 700px; margin: 60px auto 0; }
+    .faq-title { font-size: 24px; font-weight: 600; text-align: center; margin-bottom: 28px; }
+    .faq-item { background: white; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+    .faq-question { padding: 16px 20px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+    .faq-question:hover { background: var(--border-light); }
+    .faq-arrow { transition: transform 0.3s; }
+    .faq-item.open .faq-arrow { transform: rotate(180deg); }
+    .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+    .faq-answer-inner { padding: 0 20px 16px; color: var(--text-2); font-size: 14px; line-height: 1.6; }
+    .faq-item.open .faq-answer { max-height: 200px; }
+
     /* CTA */
-    .cta-section { text-align: center; padding: 80px 0; }
-    .cta-section h2 { font-family: 'Instrument Serif', serif; font-size: 36px; font-weight: 400; margin-bottom: 12px; }
-    .cta-section p { font-size: 16px; color: var(--text-2); margin-bottom: 28px; }
+    .cta-section { text-align: center; padding: 100px 0; background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, transparent 100%); position: relative; overflow: hidden; }
+    .cta-section::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(139,92,246,0.03) 0%, transparent 70%); animation: float 20s infinite; }
+    @keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(5%, 5%) rotate(180deg); } }
+    .cta-section .container { position: relative; z-index: 1; }
+    .cta-section h2 { font-family: 'Instrument Serif', serif; font-size: 42px; font-weight: 400; margin-bottom: 12px; }
+    .cta-section p { font-size: 18px; color: var(--text-2); margin-bottom: 8px; }
+    .cta-proof { font-size: 14px; color: var(--text-3); margin-bottom: 32px; }
 
     /* FOOTER */
     footer { border-top: 1px solid var(--border); padding: 40px 0; }
     .footer-inner { display: flex; justify-content: space-between; align-items: center; }
     .footer-left { font-size: 13px; color: var(--text-4); }
+    .footer-credit { margin-top: 8px; font-size: 12px; color: var(--text-4); }
     .footer-links { display: flex; gap: 20px; }
     .footer-links a { font-size: 13px; color: var(--text-3); transition: color 0.15s; }
     .footer-links a:hover { color: var(--text); }
 
     /* ANIMATION */
-    @keyframes terminal-type { from { width: 0 } to { width: 100% } }
     @keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
     .fade-up { animation: fade-up 0.6s ease-out forwards; }
     .delay-1 { animation-delay: 0.1s; opacity: 0; }
@@ -189,9 +272,10 @@
       .btn { width: 100%; justify-content: center; }
       .demo { margin-top: 40px; }
       .terminal { border-radius: 12px; }
-      .terminal-body { padding: 16px; font-size: 12px; overflow-x: auto; }
+      .terminal-body { padding: 16px; font-size: 12px; overflow-x: auto; min-height: 200px; }
       .steps, .pricing-grid { grid-template-columns: 1fr; }
-      .stats { gap: 24px; flex-wrap: wrap; }
+      .stats { gap: 16px; flex-wrap: wrap; }
+      .stat { min-width: auto; width: 100%; }
       .stat-num { font-size: 24px; }
       .nav-links { display: none; }
       .nav-hamburger { display: block; }
@@ -204,9 +288,15 @@
       .code-body { font-size: 12px; padding: 16px; overflow-x: auto; }
       .compare-table { font-size: 11px; display: block; overflow-x: auto; }
       .compare-table th, .compare-table td { padding: 8px 10px; white-space: nowrap; }
+      .tooltip-text { white-space: normal; max-width: 200px; }
       .price-card { padding: 24px; }
       .price-amount { font-size: 28px; }
       .step-card { padding: 20px; }
+      .works-with-grid { gap: 20px; }
+      .works-icon { width: 40px; height: 40px; font-size: 18px; }
+      .cta-section { padding: 60px 0; }
+      .cta-section h2 { font-size: 32px; }
+      .faq-section { margin-top: 40px; }
     }
 
     /* TABLET */
@@ -265,7 +355,7 @@
         </a>
       </div>
 
-      <!-- TERMINAL DEMO -->
+      <!-- ANIMATED TERMINAL DEMO -->
       <div class="demo fade-up delay-3">
         <div class="terminal">
           <div class="terminal-bar">
@@ -274,14 +364,8 @@
             <div class="terminal-dot"></div>
             <span class="terminal-title">Terminal</span>
           </div>
-          <div class="terminal-body">
-            <div class="terminal-line"><span class="t-prompt">$ </span><span class="t-cmd">npx</span> <span class="t-result">webpeel</span> <span class="t-url">"https://protected-site.com"</span> <span class="t-cmd">--stealth</span></div>
-            <div class="terminal-line" style="margin-top:12px"><span class="t-success">✓</span> <span class="t-dim">Done in 2.3s</span> <span class="t-badge t-badge-browser">STEALTH</span></div>
-            <div style="margin-top:12px;padding:12px;background:rgba(255,255,255,0.04);border-radius:8px;border:1px solid rgba(255,255,255,0.06)">
-              <div class="terminal-line"><span class="t-accent"># Premium Content</span></div>
-              <div class="terminal-line" style="margin-top:4px"><span class="t-result">Bypassed bot detection. Extracted full article...</span></div>
-              <div class="terminal-line"><span class="t-result">Clean markdown ready for your AI agent.</span></div>
-            </div>
+          <div class="terminal-body" id="terminal-body">
+            <!-- Animated content injected by JS -->
           </div>
         </div>
       </div>
@@ -290,21 +374,33 @@
 
   <!-- STATS -->
   <div class="container">
-    <div class="stats">
-      <div class="stat"><div class="stat-num">~118ms</div><div class="stat-label">Average response time</div></div>
-      <div class="stat"><div class="stat-num">3 modes</div><div class="stat-label">HTTP → Browser → Stealth</div></div>
-      <div class="stat"><div class="stat-num">125/wk</div><div class="stat-label">Free tier included</div></div>
+    <div class="stats reveal-stagger" data-reveal>
+      <div class="stat">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-num" data-target="118">0</div>
+        <div class="stat-label">Average response (ms)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon">🛡️</div>
+        <div class="stat-num" data-target="3">0</div>
+        <div class="stat-label">HTTP → Browser → Stealth</div>
+      </div>
+      <div class="stat">
+        <div class="stat-icon">🎁</div>
+        <div class="stat-num" data-target="125">0</div>
+        <div class="stat-label">Free tier per week</div>
+      </div>
     </div>
   </div>
 
   <!-- HOW IT WORKS -->
-  <section id="how">
+  <section id="how" class="reveal" data-reveal>
     <div class="container">
       <div class="section-header">
         <h2>Smart <em class="serif" style="font-style:italic">escalation</em></h2>
         <p>Always the fastest path. Falls back automatically when pages need more.</p>
       </div>
-      <div class="steps">
+      <div class="steps reveal-stagger" data-reveal>
         <div class="step-card">
           <div class="step-num">1</div>
           <h3>HTTP Fetch</h3>
@@ -328,7 +424,7 @@
   </section>
 
   <!-- CODE -->
-  <section>
+  <section class="reveal" data-reveal>
     <div class="container">
       <div class="section-header">
         <h2>Three lines. <em class="serif" style="font-style:italic">That's it.</em></h2>
@@ -355,7 +451,7 @@
   </section>
 
   <!-- COMPARE -->
-  <section id="compare">
+  <section id="compare" class="reveal" data-reveal>
     <div class="container">
       <div class="section-header">
         <h2>Why <em class="serif" style="font-style:italic">WebPeel</em></h2>
@@ -371,49 +467,210 @@
             <th>MCP Fetch</th>
           </tr>
         </thead>
-        <tbody>
-          <tr><td>Free tier</td><td class="highlight-col"><span class="check">✓</span> 125/wk</td><td>500 credits</td><td>Limited</td><td><span class="check">✓</span></td></tr>
-          <tr><td>MCP server</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>Browser rendering</td><td class="highlight-col"><span class="check">✓</span> Auto</td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Smart escalation</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Stealth mode</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Crawl mode</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Search built-in</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
-          <tr><td>Open source</td><td class="highlight-col"><span class="check">✓</span> MIT</td><td>Partial</td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>Self-hostable</td><td class="highlight-col"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="check">✓</span></td></tr>
-          <tr><td>Price</td><td class="highlight-col" style="font-weight:600;color:var(--accent)">Free / $9/mo</td><td>$16/mo</td><td>$10/mo</td><td>Free</td></tr>
+        <tbody class="reveal-stagger" data-reveal>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Free tier
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">How many requests you get for free</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span> 125/wk</td>
+            <td>500 credits</td>
+            <td>Limited</td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                MCP server
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Model Context Protocol — lets AI assistants like Claude call WebPeel directly</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Browser rendering
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Executes JavaScript for dynamic pages (SPAs, React apps)</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span> Auto</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Smart escalation
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Automatically tries faster methods first, only uses browser when needed</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Stealth mode
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Bypasses bot detection (Cloudflare, DataDome, etc.) using browser fingerprint randomization</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Crawl mode
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Follow links and fetch multiple pages from a site</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Search built-in
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">DuckDuckGo search API included — no separate search tool needed</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Open source
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Full source code available under MIT license</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span> MIT</td>
+            <td>Partial</td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Self-hostable
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Run your own instance — no vendor lock-in</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col"><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="check">✓</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="feature-tooltip">
+                Price
+                <span class="tooltip-icon">ⓘ
+                  <span class="tooltip-text">Monthly cost for the paid tier</span>
+                </span>
+              </div>
+            </td>
+            <td class="highlight-col" style="font-weight:600;color:var(--accent)">Free / $9/mo</td>
+            <td>$16/mo</td>
+            <td>$10/mo</td>
+            <td>Free</td>
+          </tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <!-- WORKS WITH -->
-  <section style="padding: 60px 0; background: white; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <section style="padding: 60px 0; background: white; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);" class="reveal" data-reveal>
     <div class="container" style="text-align: center;">
       <div style="font-size: 13px; color: var(--text-3); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 32px;">Works with</div>
-      <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 48px; max-width: 800px; margin: 0 auto;">
-        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Claude</div>
-        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Cursor</div>
-        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">VS Code</div>
-        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Windsurf</div>
-        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">Cline</div>
-        <div style="font-size: 18px; font-weight: 600; color: var(--text-2);">OpenAI</div>
+      <div class="works-with-grid reveal-stagger" data-reveal>
+        <div class="works-item">
+          <div class="works-icon" style="background: #D97757;">C</div>
+          <div class="works-name">Claude</div>
+        </div>
+        <div class="works-item">
+          <div class="works-icon" style="background: #16A34A;">C</div>
+          <div class="works-name">Cursor</div>
+        </div>
+        <div class="works-item">
+          <div class="works-icon" style="background: #3B82F6;">V</div>
+          <div class="works-name">VS Code</div>
+        </div>
+        <div class="works-item">
+          <div class="works-icon" style="background: #06B6D4;">W</div>
+          <div class="works-name">Windsurf</div>
+        </div>
+        <div class="works-item">
+          <div class="works-icon" style="background: #71717A;">C</div>
+          <div class="works-name">Cline</div>
+        </div>
+        <div class="works-item">
+          <div class="works-icon" style="background: #18181B;">O</div>
+          <div class="works-name">OpenAI</div>
+        </div>
+        <div class="works-item">
+          <div class="works-icon" style="background: #DC2626;">🦞</div>
+          <div class="works-name">OpenClaw</div>
+        </div>
       </div>
       <div style="margin-top: 24px; font-size: 14px; color: var(--text-3);">Install as an MCP server or use the CLI directly</div>
     </div>
   </section>
 
   <!-- PRICING -->
-  <section id="pricing">
+  <section id="pricing" class="reveal" data-reveal>
     <div class="container">
       <div class="section-header">
         <h2>Simple <em class="serif" style="font-style:italic">pricing</em></h2>
         <p>Free forever for personal use. Scale when you need to.</p>
       </div>
-      <div class="pricing-grid">
+      
+      <!-- ANNUAL/MONTHLY TOGGLE -->
+      <div class="pricing-toggle">
+        <div class="toggle-container">
+          <button class="toggle-btn active" id="toggle-monthly">Monthly</button>
+          <button class="toggle-btn" id="toggle-annual">Annual</button>
+        </div>
+      </div>
+
+      <div class="pricing-grid reveal-stagger" data-reveal>
         <div class="price-card">
           <div class="price-name">Free</div>
-          <div class="price-amount">$0<span>/month</span></div>
+          <div class="price-amount" id="price-free">$0<span>/month</span></div>
           <div class="price-desc">For personal projects and experimentation</div>
           <ul class="price-features">
             <li>125 fetches per week</li>
@@ -426,7 +683,7 @@
         <div class="price-card featured">
           <div class="price-badge">Most Popular</div>
           <div class="price-name">Pro</div>
-          <div class="price-amount">$9<span>/month</span></div>
+          <div class="price-amount" id="price-pro">$9<span>/month</span></div>
           <div class="price-desc">For developers and small teams</div>
           <ul class="price-features">
             <li>1,250 fetches per week</li>
@@ -439,7 +696,7 @@
         </div>
         <div class="price-card">
           <div class="price-name">Max</div>
-          <div class="price-amount">$29<span>/month</span></div>
+          <div class="price-amount" id="price-max">$29<span>/month</span></div>
           <div class="price-desc">For production workloads</div>
           <ul class="price-features">
             <li>6,250 fetches per week</li>
@@ -452,6 +709,66 @@
           <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-secondary">Start Max trial →</a>
         </div>
       </div>
+
+      <!-- FAQ SECTION -->
+      <div class="faq-section">
+        <div class="faq-title">Frequently Asked Questions</div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(this)">
+            <span>What happens if I exceed my limits?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">
+              Soft limits apply — your requests will slow down but won't stop completely. You can upgrade at any time or purchase additional credits.
+            </div>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(this)">
+            <span>Can I cancel anytime?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">
+              Yes, absolutely. No contracts, no commitments. Cancel your subscription anytime from your dashboard.
+            </div>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(this)">
+            <span>Do you store the pages I fetch?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">
+              No, we never store fetched content. We only log metadata (URL, timestamp, response time) for analytics and debugging.
+            </div>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(this)">
+            <span>Is there an enterprise plan?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">
+              Yes! Contact us at <a href="mailto:support@webpeel.dev" style="color: var(--accent);">support@webpeel.dev</a> for custom pricing and dedicated infrastructure.
+            </div>
+          </div>
+        </div>
+        <div class="faq-item">
+          <div class="faq-question" onclick="toggleFAQ(this)">
+            <span>Can I self-host instead?</span>
+            <span class="faq-arrow">▼</span>
+          </div>
+          <div class="faq-answer">
+            <div class="faq-answer-inner">
+              Yes, WebPeel is open source under the MIT license. Install it with <code style="background: var(--border-light); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px;">npm install -g webpeel</code> and run your own instance.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -459,7 +776,8 @@
   <section class="cta-section">
     <div class="container">
       <h2>Ready to <em class="serif" style="font-style:italic">peel?</em></h2>
-      <p>Start fetching the web in under a minute. Free, no credit card required.</p>
+      <p>Start fetching the web in under a minute.</p>
+      <p class="cta-proof">Join developers using WebPeel to fetch the web</p>
       <div class="hero-actions">
         <a href="https://app.webpeel.dev/signup" class="btn btn-primary">Create free account →</a>
         <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-secondary">Read the docs</a>
@@ -470,27 +788,29 @@
   <!-- FOOTER -->
   <footer>
     <div class="container footer-inner">
-      <div class="footer-left">© 2026 WebPeel. Open source under MIT.</div>
+      <div class="footer-left">
+        <div>© 2026 WebPeel. Open source under MIT.</div>
+        <div class="footer-credit">Built with ❤️ by Jake Liu</div>
+      </div>
       <div class="footer-links">
         <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
         <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="https://webpeel-api.onrender.com/health">Status</a>
         <a href="https://webpeel.dev/privacy">Privacy</a>
         <a href="https://webpeel.dev/terms">Terms</a>
+        <a href="https://webpeel.dev/acceptable-use">Acceptable Use</a>
+        <a href="mailto:support@webpeel.dev">Support</a>
       </div>
     </div>
   </footer>
 
   <script>
+    // MOBILE MENU
     function toggleMobileMenu() {
       const menu = document.getElementById('mobile-menu');
-      if (menu.style.display === 'flex') {
-        menu.style.display = 'none';
-      } else {
-        menu.style.display = 'flex';
-      }
+      menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
     }
 
-    // Close mobile menu when clicking outside
     document.addEventListener('click', function(event) {
       const menu = document.getElementById('mobile-menu');
       const hamburger = document.querySelector('.nav-hamburger');
@@ -499,7 +819,7 @@
       }
     });
 
-    // Code tab switching
+    // CODE TAB SWITCHING
     const codeTabs = document.querySelectorAll('.code-tab');
     const codeContent = document.getElementById('code-content');
     
@@ -532,17 +852,168 @@ console.<span class="hl-fn">log</span>(result.markdown);`
 
     codeTabs.forEach(tab => {
       tab.addEventListener('click', () => {
-        // Remove active class from all tabs
         codeTabs.forEach(t => t.classList.remove('active'));
-        // Add active class to clicked tab
         tab.classList.add('active');
-        // Update content
         const tabName = tab.getAttribute('data-tab');
         if (tabName && codeExamples[tabName]) {
           codeContent.innerHTML = codeExamples[tabName];
         }
       });
     });
+
+    // ANIMATED TERMINAL
+    const terminalDemos = [
+      {
+        command: 'webpeel "https://news.ycombinator.com"',
+        output: [
+          '<div class="terminal-line visible"><span class="t-success">✓</span> <span class="t-dim">Done in 118ms</span> <span class="t-badge t-badge-http">HTTP</span></div>',
+          '<div class="terminal-output"><div class="terminal-line visible"><span class="t-accent"># Hacker News</span></div><div class="terminal-line visible"><span class="t-result">Latest news on tech, startups, and programming...</span></div><div class="terminal-line visible"><span class="t-result">Clean markdown ready for your AI agent.</span></div></div>'
+        ]
+      },
+      {
+        command: 'webpeel "https://protected-site.com" --stealth',
+        output: [
+          '<div class="terminal-line visible"><span class="t-success">✓</span> <span class="t-dim">Done in 2.3s</span> <span class="t-badge t-badge-stealth">STEALTH</span></div>',
+          '<div class="terminal-output"><div class="terminal-line visible"><span class="t-accent"># Protected Content</span></div><div class="terminal-line visible"><span class="t-result">Bypassed bot detection. Extracted full article...</span></div><div class="terminal-line visible"><span class="t-result">Clean markdown ready for your AI agent.</span></div></div>'
+        ]
+      },
+      {
+        command: 'webpeel search "latest AI frameworks 2026"',
+        output: [
+          '<div class="terminal-line visible"><span class="t-success">✓</span> <span class="t-dim">Done in 340ms</span> <span class="t-badge t-badge-search">SEARCH</span></div>',
+          '<div class="terminal-output"><div class="terminal-line visible"><span class="t-result">1. LangChain 0.3 - Next-gen AI orchestration</span></div><div class="terminal-line visible"><span class="t-result">2. AutoGPT v2 - Autonomous AI agents</span></div><div class="terminal-line visible"><span class="t-result">3. OpenAI GPT-5 - Latest language model</span></div></div>'
+        ]
+      }
+    ];
+
+    let currentDemo = 0;
+    let typingSpeed = 40;
+
+    async function typeText(element, text, speed) {
+      element.innerHTML = '';
+      for (let i = 0; i < text.length; i++) {
+        element.innerHTML = text.substring(0, i + 1) + '<span class="t-cursor">▎</span>';
+        await new Promise(resolve => setTimeout(resolve, speed));
+      }
+      element.innerHTML = text;
+    }
+
+    async function runTerminalDemo() {
+      const terminalBody = document.getElementById('terminal-body');
+      const demo = terminalDemos[currentDemo];
+      
+      terminalBody.innerHTML = '';
+      
+      const promptLine = document.createElement('div');
+      promptLine.className = 'terminal-line visible';
+      promptLine.innerHTML = '<span class="t-prompt">$ </span>';
+      terminalBody.appendChild(promptLine);
+      
+      await typeText(promptLine, `<span class="t-prompt">$ </span><span class="t-cmd">${demo.command}</span>`, typingSpeed);
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      for (const line of demo.output) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        const outputLine = document.createElement('div');
+        outputLine.innerHTML = line;
+        outputLine.style.opacity = '0';
+        terminalBody.appendChild(outputLine);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        outputLine.style.transition = 'opacity 0.3s';
+        outputLine.style.opacity = '1';
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      
+      currentDemo = (currentDemo + 1) % terminalDemos.length;
+      runTerminalDemo();
+    }
+
+    // Start terminal animation after page load
+    window.addEventListener('load', () => {
+      setTimeout(runTerminalDemo, 500);
+    });
+
+    // SCROLL ANIMATIONS
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          
+          // Trigger stat counters
+          if (entry.target.classList.contains('stats')) {
+            const statNums = entry.target.querySelectorAll('.stat-num');
+            statNums.forEach(stat => {
+              const target = parseInt(stat.getAttribute('data-target'));
+              animateCounter(stat, target);
+            });
+          }
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('[data-reveal]').forEach(el => {
+      revealObserver.observe(el);
+    });
+
+    // COUNTER ANIMATION
+    function animateCounter(element, target) {
+      if (element.dataset.animated) return;
+      element.dataset.animated = 'true';
+      
+      const duration = 1500;
+      const start = 0;
+      const increment = target / (duration / 16);
+      let current = start;
+      
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+          element.textContent = target;
+          clearInterval(timer);
+        } else {
+          element.textContent = Math.floor(current);
+        }
+      }, 16);
+    }
+
+    // PRICING TOGGLE
+    const toggleMonthly = document.getElementById('toggle-monthly');
+    const toggleAnnual = document.getElementById('toggle-annual');
+    const priceFree = document.getElementById('price-free');
+    const pricePro = document.getElementById('price-pro');
+    const priceMax = document.getElementById('price-max');
+
+    toggleMonthly.addEventListener('click', () => {
+      toggleMonthly.classList.add('active');
+      toggleAnnual.classList.remove('active');
+      priceFree.innerHTML = '$0<span>/month</span>';
+      pricePro.innerHTML = '$9<span>/month</span>';
+      priceMax.innerHTML = '$29<span>/month</span>';
+    });
+
+    toggleAnnual.addEventListener('click', () => {
+      toggleAnnual.classList.add('active');
+      toggleMonthly.classList.remove('active');
+      priceFree.innerHTML = '$0<span>/year</span>';
+      pricePro.innerHTML = '$90<span>/year</span><span class="price-save">Save $18</span>';
+      priceMax.innerHTML = '$290<span>/year</span><span class="price-save">Save $58</span>';
+    });
+
+    // FAQ TOGGLE
+    function toggleFAQ(element) {
+      const faqItem = element.parentElement;
+      const isOpen = faqItem.classList.contains('open');
+      
+      document.querySelectorAll('.faq-item').forEach(item => {
+        item.classList.remove('open');
+      });
+      
+      if (!isOpen) {
+        faqItem.classList.add('open');
+      }
+    }
   </script>
 
 </body>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceptable Use Policy — WebPeel</title>
+  <meta name="description" content="WebPeel's Acceptable Use Policy — guidelines for responsible and legal use of our web fetching service.">
+  <link rel="canonical" href="https://webpeel.dev/acceptable-use">
+  <meta name="robots" content="index, follow">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#FAFAF8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text: #09090B;
+      --text-2: #52525B;
+      --text-3: #71717A;
+      --text-4: #A1A1AA;
+      --accent: #8B5CF6;
+      --accent-light: #EDE9FE;
+      --border: #E4E4E7;
+      --border-light: #F4F4F5;
+      --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(139,92,246,0.15); }
+    .serif { font-family: 'Instrument Serif', Georgia, serif; }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+    a { color: var(--accent); text-decoration: none; transition: color 0.15s; }
+    a:hover { color: #7C3AED; text-decoration: underline; }
+
+    /* NAV */
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,248,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-light); }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; color: var(--text); }
+    .nav-logo:hover { color: var(--text); text-decoration: none; }
+    .nav-logo svg { width: 24px; height: 24px; }
+    .nav-back { font-size: 14px; color: var(--text-3); }
+    .nav-back:hover { color: var(--text); }
+
+    /* HEADER */
+    .header { padding: 80px 0 40px; text-align: center; }
+    .header h1 { font-family: 'Instrument Serif', serif; font-size: 42px; font-weight: 400; margin-bottom: 12px; }
+    .header p { font-size: 16px; color: var(--text-2); }
+    .last-updated { font-size: 13px; color: var(--text-3); margin-top: 8px; }
+
+    /* CONTENT */
+    .content { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 48px; margin: 40px auto 80px; }
+    .content h2 { font-size: 24px; font-weight: 600; margin: 36px 0 16px; }
+    .content h2:first-child { margin-top: 0; }
+    .content h3 { font-size: 18px; font-weight: 600; margin: 24px 0 12px; color: var(--text-2); }
+    .content p { margin-bottom: 16px; color: var(--text-2); line-height: 1.7; }
+    .content ul, .content ol { margin: 16px 0 16px 24px; color: var(--text-2); }
+    .content li { margin-bottom: 8px; line-height: 1.7; }
+    .content strong { color: var(--text); font-weight: 600; }
+    .content code { background: var(--border-light); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+    .notice { background: var(--accent-light); border-left: 3px solid var(--accent); padding: 16px 20px; border-radius: 8px; margin: 24px 0; }
+    .notice p { margin-bottom: 0; color: var(--text); }
+    .contact-box { background: var(--border-light); border-radius: var(--radius); padding: 24px; margin-top: 32px; text-align: center; }
+    .contact-box h3 { margin: 0 0 12px; }
+    .contact-box p { margin: 0; }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--border); padding: 32px 0; }
+    .footer-inner { display: flex; justify-content: center; align-items: center; gap: 24px; flex-wrap: wrap; }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .footer-links a { font-size: 13px; color: var(--text-3); }
+    .footer-links a:hover { color: var(--text); }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .header { padding: 40px 0 20px; }
+      .header h1 { font-size: 32px; }
+      .content { padding: 32px 24px; margin: 20px auto 40px; }
+      .content h2 { font-size: 20px; }
+      .content h3 { font-size: 16px; }
+      .nav-inner { padding: 0 16px; }
+      .container { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <a href="/" class="nav-back">← Back to Home</a>
+    </div>
+  </nav>
+
+  <!-- HEADER -->
+  <section class="header">
+    <div class="container">
+      <h1>Acceptable Use Policy</h1>
+      <p>Guidelines for responsible and legal use of WebPeel</p>
+      <p class="last-updated">Last updated: February 13, 2026</p>
+    </div>
+  </section>
+
+  <!-- CONTENT -->
+  <div class="container">
+    <div class="content">
+      <div class="notice">
+        <p><strong>TL;DR:</strong> Use WebPeel responsibly and legally. Don't scrape sites that explicitly forbid it, don't harass anyone, and respect robots.txt when possible. We reserve the right to terminate accounts that violate this policy.</p>
+      </div>
+
+      <h2>1. Purpose & Scope</h2>
+      <p>This Acceptable Use Policy ("Policy") governs your use of WebPeel's web fetching services (the "Service"). By using WebPeel, you agree to comply with this Policy and all applicable laws and regulations.</p>
+
+      <h2>2. Prohibited Activities</h2>
+      <p>You may not use WebPeel for any of the following purposes:</p>
+
+      <h3>2.1 Illegal Scraping & Harassment</h3>
+      <ul>
+        <li><strong>Illegal scraping:</strong> Fetching content from websites for purposes prohibited by law, including but not limited to copyright infringement, data theft, or unauthorized access to protected systems.</li>
+        <li><strong>Harassment or abuse:</strong> Using the Service to harass, threaten, defame, or otherwise harm individuals or organizations.</li>
+        <li><strong>Spam or phishing:</strong> Collecting email addresses, personal data, or other information for unsolicited marketing, phishing, or fraudulent purposes.</li>
+        <li><strong>Malicious activity:</strong> Attempting to exploit vulnerabilities, inject malware, or otherwise compromise the security of target websites or WebPeel's infrastructure.</li>
+      </ul>
+
+      <h3>2.2 Access Control Circumvention</h3>
+      <ul>
+        <li><strong>Bypassing explicit restrictions:</strong> You may not use WebPeel to circumvent access controls on websites that explicitly forbid scraping, automated access, or bot activity in their Terms of Service or <code>robots.txt</code> file — <strong>unless you have explicit written permission from the site owner.</strong></li>
+        <li><strong>Authentication bypass:</strong> You may not use WebPeel to bypass login walls, paywalls, or other authentication mechanisms without authorization from the site owner.</li>
+        <li><strong>Rate limit evasion:</strong> You may not use WebPeel to evade rate limits or intentionally overload target servers with excessive requests.</li>
+      </ul>
+
+      <h3>2.3 Compliance with Target Site Terms</h3>
+      <ul>
+        <li><strong>Respect site policies:</strong> You are responsible for ensuring your use of WebPeel complies with the Terms of Service, privacy policies, and acceptable use policies of the websites you fetch.</li>
+        <li><strong>robots.txt compliance:</strong> While WebPeel does not automatically enforce <code>robots.txt</code> rules (since many sites incorrectly block legitimate use), <strong>you should respect robots.txt when it applies to your use case.</strong> If a site explicitly disallows scraping, you must obtain permission before using WebPeel to fetch it.</li>
+      </ul>
+
+      <h2>3. Responsible Use Guidelines</h2>
+      <p>We encourage responsible use of WebPeel. Here are some best practices:</p>
+      <ul>
+        <li><strong>Respect rate limits:</strong> Use WebPeel's built-in rate limiting to avoid overwhelming target servers.</li>
+        <li><strong>Cache intelligently:</strong> Don't repeatedly fetch the same content — cache responses when appropriate.</li>
+        <li><strong>Provide attribution:</strong> When republishing fetched content, provide proper attribution to the source.</li>
+        <li><strong>Minimize impact:</strong> Use the fastest fetch mode that works (HTTP before browser, browser before stealth) to reduce server load.</li>
+      </ul>
+
+      <h2>4. Legitimate Use Cases</h2>
+      <p>WebPeel is designed for legitimate use cases, including but not limited to:</p>
+      <ul>
+        <li>Research and academic studies</li>
+        <li>Personal knowledge management and note-taking</li>
+        <li>AI agent context gathering (Claude, Cursor, VS Code, etc.)</li>
+        <li>Accessibility improvements (text extraction for screen readers)</li>
+        <li>Content monitoring and archiving (with permission)</li>
+        <li>Web development and testing</li>
+      </ul>
+
+      <h2>5. Enforcement & Termination</h2>
+      <p>We reserve the right to:</p>
+      <ul>
+        <li><strong>Suspend or terminate accounts:</strong> Accounts found in violation of this Policy may be suspended or terminated without prior notice.</li>
+        <li><strong>Investigate violations:</strong> We may investigate suspected violations and cooperate with law enforcement when required.</li>
+        <li><strong>Modify this Policy:</strong> We may update this Policy at any time. Continued use of WebPeel after updates constitutes acceptance of the revised Policy.</li>
+      </ul>
+
+      <div class="notice">
+        <p><strong>Important:</strong> Termination for policy violations does not entitle you to a refund. Repeated violations may result in permanent bans and legal action if applicable.</p>
+      </div>
+
+      <h2>6. Reporting Violations</h2>
+      <p>If you believe someone is using WebPeel in violation of this Policy, or if you believe WebPeel is being used to scrape your website without permission, please contact us immediately:</p>
+
+      <div class="contact-box">
+        <h3>Report Abuse</h3>
+        <p>Email us at <a href="mailto:abuse@webpeel.dev">abuse@webpeel.dev</a></p>
+        <p style="margin-top: 8px; font-size: 14px; color: var(--text-3);">We investigate all reports within 48 hours.</p>
+      </div>
+
+      <h2>7. Disclaimer</h2>
+      <p>WebPeel provides a tool for fetching publicly accessible web content. <strong>You are solely responsible for how you use this tool.</strong> WebPeel does not endorse, approve, or take responsibility for your use of the Service.</p>
+      <p>By using WebPeel, you agree to indemnify and hold harmless WebPeel, its operators, and contributors from any claims, damages, or liabilities arising from your use of the Service.</p>
+
+      <h2>8. Open Source & Self-Hosting</h2>
+      <p>WebPeel is open source software (MIT License). If you self-host WebPeel, you remain subject to this Acceptable Use Policy. You are also responsible for ensuring your instance complies with all applicable laws.</p>
+
+      <h2>9. Contact & Questions</h2>
+      <p>If you have questions about this Policy or need clarification on what constitutes acceptable use, please contact us:</p>
+      <ul>
+        <li><strong>General inquiries:</strong> <a href="mailto:support@webpeel.dev">support@webpeel.dev</a></li>
+        <li><strong>Abuse reports:</strong> <a href="mailto:abuse@webpeel.dev">abuse@webpeel.dev</a></li>
+        <li><strong>Legal:</strong> <a href="mailto:legal@webpeel.dev">legal@webpeel.dev</a></li>
+      </ul>
+
+      <div class="contact-box" style="margin-top: 48px;">
+        <h3>Thank You</h3>
+        <p>We appreciate your cooperation in keeping WebPeel a responsible and useful tool for everyone.</p>
+        <p style="margin-top: 12px;"><a href="/">← Return to WebPeel home</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container footer-inner">
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+        <a href="https://webpeel.dev/privacy">Privacy Policy</a>
+        <a href="https://webpeel.dev/terms">Terms of Service</a>
+        <a href="https://webpeel.dev/acceptable-use">Acceptable Use</a>
+        <a href="mailto:support@webpeel.dev">Support</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
