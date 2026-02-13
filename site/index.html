@@ -36,12 +36,52 @@
       "priceCurrency": "USD"
     },
     "operatingSystem": "Cross-platform",
-    "description": "Smart web fetcher with stealth mode and crawl mode. Auto-escalates from HTTP to headless browser.",
+    "description": "Smart web fetcher that auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor, and VS Code.",
     "url": "https://webpeel.dev",
     "creator": {
       "@type": "Person",
       "name": "Jake Liu"
     }
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What happens if I exceed my WebPeel limits?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Soft limits apply — your requests will slow down but won't stop completely. You can upgrade at any time."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I cancel my WebPeel subscription anytime?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, absolutely. No contracts, no commitments. Cancel your subscription anytime from your dashboard."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does WebPeel store the pages I fetch?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No, we never store fetched content. We only log metadata (URL, timestamp, response time) for analytics."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I self-host WebPeel?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes, WebPeel is open source under the MIT license. Install it with npm install -g webpeel and run your own instance."
+        }
+      }
+    ]
   }
   </script>
   
@@ -345,7 +385,7 @@
   <!-- HERO -->
   <section class="hero">
     <div class="container">
-      <div class="hero-badge fade-up"><span class="dot"></span> v0.3.0 — Now with stealth, crawl & search</div>
+      <div class="hero-badge fade-up"><span class="dot"></span> v0.2.0 — Smart escalation, search & screenshots</div>
       <h1 class="fade-up delay-1">Fetch the web,<br><em>read what matters.</em></h1>
       <p class="fade-up delay-2">Smart web fetcher that auto-escalates from HTTP to headless browser. MCP server for Claude, Cursor & VS Code. Free and open source.</p>
       <div class="hero-actions fade-up delay-3">
@@ -540,7 +580,7 @@
                 </span>
               </div>
             </td>
-            <td class="highlight-col"><span class="check">✓</span></td>
+            <td class="highlight-col" style="font-size:12px;color:var(--accent)">Soon</td>
             <td><span class="check">✓</span></td>
             <td><span class="cross">✗</span></td>
             <td><span class="cross">✗</span></td>
@@ -554,7 +594,7 @@
                 </span>
               </div>
             </td>
-            <td class="highlight-col"><span class="check">✓</span></td>
+            <td class="highlight-col" style="font-size:12px;color:var(--accent)">Soon</td>
             <td><span class="check">✓</span></td>
             <td><span class="cross">✗</span></td>
             <td><span class="cross">✗</span></td>
@@ -713,7 +753,7 @@
             <li>Priority support</li>
             <li>Extra usage available</li>
           </ul>
-          <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-primary">Start Pro trial →</a>
+          <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-primary">Upgrade to Pro →</a>
         </div>
         <div class="price-card">
           <div class="price-name">Max</div>
@@ -727,7 +767,7 @@
             <li>Higher spending caps</li>
             <li>Webhook notifications</li>
           </ul>
-          <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-secondary">Start Max trial →</a>
+          <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-secondary">Upgrade to Max →</a>
         </div>
       </div>
 
@@ -798,7 +838,7 @@
     <div class="container">
       <h2>Ready to <em class="serif" style="font-style:italic">peel?</em></h2>
       <p>Start fetching the web in under a minute.</p>
-      <p class="cta-proof">Join developers using WebPeel to fetch the web</p>
+      <p class="cta-proof">Free, no credit card required. MIT licensed.</p>
       <div class="hero-actions">
         <a href="https://app.webpeel.dev/signup" class="btn btn-primary">Create free account →</a>
         <a href="https://github.com/JakeLiuMe/webpeel#readme" class="btn btn-secondary">Read the docs</a>
