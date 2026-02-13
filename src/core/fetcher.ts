@@ -5,6 +5,7 @@
 import { chromium, type Browser, type Page } from 'playwright';
 import { chromium as stealthChromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { fetch as undiciFetch } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
 
 // Add stealth plugin to playwright-extra
@@ -323,7 +324,7 @@ export async function simpleFetch(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(currentUrl, {
+      const response = await undiciFetch(currentUrl, {
         headers: mergedHeaders,
         signal: controller.signal,
         redirect: 'manual', // SECURITY: Manual redirect handling

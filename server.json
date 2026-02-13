@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.JakeLiuMe/webpeel",
   "title": "WebPeel",
-  "description": "Fetch any web page as clean, AI-ready markdown. Smart escalation from HTTP to headless browser. Handles JavaScript rendering, Cloudflare, and anti-bot protections automatically.",
+  "description": "Fetch any web page as clean, AI-ready markdown with smart HTTP-to-browser escalation.",
   "version": "0.3.0",
   "websiteUrl": "https://webpeel.dev",
   "repository": {
