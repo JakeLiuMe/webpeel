@@ -425,12 +425,29 @@ export async function simpleFetch(
         throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
       }
 
-      // Include cause for better debugging (undici wraps real errors in a generic "fetch failed")
+      // Provide specific error messages based on the actual cause
+      const cause = error instanceof Error && (error as any).cause;
+      const causeMsg = cause?.message || cause?.code || '';
+      
+      if (causeMsg.includes('certificate') || causeMsg.includes('CERT') || causeMsg.includes('SSL') || causeMsg.includes('TLS')) {
+        throw new NetworkError(`TLS/SSL certificate error for ${new URL(currentUrl).hostname}. The site's certificate may be expired, self-signed, or untrusted.`);
+      }
+      if (causeMsg.includes('ENOTFOUND') || causeMsg.includes('getaddrinfo')) {
+        throw new NetworkError(`DNS resolution failed: ${new URL(currentUrl).hostname} not found. Check the URL or your network connection.`);
+      }
+      if (causeMsg.includes('ECONNREFUSED')) {
+        throw new NetworkError(`Connection refused by ${new URL(currentUrl).hostname}. The server may be down.`);
+      }
+      if (causeMsg.includes('ECONNRESET') || causeMsg.includes('EPIPE')) {
+        throw new NetworkError(`Connection reset by ${new URL(currentUrl).hostname}. Try again or use --render.`);
+      }
+      if (causeMsg.includes('ETIMEDOUT') || causeMsg.includes('ENETUNREACH')) {
+        throw new TimeoutError(`Network unreachable or connection timed out for ${new URL(currentUrl).hostname}.`);
+      }
+      
       const msg = error instanceof Error ? error.message : 'Unknown error';
-      const cause = error instanceof Error && (error as any).cause 
-        ? ` (cause: ${(error as any).cause.message || (error as any).cause})`
-        : '';
-      throw new NetworkError(`Failed to fetch: ${msg}${cause}`);
+      const causeDetail = causeMsg ? ` (${causeMsg})` : '';
+      throw new NetworkError(`Failed to fetch: ${msg}${causeDetail}`);
     }
   }
 

@@ -14,9 +14,10 @@
  */
 import { Command } from 'commander';
 import ora from 'ora';
-import { writeFileSync } from 'fs';
+import { writeFileSync, readFileSync } from 'fs';
 import { peel, peelBatch, cleanup } from './index.js';
-import { checkUsage, checkFeatureAccess, showUsageFooter, handleLogin, handleLogout, handleUsage } from './cli-auth.js';
+import { checkUsage, checkFeatureAccess, showUsageFooter, handleLogin, handleLogout, handleUsage, loadConfig } from './cli-auth.js';
+import { getCache, setCache, parseTTL, clearCache, cacheStats } from './cache.js';
 const program = new Command();
 program
     .name('webpeel')
@@ -40,6 +41,9 @@ program
     .option('--exclude <selectors...>', 'CSS selectors to exclude (e.g., ".sidebar" ".ads")')
     .option('-H, --header <header...>', 'Custom headers (e.g., "Authorization: Bearer token")')
     .option('--cookie <cookie...>', 'Cookies to set (e.g., "session=abc123")')
+    .option('--cache <ttl>', 'Cache results locally (e.g., "5m", "1h", "1d")')
+    .option('--links', 'Output only the links found on the page')
+    .option('--meta', 'Output only the page metadata (title, description, author, etc.)')
     .action(async (url, options) => {
     if (!url) {
         console.error('Error: URL is required\n');
@@ -82,6 +86,25 @@ program
     if (!usageCheck.allowed) {
         console.error(usageCheck.message);
         process.exit(1);
+    }
+    // Check cache first (before spinner/network)
+    let cacheTtlMs;
+    if (options.cache) {
+        try {
+            cacheTtlMs = parseTTL(options.cache);
+        }
+        catch (e) {
+            console.error(`Error: ${e.message}`);
+            process.exit(1);
+        }
+        const cached = getCache(url, { render: options.render, stealth: options.stealth, selector: options.selector, format: options.html ? 'html' : options.text ? 'text' : 'markdown' });
+        if (cached) {
+            if (!options.silent) {
+                console.error(`\x1b[36m⚡ Cache hit\x1b[0m (TTL: ${options.cache})`);
+            }
+            outputResult(cached, options);
+            process.exit(0);
+        }
     }
     const spinner = options.silent ? null : ora('Fetching...').start();
     try {
@@ -156,28 +179,12 @@ program
                 delete result.screenshot;
             }
         }
-        // Output results with proper stdout flushing
-        if (options.json) {
-            const jsonStr = JSON.stringify(result, null, 2);
-            await new Promise((resolve, reject) => {
-                process.stdout.write(jsonStr + '\n', (err) => {
-                    if (err)
-                        reject(err);
-                    else
-                        resolve();
-                });
-            });
+        // Store in cache if caching is enabled
+        if (cacheTtlMs) {
+            setCache(url, result, cacheTtlMs, { render: options.render, stealth: useStealth, selector: options.selector, format: peelOptions.format });
         }
-        else {
-            await new Promise((resolve, reject) => {
-                process.stdout.write(result.content + '\n', (err) => {
-                    if (err)
-                        reject(err);
-                    else
-                        resolve();
-                });
-            });
-        }
+        // Output results
+        await outputResult(result, options);
         // Clean up and exit
         await cleanup();
         process.exit(0);
@@ -310,8 +317,8 @@ program
 });
 // Batch command
 program
-    .command('batch <file>')
-    .description('Fetch multiple URLs (Pro feature)')
+    .command('batch [file]')
+    .description('Fetch multiple URLs from file or stdin pipe (Pro feature)')
     .option('-c, --concurrency <n>', 'Max concurrent fetches (default: 3)', '3')
     .option('-o, --output <dir>', 'Output directory (one file per URL)')
     .option('--json', 'Output as JSON array')
@@ -337,17 +344,33 @@ program
     }
     const spinner = isSilent ? null : ora('Loading URLs...').start();
     try {
-        const { readFileSync } = await import('fs');
-        // Read URLs from file
+        // Read URLs from file or stdin
         let urls;
-        try {
-            const content = readFileSync(file, 'utf-8');
+        if (file) {
+            // Read from file
+            try {
+                const content = readFileSync(file, 'utf-8');
+                urls = content.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line && !line.startsWith('#'));
+            }
+            catch (error) {
+                throw new Error(`Failed to read file: ${file}`);
+            }
+        }
+        else if (!process.stdin.isTTY) {
+            // Read from stdin pipe
+            const chunks = [];
+            for await (const chunk of process.stdin) {
+                chunks.push(chunk);
+            }
+            const content = Buffer.concat(chunks).toString('utf-8');
             urls = content.split('\n')
                 .map(line => line.trim())
                 .filter(line => line && !line.startsWith('#'));
         }
-        catch (error) {
-            throw new Error(`Failed to read file: ${file}`);
+        else {
+            throw new Error('Provide a file path or pipe URLs via stdin.\n  Example: cat urls.txt | webpeel batch');
         }
         if (urls.length === 0) {
             throw new Error('No URLs found in file');
@@ -591,5 +614,140 @@ program
     .action(async () => {
     await import('./mcp/server.js');
 });
+// Config command
+program
+    .command('config')
+    .description('View or update CLI configuration')
+    .argument('[key]', 'Config key to get or set')
+    .argument('[value]', 'Value to set')
+    .action(async (key, value) => {
+    const config = loadConfig();
+    if (!key) {
+        // Show all config
+        console.log('WebPeel CLI Configuration');
+        console.log(`  Config file: ~/.webpeel/config.json`);
+        console.log('');
+        console.log(`  apiKey:     ${config.apiKey ? config.apiKey.slice(0, 7) + '...' + config.apiKey.slice(-4) : '(not set)'}`);
+        console.log(`  planTier:   ${config.planTier || 'free'}`);
+        console.log(`  anonymousUsage: ${config.anonymousUsage}`);
+        const stats = cacheStats();
+        console.log('');
+        console.log('  Cache:');
+        console.log(`    entries:  ${stats.entries}`);
+        console.log(`    size:     ${(stats.sizeBytes / 1024).toFixed(1)} KB`);
+        console.log(`    dir:      ${stats.dir}`);
+        process.exit(0);
+    }
+    if (key && !value) {
+        // Get a specific key
+        const val = config[key];
+        if (val !== undefined) {
+            console.log(key === 'apiKey' && val ? val.slice(0, 7) + '...' + val.slice(-4) : val);
+        }
+        else {
+            console.error(`Unknown config key: ${key}`);
+            process.exit(1);
+        }
+    }
+    // Note: Setting config values directly is not supported for security
+    // Use `webpeel login` for API key, plan is fetched from server
+    process.exit(0);
+});
+// Cache management command
+program
+    .command('cache')
+    .description('Manage the local response cache')
+    .argument('<action>', '"stats", "clear", or "purge" (clear expired / clear all)')
+    .action(async (action) => {
+    switch (action) {
+        case 'stats': {
+            const stats = cacheStats();
+            console.log(`Cache: ${stats.entries} entries, ${(stats.sizeBytes / 1024).toFixed(1)} KB`);
+            console.log(`Location: ${stats.dir}`);
+            break;
+        }
+        case 'clear': {
+            const cleared = clearCache(false);
+            console.log(`Cleared ${cleared} expired cache entries.`);
+            break;
+        }
+        case 'purge': {
+            const cleared = clearCache(true);
+            console.log(`Purged all ${cleared} cache entries.`);
+            break;
+        }
+        default:
+            console.error('Unknown cache action. Use: stats, clear, or purge');
+            process.exit(1);
+    }
+    process.exit(0);
+});
 program.parse();
+// ============================================================
+// Shared output helper
+// ============================================================
+async function outputResult(result, options) {
+    // --links: output only links
+    if (options.links) {
+        if (options.json) {
+            const jsonStr = JSON.stringify(result.links, null, 2);
+            await writeStdout(jsonStr + '\n');
+        }
+        else {
+            for (const link of result.links) {
+                await writeStdout(link + '\n');
+            }
+        }
+        return;
+    }
+    // --meta: output only metadata
+    if (options.meta) {
+        const meta = {
+            url: result.url,
+            title: result.title,
+            method: result.method,
+            elapsed: result.elapsed,
+            tokens: result.tokens,
+            ...result.metadata,
+        };
+        if (options.json) {
+            await writeStdout(JSON.stringify(meta, null, 2) + '\n');
+        }
+        else {
+            console.log(`Title:       ${meta.title || '(none)'}`);
+            console.log(`URL:         ${meta.url}`);
+            if (meta.description)
+                console.log(`Description: ${meta.description}`);
+            if (meta.author)
+                console.log(`Author:      ${meta.author}`);
+            if (meta.published)
+                console.log(`Published:   ${meta.published}`);
+            if (meta.canonical)
+                console.log(`Canonical:   ${meta.canonical}`);
+            if (meta.image)
+                console.log(`OG Image:    ${meta.image}`);
+            console.log(`Method:      ${meta.method}`);
+            console.log(`Elapsed:     ${meta.elapsed}ms`);
+            console.log(`Tokens:      ${meta.tokens}`);
+        }
+        return;
+    }
+    // Default: full output
+    if (options.json) {
+        await writeStdout(JSON.stringify(result, null, 2) + '\n');
+    }
+    else {
+        await writeStdout(result.content + '\n');
+    }
+}
+function writeStdout(data) {
+    return new Promise((resolve, reject) => {
+        process.stdout.write(data, (err) => {
+            if (err)
+                reject(err);
+            else
+                resolve();
+        });
+    });
+}
 //# sourceMappingURL=cli.js.map

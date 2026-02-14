@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-02-13
+
+### Added
+- **Local caching** (`--cache <ttl>`) — Cache responses locally with TTL (e.g., `--cache 5m`, `--cache 1h`). Avoids repeat fetches and is kinder to target sites.
+- **`webpeel config`** — View CLI configuration, auth status, and cache stats
+- **`webpeel cache`** — Manage local cache: `stats`, `clear` (expired), `purge` (all)
+- **`--links` flag** — Output only the links found on a page (one per line, or JSON array with `--json`)
+- **`--meta` flag** — Output only page metadata (title, description, author, published date, etc.)
+- **Stdin pipe for batch** — `cat urls.txt | webpeel batch` now works (file argument optional)
+
+### Improved
+- **Error messages** — Specific diagnostics for TLS/SSL errors, DNS failures, connection refused, connection reset, and network timeouts (no more generic "NETWORK" errors)
+- Cache hit indicator (cyan `⚡ Cache hit` message) when using `--cache`
+
 ## [0.3.2] - 2026-02-13
 
 ### Fixed

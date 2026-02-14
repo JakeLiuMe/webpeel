@@ -92,11 +92,26 @@ npx webpeel crawl https://example.com --max-pages 20 --max-depth 2
 # JSON output with metadata
 npx webpeel https://example.com --json
 
+# Cache results locally (avoid repeat fetches)
+npx webpeel https://example.com --cache 5m
+
+# Extract just the links from a page
+npx webpeel https://example.com --links
+
+# Extract just the metadata (title, description, author)
+npx webpeel https://example.com --meta
+
+# Batch fetch from file or stdin
+cat urls.txt | npx webpeel batch
+
 # Force browser rendering (for JS-heavy sites)
 npx webpeel https://x.com/elonmusk --render
 
 # Wait for dynamic content
 npx webpeel https://example.com --render --wait 3000
+
+# View your config and cache stats
+webpeel config
 ```
 
 ### Library (TypeScript)
