@@ -227,9 +227,9 @@
 
       <p>The first step is <strong>finding the main content</strong>. WebPeel uses Mozilla's Readability algorithm to isolate the article:</p>
 
-      <pre><code>import { webpeel } from 'webpeel';
+      <pre><code>import { peel } from 'webpeel';
 
-const result = await webpeel.fetch('https://techcrunch.com/article', {
+const result = await peel('https://techcrunch.com/article', {
   format: 'markdown'
 });
 
@@ -285,7 +285,7 @@ console.log(result.tokens); // 1,890 (vs 52,340 raw)</code></pre>
 
       <p>Sometimes even clean markdown is too long. WebPeel lets you <strong>cap the output</strong>:</p>
 
-      <pre><code>const result = await webpeel.fetch(url, {
+      <pre><code>const result = await peel(url, {
   maxTokens: 2000
 });
 
@@ -298,9 +298,9 @@ console.log(result.tokens); // 1,890 (vs 52,340 raw)</code></pre>
 
       <p>Not all extractions are good. WebPeel scores extraction quality and retries with browser rendering if needed:</p>
 
-      <pre><code>const result = await webpeel.fetch(url);
+      <pre><code>const result = await peel(url);
 
-console.log(result.quality); // 0-100 score
+console.log(result.quality); // 0-1 score
 
 // Quality factors:
 // - Text length (too short = bad extraction)
@@ -315,7 +315,7 @@ if (result.quality &lt; 50) {
 
       <p>Web pages don't change every second. WebPeel generates a <strong>content fingerprint</strong> (hash of the HTML) so you can avoid re-processing unchanged pages:</p>
 
-      <pre><code>const result = await webpeel.fetch(url, { cache: true });
+      <pre><code>const result = await peel(url);
 
 console.log(result.fingerprint); // "abc123def456"
 
@@ -405,13 +405,13 @@ console.log(result.fingerprint); // "abc123def456"
       <pre><code>npm install -g webpeel</code></pre>
 
       <h3>Step 2: Use Smart Extraction by Default</h3>
-      <pre><code>import { webpeel } from 'webpeel';
+      <pre><code>import { peel } from 'webpeel';
 
 async function fetchForLLM(url) {
-  const result = await webpeel.fetch(url, {
+  const result = await peel(url, {
     format: 'markdown',   // Clean output
     maxTokens: 3000,      // Cap size
-    cache: true           // Avoid re-processing
+    // Use result.fingerprint for change detection
   });
   
   return {
@@ -449,19 +449,15 @@ for (const url of urls) {
       <p>For highly structured pages, you can extract <strong>only what you need</strong>:</p>
 
       <pre><code>// Extract just the pricing from a page
-const result = await webpeel.extract(url, {
-  schema: {
-    plans: {
-      selector: '.pricing-card',
-      fields: {
-        name: '.plan-name',
-        price: '.plan-price',
-        features: '.feature-list li'
-      }
-    }
+const result = await peel(url, {
+  extract: {
+    title: '.plan-name',
+    price: '.plan-price',
+    features: '.feature-list li'
   }
 });
 
+console.log(result.extracted);
 // Result: Clean JSON, ~100 tokens
 // vs. Full page markdown: ~3,000 tokens</code></pre>
 
@@ -485,16 +481,16 @@ await llm.chat(html);</code></pre>
 
       <h3>✅ Fix: Use Smart Extraction</h3>
       <pre><code>// GOOD: 2K tokens
-const result = await webpeel.fetch(url);
+const result = await peel(url);
 await llm.chat(result.content);</code></pre>
 
       <h3>❌ Mistake 2: No Token Budget</h3>
       <pre><code>// BAD: Some pages return 20K tokens
-const result = await webpeel.fetch(url);</code></pre>
+const result = await peel(url);</code></pre>
 
       <h3>✅ Fix: Set a Limit</h3>
       <pre><code>// GOOD: Guaranteed ≤3K tokens
-const result = await webpeel.fetch(url, { maxTokens: 3000 });</code></pre>
+const result = await peel(url, { maxTokens: 3000 });</code></pre>
 
       <h3>❌ Mistake 3: Re-processing Unchanged Pages</h3>
       <pre><code>// BAD: Fetches the same page every hour
@@ -502,7 +498,7 @@ setInterval(() => fetchPage(url), 3600000);</code></pre>
 
       <h3>✅ Fix: Use Content Fingerprinting</h3>
       <pre><code>// GOOD: Only re-extracts if content changed
-const result = await webpeel.fetch(url, { cache: true });
+const result = await peel(url);
 if (result.fingerprint !== lastFingerprint) {
   processNewContent(result);
 }</code></pre>

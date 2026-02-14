@@ -232,9 +232,9 @@
       <p>Modern web apps load content dynamically. You need <strong>page actions</strong> to interact with them.</p>
 
       <h3>Example: Clicking "Load More"</h3>
-      <pre><code>import { webpeel } from 'webpeel';
+      <pre><code>import { peel } from 'webpeel';
 
-const result = await webpeel.fetch('https://example.com/blog', {
+const result = await peel('https://example.com/blog', {
   render: true,
   actions: [
     { type: 'click', selector: 'button.load-more' },
@@ -245,7 +245,7 @@ const result = await webpeel.fetch('https://example.com/blog', {
 // Now you have all blog posts, not just the first page</code></pre>
 
       <h3>Example: Filling a Search Form</h3>
-      <pre><code>const result = await webpeel.fetch('https://example.com', {
+      <pre><code>const result = await peel('https://example.com', {
   render: true,
   actions: [
     { type: 'fill', selector: 'input[name="search"]', value: 'AI agents' },
@@ -261,15 +261,15 @@ const result = await webpeel.fetch('https://example.com/blog', {
       <p>Sometimes you don't want markdown — you want <strong>structured JSON</strong>.</p>
 
       <h3>Example: Extracting Product Data</h3>
-      <pre><code>const result = await webpeel.extract('https://example.com/product', {
-  schema: {
+      <pre><code>const result = await peel('https://example.com/product', {
+  extract: {
     name: '.product-title',
     price: '.price',
     inStock: '.stock-status'
   }
 });
 
-console.log(result);
+console.log(result.extracted);
 // {
 //   name: "Wireless Headphones",
 //   price: "$99.99",
@@ -288,14 +288,14 @@ console.log(result);
       <pre><code>const pages = ['page1', 'page2', 'page3'];
 
 for (const url of pages) {
-  await webpeel.fetch(url);
+  await peel(url);
   await sleep(1000); // 1 second delay
 }</code></pre>
 
       <h3>3. Cache Results</h3>
       <p>Web pages don't change every second. Cache fetched content:</p>
       <pre><code>// WebPeel includes content fingerprinting
-const result = await webpeel.fetch(url, { cache: true });
+const result = await peel(url);
 
 // If content hasn't changed, returns cached version</code></pre>
 
@@ -304,7 +304,7 @@ const result = await webpeel.fetch(url, { cache: true });
 
       <h3>5. Handle Errors Gracefully</h3>
       <pre><code>try {
-  const result = await webpeel.fetch(url);
+  const result = await peel(url);
 } catch (error) {
   if (error.code === 'RATE_LIMITED') {
     // Wait and retry
@@ -320,22 +320,18 @@ const result = await webpeel.fetch(url, { cache: true });
       <h3>1. AI Research Assistant</h3>
       <p>Fetches documentation, GitHub READMEs, and Stack Overflow answers to help developers.</p>
       <pre><code>// Fetch Next.js docs
-const docs = await webpeel.fetch('https://nextjs.org/docs');
+const docs = await peel('https://nextjs.org/docs');
 
-// Search for solutions
-const results = await webpeel.search('Next.js API routes error handling');
-
-// Fetch top 3 results
-for (const result of results.slice(0, 3)) {
-  const page = await webpeel.fetch(result.url);
-  // Summarize with LLM
-}</code></pre>
+// Or use the CLI to search:
+// webpeel search "Next.js API routes error handling"
+// Then fetch each result URL with peel()</code></pre>
 
       <h3>2. Competitive Intelligence</h3>
       <p>Monitors competitor pricing, feature announcements, and blog posts.</p>
       <pre><code>// Crawl competitor blog
-const posts = await webpeel.crawl('https://competitor.com/blog', {
-  limit: 10
+import { crawl } from 'webpeel';
+const posts = await crawl('https://competitor.com/blog', {
+  maxPages: 10
 });
 
 // Extract key themes
@@ -344,17 +340,17 @@ const themes = await llm.analyze(posts);</code></pre>
       <h3>3. Content Aggregation</h3>
       <p>Builds newsletters, summaries, or curated lists from multiple sources.</p>
       <pre><code>// Fetch top HN stories
-const hn = await webpeel.fetch('https://news.ycombinator.com');
+const hn = await peel('https://news.ycombinator.com');
 
 // Extract links and summaries
-const stories = await webpeel.extract(hn, {
-  list: '.athing',
-  schema: {
+const stories = await peel('https://news.ycombinator.com', {
+  extract: {
     title: '.titleline a',
     url: '.titleline a@href',
     points: '.score'
   }
-});</code></pre>
+});
+console.log(stories.extracted);</code></pre>
 
       <div class="warning">
         <h3>⚠️ Legal & Ethical Considerations</h3>
@@ -373,18 +369,22 @@ const stories = await webpeel.extract(hn, {
 
       <p>Here's a full example of an AI agent that researches a topic:</p>
 
-      <pre><code>import { webpeel } from 'webpeel';
+      <pre><code>import { peel } from 'webpeel';
 import { openai } from 'openai';
 
 async function researchTopic(topic) {
   // Step 1: Search for the topic
-  const searchResults = await webpeel.search(topic);
+  // Step 1: Use CLI search or provide URLs
+  // CLI: webpeel search "your topic"
+  const urls = [
+    'https://source1.com/article',
+    'https://source2.com/docs',
+    // ... add URLs to research
+  ];
   
-  // Step 2: Fetch top 5 results
+  // Step 2: Fetch all sources
   const pages = await Promise.all(
-    searchResults.slice(0, 5).map(r => 
-      webpeel.fetch(r.url, { maxTokens: 2000 })
-    )
+    urls.map(url => peel(url, { maxTokens: 2000 }))
   );
   
   // Step 3: Combine content

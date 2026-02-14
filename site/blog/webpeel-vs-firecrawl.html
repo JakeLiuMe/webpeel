@@ -355,17 +355,17 @@ const result = await firecrawl.extract({
       <h2>Code Examples</h2>
 
       <h3>WebPeel Example</h3>
-      <pre><code>import { webpeel } from 'webpeel';
+      <pre><code>import { peel } from 'webpeel';
 
 // Fetch with automatic escalation
-const result = await webpeel.fetch('https://example.com', {
+const result = await peel('https://example.com', {
   maxTokens: 2000,      // Cap output tokens
-  stealth: 'auto',      // Auto-enable if blocked
+  stealth: true,        // Anti-detection mode
   format: 'markdown'    // Clean markdown output
 });
 
 console.log(result.content);
-console.log(`Mode used: ${result.mode}`);  // 'http', 'browser', or 'stealth'
+console.log(`Method: ${result.method}`);  // 'simple', 'browser', or 'stealth'
 console.log(`Tokens: ${result.tokens}`);</code></pre>
 
       <h3>Firecrawl Example</h3>
