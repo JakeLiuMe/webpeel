@@ -35,18 +35,22 @@ npx webpeel https://news.ycombinator.com
 
 |  | **WebPeel** | Firecrawl | Jina Reader | MCP Fetch |
 |---|:---:|:---:|:---:|:---:|
-| **Free tier** | ✅ 125/week | ❌ Cloud only | ❌ Cloud only | ✅ Unlimited |
-| **JS rendering** | ✅ Auto-escalates | ✅ Always | ❌ No | ❌ No |
+| **Free tier** | ✅ 125/week | 500 one-time | ❌ Cloud only | ✅ Unlimited |
+| **Smart escalation** | ✅ HTTP→Browser→Stealth | Manual mode | ❌ No | ❌ No |
 | **Stealth mode** | ✅ All plans | ✅ Yes | ⚠️ Limited | ❌ No |
-| **Crawl mode** | ✅ All plans | ✅ Yes | ❌ No | ❌ No |
-| **MCP Server** | ✅ Built-in | ✅ Separate repo | ❌ No | ✅ Yes |
+| **Crawl + Map** | ✅ All plans | ✅ Yes | ❌ No | ❌ No |
+| **AI Extraction** | ✅ BYOK (any LLM) | ✅ Built-in | ❌ No | ❌ No |
+| **Branding** | ✅ Design system | ✅ Yes | ❌ No | ❌ No |
+| **Change Tracking** | ✅ Local snapshots | ✅ Server-side | ❌ No | ❌ No |
+| **Python SDK** | ✅ Zero deps | ✅ httpx/pydantic | ❌ No | ❌ No |
+| **LangChain** | ✅ Official | ✅ Official | ❌ No | ❌ No |
+| **MCP Server** | ✅ Built-in (6 tools) | ✅ Separate repo | ❌ No | ✅ Yes |
+| **Token Budget** | ✅ `--max-tokens` | ❌ No | ❌ No | ❌ No |
 | **Zero config** | ✅ `npx webpeel` | ❌ API key required | ❌ API key required | ✅ Yes |
-| **Hosted API** | $9/mo (1,250/wk) | $16/mo (3K/mo) | $10/mo (Starter) | N/A |
-| **Weekly reset** | ✅ Every Monday | ❌ Monthly only | ❌ Monthly only | N/A |
-| **Soft limits** | ✅ Never blocked | ❌ Hard cut-off | ❌ Rate limited | N/A |
-| **Markdown output** | ✅ Optimized for AI | ✅ Yes | ✅ Yes | ⚠️ Basic |
+| **Pricing** | $0 local / $9-$29 | $16-$333/mo | $10/mo+ | Free |
+| **License** | MIT | AGPL-3.0 | Proprietary | MIT |
 
-**WebPeel gives you Firecrawl's power with a generous free tier.** Like Claude Code — pay only when you need more.
+**WebPeel gives you Firecrawl's power with a generous free tier and MIT license.**
 
 ### Usage Model
 
@@ -98,6 +102,12 @@ npx webpeel https://example.com --max-tokens 2000
 # Map discovery: find all URLs on a domain via sitemap & crawling (v0.4.0)
 npx webpeel map https://example.com --max-urls 5000
 
+# Extract branding/design system from a page (v0.5.0)
+npx webpeel brand https://example.com
+
+# Track content changes over time (v0.5.0)
+npx webpeel track https://example.com
+
 # Crawl a website (follow links, respect robots.txt)
 npx webpeel crawl https://example.com --max-pages 20 --max-depth 2
 
@@ -144,18 +154,49 @@ console.log(result.content);    // Clean markdown
 console.log(result.metadata);   // { title, description, author, ... }
 console.log(result.tokens);     // Estimated token count
 
-// With options
-const result = await peel('https://example.com', {
-  format: 'markdown',  // 'markdown' | 'text' | 'html'
-  render: true,        // Force browser mode
-  wait: 3000,          // Wait 3s for dynamic content
-  timeout: 30000,      // Request timeout (ms)
+// Branding extraction (v0.5.0)
+const brand = await peel('https://stripe.com', { branding: true, render: true });
+console.log(brand.branding);    // { colors, fonts, typography, cssVariables, ... }
+
+// Change tracking (v0.5.0)
+const tracked = await peel('https://example.com/pricing', { changeTracking: true });
+console.log(tracked.changeTracking);  // { changeStatus: 'new' | 'same' | 'changed', diff: ... }
+
+// AI extraction with your own LLM key (v0.5.0)
+const extracted = await peel('https://example.com', {
+  extract: { prompt: 'Extract the pricing plans', llmApiKey: 'sk-...' },
 });
+console.log(extracted.extracted);
 ```
+
+### Python SDK (v0.5.0)
+
+```bash
+pip install webpeel
+```
+
+```python
+from webpeel import WebPeel
+
+client = WebPeel()  # Free tier, no API key needed
+
+# Scrape
+result = client.scrape("https://example.com")
+print(result.content)  # Clean markdown
+
+# Search
+results = client.search("python web scraping")
+
+# Crawl (async job)
+job = client.crawl("https://docs.example.com", limit=100)
+status = client.get_job(job.id)
+```
+
+Zero dependencies. Pure Python 3.8+ stdlib. [Full docs →](python-sdk/README.md)
 
 ### MCP Server (Claude Desktop, Cursor, VS Code, Windsurf)
 
-WebPeel provides four MCP tools: `webpeel_fetch` (fetch a URL), `webpeel_search` (search the web), `webpeel_batch` (fetch multiple URLs), and `webpeel_crawl` (crawl a site).
+WebPeel provides six MCP tools: `webpeel_fetch`, `webpeel_search`, `webpeel_crawl`, `webpeel_map`, `webpeel_extract`, and `webpeel_batch`.
 
 #### Claude Desktop
 

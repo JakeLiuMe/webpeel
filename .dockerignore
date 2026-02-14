@@ -1,14 +1,50 @@
+# Dependencies
 node_modules
+
+# Git
 .git
-.github
-.internal
-src
-tests
+.gitignore
+
+# Documentation and marketing
+dashboard/
+site/
+python-sdk/
+integrations/
 *.md
+!SELF_HOST.md
+
+# Source files (dist/ is what we need)
+src/
+*.ts
+!*.d.ts
+tsconfig.json
+
+# Internal/development files
+.internal/
+.vscode/
+.idea/
+
+# Environment files
 .env
 .env.*
 !.env.example
-.gitignore
-.dockerignore
-tsconfig.json
-vitest.config.ts
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tsbuildinfo
+
+# Temporary files
+tmp/
+temp/
