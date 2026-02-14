@@ -1,4 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/docs", "destination": "/docs/index.html" },
+    { "source": "/docs/", "destination": "/docs/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
