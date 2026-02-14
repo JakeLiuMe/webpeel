@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP Server — WebPeel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="../styles/docs.css">
+</head>
+<body>
+  <nav class="docs-nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <a href="/docs/" class="sidebar-link">Overview</a>
+        <a href="/docs/api-reference.html" class="sidebar-link">API Reference</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">SDKs</div>
+        <a href="/docs/sdks.html" class="sidebar-link">Node.js & Python</a>
+        <a href="/docs/cli.html" class="sidebar-link">CLI</a>
+        <a href="/docs/mcp.html" class="sidebar-link active">MCP Server</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Deployment</div>
+        <a href="/docs/self-hosting.html" class="sidebar-link">Self-Hosting</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <div class="breadcrumbs">
+        <a href="/docs/">Documentation</a>
+        <span>/</span>
+        <span>MCP Server</span>
+      </div>
+
+      <h1>MCP Server</h1>
+      <p class="lead">Connect WebPeel to Claude Desktop, Cursor, Windsurf, OpenClaw, and other MCP-compatible tools. Give your AI assistant powerful web scraping capabilities.</p>
+
+      <h2 id="what-is-mcp">What is MCP?</h2>
+      <p>The <strong>Model Context Protocol (MCP)</strong> is an open standard developed by Anthropic that lets AI assistants access external tools and data sources. With WebPeel's MCP server, your AI can:</p>
+      <ul>
+        <li>Fetch and extract content from any URL</li>
+        <li>Search the web for current information</li>
+        <li>Crawl entire websites to build knowledge bases</li>
+        <li>Extract structured data with CSS selectors or AI prompts</li>
+        <li>Monitor pages for changes</li>
+        <li>Batch process multiple URLs</li>
+      </ul>
+
+      <h2 id="quick-start">Quick Start</h2>
+      <p>WebPeel's MCP server runs locally via <code>npx</code> — no installation required.</p>
+
+      <h3>Start the Server</h3>
+      <pre><code class="language-bash">npx webpeel mcp</code></pre>
+
+      <p>The server runs on <code>stdio</code> and is automatically managed by your MCP client.</p>
+
+      <h2 id="configuration">Configuration</h2>
+      <p>Add WebPeel to your MCP client's configuration file:</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="claude">Claude Desktop</button>
+        <button class="tab-btn" data-tab="cursor">Cursor</button>
+        <button class="tab-btn" data-tab="windsurf">Windsurf</button>
+        <button class="tab-btn" data-tab="openclaw">OpenClaw</button>
+      </div>
+
+      <div class="tab-content active" data-content="claude">
+        <p>Edit <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code>%APPDATA%/Claude/claude_desktop_config.json</code> (Windows):</p>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"]
+    }
+  }
+}</code></pre>
+        <p>Restart Claude Desktop to load the server.</p>
+      </div>
+
+      <div class="tab-content" data-content="cursor">
+        <p>Edit <code>~/.cursor/mcp.json</code>:</p>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"]
+    }
+  }
+}</code></pre>
+        <p>Restart Cursor to apply changes.</p>
+      </div>
+
+      <div class="tab-content" data-content="windsurf">
+        <p>Edit <code>~/.windsurf/mcp_server_config.json</code>:</p>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"]
+    }
+  }
+}</code></pre>
+        <p>Restart Windsurf to load the server.</p>
+      </div>
+
+      <div class="tab-content" data-content="openclaw">
+        <p>Edit <code>~/.openclaw/mcp.json</code>:</p>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"]
+    }
+  }
+}</code></pre>
+        <p>Restart OpenClaw or reload the MCP configuration.</p>
+      </div>
+
+      <h3>Using an API Key</h3>
+      <p>To use WebPeel's hosted API instead of local scraping, set the <code>WEBPEEL_API_KEY</code> environment variable:</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="claude2">Claude Desktop</button>
+        <button class="tab-btn" data-tab="cursor2">Cursor</button>
+        <button class="tab-btn" data-tab="openclaw2">OpenClaw</button>
+      </div>
+
+      <div class="tab-content active" data-content="claude2">
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"],
+      "env": {
+        "WEBPEEL_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="cursor2">
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"],
+      "env": {
+        "WEBPEEL_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="openclaw2">
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["webpeel", "mcp"],
+      "env": {
+        "WEBPEEL_API_KEY": "your-api-key-here"
+      }
+    }
+  }
+}</code></pre>
+      </div>
+
+      <h2 id="smithery">Smithery Installation</h2>
+      <p>Install via Smithery registry (one-command setup):</p>
+      <pre><code class="language-bash">npx @smithery/cli install @webpeel/mcp</code></pre>
+
+      <h2 id="available-tools">Available Tools</h2>
+      <p>The WebPeel MCP server provides 9 tools for web scraping and data extraction:</p>
+
+      <h3 id="webpeel_fetch">webpeel_fetch</h3>
+      <p>Fetch a URL and return clean, AI-ready markdown content.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — The URL to fetch</li>
+        <li><code>format</code> (string) — Output format: <code>markdown</code>, <code>text</code>, or <code>html</code> (default: <code>markdown</code>)</li>
+        <li><code>render</code> (boolean) — Force browser rendering for JavaScript-heavy sites (default: <code>false</code>)</li>
+        <li><code>stealth</code> (boolean) — Use stealth mode to bypass bot detection (default: <code>false</code>)</li>
+        <li><code>wait</code> (number) — Milliseconds to wait for dynamic content (only with <code>render=true</code>)</li>
+        <li><code>selector</code> (string) — CSS selector to extract specific content (e.g., <code>"article"</code>)</li>
+        <li><code>exclude</code> (array) — CSS selectors to exclude (e.g., <code>[".sidebar", ".ads"]</code>)</li>
+        <li><code>includeTags</code> (array) — Only include these HTML tags/classes</li>
+        <li><code>excludeTags</code> (array) — Remove these HTML tags/classes</li>
+        <li><code>images</code> (boolean) — Extract image URLs (default: <code>false</code>)</li>
+        <li><code>maxTokens</code> (number) — Maximum token count (truncates if exceeded)</li>
+        <li><code>screenshot</code> (boolean) — Capture page screenshot (returns base64 PNG)</li>
+        <li><code>screenshotFullPage</code> (boolean) — Full-page screenshot (default: viewport only)</li>
+        <li><code>location</code> (string) — ISO country code for geo-targeting (e.g., <code>"US"</code>, <code>"DE"</code>)</li>
+        <li><code>headers</code> (object) — Custom HTTP headers</li>
+        <li><code>actions</code> (array) — Page actions to execute before extraction</li>
+        <li><code>extract</code> (object) — Structured data extraction options</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Fetch https://example.com and extract the main article"
+
+// With stealth mode:
+"Fetch https://protected-site.com with stealth mode enabled"
+
+// Extract specific content:
+"Fetch https://news.com and only show me the article content, excluding nav and ads"</code></pre>
+
+      <h3 id="webpeel_search">webpeel_search</h3>
+      <p>Search the web using DuckDuckGo and return results with titles, URLs, and snippets.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>query</code> (string, <strong>required</strong>) — Search query</li>
+        <li><code>count</code> (number) — Number of results (1-10, default: 5)</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Search for 'docker containers best practices'"
+
+// Then fetch the top result:
+"Fetch the first result and summarize it"</code></pre>
+
+      <h3 id="webpeel_crawl">webpeel_crawl</h3>
+      <p>Crawl a website starting from a URL, following links and extracting content. Perfect for documentation sites or building knowledge bases.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — Starting URL</li>
+        <li><code>maxPages</code> (number) — Max pages to crawl (1-100, default: 10)</li>
+        <li><code>maxDepth</code> (number) — Max crawl depth (1-5, default: 2)</li>
+        <li><code>allowedDomains</code> (array) — Only crawl these domains</li>
+        <li><code>excludePatterns</code> (array) — Exclude URLs matching these regex patterns</li>
+        <li><code>respectRobotsTxt</code> (boolean) — Respect robots.txt (default: <code>true</code>)</li>
+        <li><code>rateLimitMs</code> (number) — Rate limit between requests (default: 1000ms)</li>
+        <li><code>sitemapFirst</code> (boolean) — Discover URLs via sitemap first (default: <code>false</code>)</li>
+        <li><code>render</code> (boolean) — Use browser rendering for all pages</li>
+        <li><code>stealth</code> (boolean) — Use stealth mode for all pages</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Crawl https://docs.example.com up to 50 pages and build a summary"</code></pre>
+
+      <h3 id="webpeel_map">webpeel_map</h3>
+      <p>Discover all URLs on a domain using sitemap.xml and link crawling. Returns URLs without fetching content.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — Starting URL or domain</li>
+        <li><code>maxUrls</code> (number) — Max URLs to discover (1-10000, default: 5000)</li>
+        <li><code>includePatterns</code> (array) — Only include URLs matching these patterns (regex)</li>
+        <li><code>excludePatterns</code> (array) — Exclude URLs matching these patterns (regex)</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Map all URLs on https://example.com/docs/"</code></pre>
+
+      <h3 id="webpeel_extract">webpeel_extract</h3>
+      <p>Extract structured data from a webpage using CSS selectors, JSON schema, or AI-powered extraction.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — URL to extract from</li>
+        <li><code>selectors</code> (object) — Map field names to CSS selectors (e.g., <code>{"title": "h1", "price": ".price"}</code>)</li>
+        <li><code>schema</code> (object) — JSON schema describing expected output</li>
+        <li><code>prompt</code> (string) — Natural language prompt for AI extraction (requires <code>llmApiKey</code>)</li>
+        <li><code>llmApiKey</code> (string) — API key for LLM-powered extraction</li>
+        <li><code>llmModel</code> (string) — LLM model (default: <code>gpt-4o-mini</code>)</li>
+        <li><code>llmBaseUrl</code> (string) — LLM API base URL (default: OpenAI)</li>
+        <li><code>render</code> (boolean) — Use browser rendering</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Extract the product title, price, and rating from https://shop.com/product/123"
+
+// With AI extraction:
+"Extract all the features mentioned on https://example.com/product as a bullet list"</code></pre>
+
+      <h3 id="webpeel_batch">webpeel_batch</h3>
+      <p>Fetch multiple URLs in batch with concurrency control.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>urls</code> (array, <strong>required</strong>) — Array of URLs to fetch</li>
+        <li><code>concurrency</code> (number) — Max concurrent fetches (1-10, default: 3)</li>
+        <li><code>render</code> (boolean) — Use browser rendering for all URLs</li>
+        <li><code>format</code> (string) — Output format for all URLs</li>
+        <li><code>selector</code> (string) — CSS selector for content extraction</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Fetch these 5 URLs and compare their main content: [url1, url2, url3, url4, url5]"</code></pre>
+
+      <h3 id="webpeel_brand">webpeel_brand</h3>
+      <p>Extract branding and design system from a URL. Returns colors, fonts, and visual identity.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — URL to extract branding from</li>
+        <li><code>render</code> (boolean) — Use browser rendering</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"What colors and fonts does https://stripe.com use?"</code></pre>
+
+      <h3 id="webpeel_change_track">webpeel_change_track</h3>
+      <p>Track changes on a URL by generating a content fingerprint.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — URL to track</li>
+        <li><code>render</code> (boolean) — Use browser rendering</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Generate a fingerprint for https://example.com so I can detect changes later"</code></pre>
+
+      <h3 id="webpeel_summarize">webpeel_summarize</h3>
+      <p>Generate an AI-powered summary of a webpage using an LLM.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>url</code> (string, <strong>required</strong>) — URL to summarize</li>
+        <li><code>llmApiKey</code> (string, <strong>required</strong>) — API key for LLM</li>
+        <li><code>prompt</code> (string) — Custom summary prompt (default: "Summarize this webpage in 2-3 sentences.")</li>
+        <li><code>llmModel</code> (string) — LLM model (default: <code>gpt-4o-mini</code>)</li>
+        <li><code>llmBaseUrl</code> (string) — LLM API base URL</li>
+        <li><code>render</code> (boolean) — Use browser rendering</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Summarize https://longform-article.com in a few sentences"</code></pre>
+
+      <h2 id="usage-tips">Usage Tips</h2>
+
+      <h3>When to Use Render Mode</h3>
+      <ul>
+        <li>JavaScript-heavy sites (SPAs, React apps)</li>
+        <li>Content loaded dynamically after page load</li>
+        <li>Sites with lazy-loading images or infinite scroll</li>
+      </ul>
+
+      <h3>When to Use Stealth Mode</h3>
+      <ul>
+        <li>Sites protected by Cloudflare or similar bot detection</li>
+        <li>Pages that block headless browsers</li>
+        <li>Sites with aggressive rate limiting</li>
+      </ul>
+
+      <h3>Best Practices</h3>
+      <ol>
+        <li><strong>Start simple</strong> — Use basic fetch first, escalate to render/stealth only if needed</li>
+        <li><strong>Use selectors</strong> — Extract only what you need with <code>selector</code> and <code>exclude</code></li>
+        <li><strong>Set maxTokens</strong> — Prevent large pages from overwhelming your context window</li>
+        <li><strong>Batch similar requests</strong> — Use <code>webpeel_batch</code> for multiple URLs from the same site</li>
+        <li><strong>Respect rate limits</strong> — Add delays when crawling large sites</li>
+      </ol>
+
+      <h2 id="troubleshooting">Troubleshooting</h2>
+
+      <h3>Server not starting</h3>
+      <p>Check your MCP client's logs. Common issues:</p>
+      <ul>
+        <li><code>npx</code> not in PATH → Install Node.js v18+</li>
+        <li>WebPeel package not found → Run <code>npx webpeel mcp</code> manually first</li>
+        <li>JSON syntax error → Validate your config file</li>
+      </ul>
+
+      <h3>Tools not appearing</h3>
+      <ol>
+        <li>Restart your MCP client</li>
+        <li>Check the config file syntax</li>
+        <li>Verify the server starts: <code>npx webpeel mcp</code></li>
+      </ol>
+
+      <h3>Fetch timing out</h3>
+      <ul>
+        <li>Use <code>render=false</code> for simple HTML pages (faster)</li>
+        <li>Increase <code>wait</code> time for slow-loading dynamic content</li>
+        <li>Check if the site blocks automated access (try <code>stealth=true</code>)</li>
+      </ul>
+
+      <h2 id="next-steps">Next Steps</h2>
+
+      <div class="card-grid">
+        <a href="/docs/cli.html" class="doc-card">
+          <div class="doc-card-icon">💻</div>
+          <h3>CLI</h3>
+          <p>Use WebPeel from the command line with 18+ commands</p>
+        </a>
+
+        <a href="/docs/api-reference.html" class="doc-card">
+          <div class="doc-card-icon">📖</div>
+          <h3>API Reference</h3>
+          <p>Complete REST API documentation for programmatic access</p>
+        </a>
+
+        <a href="/docs/self-hosting.html" class="doc-card">
+          <div class="doc-card-icon">🐳</div>
+          <h3>Self-Hosting</h3>
+          <p>Run your own WebPeel API server with Docker</p>
+        </a>
+
+        <a href="https://github.com/JakeLiuMe/webpeel" class="doc-card">
+          <div class="doc-card-icon">🐙</div>
+          <h3>GitHub</h3>
+          <p>View source code, report issues, and contribute</p>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="../scripts/docs.js"></script>
+</body>
+</html>

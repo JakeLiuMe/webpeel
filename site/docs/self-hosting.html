@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Self-Hosting — WebPeel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="../styles/docs.css">
+</head>
+<body>
+  <nav class="docs-nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <a href="/docs/" class="sidebar-link">Overview</a>
+        <a href="/docs/api-reference.html" class="sidebar-link">API Reference</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">SDKs</div>
+        <a href="/docs/sdks.html" class="sidebar-link">Node.js & Python</a>
+        <a href="/docs/cli.html" class="sidebar-link">CLI</a>
+        <a href="/docs/mcp.html" class="sidebar-link">MCP Server</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Deployment</div>
+        <a href="/docs/self-hosting.html" class="sidebar-link active">Self-Hosting</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <div class="breadcrumbs">
+        <a href="/docs/">Documentation</a>
+        <span>/</span>
+        <span>Self-Hosting</span>
+      </div>
+
+      <h1>Self-Hosting WebPeel</h1>
+      <p class="lead">Run your own instance of the WebPeel API server using Docker. Full control, no rate limits, complete privacy.</p>
+
+      <h2 id="prerequisites">Prerequisites</h2>
+      <p>Before you begin, make sure you have:</p>
+      <ul>
+        <li><strong>Docker</strong> (v20.10+) — <a href="https://docs.docker.com/get-docker/">Install Docker</a></li>
+        <li><strong>Docker Compose</strong> (v2.0+) — Usually included with Docker Desktop</li>
+        <li><strong>Git</strong> — To clone the repository</li>
+      </ul>
+
+      <p>Verify your setup:</p>
+      <pre><code class="language-bash">docker --version
+docker compose version</code></pre>
+
+      <h2 id="quick-start">Quick Start</h2>
+      <p>Get WebPeel running in under 5 minutes.</p>
+
+      <h3>1. Clone the Repository</h3>
+      <pre><code class="language-bash">git clone https://github.com/JakeLiuMe/webpeel.git
+cd webpeel</code></pre>
+
+      <h3>2. Configure Environment Variables</h3>
+      <p>Create a <code>.env</code> file in the project root:</p>
+      <pre><code class="language-bash">cp .env.example .env</code></pre>
+
+      <p>Edit <code>.env</code> with your settings:</p>
+      <pre><code class="language-bash"># Required: Change this to a secure random string!
+JWT_SECRET=your-secure-random-secret-here
+
+# Optional: Add custom CORS origins
+CORS_ORIGINS=https://your-domain.com,https://app.your-domain.com
+
+# Optional: Stripe integration (for paid tiers)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...</code></pre>
+
+      <p><strong>⚠️ Security:</strong> Generate a strong <code>JWT_SECRET</code> using:</p>
+      <pre><code class="language-bash">openssl rand -base64 32</code></pre>
+
+      <h3>3. Start the Server</h3>
+      <pre><code class="language-bash">docker compose up -d</code></pre>
+
+      <p>That's it! Your WebPeel instance is now running at <code>http://localhost:3000</code>.</p>
+
+      <h3>4. Verify It's Working</h3>
+      <p>Check the health endpoint:</p>
+      <pre><code class="language-bash">curl http://localhost:3000/health</code></pre>
+
+      <p>Expected response:</p>
+      <pre><code class="language-json">{
+  "status": "ok",
+  "timestamp": "2024-...",
+  "uptime": 123
+}</code></pre>
+
+      <h2 id="environment-variables">Environment Variables Reference</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Required</th>
+            <th>Default</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>PORT</code></td>
+            <td>No</td>
+            <td><code>3000</code></td>
+            <td>Server port</td>
+          </tr>
+          <tr>
+            <td><code>NODE_ENV</code></td>
+            <td>No</td>
+            <td><code>production</code></td>
+            <td>Runtime environment</td>
+          </tr>
+          <tr>
+            <td><code>DATABASE_URL</code></td>
+            <td>Yes*</td>
+            <td>Auto-configured</td>
+            <td>PostgreSQL connection string</td>
+          </tr>
+          <tr>
+            <td><code>JWT_SECRET</code></td>
+            <td><strong>YES</strong></td>
+            <td>—</td>
+            <td>Secret for JWT tokens (⚠️ change in production!)</td>
+          </tr>
+          <tr>
+            <td><code>CORS_ORIGINS</code></td>
+            <td>No</td>
+            <td>See below</td>
+            <td>Comma-separated list of allowed origins</td>
+          </tr>
+          <tr>
+            <td><code>STRIPE_SECRET_KEY</code></td>
+            <td>No</td>
+            <td>—</td>
+            <td>Stripe API key (for paid features)</td>
+          </tr>
+          <tr>
+            <td><code>STRIPE_WEBHOOK_SECRET</code></td>
+            <td>No</td>
+            <td>—</td>
+            <td>Stripe webhook signing secret</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p><strong>Default CORS Origins:</strong></p>
+      <ul>
+        <li><code>https://app.webpeel.dev</code></li>
+        <li><code>https://webpeel.dev</code></li>
+        <li><code>http://localhost:3000</code></li>
+        <li><code>http://localhost:3001</code></li>
+      </ul>
+
+      <p><strong>*Note:</strong> <code>DATABASE_URL</code> is automatically set by <code>docker-compose.yaml</code>. Only change it if you're using an external database.</p>
+
+      <h2 id="docker-compose">Docker Compose Configuration</h2>
+      <p>The <code>docker-compose.yaml</code> file defines two services:</p>
+
+      <pre><code class="language-yaml">version: '3.8'
+
+services:
+  webpeel:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://webpeel:webpeel@db:5432/webpeel
+      - JWT_SECRET=change-me-in-production
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=webpeel
+      - POSTGRES_PASSWORD=webpeel
+      - POSTGRES_DB=webpeel
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webpeel"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:</code></pre>
+
+      <h2 id="usage">Usage</h2>
+
+      <h3>Register a User</h3>
+      <pre><code class="language-bash">curl -X POST http://localhost:3000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "password": "your-secure-password"
+  }'</code></pre>
+
+      <p>Response:</p>
+      <pre><code class="language-json">{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "user_...",
+    "email": "you@example.com",
+    "tier": "free"
+  }
+}</code></pre>
+
+      <p>Save the <code>token</code> — you'll need it for API requests.</p>
+
+      <h3>Fetch a Page</h3>
+      <pre><code class="language-bash">curl "http://localhost:3000/v1/fetch?url=https://example.com" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"</code></pre>
+
+      <h3>Search the Web</h3>
+      <pre><code class="language-bash">curl "http://localhost:3000/v1/search?q=docker+containers" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"</code></pre>
+
+      <h2 id="postgresql">PostgreSQL Setup</h2>
+
+      <h3>Use External PostgreSQL</h3>
+      <p>Edit <code>docker-compose.yaml</code> and remove the <code>db</code> service:</p>
+
+      <pre><code class="language-yaml">services:
+  webpeel:
+    environment:
+      - DATABASE_URL=postgresql://user:pass@your-db-host:5432/webpeel
+    # Remove the depends_on section</code></pre>
+
+      <h3>Backup PostgreSQL</h3>
+      <pre><code class="language-bash"># Backup
+docker compose exec db pg_dump -U webpeel webpeel > backup.sql
+
+# Restore
+docker compose exec -T db psql -U webpeel webpeel < backup.sql</code></pre>
+
+      <h3>Access PostgreSQL Shell</h3>
+      <pre><code class="language-bash">docker compose exec db psql -U webpeel</code></pre>
+
+      <h2 id="reverse-proxy">Reverse Proxy (Nginx)</h2>
+      <p>For production deployments, put WebPeel behind a reverse proxy for HTTPS and load balancing.</p>
+
+      <h3>Nginx Configuration</h3>
+      <pre><code class="language-nginx">server {
+    listen 443 ssl http2;
+    server_name api.your-domain.com;
+
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Increase timeouts for large scraping jobs
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
+}</code></pre>
+
+      <h3>SSL/TLS with Let's Encrypt</h3>
+      <p>Use Certbot to get a free SSL certificate:</p>
+
+      <pre><code class="language-bash"># Install Certbot
+sudo apt-get install certbot python3-certbot-nginx
+
+# Get certificate
+sudo certbot --nginx -d api.your-domain.com
+
+# Auto-renewal (runs twice daily)
+sudo systemctl enable certbot.timer</code></pre>
+
+      <h2 id="custom-config">Custom Configuration</h2>
+
+      <h3>Change Port</h3>
+      <p>Edit <code>docker-compose.yaml</code>:</p>
+      <pre><code class="language-yaml">services:
+  webpeel:
+    ports:
+      - "8080:3000"  # Host:Container</code></pre>
+
+      <h3>Increase Shared Memory</h3>
+      <p>If Playwright browser crashes, increase shared memory:</p>
+      <pre><code class="language-yaml">services:
+  webpeel:
+    shm_size: '2gb'  # Add this line</code></pre>
+
+      <h3>Custom Database Password</h3>
+      <p>Edit <code>docker-compose.yaml</code>:</p>
+      <pre><code class="language-yaml">services:
+  db:
+    environment:
+      - POSTGRES_PASSWORD=your-secure-password
+  webpeel:
+    environment:
+      - DATABASE_URL=postgresql://webpeel:your-secure-password@db:5432/webpeel</code></pre>
+
+      <h2 id="scaling">Scaling Considerations</h2>
+
+      <h3>Horizontal Scaling</h3>
+      <p>Run multiple WebPeel instances behind a load balancer:</p>
+      <pre><code class="language-bash"># Scale to 3 instances
+docker compose up -d --scale webpeel=3</code></pre>
+
+      <p>Use a load balancer like Nginx or HAProxy to distribute traffic.</p>
+
+      <h3>Resource Requirements</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Minimum</th>
+            <th>Recommended</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>CPU</strong></td>
+            <td>2 cores</td>
+            <td>4+ cores</td>
+          </tr>
+          <tr>
+            <td><strong>RAM</strong></td>
+            <td>2 GB</td>
+            <td>4+ GB</td>
+          </tr>
+          <tr>
+            <td><strong>Disk</strong></td>
+            <td>10 GB</td>
+            <td>20+ GB (for logs and DB)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Performance Tuning</h3>
+      <ul>
+        <li><strong>Browser pooling:</strong> WebPeel reuses browser instances to reduce overhead</li>
+        <li><strong>Connection pooling:</strong> PostgreSQL connections are pooled automatically</li>
+        <li><strong>Rate limiting:</strong> Configured per user tier (modify in <code>src/server/middleware/rateLimit.ts</code>)</li>
+      </ul>
+
+      <h2 id="updating">Updating</h2>
+      <p>Pull the latest changes and rebuild:</p>
+
+      <pre><code class="language-bash">cd webpeel
+git pull origin main
+docker compose down
+docker compose up -d --build</code></pre>
+
+      <p><strong>Note:</strong> Your database data persists in the <code>pgdata</code> Docker volume.</p>
+
+      <h3>Zero-Downtime Updates</h3>
+      <ol>
+        <li>Start new containers with <code>--scale</code></li>
+        <li>Wait for health checks to pass</li>
+        <li>Stop old containers</li>
+      </ol>
+
+      <pre><code class="language-bash"># Start 3 new instances
+docker compose up -d --scale webpeel=3 --no-recreate
+
+# Wait 60 seconds for health checks
+sleep 60
+
+# Stop old containers
+docker compose stop webpeel</code></pre>
+
+      <h2 id="security">Production Security Checklist</h2>
+      <ul>
+        <li><input type="checkbox"> Change <code>JWT_SECRET</code> to a strong random value</li>
+        <li><input type="checkbox"> Change default database password in <code>docker-compose.yaml</code></li>
+        <li><input type="checkbox"> Use HTTPS (put WebPeel behind a reverse proxy)</li>
+        <li><input type="checkbox"> Set <code>NODE_ENV=production</code></li>
+        <li><input type="checkbox"> Restrict CORS origins to your domains only</li>
+        <li><input type="checkbox"> Enable firewall rules (only expose necessary ports)</li>
+        <li><input type="checkbox"> Set up automated PostgreSQL backups</li>
+        <li><input type="checkbox"> Monitor logs for suspicious activity</li>
+        <li><input type="checkbox"> Keep Docker and dependencies updated</li>
+        <li><input type="checkbox"> Use strong passwords for user accounts</li>
+      </ul>
+
+      <h2 id="troubleshooting">Troubleshooting</h2>
+
+      <h3>Server won't start</h3>
+      <p><strong>Check logs:</strong></p>
+      <pre><code class="language-bash">docker compose logs webpeel</code></pre>
+
+      <p><strong>Common issues:</strong></p>
+      <ul>
+        <li><code>JWT_SECRET</code> not set → Edit <code>.env</code> and add a secret</li>
+        <li>Database connection failed → Wait 30s for Postgres to initialize</li>
+        <li>Port 3000 already in use → Change the port mapping in <code>docker-compose.yaml</code></li>
+      </ul>
+
+      <h3>Health check fails</h3>
+      <p>The server needs ~30-40 seconds to start (Playwright browser installation). Check:</p>
+      <pre><code class="language-bash">docker compose ps</code></pre>
+
+      <p>If <code>webpeel</code> shows as <code>unhealthy</code>, wait a bit longer or check logs.</p>
+
+      <h3>Playwright browser crashes</h3>
+      <p>Increase shared memory in <code>docker-compose.yaml</code>:</p>
+      <pre><code class="language-yaml">services:
+  webpeel:
+    shm_size: '2gb'</code></pre>
+
+      <h3>Reset everything</h3>
+      <p>Stop containers and delete all data:</p>
+      <pre><code class="language-bash">docker compose down -v</code></pre>
+      <p><strong>⚠️ Warning:</strong> This deletes your database!</p>
+
+      <h2 id="monitoring">Monitoring</h2>
+
+      <h3>View Logs</h3>
+      <pre><code class="language-bash"># All logs
+docker compose logs -f
+
+# WebPeel only
+docker compose logs -f webpeel
+
+# Last 100 lines
+docker compose logs --tail=100 webpeel</code></pre>
+
+      <h3>Check Resource Usage</h3>
+      <pre><code class="language-bash">docker stats</code></pre>
+
+      <h3>Health Check</h3>
+      <pre><code class="language-bash">curl http://localhost:3000/health</code></pre>
+
+      <h2 id="next-steps">Next Steps</h2>
+
+      <div class="card-grid">
+        <a href="/docs/api-reference.html" class="doc-card">
+          <div class="doc-card-icon">📖</div>
+          <h3>API Reference</h3>
+          <p>Complete REST API documentation with all endpoints</p>
+        </a>
+
+        <a href="/docs/mcp.html" class="doc-card">
+          <div class="doc-card-icon">🤖</div>
+          <h3>MCP Server</h3>
+          <p>Connect Claude Desktop and other AI tools to your instance</p>
+        </a>
+
+        <a href="/docs/sdks.html" class="doc-card">
+          <div class="doc-card-icon">⚡</div>
+          <h3>SDKs</h3>
+          <p>Node.js and Python client libraries</p>
+        </a>
+
+        <a href="https://github.com/JakeLiuMe/webpeel" class="doc-card">
+          <div class="doc-card-icon">🐙</div>
+          <h3>GitHub</h3>
+          <p>View source code, report issues, and contribute</p>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-nginx.min.js"></script>
+  <script src="../scripts/docs.js"></script>
+</body>
+</html>
