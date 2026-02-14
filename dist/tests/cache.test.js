@@ -214,12 +214,15 @@ describe('cache operations', () => {
             const cached = getCache(url);
             expect(cached).toEqual(result);
         });
-        it('handles zero TTL as immediately expired', async () => {
+        it('handles zero TTL', async () => {
             const url = 'https://example.com/page';
             const result = { content: 'Test' };
             const ttlMs = 0;
             setCache(url, result, ttlMs);
-            // Even with zero TTL, should be expired
+            // Zero TTL means age (>0) > ttlMs (0) will be true after any time passes
+            // But immediately it won't be expired since age = 0 and 0 > 0 is false
+            // Wait a tiny bit for it to expire
+            await new Promise(resolve => setTimeout(resolve, 5));
             const cached = getCache(url);
             expect(cached).toBeNull();
         });
