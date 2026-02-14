@@ -27,6 +27,15 @@ export declare function browserFetch(url: string, options?: {
     headers?: Record<string, string>;
     cookies?: string[];
     stealth?: boolean;
+    actions?: Array<{
+        type: 'wait' | 'click' | 'scroll' | 'type' | 'fill' | 'select' | 'press' | 'hover' | 'waitForSelector' | 'screenshot';
+        selector?: string;
+        value?: string;
+        key?: string;
+        ms?: number;
+        to?: 'top' | 'bottom' | number;
+        timeout?: number;
+    }>;
 }): Promise<FetchResult>;
 /**
  * Retry a fetch operation with exponential backoff

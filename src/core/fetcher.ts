@@ -523,6 +523,15 @@ export async function browserFetch(
     headers?: Record<string, string>;
     cookies?: string[];
     stealth?: boolean;
+    actions?: Array<{
+      type: 'wait' | 'click' | 'scroll' | 'type' | 'fill' | 'select' | 'press' | 'hover' | 'waitForSelector' | 'screenshot';
+      selector?: string;
+      value?: string;
+      key?: string;
+      ms?: number;
+      to?: 'top' | 'bottom' | number;
+      timeout?: number;
+    }>;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -536,7 +545,8 @@ export async function browserFetch(
     screenshotFullPage = false,
     headers,
     cookies,
-    stealth = false
+    stealth = false,
+    actions
   } = options;
 
   // Validate user agent if provided
@@ -621,6 +631,8 @@ export async function browserFetch(
     }
 
     // SECURITY: Wrap entire operation in timeout
+    let screenshotBuffer: Buffer | undefined;
+    
     const fetchPromise = (async () => {
       await page!.goto(url, {
         waitUntil: 'domcontentloaded',
@@ -630,6 +642,15 @@ export async function browserFetch(
       // Wait for additional time if requested (for dynamic content)
       if (waitMs > 0) {
         await page!.waitForTimeout(waitMs);
+      }
+
+      // Execute page actions if provided
+      if (actions && actions.length > 0) {
+        const { executeActions } = await import('./actions.js');
+        const actionScreenshot = await executeActions(page!, actions);
+        if (actionScreenshot) {
+          screenshotBuffer = actionScreenshot;
+        }
       }
 
       const html = await page!.content();
@@ -653,9 +674,8 @@ export async function browserFetch(
       throw new BlockedError('Empty or suspiciously small response from browser.');
     }
 
-    // Capture screenshot if requested
-    let screenshotBuffer: Buffer | undefined;
-    if (screenshot) {
+    // Capture screenshot if requested (and not already captured by actions)
+    if (screenshot && !screenshotBuffer) {
       screenshotBuffer = await page!.screenshot({ 
         fullPage: screenshotFullPage, 
         type: 'png' 

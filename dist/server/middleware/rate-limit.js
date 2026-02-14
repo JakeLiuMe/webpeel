@@ -59,9 +59,17 @@ export function createRateLimitMiddleware(limiter) {
             const identifier = req.auth?.keyInfo?.key || req.ip || 'unknown';
             const limit = req.auth?.rateLimit || 10;
             const result = limiter.checkLimit(identifier, limit);
-            // Set rate limit headers
+            // Calculate reset timestamp
+            const now = Date.now();
+            const resetTimestamp = Math.ceil((now + limiter['windowMs']) / 1000);
+            // Set rate limit headers on ALL responses
             res.setHeader('X-RateLimit-Limit', limit.toString());
-            res.setHeader('X-RateLimit-Remaining', result.remaining.toString());
+            res.setHeader('X-RateLimit-Remaining', Math.max(0, result.remaining).toString());
+            res.setHeader('X-RateLimit-Reset', resetTimestamp.toString());
+            // Add plan header if authenticated
+            if (req.auth?.tier) {
+                res.setHeader('X-WebPeel-Plan', req.auth.tier);
+            }
             if (!result.allowed) {
                 res.setHeader('Retry-After', result.retryAfter.toString());
                 res.status(429).json({

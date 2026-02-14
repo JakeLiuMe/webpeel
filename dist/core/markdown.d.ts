@@ -35,4 +35,9 @@ export declare function htmlToText(html: string): string;
  * Rule of thumb: 1 token ≈ 4 characters for English text
  */
 export declare function estimateTokens(text: string): number;
+/**
+ * Truncate content to fit within a token budget
+ * Intelligently preserves structure (headings, first paragraph)
+ */
+export declare function truncateToTokenBudget(content: string, maxTokens: number): string;
 //# sourceMappingURL=markdown.d.ts.map

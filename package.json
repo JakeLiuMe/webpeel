@@ -103,7 +103,7 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.3",
-    "pdf-parse": "^1.1.1",
+    "pdf-parse": "^1.1.4",
     "pg": "^8.18.0",
     "stripe": "^20.3.1"
   },
@@ -113,6 +113,7 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.0.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.16.0",
     "@types/turndown": "^5.0.5",
     "typescript": "^5.6.0",

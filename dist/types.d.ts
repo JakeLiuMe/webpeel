@@ -1,6 +1,23 @@
 /**
  * Core types for WebPeel
  */
+export interface PageAction {
+    type: 'wait' | 'click' | 'scroll' | 'type' | 'fill' | 'select' | 'press' | 'hover' | 'waitForSelector' | 'screenshot';
+    selector?: string;
+    value?: string;
+    key?: string;
+    ms?: number;
+    to?: 'top' | 'bottom' | number;
+    timeout?: number;
+}
+export interface ExtractOptions {
+    /** JSON Schema for structured output */
+    schema?: Record<string, any>;
+    /** CSS selectors mapped to field names */
+    selectors?: Record<string, string>;
+    /** Natural language prompt describing what to extract */
+    prompt?: string;
+}
 export interface PeelOptions {
     /** Use headless browser instead of simple HTTP fetch */
     render?: boolean;
@@ -28,6 +45,12 @@ export interface PeelOptions {
     cookies?: string[];
     /** Skip smart content extraction — return full page without stripping boilerplate */
     raw?: boolean;
+    /** Page actions to execute before extraction (auto-enables render) */
+    actions?: PageAction[];
+    /** Extract structured data using a JSON schema or CSS selectors */
+    extract?: ExtractOptions;
+    /** Maximum token count for output (truncate intelligently if exceeded) */
+    maxTokens?: number;
 }
 export interface PeelResult {
     /** Final URL (after redirects) */
@@ -54,6 +77,8 @@ export interface PeelResult {
     quality?: number;
     /** SHA256 hash of content (first 16 chars) — for change detection */
     fingerprint?: string;
+    /** Extracted structured data (when extract option is used) */
+    extracted?: Record<string, any>;
 }
 export interface PageMetadata {
     /** Meta description */

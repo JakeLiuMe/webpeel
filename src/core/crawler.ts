@@ -6,6 +6,8 @@
 import { peel } from '../index.js';
 import type { PeelOptions } from '../types.js';
 import { fetch as undiciFetch } from 'undici';
+import { createHash } from 'crypto';
+import { discoverSitemap } from './sitemap.js';
 
 export interface CrawlOptions extends Omit<PeelOptions, 'format'> {
   /** Maximum number of pages to crawl (default: 10, max: 100) */
@@ -20,6 +22,24 @@ export interface CrawlOptions extends Omit<PeelOptions, 'format'> {
   respectRobotsTxt?: boolean;
   /** Rate limit between requests in milliseconds (default: 1000ms = 1 req/sec) */
   rateLimitMs?: number;
+  /** Try sitemap.xml first to discover URLs (default: false) */
+  sitemapFirst?: boolean;
+  /** Crawl strategy: breadth-first or depth-first (default: 'bfs') */
+  strategy?: 'bfs' | 'dfs';
+  /** Skip duplicate content using fingerprinting (default: true) */
+  deduplication?: boolean;
+  /** Only crawl URLs matching these regex patterns */
+  includePatterns?: string[];
+  /** Progress callback called after each page */
+  onProgress?: (status: CrawlProgress) => void;
+}
+
+export interface CrawlProgress {
+  crawled: number;
+  queued: number;
+  failed: number;
+  currentUrl: string;
+  elapsed: number;
 }
 
 export interface CrawlResult {
@@ -39,6 +59,8 @@ export interface CrawlResult {
   elapsed: number;
   /** Error message if page failed to fetch */
   error?: string;
+  /** Content fingerprint for deduplication */
+  fingerprint?: string;
 }
 
 interface RobotsRules {
@@ -155,8 +177,15 @@ export async function crawl(
     excludePatterns = [],
     respectRobotsTxt = true,
     rateLimitMs = 1000,
+    sitemapFirst = false,
+    strategy = 'bfs',
+    deduplication = true,
+    includePatterns = [],
+    onProgress,
     ...peelOptions
   } = options;
+
+  const crawlStartTime = Date.now();
 
   // Validate limits
   const validatedMaxPages = Math.min(Math.max(maxPages, 1), 100);
@@ -174,6 +203,9 @@ export async function crawl(
 
   // Compile exclude patterns
   const excludeRegexes = excludePatterns.map(pattern => new RegExp(pattern));
+  
+  // Compile include patterns
+  const includeRegexes = includePatterns.map(pattern => new RegExp(pattern));
 
   // Fetch robots.txt if needed
   let robotsRules: RobotsRules = { disallowedPaths: [] };
@@ -191,12 +223,31 @@ export async function crawl(
   // State tracking
   const results: CrawlResult[] = [];
   const visited = new Set<string>();
+  const contentFingerprints = new Set<string>();
+  let failedCount = 0;
   const queue: Array<{ url: string; depth: number; parent: string | null }> = [
     { url: startUrl, depth: 0, parent: null },
   ];
 
+  // Sitemap-first: Discover URLs from sitemap before crawling
+  if (sitemapFirst) {
+    try {
+      const sitemap = await discoverSitemap(startDomain, { timeout: 10000, maxUrls: validatedMaxPages });
+      for (const entry of sitemap.urls) {
+        const entryUrl = entry.url;
+        try {
+          const entryUrlObj = new URL(entryUrl);
+          if (validatedAllowedDomains.includes(entryUrlObj.hostname)) {
+            queue.push({ url: entryUrl, depth: 1, parent: startUrl });
+          }
+        } catch { /* skip invalid URLs */ }
+      }
+    } catch { /* skip sitemap errors */ }
+  }
+
   while (queue.length > 0 && results.length < validatedMaxPages) {
-    const item = queue.shift()!;
+    // Use DFS (stack) or BFS (queue) strategy
+    const item = strategy === 'dfs' ? queue.pop()! : queue.shift()!;
     const { url, depth, parent } = item;
 
     // Skip if already visited
@@ -224,6 +275,11 @@ export async function crawl(
       continue;
     }
 
+    // Check include patterns
+    if (includeRegexes.length > 0 && !includeRegexes.some(regex => regex.test(url))) {
+      continue;
+    }
+
     // Check robots.txt
     if (respectRobotsTxt && !isAllowedByRobots(url, robotsRules)) {
       console.error(`[Crawler] Skipping ${url} (disallowed by robots.txt)`);
@@ -237,7 +293,18 @@ export async function crawl(
         format: 'markdown',
       });
 
-      results.push({
+      // Deduplication: compute content fingerprint
+      let fingerprint: string | undefined;
+      if (deduplication) {
+        fingerprint = createHash('sha256').update(result.content).digest('hex');
+        if (contentFingerprints.has(fingerprint)) {
+          // Skip duplicate content
+          continue;
+        }
+        contentFingerprints.add(fingerprint);
+      }
+
+      const crawlResult: CrawlResult = {
         url: result.url,
         title: result.title,
         markdown: result.content,
@@ -245,7 +312,24 @@ export async function crawl(
         depth,
         parent,
         elapsed: result.elapsed,
-      });
+      };
+
+      if (fingerprint) {
+        crawlResult.fingerprint = fingerprint;
+      }
+
+      results.push(crawlResult);
+
+      // Call progress callback
+      if (onProgress) {
+        onProgress({
+          crawled: results.length,
+          queued: queue.length,
+          failed: failedCount,
+          currentUrl: url,
+          elapsed: Date.now() - crawlStartTime,
+        });
+      }
 
       // Add discovered links to queue
       if (depth < validatedMaxDepth) {
@@ -266,6 +350,7 @@ export async function crawl(
       }
     } catch (error) {
       // Log error and continue
+      failedCount++;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[Crawler] Failed to fetch ${url}: ${errorMessage}`);
       
@@ -279,6 +364,17 @@ export async function crawl(
         elapsed: 0,
         error: errorMessage,
       });
+
+      // Call progress callback even for failed pages
+      if (onProgress) {
+        onProgress({
+          crawled: results.length,
+          queued: queue.length,
+          failed: failedCount,
+          currentUrl: url,
+          elapsed: Date.now() - crawlStartTime,
+        });
+      }
     }
   }
 

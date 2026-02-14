@@ -5,11 +5,14 @@
  */
 import { createHash } from 'crypto';
 import { smartFetch } from './core/strategies.js';
-import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality } from './core/markdown.js';
+import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget } from './core/markdown.js';
 import { extractMetadata, extractLinks } from './core/metadata.js';
 import { cleanup } from './core/fetcher.js';
+import { extractStructured } from './core/extract.js';
 export * from './types.js';
 export { crawl } from './core/crawler.js';
+export { discoverSitemap } from './core/sitemap.js';
+export { mapDomain } from './core/map.js';
 /**
  * Fetch and extract content from a URL
  *
@@ -28,7 +31,7 @@ export { crawl } from './core/crawler.js';
  */
 export async function peel(url, options = {}) {
     const startTime = Date.now();
-    let { render = false, stealth = false, wait = 0, format = 'markdown', timeout = 30000, userAgent, screenshot = false, screenshotFullPage = false, selector, exclude, headers, cookies, raw = false, } = options;
+    let { render = false, stealth = false, wait = 0, format = 'markdown', timeout = 30000, userAgent, screenshot = false, screenshotFullPage = false, selector, exclude, headers, cookies, raw = false, actions, extract, maxTokens, } = options;
     // Detect PDF URLs and force browser rendering
     const isPdf = url.toLowerCase().endsWith('.pdf');
     if (isPdf) {
@@ -40,6 +43,10 @@ export async function peel(url, options = {}) {
     }
     // If stealth is requested, force render mode
     if (stealth) {
+        render = true;
+    }
+    // If actions are provided, force render mode
+    if (actions && actions.length > 0) {
         render = true;
     }
     try {
@@ -54,6 +61,7 @@ export async function peel(url, options = {}) {
             screenshotFullPage,
             headers,
             cookies,
+            actions,
         });
         // Detect content type from the response
         const ct = (fetchResult.contentType || '').toLowerCase();
@@ -157,6 +165,15 @@ export async function peel(url, options = {}) {
             links = [...new Set(found)];
             quality = 1.0;
         }
+        // Extract structured data if requested
+        let extracted;
+        if (extract && isHTML) {
+            extracted = extractStructured(fetchResult.html, extract);
+        }
+        // Truncate to token budget if requested
+        if (maxTokens && maxTokens > 0) {
+            content = truncateToTokenBudget(content, maxTokens);
+        }
         // Calculate elapsed time, tokens, and fingerprint
         const elapsed = Date.now() - startTime;
         const tokens = estimateTokens(content);
@@ -176,6 +193,7 @@ export async function peel(url, options = {}) {
             contentType: detectedType,
             quality,
             fingerprint,
+            extracted,
         };
     }
     catch (error) {

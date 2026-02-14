@@ -24,6 +24,16 @@ export interface StrategyOptions {
   headers?: Record<string, string>;
   /** Cookies to set (key=value pairs) */
   cookies?: string[];
+  /** Page actions to execute before extraction */
+  actions?: Array<{
+    type: 'wait' | 'click' | 'scroll' | 'type' | 'fill' | 'select' | 'press' | 'hover' | 'waitForSelector' | 'screenshot';
+    selector?: string;
+    value?: string;
+    key?: string;
+    ms?: number;
+    to?: 'top' | 'bottom' | number;
+    timeout?: number;
+  }>;
 }
 
 export interface StrategyResult extends FetchResult {
@@ -52,7 +62,8 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     screenshot = false,
     screenshotFullPage = false,
     headers,
-    cookies
+    cookies,
+    actions
   } = options;
 
   // If stealth is requested, force browser mode (stealth requires browser)
@@ -91,6 +102,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
       headers,
       cookies,
       stealth,
+      actions,
     });
     return {
       ...result,
@@ -109,6 +121,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
           headers,
           cookies,
           stealth: true, // Escalate to stealth mode
+          actions,
         });
         return {
           ...result,
@@ -134,6 +147,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
         headers,
         cookies,
         stealth, // Keep stealth setting
+        actions,
       });
       return {
         ...result,

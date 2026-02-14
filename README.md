@@ -86,8 +86,23 @@ webpeel usage
 # Stealth mode (bypass bot detection)
 npx webpeel https://protected-site.com --stealth
 
+# Page actions: click, scroll, type before extraction (v0.4.0)
+npx webpeel https://example.com --action "click:.cookie-accept" --action "wait:2000" --action "scroll:bottom"
+
+# Structured data extraction with CSS selectors (v0.4.0)
+npx webpeel https://example.com --extract '{"title": "h1", "price": ".price", "description": ".desc"}'
+
+# Token budget: truncate output to max tokens (v0.4.0)
+npx webpeel https://example.com --max-tokens 2000
+
+# Map discovery: find all URLs on a domain via sitemap & crawling (v0.4.0)
+npx webpeel map https://example.com --max-urls 5000
+
 # Crawl a website (follow links, respect robots.txt)
 npx webpeel crawl https://example.com --max-pages 20 --max-depth 2
+
+# Sitemap-first crawl with content deduplication (v0.4.0)
+npx webpeel crawl https://example.com --sitemap-first --max-pages 100
 
 # JSON output with metadata
 npx webpeel https://example.com --json
@@ -231,10 +246,12 @@ Or add to your project's `.mcp.json` for team sharing:
 ```
 
 This gives Claude Code access to:
-- **webpeel_fetch** — Fetch any URL as clean markdown (with stealth mode for protected sites)
+- **webpeel_fetch** — Fetch any URL as clean markdown (with stealth mode, actions, extraction & token budget)
 - **webpeel_search** — Search the web via DuckDuckGo
 - **webpeel_batch** — Fetch multiple URLs concurrently
-- **webpeel_crawl** — Crawl websites following links
+- **webpeel_crawl** — Crawl websites following links (with sitemap-first & deduplication)
+- **webpeel_map** — Discover all URLs on a domain via sitemap.xml & link crawling
+- **webpeel_extract** — Extract structured data using CSS selectors or JSON schema
 
 ---
 
@@ -506,9 +523,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Weekly reset usage model with extra usage
 - [x] Stealth mode (playwright-extra + anti-detect)
 - [x] Crawl mode (follow links, respect robots.txt)
-- [ ] PDF extraction
+- [x] PDF extraction (v0.4.0)
+- [x] Structured data extraction with CSS selectors and JSON schema (v0.4.0)
+- [x] Page actions: click, scroll, type, fill, select, press, hover (v0.4.0)
+- [x] Map/sitemap discovery for full site URL mapping (v0.4.0)
+- [x] Token budget for output truncation (v0.4.0)
+- [x] Advanced crawl: sitemap-first, BFS/DFS, content deduplication (v0.4.0)
 - [ ] Webhook notifications for monitoring
-- [ ] Structured data extraction (JSON output)
 
 Vote on features and roadmap at [GitHub Discussions](https://github.com/JakeLiuMe/webpeel/discussions).
 

@@ -6,7 +6,9 @@
 import { cleanup } from './core/fetcher.js';
 import type { PeelOptions, PeelResult } from './types.js';
 export * from './types.js';
-export { crawl, type CrawlOptions, type CrawlResult } from './core/crawler.js';
+export { crawl, type CrawlOptions, type CrawlResult, type CrawlProgress } from './core/crawler.js';
+export { discoverSitemap, type SitemapUrl, type SitemapResult } from './core/sitemap.js';
+export { mapDomain, type MapOptions, type MapResult } from './core/map.js';
 /**
  * Fetch and extract content from a URL
  *

@@ -16,6 +16,23 @@ export interface CrawlOptions extends Omit<PeelOptions, 'format'> {
     respectRobotsTxt?: boolean;
     /** Rate limit between requests in milliseconds (default: 1000ms = 1 req/sec) */
     rateLimitMs?: number;
+    /** Try sitemap.xml first to discover URLs (default: false) */
+    sitemapFirst?: boolean;
+    /** Crawl strategy: breadth-first or depth-first (default: 'bfs') */
+    strategy?: 'bfs' | 'dfs';
+    /** Skip duplicate content using fingerprinting (default: true) */
+    deduplication?: boolean;
+    /** Only crawl URLs matching these regex patterns */
+    includePatterns?: string[];
+    /** Progress callback called after each page */
+    onProgress?: (status: CrawlProgress) => void;
+}
+export interface CrawlProgress {
+    crawled: number;
+    queued: number;
+    failed: number;
+    currentUrl: string;
+    elapsed: number;
 }
 export interface CrawlResult {
     /** URL of the crawled page */
@@ -34,6 +51,8 @@ export interface CrawlResult {
     elapsed: number;
     /** Error message if page failed to fetch */
     error?: string;
+    /** Content fingerprint for deduplication */
+    fingerprint?: string;
 }
 /**
  * Crawl a website starting from a URL

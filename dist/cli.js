@@ -529,6 +529,52 @@ program
     }
 });
 program
+    .command('map <url>')
+    .description('Discover all URLs on a domain (sitemap + crawl)')
+    .option('--no-sitemap', 'Skip sitemap.xml discovery')
+    .option('--no-crawl', 'Skip homepage crawl')
+    .option('--max <n>', 'Maximum URLs to discover (default: 5000)', parseInt, 5000)
+    .option('--include <patterns...>', 'Include only URLs matching these regex patterns')
+    .option('--exclude <patterns...>', 'Exclude URLs matching these regex patterns')
+    .option('--json', 'Output as JSON')
+    .option('-s, --silent', 'Silent mode')
+    .action(async (url, options) => {
+    const { mapDomain } = await import('./core/map.js');
+    const spinner = options.silent ? null : ora('Discovering URLs...').start();
+    try {
+        const result = await mapDomain(url, {
+            useSitemap: options.sitemap !== false,
+            crawlHomepage: options.crawl !== false,
+            maxUrls: options.max,
+            includePatterns: options.include,
+            excludePatterns: options.exclude,
+        });
+        if (spinner)
+            spinner.succeed(`Found ${result.total} URLs in ${result.elapsed}ms`);
+        if (options.json) {
+            console.log(JSON.stringify(result, null, 2));
+        }
+        else {
+            for (const url of result.urls) {
+                console.log(url);
+            }
+            if (!options.silent) {
+                console.error(`\nTotal: ${result.total} URLs`);
+                if (result.sitemapUrls.length > 0) {
+                    console.error(`Sitemaps used: ${result.sitemapUrls.join(', ')}`);
+                }
+            }
+        }
+        process.exit(0);
+    }
+    catch (error) {
+        if (spinner)
+            spinner.fail('URL discovery failed');
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        process.exit(1);
+    }
+});
+program
     .command('login')
     .description('Authenticate the CLI with your API key')
     .action(async () => {

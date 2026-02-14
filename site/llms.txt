@@ -22,10 +22,12 @@ curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
 
 ## MCP Tools
 
-- `webpeel_fetch` — Fetch a URL, return clean markdown. Params: url (required), render, stealth, wait, format, screenshot, selector, exclude, headers
+- `webpeel_fetch` — Fetch a URL, return clean markdown. Params: url (required), render, stealth, wait, format, screenshot, selector, exclude, headers, actions, maxTokens, extract
 - `webpeel_search` — Search the web via DuckDuckGo. Params: query (required), count (1-10)
 - `webpeel_batch` — Fetch multiple URLs concurrently. Params: urls (required), concurrency, render, format, selector
-- `webpeel_crawl` — Crawl a website following links. Params: url (required), maxPages, maxDepth, allowedDomains, excludePatterns, render, stealth
+- `webpeel_crawl` — Crawl a website following links. Params: url (required), maxPages, maxDepth, allowedDomains, excludePatterns, render, stealth, sitemapFirst
+- `webpeel_map` — Discover all URLs on a domain via sitemap.xml & link crawling. Params: url (required), maxUrls, includePatterns, excludePatterns
+- `webpeel_extract` — Extract structured data using CSS selectors or JSON schema. Params: url (required), selectors, schema, render
 
 ## MCP Configuration
 
@@ -46,26 +48,35 @@ For Claude Code: `claude mcp add webpeel -- npx -y webpeel mcp`
 
 ## Key Features
 
-- Smart escalation: HTTP → Browser → Stealth (only upgrades when needed)
-- Anti-bot stealth mode: bypasses Cloudflare, JavaScript walls, 403s
-- Search: built-in DuckDuckGo integration
-- Crawl: follow links, respect robots.txt, rate limiting
-- Screenshot: capture pages as PNG
-- CSS selectors: extract specific page sections
-- Token-optimized: strips navigation, ads, scripts, cookie banners
-- Metadata extraction: title, description, author, published date, links
-- Local-first: runs on your machine, no API key required for CLI
-- SSRF protection: blocks private IPs, redirect attacks
-- TypeScript-native: full type definitions
+- **Smart escalation**: HTTP → Browser → Stealth (only upgrades when needed)
+- **Anti-bot stealth mode**: bypasses Cloudflare, JavaScript walls, 403s
+- **Page actions**: click, scroll, type, fill, select, press, hover, waitForSelector (execute before extraction)
+- **Structured extraction**: extract data using CSS selectors or JSON schema validation
+- **PDF parsing**: automatic PDF detection with text extraction and metadata (title, author, pages)
+- **Map/Sitemap discovery**: discover all URLs on a domain via sitemap.xml, sitemap index, robots.txt & link crawling
+- **Token budget**: intelligently truncate output to a maximum token count
+- **Search**: built-in DuckDuckGo integration
+- **Crawl**: follow links, respect robots.txt, rate limiting, BFS/DFS strategy, content deduplication
+- **Screenshot**: capture pages as PNG
+- **CSS selectors**: extract specific page sections
+- **Token-optimized**: strips navigation, ads, scripts, cookie banners
+- **Metadata extraction**: title, description, author, published date, links
+- **Local-first**: runs on your machine, no API key required for CLI
+- **SSRF protection**: blocks private IPs, redirect attacks
+- **TypeScript-native**: full type definitions
 
 ## Pricing (Hosted API — Weekly Reset)
 
-| Plan | Price | Weekly Fetches | Burst Limit | Stealth | Extra Usage |
-|------|-------|---------------|-------------|---------|-------------|
-| CLI  | $0    | ∞ (local)     | N/A         | ✅      | N/A         |
-| Free | $0    | 125/wk        | 25/hr       | ✅      | ❌          |
-| Pro  | $9/mo | 1,250/wk      | 100/hr      | ✅      | ✅          |
-| Max  | $29/mo| 6,250/wk      | 500/hr      | ✅      | ✅          |
+**All features available on all plans.** Only usage limits differ. No feature-gating.
+
+| Plan | Price | Weekly Fetches | Burst Limit | Features | Extra Usage |
+|------|-------|---------------|-------------|----------|-------------|
+| CLI  | $0    | ∞ (local)     | N/A         | All      | N/A         |
+| Free | $0    | 125/wk        | 25/hr       | All      | ❌          |
+| Pro  | $9/mo | 1,250/wk      | 100/hr      | All      | ✅          |
+| Max  | $29/mo| 6,250/wk      | 500/hr      | All      | ✅          |
+
+All plans include: stealth mode, crawl, batch, search, page actions, structured extraction, PDF parsing, sitemap discovery
 
 Extra usage rates: Basic $0.002, Stealth $0.01, Search $0.001
 

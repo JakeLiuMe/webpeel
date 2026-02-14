@@ -6,13 +6,16 @@
 
 import { createHash } from 'crypto';
 import { smartFetch } from './core/strategies.js';
-import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality } from './core/markdown.js';
+import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget } from './core/markdown.js';
 import { extractMetadata, extractLinks } from './core/metadata.js';
 import { cleanup } from './core/fetcher.js';
+import { extractStructured } from './core/extract.js';
 import type { PeelOptions, PeelResult } from './types.js';
 
 export * from './types.js';
-export { crawl, type CrawlOptions, type CrawlResult } from './core/crawler.js';
+export { crawl, type CrawlOptions, type CrawlResult, type CrawlProgress } from './core/crawler.js';
+export { discoverSitemap, type SitemapUrl, type SitemapResult } from './core/sitemap.js';
+export { mapDomain, type MapOptions, type MapResult } from './core/map.js';
 
 /**
  * Fetch and extract content from a URL
@@ -47,6 +50,9 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     headers,
     cookies,
     raw = false,
+    actions,
+    extract,
+    maxTokens,
   } = options;
 
   // Detect PDF URLs and force browser rendering
@@ -65,6 +71,11 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     render = true;
   }
 
+  // If actions are provided, force render mode
+  if (actions && actions.length > 0) {
+    render = true;
+  }
+
   try {
     // Fetch the page
     const fetchResult = await smartFetch(url, {
@@ -77,6 +88,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       screenshotFullPage,
       headers,
       cookies,
+      actions,
     });
 
     // Detect content type from the response
@@ -185,6 +197,17 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       quality = 1.0;
     }
 
+    // Extract structured data if requested
+    let extracted: Record<string, any> | undefined;
+    if (extract && isHTML) {
+      extracted = extractStructured(fetchResult.html, extract);
+    }
+
+    // Truncate to token budget if requested
+    if (maxTokens && maxTokens > 0) {
+      content = truncateToTokenBudget(content, maxTokens);
+    }
+
     // Calculate elapsed time, tokens, and fingerprint
     const elapsed = Date.now() - startTime;
     const tokens = estimateTokens(content);
@@ -206,6 +229,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       contentType: detectedType,
       quality,
       fingerprint,
+      extracted,
     };
   } catch (error) {
     // Clean up browser resources on error

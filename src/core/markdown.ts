@@ -298,3 +298,79 @@ export function htmlToText(html: string): string {
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
+
+/**
+ * Truncate content to fit within a token budget
+ * Intelligently preserves structure (headings, first paragraph)
+ */
+export function truncateToTokenBudget(content: string, maxTokens: number): string {
+  const currentTokens = estimateTokens(content);
+  
+  // If under budget, return as-is
+  if (currentTokens <= maxTokens) {
+    return content;
+  }
+  
+  // Split into lines
+  const lines = content.split('\n');
+  
+  // Keep first heading and first paragraph
+  const result: string[] = [];
+  let foundFirstHeading = false;
+  let foundFirstParagraph = false;
+  let currentTokenCount = 0;
+  
+  // First pass: collect all headings and structure
+  const headings: string[] = [];
+  for (const line of lines) {
+    if (/^#{1,6}\s/.test(line)) {
+      headings.push(line);
+    }
+  }
+  
+  // Second pass: build truncated content
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineTokens = estimateTokens(line);
+    
+    // Always keep first heading
+    if (!foundFirstHeading && /^#{1,6}\s/.test(line)) {
+      result.push(line);
+      currentTokenCount += lineTokens;
+      foundFirstHeading = true;
+      continue;
+    }
+    
+    // Always keep first substantial paragraph
+    if (!foundFirstParagraph && line.trim().length > 50 && !/^#{1,6}\s/.test(line)) {
+      result.push(line);
+      currentTokenCount += lineTokens;
+      foundFirstParagraph = true;
+      continue;
+    }
+    
+    // Keep all headings to preserve structure
+    if (/^#{1,6}\s/.test(line)) {
+      if (currentTokenCount + lineTokens < maxTokens * 0.9) {
+        result.push(line);
+        currentTokenCount += lineTokens;
+        continue;
+      }
+    }
+    
+    // Add content until we reach budget
+    if (currentTokenCount + lineTokens < maxTokens * 0.9) {
+      result.push(line);
+      currentTokenCount += lineTokens;
+    } else {
+      // Budget exceeded, stop here
+      break;
+    }
+  }
+  
+  // Add truncation notice
+  result.push('');
+  result.push(`[Content truncated to ~${maxTokens} tokens]`);
+  
+  return result.join('\n');
+}

@@ -436,7 +436,7 @@ async function getStealthBrowser() {
 export async function browserFetch(url, options = {}) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
-    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false } = options;
+    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false, actions } = options;
     // Validate user agent if provided
     const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
     // Validate wait time
@@ -508,6 +508,7 @@ export async function browserFetch(url, options = {}) {
             await page.route('**/*', (route) => route.continue());
         }
         // SECURITY: Wrap entire operation in timeout
+        let screenshotBuffer;
         const fetchPromise = (async () => {
             await page.goto(url, {
                 waitUntil: 'domcontentloaded',
@@ -516,6 +517,14 @@ export async function browserFetch(url, options = {}) {
             // Wait for additional time if requested (for dynamic content)
             if (waitMs > 0) {
                 await page.waitForTimeout(waitMs);
+            }
+            // Execute page actions if provided
+            if (actions && actions.length > 0) {
+                const { executeActions } = await import('./actions.js');
+                const actionScreenshot = await executeActions(page, actions);
+                if (actionScreenshot) {
+                    screenshotBuffer = actionScreenshot;
+                }
             }
             const html = await page.content();
             const finalUrl = page.url();
@@ -532,9 +541,8 @@ export async function browserFetch(url, options = {}) {
         if (!html || html.length < 100) {
             throw new BlockedError('Empty or suspiciously small response from browser.');
         }
-        // Capture screenshot if requested
-        let screenshotBuffer;
-        if (screenshot) {
+        // Capture screenshot if requested (and not already captured by actions)
+        if (screenshot && !screenshotBuffer) {
             screenshotBuffer = await page.screenshot({
                 fullPage: screenshotFullPage,
                 type: 'png'
