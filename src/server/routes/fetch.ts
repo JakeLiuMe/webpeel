@@ -7,6 +7,7 @@ import { peel } from '../../index.js';
 import type { PeelOptions } from '../../types.js';
 import { LRUCache } from 'lru-cache';
 import { AuthStore } from '../auth-store.js';
+import { validateUrlForSSRF, SSRFError } from '../middleware/url-validator.js';
 
 interface CacheEntry {
   result: any;
@@ -76,6 +77,20 @@ export function createFetchRouter(authStore: AuthStore): Router {
           message: 'Invalid URL format',
         });
         return;
+      }
+
+      // SECURITY: Validate URL to prevent SSRF attacks
+      try {
+        validateUrlForSSRF(url);
+      } catch (error) {
+        if (error instanceof SSRFError) {
+          res.status(400).json({
+            error: 'forbidden_url',
+            message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+          });
+          return;
+        }
+        throw error;
       }
 
       // Build cache key (include new parameters)

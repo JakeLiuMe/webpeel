@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { peel } from '../../index.js';
 import { LRUCache } from 'lru-cache';
+import { validateUrlForSSRF, SSRFError } from '../middleware/url-validator.js';
 export function createFetchRouter(authStore) {
     const router = Router();
     // LRU cache: 5 minute TTL, max 1000 entries, 100MB total size
@@ -49,6 +50,20 @@ export function createFetchRouter(authStore) {
                     message: 'Invalid URL format',
                 });
                 return;
+            }
+            // SECURITY: Validate URL to prevent SSRF attacks
+            try {
+                validateUrlForSSRF(url);
+            }
+            catch (error) {
+                if (error instanceof SSRFError) {
+                    res.status(400).json({
+                        error: 'forbidden_url',
+                        message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+                    });
+                    return;
+                }
+                throw error;
             }
             // Build cache key (include new parameters)
             const cacheKey = `fetch:${url}:${render}:${wait}:${format}:${includeTags}:${excludeTags}:${images}:${location}:${languages}:${onlyMainContent}`;

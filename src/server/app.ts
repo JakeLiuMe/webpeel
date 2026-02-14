@@ -66,6 +66,28 @@ export function createApp(config: ServerConfig = {}): Express {
     credentials: true,
   }));
 
+  // SECURITY: Security headers
+  app.disable('x-powered-by');
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+  });
+
+  // SECURITY: JSON parse error handler
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction): void => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      res.status(400).json({ 
+        error: 'invalid_json', 
+        message: 'Malformed JSON in request body' 
+      });
+      return;
+    }
+    next(err);
+  });
+
   // Auth store - Use PostgreSQL if DATABASE_URL is set, otherwise in-memory
   const usePostgres = config.usePostgres ?? !!process.env.DATABASE_URL;
   const authStore = usePostgres 

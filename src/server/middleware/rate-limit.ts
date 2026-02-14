@@ -75,7 +75,7 @@ export class RateLimiter {
 }
 
 export function createRateLimitMiddleware(limiter: RateLimiter) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
     try {
       // Use API key or IP address as identifier
       const identifier = req.auth?.keyInfo?.key || req.ip || 'unknown';
@@ -104,7 +104,7 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
           message: 'Rate limit exceeded',
           retryAfter: result.retryAfter,
         });
-        return;
+        return; // Stop processing - rate limit exceeded
       }
 
       next();

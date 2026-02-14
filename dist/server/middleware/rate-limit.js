@@ -77,7 +77,7 @@ export function createRateLimitMiddleware(limiter) {
                     message: 'Rate limit exceeded',
                     retryAfter: result.retryAfter,
                 });
-                return;
+                return; // Stop processing - rate limit exceeded
             }
             next();
         }
