@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Documentation — WebPeel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="../styles/docs.css">
+</head>
+<body>
+  <nav class="docs-nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <a href="/docs/" class="sidebar-link active">Overview</a>
+        <a href="/docs/api-reference.html" class="sidebar-link">API Reference</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">SDKs</div>
+        <a href="/docs/sdks.html" class="sidebar-link">Node.js & Python</a>
+        <a href="/docs/cli.html" class="sidebar-link">CLI</a>
+        <a href="/docs/mcp.html" class="sidebar-link">MCP Server</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Deployment</div>
+        <a href="/docs/self-hosting.html" class="sidebar-link">Self-Hosting</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <div class="breadcrumbs">
+        <a href="/docs/">Documentation</a>
+        <span>/</span>
+        <span>Overview</span>
+      </div>
+
+      <h1>WebPeel Documentation</h1>
+      <p class="lead">Fast web fetching for AI agents. Smart escalation from HTTP to headless browser with stealth mode.</p>
+
+      <h2 id="quick-start">Quick Start</h2>
+      <p>Get up and running with WebPeel in 30 seconds.</p>
+
+      <h3>Installation</h3>
+      
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="npm">npm</button>
+        <button class="tab-btn" data-tab="pnpm">pnpm</button>
+        <button class="tab-btn" data-tab="yarn">Yarn</button>
+        <button class="tab-btn" data-tab="pip">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="npm">
+        <pre><code class="language-bash">npm install -g webpeel</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="pnpm">
+        <pre><code class="language-bash">pnpm add -g webpeel</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="yarn">
+        <pre><code class="language-bash">yarn global add webpeel</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="pip">
+        <pre><code class="language-bash">pip install webpeel</code></pre>
+      </div>
+
+      <h3>First Scrape</h3>
+      
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="cli2">CLI</button>
+        <button class="tab-btn" data-tab="node2">Node.js</button>
+        <button class="tab-btn" data-tab="python2">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="cli2">
+        <pre><code class="language-bash"># Fetch any URL
+npx webpeel https://example.com
+
+# Output as JSON
+npx webpeel https://example.com --json
+
+# Use browser rendering for JS-heavy sites
+npx webpeel https://example.com --render</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="node2">
+        <pre><code class="language-javascript">import { peel } from 'webpeel';
+
+const result = await peel('https://example.com');
+console.log(result.title);
+console.log(result.content); // Markdown</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="python2">
+        <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel()
+result = client.scrape("https://example.com")
+print(result.title)
+print(result.content)</code></pre>
+      </div>
+
+      <h2 id="core-concepts">Core Concepts</h2>
+
+      <h3>Smart Escalation</h3>
+      <p>WebPeel automatically chooses the fastest method:</p>
+      <ol>
+        <li><strong>HTTP Fetch</strong> — Fast HTTP request with smart headers (~118ms)</li>
+        <li><strong>Browser Mode</strong> — Headless browser for JavaScript-heavy sites (~2s)</li>
+        <li><strong>Stealth Mode</strong> — Full anti-detection for protected sites (~5s)</li>
+      </ol>
+
+      <pre><code class="language-javascript">// Simple fetch (HTTP)
+const result1 = await peel('https://example.com');
+
+// Force browser rendering
+const result2 = await peel('https://example.com', { render: true });
+
+// Use stealth mode for Cloudflare-protected sites
+const result3 = await peel('https://example.com', { stealth: true });</code></pre>
+
+      <h3>Output Formats</h3>
+      <p>Choose the format that works best for your use case:</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="markdown3">Markdown</button>
+        <button class="tab-btn" data-tab="text3">Text</button>
+        <button class="tab-btn" data-tab="html3">HTML</button>
+      </div>
+
+      <div class="tab-content active" data-content="markdown3">
+        <pre><code class="language-javascript">const result = await peel('https://example.com', {
+  format: 'markdown' // Default
+});
+// Perfect for LLMs — clean, structured content</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="text3">
+        <pre><code class="language-javascript">const result = await peel('https://example.com', {
+  format: 'text'
+});
+// Plain text — no formatting, just content</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="html3">
+        <pre><code class="language-javascript">const result = await peel('https://example.com', {
+  format: 'html'
+});
+// Raw HTML — full page source</code></pre>
+      </div>
+
+      <h3>Content Filtering</h3>
+      <p>Extract only what you need:</p>
+
+      <pre><code class="language-javascript">// Extract specific content with CSS selector
+const result = await peel('https://example.com', {
+  selector: 'article',
+  exclude: ['.sidebar', '.ads', 'nav']
+});
+
+// Only include main content tags
+const result2 = await peel('https://example.com', {
+  includeTags: ['article', 'main'],
+  excludeTags: ['nav', 'footer', 'aside']
+});</code></pre>
+
+      <h2 id="advanced-features">Advanced Features</h2>
+
+      <h3>Page Actions</h3>
+      <p>Interact with pages before scraping:</p>
+
+      <pre><code class="language-javascript">const result = await peel('https://example.com', {
+  actions: [
+    { type: 'click', selector: '.load-more' },
+    { type: 'wait', ms: 2000 },
+    { type: 'scroll', to: 'bottom' },
+    { type: 'type', selector: '#search', value: 'query' }
+  ]
+});</code></pre>
+
+      <h3>Structured Extraction</h3>
+      <p>Extract data with CSS selectors or AI:</p>
+
+      <pre><code class="language-javascript">// CSS-based extraction
+const result = await peel('https://example.com/product', {
+  extract: {
+    selectors: {
+      title: 'h1',
+      price: '.price',
+      rating: '.rating'
+    }
+  }
+});
+
+// AI-powered extraction (BYOK)
+const result2 = await peel('https://example.com', {
+  extract: {
+    prompt: 'Extract the main features as a list',
+    llmApiKey: process.env.OPENAI_API_KEY
+  }
+});</code></pre>
+
+      <h3>Crawling</h3>
+      <p>Crawl entire websites:</p>
+
+      <pre><code class="language-javascript">import { crawl } from 'webpeel';
+
+const results = await crawl('https://example.com', {
+  maxPages: 50,
+  maxDepth: 2,
+  excludePatterns: ['/admin/', '/login']
+});
+
+results.forEach(page => {
+  console.log(page.title, page.url);
+});</code></pre>
+
+      <h3>Change Tracking</h3>
+      <p>Monitor content changes over time:</p>
+
+      <pre><code class="language-javascript">import { trackChange } from 'webpeel';
+
+const change = await trackChange('https://example.com');
+if (change.changed) {
+  console.log('Content changed!');
+  console.log('Added:', change.added);
+  console.log('Removed:', change.removed);
+}</code></pre>
+
+      <h2 id="next-steps">Next Steps</h2>
+
+      <div class="card-grid">
+        <a href="/docs/api-reference.html" class="doc-card">
+          <div class="doc-card-icon">📖</div>
+          <h3>API Reference</h3>
+          <p>Complete REST API documentation with all endpoints and parameters</p>
+        </a>
+
+        <a href="/docs/sdks.html" class="doc-card">
+          <div class="doc-card-icon">⚡</div>
+          <h3>SDKs</h3>
+          <p>Node.js and Python client libraries with full code examples</p>
+        </a>
+
+        <a href="/docs/cli.html" class="doc-card">
+          <div class="doc-card-icon">💻</div>
+          <h3>CLI</h3>
+          <p>Command-line interface with 18+ commands for web scraping</p>
+        </a>
+
+        <a href="/docs/mcp.html" class="doc-card">
+          <div class="doc-card-icon">🤖</div>
+          <h3>MCP Server</h3>
+          <p>Set up WebPeel for Claude, Cursor, and VS Code</p>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="../scripts/docs.js"></script>
+</body>
+</html>

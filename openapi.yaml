@@ -1,0 +1,468 @@
+openapi: "3.0.3"
+info:
+  title: WebPeel API
+  description: |
+    Fast web fetcher for AI agents. Convert any website to LLM-ready markdown, 
+    search the web, crawl sites, extract structured data, and more.
+    
+    **Base URL:** `https://api.webpeel.dev`
+    
+    **Authentication:** Optional. Pass API key via `Authorization: Bearer wp_...` header.
+    Free tier available without authentication (125 requests/week).
+    
+    **Firecrawl Compatible:** WebPeel supports Firecrawl-compatible endpoints at the same paths.
+    Switch from Firecrawl by changing your base URL.
+  version: "0.6.0"
+  contact:
+    name: WebPeel Support
+    email: support@webpeel.dev
+    url: https://webpeel.dev
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.webpeel.dev
+    description: Production API
+  - url: http://localhost:3000
+    description: Local / Self-hosted
+
+security:
+  - bearerAuth: []
+  - {}
+
+paths:
+  /v1/fetch:
+    get:
+      operationId: scrape
+      summary: Scrape a URL
+      description: |
+        Fetch a web page and extract content as markdown, text, or HTML.
+        Automatically handles JavaScript rendering and anti-bot protection.
+      tags: [Scrape]
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema:
+            type: string
+          description: URL to scrape
+          example: https://example.com
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [markdown, text, html]
+            default: markdown
+          description: Output format
+        - name: render
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Use browser rendering (for JS-heavy sites)
+        - name: stealth
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Use stealth mode (for anti-bot protected sites)
+        - name: screenshot
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Capture screenshot (base64 PNG)
+        - name: selector
+          in: query
+          schema:
+            type: string
+          description: CSS selector to extract specific content
+          example: article
+        - name: exclude
+          in: query
+          schema:
+            type: string
+          description: CSS selector to exclude elements
+          example: nav,footer,.ads
+        - name: includeTags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated HTML tags to include
+          example: article,main,section
+        - name: excludeTags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated HTML tags to exclude
+          example: nav,footer,aside
+        - name: onlyMainContent
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Auto-detect and extract main content only
+        - name: maxTokens
+          in: query
+          schema:
+            type: integer
+            minimum: 100
+          description: Maximum tokens in output
+        - name: images
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Extract image URLs
+        - name: location
+          in: query
+          schema:
+            type: string
+          description: Geo-location for request (country code)
+          example: US
+        - name: language
+          in: query
+          schema:
+            type: string
+          description: Preferred language
+          example: en
+        - name: maxAge
+          in: query
+          schema:
+            type: integer
+          description: Max cache age in milliseconds (0 = fresh)
+      responses:
+        "200":
+          description: Successfully scraped content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScrapeResponse"
+        "400":
+          description: Bad request
+        "429":
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+
+  /v1/search:
+    get:
+      operationId: search
+      summary: Search the web
+      description: Search the web via DuckDuckGo and get results with snippets.
+      tags: [Search]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Max results
+        - name: categories
+          in: query
+          schema:
+            type: string
+          description: Search categories
+        - name: time
+          in: query
+          schema:
+            type: string
+            enum: [d, w, m, y]
+          description: Time filter (day, week, month, year)
+        - name: country
+          in: query
+          schema:
+            type: string
+          description: Country code for geo-targeted results
+        - name: location
+          in: query
+          schema:
+            type: string
+          description: Location for geo-targeted results
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+
+  /v1/crawl:
+    post:
+      operationId: startCrawl
+      summary: Start a crawl job
+      description: Start an async crawl job. Returns a job ID for polling.
+      tags: [Crawl]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  description: Starting URL
+                limit:
+                  type: integer
+                  default: 10
+                  description: Max pages to crawl
+                maxDepth:
+                  type: integer
+                  default: 3
+                  description: Max crawl depth
+                includePaths:
+                  type: array
+                  items:
+                    type: string
+                  description: URL path patterns to include
+                excludePaths:
+                  type: array
+                  items:
+                    type: string
+                  description: URL path patterns to exclude
+      responses:
+        "200":
+          description: Crawl job started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+
+  /v1/crawl/{id}:
+    get:
+      operationId: getCrawlStatus
+      summary: Get crawl job status
+      tags: [Crawl]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job status and results
+    delete:
+      operationId: cancelCrawl
+      summary: Cancel a crawl job
+      tags: [Crawl]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job cancelled
+
+  /v1/batch/scrape:
+    post:
+      operationId: batchScrape
+      summary: Batch scrape multiple URLs
+      tags: [Batch]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [urls]
+              properties:
+                urls:
+                  type: array
+                  items:
+                    type: string
+                  description: URLs to scrape
+                options:
+                  type: object
+                  properties:
+                    format:
+                      type: string
+                    render:
+                      type: boolean
+                    stealth:
+                      type: boolean
+      responses:
+        "200":
+          description: Batch job started
+
+  /v1/batch/scrape/{id}:
+    get:
+      operationId: getBatchStatus
+      summary: Get batch job status
+      tags: [Batch]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Batch status and results
+
+  /v1/agent:
+    post:
+      operationId: agent
+      summary: AI-powered web research agent
+      description: |
+        Autonomous web research using your own LLM. Searches, fetches, analyzes,
+        and compiles data based on a natural language prompt.
+        Requires a BYOK (Bring Your Own Key) LLM API key.
+      tags: [Agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt, llmApiKey]
+              properties:
+                prompt:
+                  type: string
+                  description: Research prompt
+                  example: Find the pricing plans for Notion
+                urls:
+                  type: array
+                  items:
+                    type: string
+                  description: Optional URLs to focus research on
+                llmApiKey:
+                  type: string
+                  description: Your OpenAI-compatible API key
+                llmModel:
+                  type: string
+                  default: gpt-4o-mini
+                  description: LLM model to use
+                llmBaseUrl:
+                  type: string
+                  description: Custom LLM API base URL
+                schema:
+                  type: object
+                  description: JSON schema for structured output
+                maxIterations:
+                  type: integer
+                  default: 10
+                  description: Max research iterations
+      responses:
+        "200":
+          description: Research results
+
+  /health:
+    get:
+      operationId: health
+      summary: Health check
+      tags: [System]
+      responses:
+        "200":
+          description: Service healthy
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: API key (wp_...) or Firecrawl key (fc-...)
+
+  schemas:
+    ScrapeResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        markdown:
+          type: string
+          description: Extracted markdown content
+        metadata:
+          type: object
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+            language:
+              type: string
+            sourceURL:
+              type: string
+            statusCode:
+              type: integer
+        tokens:
+          type: integer
+          description: Estimated token count
+        quality:
+          type: number
+          description: Content quality score (0-1)
+        fingerprint:
+          type: string
+          description: Content hash for change detection
+        method:
+          type: string
+          description: Fetch method used (http/browser/stealth)
+        timeMs:
+          type: integer
+          description: Response time in milliseconds
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              src:
+                type: string
+              alt:
+                type: string
+              width:
+                type: integer
+              height:
+                type: integer
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              url:
+                type: string
+              snippet:
+                type: string
+
+tags:
+  - name: Scrape
+    description: Scrape web pages
+  - name: Search
+    description: Search the web
+  - name: Crawl
+    description: Crawl websites
+  - name: Batch
+    description: Batch operations
+  - name: Agent
+    description: AI-powered web research
+  - name: System
+    description: System endpoints

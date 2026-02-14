@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migrate from Firecrawl to WebPeel — Switch in 30 Seconds</title>
+  <meta name="description" content="Switch from Firecrawl to WebPeel by changing one line. Same API, better price, MIT licensed.">
+  <meta property="og:title" content="Migrate from Firecrawl to WebPeel">
+  <meta property="og:description" content="Drop-in replacement. Change one URL, keep everything else.">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #FAFAF8;
+      color: #18181B;
+      line-height: 1.7;
+    }
+    .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+    
+    /* Header */
+    header {
+      padding: 20px 0;
+      border-bottom: 1px solid #E4E4E7;
+    }
+    header .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo { font-weight: 700; font-size: 1.25rem; color: #18181B; text-decoration: none; }
+    .logo span { color: #8B5CF6; }
+    nav a {
+      color: #52525B;
+      text-decoration: none;
+      margin-left: 24px;
+      font-size: 0.9rem;
+    }
+    nav a:hover { color: #8B5CF6; }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: #F5F3FF;
+      color: #8B5CF6;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+    .subtitle {
+      font-size: 1.15rem;
+      color: #52525B;
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+
+    /* Content */
+    .content { padding: 0 0 80px; }
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 48px 0 16px;
+      padding-top: 24px;
+    }
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 32px 0 12px;
+    }
+    p { margin-bottom: 16px; color: #3F3F46; }
+    
+    /* Code blocks */
+    pre {
+      background: #18181B;
+      color: #E4E4E7;
+      padding: 20px 24px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin: 16px 0 24px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    code {
+      font-family: 'JetBrains Mono', 'SF Mono', monospace;
+      font-size: 0.85em;
+    }
+    p code {
+      background: #F4F4F5;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #8B5CF6;
+    }
+    .diff-remove { color: #F87171; }
+    .diff-add { color: #4ADE80; }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+    }
+    th, td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid #E4E4E7;
+    }
+    th {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #52525B;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .check { color: #22C55E; }
+    .cross { color: #EF4444; }
+
+    /* Steps */
+    .step {
+      display: flex;
+      gap: 20px;
+      margin: 24px 0;
+      padding: 24px;
+      background: white;
+      border: 1px solid #E4E4E7;
+      border-radius: 12px;
+    }
+    .step-number {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      background: #8B5CF6;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .step-content h3 { margin-top: 0; }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 60px 0;
+      background: #F5F3FF;
+      border-radius: 16px;
+      margin: 48px 0;
+    }
+    .cta h2 { margin-top: 0; }
+    .btn {
+      display: inline-block;
+      background: #8B5CF6;
+      color: white;
+      padding: 12px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      margin-top: 16px;
+    }
+    .btn:hover { background: #7C3AED; }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      border-top: 1px solid #E4E4E7;
+      text-align: center;
+      color: #71717A;
+      font-size: 0.85rem;
+    }
+    footer a { color: #8B5CF6; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <a href="/" class="logo">Web<span>Peel</span></a>
+      <nav>
+        <a href="/docs/">Docs</a>
+        <a href="/playground.html">Playground</a>
+        <a href="/blog/">Blog</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="hero">
+      <div class="badge">Migration Guide</div>
+      <h1>Switch from Firecrawl in <em style="font-family:'Instrument Serif',serif; font-style:italic;">30 seconds</em></h1>
+      <p class="subtitle">WebPeel is a drop-in replacement for Firecrawl's API. Change one URL, keep everything else. Save 80%+ on costs.</p>
+    </div>
+
+    <div class="content">
+      <h2>The 30-Second Migration</h2>
+      
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Change the base URL</h3>
+          <p>That's literally it. WebPeel supports Firecrawl-compatible API endpoints.</p>
+          <pre><code><span class="diff-remove">- const BASE_URL = "https://api.firecrawl.dev";</span>
+<span class="diff-add">+ const BASE_URL = "https://api.webpeel.dev";</span></code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Get an API key (optional)</h3>
+          <p>WebPeel offers 125 free requests/week without any API key. For higher limits, sign up at <a href="https://app.webpeel.dev" style="color:#8B5CF6">app.webpeel.dev</a>.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Done. Ship it.</h3>
+          <p>All Firecrawl endpoints work: <code>POST /v1/scrape</code>, <code>POST /v1/crawl</code>, <code>POST /v1/map</code>, <code>POST /v1/search</code>. Same request format, same response structure.</p>
+        </div>
+      </div>
+
+      <h2>SDK Migration</h2>
+
+      <h3>Python</h3>
+      <pre><code><span class="diff-remove">- from firecrawl import Firecrawl</span>
+<span class="diff-remove">- app = Firecrawl(api_key="fc-YOUR_KEY")</span>
+<span class="diff-add">+ from webpeel import WebPeel</span>
+<span class="diff-add">+ app = WebPeel(api_key="wp_YOUR_KEY")</span>
+
+# Same methods work
+result = app.scrape("https://example.com")
+print(result.markdown)</code></pre>
+
+      <h3>Node.js</h3>
+      <pre><code><span class="diff-remove">- import Firecrawl from '@mendable/firecrawl-js';</span>
+<span class="diff-remove">- const app = new Firecrawl({ apiKey: "fc-YOUR_KEY" });</span>
+<span class="diff-add">+ import { peel } from 'webpeel';</span>
+
+<span class="diff-add">+ const result = await peel('https://example.com');</span>
+<span class="diff-add">+ console.log(result.content); // Clean markdown</span></code></pre>
+
+      <h3>CLI</h3>
+      <pre><code><span class="diff-remove">- npx firecrawl scrape https://example.com</span>
+<span class="diff-add">+ npx webpeel https://example.com</span></code></pre>
+
+      <h3>cURL</h3>
+      <pre><code><span class="diff-remove">- curl -X POST https://api.firecrawl.dev/v1/scrape \</span>
+<span class="diff-remove">-   -H "Authorization: Bearer fc-YOUR_KEY" \</span>
+<span class="diff-add">+ curl -X POST https://api.webpeel.dev/v1/scrape \</span>
+<span class="diff-add">+   -H "Authorization: Bearer wp_YOUR_KEY" \</span>
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://example.com"}'</code></pre>
+
+      <h2>Why Switch?</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Firecrawl</th>
+            <th>WebPeel</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>License</td>
+            <td>AGPL-3.0</td>
+            <td><strong>MIT</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Free tier</td>
+            <td>500 credits (one-time)</td>
+            <td><strong>125/week (recurring)</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Starter price</td>
+            <td>$16/mo (3,000 credits)</td>
+            <td><strong>$9/mo (1,250/week)</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Local mode</td>
+            <td>Requires API key</td>
+            <td><strong>No API key needed</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>AI agent</td>
+            <td>Locked to Spark models</td>
+            <td><strong>BYOK — any LLM</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Smart escalation</td>
+            <td>Manual mode selection</td>
+            <td><strong>Auto: HTTP→browser→stealth</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Token efficiency</td>
+            <td>Returns full page</td>
+            <td><strong>Smart extraction (96% savings)</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Self-hosting</td>
+            <td>Complex Docker setup</td>
+            <td><strong>Simple docker-compose</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>Python SDK</td>
+            <td>Requires requests</td>
+            <td><strong>Zero dependencies</strong> ✅</td>
+          </tr>
+          <tr>
+            <td>MCP tools</td>
+            <td>3 tools</td>
+            <td><strong>7 tools</strong> ✅</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>API Compatibility Reference</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Firecrawl Endpoint</th>
+            <th>WebPeel Equivalent</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>POST /v1/scrape</td><td>POST /v1/scrape ✅</td><td class="check">✅ Compatible</td></tr>
+          <tr><td>POST /v1/crawl</td><td>POST /v1/crawl ✅</td><td class="check">✅ Compatible</td></tr>
+          <tr><td>GET /v1/crawl/:id</td><td>GET /v1/crawl/:id ✅</td><td class="check">✅ Compatible</td></tr>
+          <tr><td>POST /v1/map</td><td>POST /v1/map ✅</td><td class="check">✅ Compatible</td></tr>
+          <tr><td>POST /v1/search</td><td>POST /v1/search ✅</td><td class="check">✅ Compatible</td></tr>
+          <tr><td>POST /v1/extract</td><td>POST /v1/agent ✅</td><td class="check">✅ Enhanced</td></tr>
+          <tr><td>POST /v1/batch/scrape</td><td>POST /v1/batch/scrape ✅</td><td class="check">✅ Compatible</td></tr>
+        </tbody>
+      </table>
+
+      <div class="cta">
+        <h2>Ready to switch?</h2>
+        <p style="color:#52525B">Change one line. Save 80%. Keep everything working.</p>
+        <a href="https://app.webpeel.dev" class="btn">Get Started Free →</a>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 WebPeel. MIT Licensed. Built by <a href="https://jakeliu.me">Jake Liu</a>.</p>
+    </div>
+  </footer>
+</body>
+</html>

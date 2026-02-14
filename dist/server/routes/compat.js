@@ -1,0 +1,433 @@
+/**
+ * Firecrawl API Compatibility Layer
+ *
+ * Drop-in replacement for Firecrawl's API - users can switch by ONLY changing the base URL.
+ * This is our killer acquisition feature.
+ *
+ * Implements Firecrawl endpoints:
+ * - POST /v1/scrape
+ * - POST /v1/crawl
+ * - GET /v1/crawl/:id
+ * - POST /v1/search
+ * - POST /v1/map
+ */
+import { Router } from 'express';
+import { peel } from '../../index.js';
+import { crawl } from '../../core/crawler.js';
+import { mapDomain } from '../../core/map.js';
+import { jobQueue } from '../job-queue.js';
+/**
+ * Map Firecrawl's action format to our PageAction format
+ */
+function mapFirecrawlActions(actions) {
+    if (!actions || !Array.isArray(actions))
+        return undefined;
+    return actions.map(action => {
+        switch (action.type) {
+            case 'wait':
+                return { type: 'wait', ms: action.milliseconds || action.ms || 1000 };
+            case 'click':
+                return { type: 'click', selector: action.selector };
+            case 'type':
+                return { type: 'type', selector: action.selector, value: action.text || action.value };
+            case 'scroll':
+                return { type: 'scroll', to: action.direction === 'down' ? 'bottom' : 'top' };
+            case 'screenshot':
+                return { type: 'screenshot' };
+            default:
+                return action;
+        }
+    });
+}
+export function createCompatRouter() {
+    const router = Router();
+    /**
+     * POST /v1/scrape - Firecrawl's main scrape endpoint
+     *
+     * Maps to our peel() function
+     */
+    router.post('/v1/scrape', async (req, res) => {
+        try {
+            const { url, formats = ['markdown'], onlyMainContent = true, // Firecrawl defaults to true
+            includeTags, excludeTags, waitFor, timeout, actions, headers, location, } = req.body;
+            // Validate URL
+            if (!url || typeof url !== 'string') {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing or invalid "url" parameter',
+                });
+                return;
+            }
+            // Determine if we need to render based on Firecrawl params
+            const needsRender = waitFor !== undefined || actions !== undefined;
+            // Map Firecrawl parameters to our PeelOptions
+            // onlyMainContent=true (default) → raw=false (use smart extraction)
+            // onlyMainContent=false → raw=true (return everything)
+            const options = {
+                render: needsRender,
+                wait: waitFor,
+                timeout: timeout || 30000,
+                includeTags: Array.isArray(includeTags) ? includeTags : undefined,
+                excludeTags: Array.isArray(excludeTags) ? excludeTags : undefined,
+                raw: onlyMainContent === false,
+                actions: mapFirecrawlActions(actions),
+                headers,
+                screenshot: formats.includes('screenshot'),
+                images: formats.includes('images'),
+                format: 'markdown', // Always use markdown as base
+            };
+            // If location is provided, map it
+            if (location) {
+                options.location = {
+                    country: location.country,
+                    languages: location.languages,
+                };
+            }
+            // Execute peel
+            const result = await peel(url, options);
+            // Build Firecrawl-compatible response
+            const data = {
+                markdown: result.content,
+                metadata: {
+                    title: result.title,
+                    description: result.metadata.description || '',
+                    language: 'en', // WebPeel doesn't detect language yet
+                    sourceURL: result.url,
+                    statusCode: 200, // We don't track status codes in PeelResult
+                    ...result.metadata,
+                },
+            };
+            // Add optional formats
+            if (formats.includes('html')) {
+                // Re-fetch with HTML format if requested
+                const htmlResult = await peel(url, { ...options, format: 'html' });
+                data.html = htmlResult.content;
+            }
+            if (formats.includes('rawHtml')) {
+                const rawResult = await peel(url, { ...options, format: 'html', raw: true });
+                data.rawHtml = rawResult.content;
+            }
+            if (formats.includes('links')) {
+                data.links = result.links;
+            }
+            if (formats.includes('screenshot') && result.screenshot) {
+                data.screenshot = `data:image/png;base64,${result.screenshot}`;
+            }
+            if (formats.includes('images') && result.images) {
+                data.images = result.images;
+            }
+            if (formats.includes('json')) {
+                // Return structured metadata as JSON
+                data.json = result.extracted || result.metadata;
+            }
+            if (formats.includes('branding')) {
+                data.branding = result.branding;
+            }
+            if (formats.includes('summary')) {
+                data.summary = result.summary;
+            }
+            res.json({
+                success: true,
+                data,
+            });
+        }
+        catch (error) {
+            console.error('Firecrawl /v1/scrape error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to scrape URL',
+            });
+        }
+    });
+    /**
+     * POST /v1/crawl - Firecrawl's crawl endpoint (async)
+     *
+     * Maps to our crawl() function with job queue
+     */
+    router.post('/v1/crawl', async (req, res) => {
+        try {
+            const { url, limit = 100, maxDepth = 3, includePaths = [], excludePaths = [], scrapeOptions = {}, webhook, } = req.body;
+            // Validate URL
+            if (!url || typeof url !== 'string') {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing or invalid "url" parameter',
+                });
+                return;
+            }
+            try {
+                new URL(url);
+            }
+            catch {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid URL format',
+                });
+                return;
+            }
+            // Create job
+            const job = jobQueue.createJob('crawl', webhook);
+            // Start crawl in background
+            setImmediate(async () => {
+                try {
+                    jobQueue.updateJob(job.id, { status: 'processing' });
+                    // Build crawl options
+                    const crawlOptions = {
+                        maxPages: limit,
+                        maxDepth,
+                        onProgress: (progress) => {
+                            const total = progress.crawled + progress.queued;
+                            jobQueue.updateJob(job.id, {
+                                total,
+                                completed: progress.crawled,
+                                creditsUsed: progress.crawled,
+                            });
+                        },
+                        // Map scrapeOptions to PeelOptions
+                        ...scrapeOptions,
+                    };
+                    // Add path filters if provided
+                    if (includePaths.length > 0) {
+                        crawlOptions.includePatterns = includePaths;
+                    }
+                    if (excludePaths.length > 0) {
+                        crawlOptions.excludePatterns = excludePaths;
+                    }
+                    // Run crawl
+                    const results = await crawl(url, crawlOptions);
+                    // Map results to Firecrawl format
+                    const firecrawlResults = results.map(r => ({
+                        url: r.url,
+                        markdown: r.markdown,
+                        metadata: {
+                            title: r.title,
+                            description: '',
+                            sourceURL: r.url,
+                            statusCode: 200,
+                        },
+                        links: r.links,
+                    }));
+                    // Update job with results
+                    jobQueue.updateJob(job.id, {
+                        status: 'completed',
+                        data: firecrawlResults,
+                        total: results.length,
+                        completed: results.length,
+                        creditsUsed: results.length,
+                    });
+                }
+                catch (error) {
+                    jobQueue.updateJob(job.id, {
+                        status: 'failed',
+                        error: error.message || 'Unknown error',
+                    });
+                }
+            });
+            // Return job ID immediately (Firecrawl format)
+            res.json({
+                success: true,
+                id: job.id,
+            });
+        }
+        catch (error) {
+            console.error('Firecrawl /v1/crawl error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to create crawl job',
+            });
+        }
+    });
+    /**
+     * GET /v1/crawl/:id - Get crawl job status (Firecrawl format)
+     */
+    router.get('/v1/crawl/:id', (req, res) => {
+        try {
+            const id = req.params.id;
+            const job = jobQueue.getJob(id);
+            if (!job) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Job not found',
+                });
+                return;
+            }
+            // Map our job status to Firecrawl's status format
+            const firecrawlStatus = job.status === 'processing' ? 'scraping' : job.status;
+            res.json({
+                success: true,
+                status: firecrawlStatus,
+                completed: job.completed || 0,
+                total: job.total || 0,
+                creditsUsed: job.creditsUsed || 0,
+                expiresAt: job.expiresAt,
+                data: job.data || [],
+            });
+        }
+        catch (error) {
+            console.error('Firecrawl GET /v1/crawl/:id error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to retrieve job',
+            });
+        }
+    });
+    /**
+     * POST /v1/search - Firecrawl's search endpoint
+     *
+     * Uses DuckDuckGo search with optional scraping
+     */
+    router.post('/v1/search', async (req, res) => {
+        try {
+            const { query, limit = 5, scrapeOptions = {}, } = req.body;
+            // Validate query
+            if (!query || typeof query !== 'string') {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing or invalid "query" parameter',
+                });
+                return;
+            }
+            // Use our search route logic (DuckDuckGo HTML scraping)
+            const { fetch: undiciFetch } = await import('undici');
+            const { load } = await import('cheerio');
+            const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+            const response = await undiciFetch(searchUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                },
+            });
+            if (!response.ok) {
+                throw new Error(`Search failed: HTTP ${response.status}`);
+            }
+            const html = await response.text();
+            const $ = load(html);
+            const results = [];
+            $('.result').each((_i, elem) => {
+                if (results.length >= limit)
+                    return;
+                const $result = $(elem);
+                let title = $result.find('.result__title').text().trim();
+                const rawUrl = $result.find('.result__a').attr('href') || '';
+                let snippet = $result.find('.result__snippet').text().trim();
+                if (!title || !rawUrl)
+                    return;
+                // Extract actual URL from DuckDuckGo redirect
+                let url = rawUrl;
+                try {
+                    const ddgUrl = new URL(rawUrl, 'https://duckduckgo.com');
+                    const uddg = ddgUrl.searchParams.get('uddg');
+                    if (uddg) {
+                        url = decodeURIComponent(uddg);
+                    }
+                }
+                catch {
+                    // Use raw URL if parsing fails
+                }
+                // Validate URL
+                try {
+                    const parsed = new URL(url);
+                    if (!['http:', 'https:'].includes(parsed.protocol)) {
+                        return;
+                    }
+                    url = parsed.href;
+                }
+                catch {
+                    return;
+                }
+                results.push({ title, url, snippet });
+            });
+            // If scraping is requested, fetch each result
+            const firecrawlResults = await Promise.all(results.map(async (result) => {
+                try {
+                    // Scrape the URL with provided options
+                    const peelResult = await peel(result.url, {
+                        format: 'markdown',
+                        timeout: 10000,
+                        ...scrapeOptions,
+                    });
+                    return {
+                        url: result.url,
+                        markdown: peelResult.content,
+                        metadata: {
+                            title: peelResult.title || result.title,
+                            description: result.snippet,
+                            sourceURL: result.url,
+                            statusCode: 200,
+                            ...peelResult.metadata,
+                        },
+                    };
+                }
+                catch (error) {
+                    // Return basic result if scraping fails
+                    return {
+                        url: result.url,
+                        markdown: '',
+                        metadata: {
+                            title: result.title,
+                            description: result.snippet,
+                            sourceURL: result.url,
+                            error: error.message,
+                        },
+                    };
+                }
+            }));
+            res.json({
+                success: true,
+                data: firecrawlResults,
+            });
+        }
+        catch (error) {
+            console.error('Firecrawl /v1/search error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Search failed',
+            });
+        }
+    });
+    /**
+     * POST /v1/map - Firecrawl's map endpoint
+     *
+     * Maps to our mapDomain() function
+     */
+    router.post('/v1/map', async (req, res) => {
+        try {
+            const { url, limit = 5000, search, } = req.body;
+            // Validate URL
+            if (!url || typeof url !== 'string') {
+                res.status(400).json({
+                    success: false,
+                    error: 'Missing or invalid "url" parameter',
+                });
+                return;
+            }
+            try {
+                new URL(url);
+            }
+            catch {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid URL format',
+                });
+                return;
+            }
+            // Run mapDomain
+            const result = await mapDomain(url, {
+                maxUrls: limit,
+                search,
+            });
+            res.json({
+                success: true,
+                links: result.urls,
+            });
+        }
+        catch (error) {
+            console.error('Firecrawl /v1/map error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message || 'Failed to map domain',
+            });
+        }
+    });
+    return router;
+}
+//# sourceMappingURL=compat.js.map

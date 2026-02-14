@@ -26,6 +26,7 @@ import { createCLIUsageRouter } from './routes/cli-usage.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createBatchRouter } from './routes/batch.js';
 import { createAgentRouter } from './routes/agent.js';
+import { createCompatRouter } from './routes/compat.js';
 
 export interface ServerConfig {
   port?: number;
@@ -89,6 +90,7 @@ export function createApp(config: ServerConfig = {}): Express {
 
   // Apply rate limiting middleware globally
   app.use(createRateLimitMiddleware(rateLimiter));
+  app.use(createCompatRouter());
   app.use(createFetchRouter(authStore));
   app.use(createSearchRouter(authStore));
   app.use(createUserRouter());

@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLI Reference — WebPeel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="../styles/docs.css">
+</head>
+<body>
+  <nav class="docs-nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <a href="/docs/" class="sidebar-link">Overview</a>
+        <a href="/docs/api-reference.html" class="sidebar-link">API Reference</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">SDKs</div>
+        <a href="/docs/sdks.html" class="sidebar-link">Node.js & Python</a>
+        <a href="/docs/cli.html" class="sidebar-link active">CLI</a>
+        <a href="/docs/mcp.html" class="sidebar-link">MCP Server</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Deployment</div>
+        <a href="/docs/self-hosting.html" class="sidebar-link">Self-Hosting</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <div class="breadcrumbs">
+        <a href="/docs/">Documentation</a>
+        <span>/</span>
+        <span>CLI</span>
+      </div>
+
+      <h1>CLI Reference</h1>
+      <p class="lead">Command-line interface for WebPeel. 18+ commands for web scraping, searching, and crawling.</p>
+
+      <h2>Installation</h2>
+      <pre><code class="language-bash">npm install -g webpeel</code></pre>
+
+      <h2>Quick Start</h2>
+      <pre><code class="language-bash"># Fetch a URL
+npx webpeel https://example.com
+
+# Output as JSON
+npx webpeel https://example.com --json
+
+# Use browser rendering
+npx webpeel https://example.com --render
+
+# Search the web
+npx webpeel search "AI news"</code></pre>
+
+      <h2>Global Options</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>-s, --silent</code></td>
+            <td>Silent mode (no spinner, no progress)</td>
+          </tr>
+          <tr>
+            <td><code>--json</code></td>
+            <td>Output as JSON</td>
+          </tr>
+          <tr>
+            <td><code>-h, --help</code></td>
+            <td>Show help</td>
+          </tr>
+          <tr>
+            <td><code>-V, --version</code></td>
+            <td>Show version number</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Commands</h2>
+
+      <h3><code>webpeel &lt;url&gt;</code></h3>
+      <p>Fetch and extract content from a URL.</p>
+
+      <pre><code class="language-bash"># Basic usage
+npx webpeel https://example.com
+
+# Output formats
+npx webpeel https://example.com --html
+npx webpeel https://example.com --text
+npx webpeel https://example.com --json
+
+# Browser rendering
+npx webpeel https://example.com --render
+npx webpeel https://example.com --stealth
+npx webpeel https://example.com --wait 5000
+
+# Content filtering
+npx webpeel https://example.com --selector "article"
+npx webpeel https://example.com --exclude ".sidebar" ".ads"
+npx webpeel https://example.com --only-main-content
+
+# Advanced options
+npx webpeel https://example.com --screenshot
+npx webpeel https://example.com --screenshot screenshot.png
+npx webpeel https://example.com --full-page
+npx webpeel https://example.com --max-tokens 5000
+npx webpeel https://example.com --cache 1h</code></pre>
+
+      <h4>Options</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--html</code></td>
+            <td>boolean</td>
+            <td>Output raw HTML</td>
+          </tr>
+          <tr>
+            <td><code>--text</code></td>
+            <td>boolean</td>
+            <td>Output plain text</td>
+          </tr>
+          <tr>
+            <td><code>-r, --render</code></td>
+            <td>boolean</td>
+            <td>Use headless browser</td>
+          </tr>
+          <tr>
+            <td><code>--stealth</code></td>
+            <td>boolean</td>
+            <td>Use stealth mode</td>
+          </tr>
+          <tr>
+            <td><code>-w, --wait &lt;ms&gt;</code></td>
+            <td>number</td>
+            <td>Wait time after page load (ms)</td>
+          </tr>
+          <tr>
+            <td><code>--selector &lt;css&gt;</code></td>
+            <td>string</td>
+            <td>CSS selector to extract</td>
+          </tr>
+          <tr>
+            <td><code>--exclude &lt;selectors...&gt;</code></td>
+            <td>string[]</td>
+            <td>CSS selectors to exclude</td>
+          </tr>
+          <tr>
+            <td><code>--include-tags &lt;tags&gt;</code></td>
+            <td>string</td>
+            <td>Comma-separated tags to include</td>
+          </tr>
+          <tr>
+            <td><code>--exclude-tags &lt;tags&gt;</code></td>
+            <td>string</td>
+            <td>Comma-separated tags to exclude</td>
+          </tr>
+          <tr>
+            <td><code>--only-main-content</code></td>
+            <td>boolean</td>
+            <td>Extract only main/article content</td>
+          </tr>
+          <tr>
+            <td><code>--screenshot [path]</code></td>
+            <td>string</td>
+            <td>Capture screenshot (optional path)</td>
+          </tr>
+          <tr>
+            <td><code>--full-page</code></td>
+            <td>boolean</td>
+            <td>Full-page screenshot</td>
+          </tr>
+          <tr>
+            <td><code>--links</code></td>
+            <td>boolean</td>
+            <td>Output only links</td>
+          </tr>
+          <tr>
+            <td><code>--images</code></td>
+            <td>boolean</td>
+            <td>Output image URLs</td>
+          </tr>
+          <tr>
+            <td><code>--meta</code></td>
+            <td>boolean</td>
+            <td>Output only metadata</td>
+          </tr>
+          <tr>
+            <td><code>--max-tokens &lt;n&gt;</code></td>
+            <td>number</td>
+            <td>Max token count (truncate)</td>
+          </tr>
+          <tr>
+            <td><code>--cache &lt;ttl&gt;</code></td>
+            <td>string</td>
+            <td>Cache TTL (e.g., "5m", "1h", "1d")</td>
+          </tr>
+          <tr>
+            <td><code>--location &lt;country&gt;</code></td>
+            <td>string</td>
+            <td>ISO country code</td>
+          </tr>
+          <tr>
+            <td><code>--language &lt;lang&gt;</code></td>
+            <td>string</td>
+            <td>Language preference</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>webpeel search &lt;query&gt;</code></h3>
+      <p>Search the web using DuckDuckGo.</p>
+
+      <pre><code class="language-bash"># Basic search
+npx webpeel search "AI news"
+
+# Limit results
+npx webpeel search "python tutorials" -n 10
+
+# JSON output
+npx webpeel search "web scraping" --json</code></pre>
+
+      <h4>Options</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>-n, --count &lt;n&gt;</code></td>
+            <td>Number of results (1-10, default: 5)</td>
+          </tr>
+          <tr>
+            <td><code>--json</code></td>
+            <td>Output as JSON</td>
+          </tr>
+          <tr>
+            <td><code>-s, --silent</code></td>
+            <td>Silent mode</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>webpeel batch [file]</code></h3>
+      <p>Fetch multiple URLs from file or stdin.</p>
+
+      <pre><code class="language-bash"># From file
+npx webpeel batch urls.txt
+
+# From stdin
+cat urls.txt | npx webpeel batch
+
+# With concurrency
+npx webpeel batch urls.txt -c 5
+
+# Save to directory
+npx webpeel batch urls.txt -o output/
+
+# JSON output
+npx webpeel batch urls.txt --json</code></pre>
+
+      <h4>Options</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>-c, --concurrency &lt;n&gt;</code></td>
+            <td>Max concurrent fetches (default: 3)</td>
+          </tr>
+          <tr>
+            <td><code>-o, --output &lt;dir&gt;</code></td>
+            <td>Output directory (one file per URL)</td>
+          </tr>
+          <tr>
+            <td><code>--json</code></td>
+            <td>Output as JSON array</td>
+          </tr>
+          <tr>
+            <td><code>-r, --render</code></td>
+            <td>Use browser rendering for all</td>
+          </tr>
+          <tr>
+            <td><code>--selector &lt;css&gt;</code></td>
+            <td>CSS selector to extract</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>webpeel crawl &lt;url&gt;</code></h3>
+      <p>Crawl a website recursively.</p>
+
+      <pre><code class="language-bash"># Basic crawl
+npx webpeel crawl https://example.com
+
+# Limit pages and depth
+npx webpeel crawl https://example.com --max-pages 100 --max-depth 3
+
+# Exclude patterns
+npx webpeel crawl https://example.com --exclude "/admin/" "/login"
+
+# Domain restrictions
+npx webpeel crawl https://example.com --allowed-domains "example.com" "docs.example.com"
+
+# Ignore robots.txt
+npx webpeel crawl https://example.com --ignore-robots
+
+# With browser rendering
+npx webpeel crawl https://example.com --render --stealth</code></pre>
+
+      <h4>Options</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--max-pages &lt;n&gt;</code></td>
+            <td>Max pages to crawl (default: 10, max: 100)</td>
+          </tr>
+          <tr>
+            <td><code>--max-depth &lt;n&gt;</code></td>
+            <td>Max depth (default: 2, max: 5)</td>
+          </tr>
+          <tr>
+            <td><code>--allowed-domains &lt;domains...&gt;</code></td>
+            <td>Only crawl these domains</td>
+          </tr>
+          <tr>
+            <td><code>--exclude &lt;patterns...&gt;</code></td>
+            <td>Exclude URL patterns (regex)</td>
+          </tr>
+          <tr>
+            <td><code>--ignore-robots</code></td>
+            <td>Ignore robots.txt</td>
+          </tr>
+          <tr>
+            <td><code>--rate-limit &lt;ms&gt;</code></td>
+            <td>Rate limit (default: 1000ms)</td>
+          </tr>
+          <tr>
+            <td><code>-r, --render</code></td>
+            <td>Use browser rendering</td>
+          </tr>
+          <tr>
+            <td><code>--stealth</code></td>
+            <td>Use stealth mode</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>webpeel map &lt;url&gt;</code></h3>
+      <p>Discover all URLs on a domain.</p>
+
+      <pre><code class="language-bash"># Map a domain
+npx webpeel map https://example.com
+
+# Skip sitemap
+npx webpeel map https://example.com --no-sitemap
+
+# Skip crawl
+npx webpeel map https://example.com --no-crawl
+
+# Limit results
+npx webpeel map https://example.com --max 1000
+
+# Filter patterns
+npx webpeel map https://example.com --include "/docs/" --exclude "/api/"</code></pre>
+
+      <h4>Options</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--no-sitemap</code></td>
+            <td>Skip sitemap.xml discovery</td>
+          </tr>
+          <tr>
+            <td><code>--no-crawl</code></td>
+            <td>Skip homepage crawl</td>
+          </tr>
+          <tr>
+            <td><code>--max &lt;n&gt;</code></td>
+            <td>Max URLs (default: 5000)</td>
+          </tr>
+          <tr>
+            <td><code>--include &lt;patterns...&gt;</code></td>
+            <td>Include URL patterns (regex)</td>
+          </tr>
+          <tr>
+            <td><code>--exclude &lt;patterns...&gt;</code></td>
+            <td>Exclude URL patterns (regex)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>webpeel login</code></h3>
+      <p>Authenticate CLI with API key.</p>
+
+      <pre><code class="language-bash">npx webpeel login
+# Prompts for API key, saves to ~/.webpeel/config.json</code></pre>
+
+      <h3><code>webpeel logout</code></h3>
+      <p>Clear saved credentials.</p>
+
+      <pre><code class="language-bash">npx webpeel logout</code></pre>
+
+      <h3><code>webpeel whoami</code></h3>
+      <p>Show authentication status.</p>
+
+      <pre><code class="language-bash">npx webpeel whoami
+# Logged in with API key: sk-1234...abcd
+# Plan: Pro
+# Config: ~/.webpeel/config.json</code></pre>
+
+      <h3><code>webpeel usage</code></h3>
+      <p>Show usage and quota.</p>
+
+      <pre><code class="language-bash">npx webpeel usage
+# Free: 45/125 fetches this week (36%)
+# Resets: Mon Feb 17 2026 00:00:00 EST</code></pre>
+
+      <h3><code>webpeel config [key] [value]</code></h3>
+      <p>View or update CLI configuration.</p>
+
+      <pre><code class="language-bash"># Show all config
+npx webpeel config
+
+# Get specific key
+npx webpeel config apiKey</code></pre>
+
+      <h3><code>webpeel cache &lt;action&gt;</code></h3>
+      <p>Manage local response cache.</p>
+
+      <pre><code class="language-bash"># Show cache stats
+npx webpeel cache stats
+
+# Clear expired entries
+npx webpeel cache clear
+
+# Purge all entries
+npx webpeel cache purge</code></pre>
+
+      <h3><code>webpeel serve</code></h3>
+      <p>Start API server.</p>
+
+      <pre><code class="language-bash"># Default port 3000
+npx webpeel serve
+
+# Custom port
+npx webpeel serve -p 8080</code></pre>
+
+      <h3><code>webpeel mcp</code></h3>
+      <p>Start MCP server for Claude/Cursor.</p>
+
+      <pre><code class="language-bash">npx webpeel mcp
+# Runs on stdio for Claude Desktop / Cursor integration</code></pre>
+
+      <h3><code>webpeel agent &lt;prompt&gt;</code></h3>
+      <p>Run autonomous web research agent.</p>
+
+      <pre><code class="language-bash"># Basic agent
+npx webpeel agent "Find the top 5 AI coding tools" --llm-key $OPENAI_API_KEY
+
+# With schema
+npx webpeel agent "Compare AI tools" \
+  --llm-key $OPENAI_API_KEY \
+  --schema '{"type":"array","items":{"properties":{"name":{"type":"string"}}}}'
+
+# With starting URLs
+npx webpeel agent "Extract pricing" \
+  --urls https://example.com,https://example.org \
+  --llm-key $OPENAI_API_KEY</code></pre>
+
+      <h3><code>webpeel track &lt;url&gt;</code></h3>
+      <p>Track content changes.</p>
+
+      <pre><code class="language-bash">npx webpeel track https://example.com
+# Returns fingerprint for change detection</code></pre>
+
+      <h3><code>webpeel summarize &lt;url&gt;</code></h3>
+      <p>Generate AI summary.</p>
+
+      <pre><code class="language-bash">npx webpeel summarize https://example.com --llm-key $OPENAI_API_KEY
+
+# Custom prompt
+npx webpeel summarize https://example.com \
+  --llm-key $OPENAI_API_KEY \
+  --prompt "Summarize in 3 bullet points"</code></pre>
+
+      <h3><code>webpeel brand &lt;url&gt;</code></h3>
+      <p>Extract branding and design system.</p>
+
+      <pre><code class="language-bash">npx webpeel brand https://example.com --json</code></pre>
+
+      <h3><code>webpeel jobs</code></h3>
+      <p>List active async jobs.</p>
+
+      <pre><code class="language-bash">npx webpeel jobs --json</code></pre>
+
+      <h3><code>webpeel job &lt;id&gt;</code></h3>
+      <p>Get job status.</p>
+
+      <pre><code class="language-bash">npx webpeel job crawl_abc123 --json</code></pre>
+
+      <h2>Environment Variables</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>WEBPEEL_API_KEY</code></td>
+            <td>API key for authentication</td>
+          </tr>
+          <tr>
+            <td><code>OPENAI_API_KEY</code></td>
+            <td>OpenAI API key for LLM features</td>
+          </tr>
+          <tr>
+            <td><code>WEBPEEL_LLM_MODEL</code></td>
+            <td>LLM model (default: gpt-4o-mini)</td>
+          </tr>
+          <tr>
+            <td><code>WEBPEEL_LLM_BASE_URL</code></td>
+            <td>LLM API base URL</td>
+          </tr>
+          <tr>
+            <td><code>WEBPEEL_API_URL</code></td>
+            <td>WebPeel API URL (self-hosted)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Examples</h2>
+
+      <h3>Extract Product Data</h3>
+      <pre><code class="language-bash">npx webpeel https://example.com/product \
+  --extract '{"title": "h1", "price": ".price", "rating": ".stars"}' \
+  --json</code></pre>
+
+      <h3>Monitor Price Changes</h3>
+      <pre><code class="language-bash">#!/bin/bash
+URL="https://example.com/product"
+
+# First run
+FINGERPRINT=$(npx webpeel $URL --json | jq -r '.fingerprint')
+echo $FINGERPRINT > fingerprint.txt
+
+# Later runs
+NEW_FP=$(npx webpeel $URL --json | jq -r '.fingerprint')
+OLD_FP=$(cat fingerprint.txt)
+
+if [ "$NEW_FP" != "$OLD_FP" ]; then
+  echo "Price changed!"
+fi</code></pre>
+
+      <h3>Batch Download Documentation</h3>
+      <pre><code class="language-bash"># Discover all docs URLs
+npx webpeel map https://docs.example.com \
+  --include "/docs/" \
+  --json > urls.json
+
+# Extract URLs
+cat urls.json | jq -r '.urls[]' > urls.txt
+
+# Batch download
+npx webpeel batch urls.txt -o docs/ --selector "article"</code></pre>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="../scripts/docs.js"></script>
+</body>
+</html>

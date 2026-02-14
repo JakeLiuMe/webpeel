@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebPeel Playground — Try it live, no signup required</title>
+  <meta name="description" content="Interactive playground for WebPeel. Fetch, search, crawl, and map the web with AI-friendly markdown output. No signup required — just paste a URL.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webpeel.dev/playground">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="theme-color" content="#FAFAF8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+  
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --text: #09090B;
+      --text-2: #52525B;
+      --text-3: #71717A;
+      --text-4: #A1A1AA;
+      --accent: #8B5CF6;
+      --accent-light: #EDE9FE;
+      --border: #E4E4E7;
+      --border-light: #F4F4F5;
+      --green: #16A34A;
+      --yellow: #EAB308;
+      --red: #DC2626;
+      --red-light: #FDA4AF;
+      --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+    ::selection { background: rgba(139,92,246,0.15); }
+    .serif { font-family: 'Instrument Serif', Georgia, serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    a { color: inherit; text-decoration: none; }
+
+    /* NAV */
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,248,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-light); }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+    .nav-logo svg { width: 24px; height: 24px; }
+    .nav-links { display: flex; align-items: center; gap: 24px; }
+    .nav-links a { font-size: 14px; color: var(--text-3); transition: color 0.15s; }
+    .nav-links a:hover { color: var(--text); }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn-ghost { color: var(--text-2); }
+    .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
+    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
+
+    /* MAIN CONTENT */
+    main { flex: 1; padding: 40px 0 80px; }
+    .hero-small { text-align: center; margin-bottom: 40px; }
+    .hero-small h1 { font-family: 'Instrument Serif', serif; font-size: clamp(32px, 5vw, 48px); line-height: 1.1; font-weight: 400; letter-spacing: -0.02em; margin-bottom: 12px; }
+    .hero-small h1 em { font-style: italic; }
+    .hero-small p { font-size: 16px; color: var(--text-2); max-width: 500px; margin: 0 auto; }
+    .hero-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 100px; background: var(--accent-light); color: var(--accent); font-size: 13px; font-weight: 500; margin-bottom: 16px; }
+    .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+    /* PLAYGROUND */
+    .playground { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    
+    /* TABS */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); background: #FAFAFA; }
+    .tab { padding: 14px 24px; font-size: 14px; font-weight: 500; color: var(--text-3); border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s; background: none; border-left: none; border-right: none; border-top: none; }
+    .tab:hover { color: var(--text); background: rgba(139,92,246,0.04); }
+    .tab.active { color: var(--accent); border-color: var(--accent); background: white; }
+
+    /* INPUT PANEL */
+    .input-panel { padding: 28px; border-bottom: 1px solid var(--border-light); }
+    .input-group { display: flex; gap: 12px; margin-bottom: 20px; }
+    .input-wrapper { flex: 1; position: relative; }
+    .input-wrapper input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 15px; transition: all 0.2s; font-family: inherit; }
+    .input-wrapper input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+    .input-wrapper input::placeholder { color: var(--text-4); }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 10px; font-size: 15px; font-weight: 500; transition: all 0.2s; border: none; cursor: pointer; font-family: inherit; white-space: nowrap; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover:not(:disabled) { background: #7C3AED; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(139,92,246,0.3); }
+    .btn-secondary { background: var(--border-light); color: var(--text); }
+    .btn-secondary:hover:not(:disabled) { background: var(--border); }
+
+    .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .option-group { display: flex; flex-direction: column; gap: 6px; }
+    .option-group label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+    .option-group select, .option-group input[type="number"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
+    .option-group select:focus, .option-group input[type="number"]:focus { outline: none; border-color: var(--accent); }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; }
+    .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+
+    /* RESULTS PANEL */
+    .results-panel { padding: 28px; max-height: 600px; overflow-y: auto; }
+    .results-panel.empty { text-align: center; padding: 80px 28px; color: var(--text-3); }
+    .results-panel.empty svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.3; }
+    
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric { background: var(--border-light); border-radius: 8px; padding: 12px 16px; }
+    .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); margin-bottom: 4px; font-weight: 600; }
+    .metric-value { font-size: 18px; font-weight: 700; color: var(--text); }
+    .metric-value.success { color: var(--green); }
+    .metric-value.warning { color: var(--yellow); }
+
+    .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .result-header h3 { font-size: 16px; font-weight: 600; }
+    .result-actions { display: flex; gap: 8px; }
+    .btn-small { padding: 6px 12px; font-size: 13px; border-radius: 6px; }
+    
+    .result-content { background: #FAFAFA; border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .result-content.json { background: #18181B; color: #D4D4D8; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; }
+    
+    /* Markdown styles */
+    .markdown-body { font-size: 15px; line-height: 1.7; }
+    .markdown-body h1, .markdown-body h2, .markdown-body h3 { margin-top: 24px; margin-bottom: 12px; font-weight: 600; line-height: 1.3; }
+    .markdown-body h1 { font-size: 28px; }
+    .markdown-body h2 { font-size: 22px; }
+    .markdown-body h3 { font-size: 18px; }
+    .markdown-body p { margin-bottom: 16px; }
+    .markdown-body a { color: var(--accent); text-decoration: underline; }
+    .markdown-body code { background: rgba(139,92,246,0.1); padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+    .markdown-body pre { background: #18181B; color: #D4D4D8; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+    .markdown-body pre code { background: none; padding: 0; }
+    .markdown-body ul, .markdown-body ol { margin-left: 24px; margin-bottom: 16px; }
+    .markdown-body li { margin-bottom: 8px; }
+    .markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text-2); margin: 16px 0; }
+    
+    /* CODE GENERATION */
+    .code-gen { background: var(--border-light); border-radius: var(--radius); padding: 20px; margin-top: 24px; }
+    .code-gen h4 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-2); }
+    .code-tabs { display: flex; gap: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .code-tab { padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--text-3); cursor: pointer; border-radius: 6px; transition: all 0.15s; background: none; border: none; }
+    .code-tab:hover { background: rgba(139,92,246,0.1); color: var(--text); }
+    .code-tab.active { background: var(--accent); color: white; }
+    .code-block { background: #18181B; color: #D4D4D8; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.6; padding: 16px; border-radius: 8px; overflow-x: auto; position: relative; }
+    .code-copy { position: absolute; top: 12px; right: 12px; padding: 6px 12px; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+    .code-copy:hover { background: rgba(255,255,255,0.2); }
+    .code-copy.copied { background: var(--green); }
+
+    /* LOADING SPINNER */
+    .spinner { border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 40px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ERROR STATE */
+    .error { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 16px; color: #991B1B; }
+    .error strong { display: block; margin-bottom: 4px; font-weight: 600; }
+
+    /* FOOTER */
+    footer { border-top: 1px solid var(--border); padding: 32px 0; margin-top: auto; }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; }
+    .footer-left { font-size: 13px; color: var(--text-4); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: var(--text-3); transition: color 0.15s; }
+    .footer-links a:hover { color: var(--text); }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .container { padding: 0 16px; }
+      main { padding: 24px 0 40px; }
+      .hero-small h1 { font-size: 28px; }
+      .nav-links { display: none; }
+      .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .tab { white-space: nowrap; }
+      .input-group { flex-direction: column; }
+      .options { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+      .footer-links { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/#how">How It Works</a>
+        <a href="/playground.html">Playground</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/blog/">Blog</a>
+        <a href="https://github.com/JakeLiuMe/webpeel#readme">Docs</a>
+        <a href="https://app.webpeel.dev/login" class="nav-btn nav-btn-ghost">Log in</a>
+        <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Sign up</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main>
+    <div class="container">
+      <!-- HERO -->
+      <div class="hero-small">
+        <div class="hero-badge"><span class="dot"></span> No signup required</div>
+        <h1>Try WebPeel <em>instantly</em></h1>
+        <p>Paste any URL and see it transform into clean, AI-ready markdown. No account needed.</p>
+      </div>
+
+      <!-- PLAYGROUND -->
+      <div class="playground">
+        <!-- TABS -->
+        <div class="tabs">
+          <button class="tab active" data-mode="scrape">Scrape</button>
+          <button class="tab" data-mode="search">Search</button>
+          <button class="tab" data-mode="crawl">Crawl</button>
+          <button class="tab" data-mode="map">Map</button>
+        </div>
+
+        <!-- INPUT PANEL -->
+        <div class="input-panel">
+          <div class="input-group">
+            <div class="input-wrapper">
+              <input 
+                type="text" 
+                id="url-input" 
+                placeholder="https://example.com" 
+                value="https://news.ycombinator.com"
+              />
+            </div>
+            <button class="btn btn-primary" id="run-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Run
+            </button>
+          </div>
+
+          <!-- OPTIONS (shown/hidden based on mode) -->
+          <div class="options" id="options-panel" style="display: none;">
+            <div class="option-group" id="format-option">
+              <label>Format</label>
+              <select id="format-select">
+                <option value="markdown">Markdown</option>
+                <option value="text">Plain Text</option>
+                <option value="html">HTML</option>
+              </select>
+            </div>
+            <div class="option-group" id="limit-option" style="display: none;">
+              <label>Page Limit</label>
+              <input type="number" id="limit-input" value="5" min="1" max="20" />
+            </div>
+            <div class="checkbox-group" id="render-option">
+              <input type="checkbox" id="render-checkbox" />
+              <label for="render-checkbox">Browser Rendering</label>
+            </div>
+            <div class="checkbox-group" id="stealth-option">
+              <input type="checkbox" id="stealth-checkbox" />
+              <label for="stealth-checkbox">Stealth Mode</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- RESULTS PANEL -->
+        <div class="results-panel empty" id="results-panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L3 7l9 5 9-5-9-5z"/>
+            <polyline points="3 12 12 17 21 12"/>
+            <polyline points="3 17 12 22 21 17"/>
+          </svg>
+          <p>Enter a URL and click Run to get started</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container footer-inner">
+      <div class="footer-left">
+        <div>© 2026 WebPeel. Open source under MIT.</div>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+        <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="mailto:support@webpeel.dev">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // State
+    let currentMode = 'scrape';
+    let lastRequest = null;
+    let lastResponse = null;
+
+    // DOM elements
+    const tabs = document.querySelectorAll('.tab');
+    const urlInput = document.getElementById('url-input');
+    const runBtn = document.getElementById('run-btn');
+    const resultsPanel = document.getElementById('results-panel');
+    const optionsPanel = document.getElementById('options-panel');
+    const formatOption = document.getElementById('format-option');
+    const limitOption = document.getElementById('limit-option');
+    const renderOption = document.getElementById('render-option');
+    const stealthOption = document.getElementById('stealth-option');
+    const formatSelect = document.getElementById('format-select');
+    const limitInput = document.getElementById('limit-input');
+    const renderCheckbox = document.getElementById('render-checkbox');
+    const stealthCheckbox = document.getElementById('stealth-checkbox');
+
+    // Tab switching
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentMode = tab.dataset.mode;
+        updateUI();
+      });
+    });
+
+    // Update UI based on mode
+    function updateUI() {
+      // Update placeholder
+      if (currentMode === 'search') {
+        urlInput.placeholder = 'Enter search query...';
+        urlInput.value = 'latest AI frameworks 2026';
+      } else {
+        urlInput.placeholder = 'https://example.com';
+        if (urlInput.value === 'latest AI frameworks 2026') {
+          urlInput.value = 'https://news.ycombinator.com';
+        }
+      }
+
+      // Show/hide options
+      if (currentMode === 'scrape') {
+        optionsPanel.style.display = 'grid';
+        formatOption.style.display = 'flex';
+        limitOption.style.display = 'none';
+        renderOption.style.display = 'flex';
+        stealthOption.style.display = 'flex';
+      } else if (currentMode === 'search') {
+        optionsPanel.style.display = 'none';
+      } else if (currentMode === 'crawl' || currentMode === 'map') {
+        optionsPanel.style.display = 'grid';
+        formatOption.style.display = 'none';
+        limitOption.style.display = 'flex';
+        renderOption.style.display = 'none';
+        stealthOption.style.display = 'none';
+        limitInput.value = currentMode === 'crawl' ? 5 : 10;
+      }
+    }
+
+    // Run button
+    runBtn.addEventListener('click', async () => {
+      const input = urlInput.value.trim();
+      if (!input) return;
+
+      runBtn.disabled = true;
+      runBtn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin: 0; border-width: 2px;"></div> Running...';
+      
+      // Show loading state
+      resultsPanel.classList.remove('empty');
+      resultsPanel.innerHTML = '<div class="spinner"></div>';
+
+      try {
+        const startTime = Date.now();
+        let response, requestData;
+
+        if (currentMode === 'scrape') {
+          const url = new URL('https://api.webpeel.dev/v1/fetch');
+          url.searchParams.set('url', input);
+          url.searchParams.set('format', formatSelect.value);
+          if (renderCheckbox.checked) url.searchParams.set('render', 'true');
+          if (stealthCheckbox.checked) url.searchParams.set('stealth', 'true');
+
+          requestData = {
+            method: 'GET',
+            url: url.toString()
+          };
+
+          response = await fetch(url);
+        } else if (currentMode === 'search') {
+          const url = new URL('https://api.webpeel.dev/v1/search');
+          url.searchParams.set('q', input);
+
+          requestData = {
+            method: 'GET',
+            url: url.toString()
+          };
+
+          response = await fetch(url);
+        } else if (currentMode === 'crawl' || currentMode === 'map') {
+          const url = 'https://api.webpeel.dev/v1/crawl';
+          const body = {
+            url: input,
+            limit: parseInt(limitInput.value)
+          };
+
+          requestData = {
+            method: 'POST',
+            url: url,
+            body: body
+          };
+
+          response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+        }
+
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        lastRequest = requestData;
+        lastResponse = data;
+
+        // Display results
+        displayResults(data, responseTime);
+
+      } catch (error) {
+        resultsPanel.innerHTML = `
+          <div class="error">
+            <strong>Error</strong>
+            ${error.message}
+          </div>
+        `;
+      } finally {
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run';
+      }
+    });
+
+    // Display results
+    function displayResults(data, responseTime) {
+      let content = '';
+      let metrics = '';
+
+      // Build metrics
+      if (currentMode === 'scrape') {
+        const tokens = data.tokens || 0;
+        const quality = data.quality || 0;
+        metrics = `
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Response Time</div>
+              <div class="metric-value success">${responseTime}ms</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Tokens</div>
+              <div class="metric-value">${tokens.toLocaleString()}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Quality Score</div>
+              <div class="metric-value ${quality > 0.7 ? 'success' : 'warning'}">${(quality * 100).toFixed(0)}%</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Mode</div>
+              <div class="metric-value">${data.mode || 'HTTP'}</div>
+            </div>
+          </div>
+        `;
+      } else if (currentMode === 'search') {
+        metrics = `
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Response Time</div>
+              <div class="metric-value success">${responseTime}ms</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Results</div>
+              <div class="metric-value">${data.results?.length || 0}</div>
+            </div>
+          </div>
+        `;
+      } else if (currentMode === 'crawl' || currentMode === 'map') {
+        metrics = `
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Response Time</div>
+              <div class="metric-value success">${responseTime}ms</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Pages Crawled</div>
+              <div class="metric-value">${data.pages?.length || 0}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Total Tokens</div>
+              <div class="metric-value">${(data.totalTokens || 0).toLocaleString()}</div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Result content
+      const resultHeader = `
+        <div class="result-header">
+          <h3>Result</h3>
+          <div class="result-actions">
+            <button class="btn btn-secondary btn-small" onclick="toggleView()">
+              <span id="view-toggle-text">Show JSON</span>
+            </button>
+            <button class="btn btn-secondary btn-small" onclick="copyResult()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+      `;
+
+      let resultContent = '';
+      if (currentMode === 'scrape') {
+        const markdown = data.content || data.markdown || '';
+        resultContent = `
+          <div class="result-content markdown-body" id="result-markdown">
+            ${marked.parse(markdown)}
+          </div>
+          <div class="result-content json" id="result-json" style="display: none;">
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          </div>
+        `;
+      } else if (currentMode === 'search') {
+        const results = data.results || [];
+        const markdown = results.map((r, i) => 
+          `${i + 1}. [${r.title}](${r.url})\n   ${r.description || ''}`
+        ).join('\n\n');
+        resultContent = `
+          <div class="result-content markdown-body" id="result-markdown">
+            ${marked.parse(markdown)}
+          </div>
+          <div class="result-content json" id="result-json" style="display: none;">
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          </div>
+        `;
+      } else if (currentMode === 'crawl' || currentMode === 'map') {
+        const pages = data.pages || [];
+        const markdown = pages.map((p, i) => 
+          `### ${i + 1}. ${p.title || p.url}\n\n${p.url}\n\n${currentMode === 'crawl' ? (p.content?.substring(0, 200) + '...' || '') : ''}`
+        ).join('\n\n---\n\n');
+        resultContent = `
+          <div class="result-content markdown-body" id="result-markdown">
+            ${marked.parse(markdown)}
+          </div>
+          <div class="result-content json" id="result-json" style="display: none;">
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          </div>
+        `;
+      }
+
+      // Code generation
+      const codeGen = generateCode();
+
+      resultsPanel.innerHTML = metrics + resultHeader + resultContent + codeGen;
+    }
+
+    // Toggle view (markdown/JSON)
+    let showingJSON = false;
+    function toggleView() {
+      showingJSON = !showingJSON;
+      const markdown = document.getElementById('result-markdown');
+      const json = document.getElementById('result-json');
+      const toggleText = document.getElementById('view-toggle-text');
+      
+      if (showingJSON) {
+        markdown.style.display = 'none';
+        json.style.display = 'block';
+        toggleText.textContent = 'Show Markdown';
+      } else {
+        markdown.style.display = 'block';
+        json.style.display = 'none';
+        toggleText.textContent = 'Show JSON';
+      }
+    }
+
+    // Copy result
+    function copyResult() {
+      const text = showingJSON 
+        ? JSON.stringify(lastResponse, null, 2)
+        : (lastResponse.content || lastResponse.markdown || JSON.stringify(lastResponse, null, 2));
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '✓ Copied!';
+        setTimeout(() => {
+          btn.innerHTML = originalHTML;
+        }, 2000);
+      });
+    }
+
+    // Generate code examples
+    function generateCode() {
+      if (!lastRequest) return '';
+
+      const examples = {
+        curl: generateCurl(),
+        node: generateNode(),
+        python: generatePython(),
+        cli: generateCLI()
+      };
+
+      return `
+        <div class="code-gen">
+          <h4>Code Examples</h4>
+          <div class="code-tabs">
+            <button class="code-tab active" onclick="switchCodeTab('curl')">cURL</button>
+            <button class="code-tab" onclick="switchCodeTab('node')">Node.js</button>
+            <button class="code-tab" onclick="switchCodeTab('python')">Python</button>
+            <button class="code-tab" onclick="switchCodeTab('cli')">CLI</button>
+          </div>
+          <div class="code-block" id="code-curl">
+            <button class="code-copy" onclick="copyCode('curl')">Copy</button>
+            <pre>${escapeHtml(examples.curl)}</pre>
+          </div>
+          <div class="code-block" id="code-node" style="display: none;">
+            <button class="code-copy" onclick="copyCode('node')">Copy</button>
+            <pre>${escapeHtml(examples.node)}</pre>
+          </div>
+          <div class="code-block" id="code-python" style="display: none;">
+            <button class="code-copy" onclick="copyCode('python')">Copy</button>
+            <pre>${escapeHtml(examples.python)}</pre>
+          </div>
+          <div class="code-block" id="code-cli" style="display: none;">
+            <button class="code-copy" onclick="copyCode('cli')">Copy</button>
+            <pre>${escapeHtml(examples.cli)}</pre>
+          </div>
+        </div>
+      `;
+    }
+
+    function generateCurl() {
+      if (currentMode === 'scrape') {
+        return `curl '${lastRequest.url}'`;
+      } else if (currentMode === 'search') {
+        return `curl '${lastRequest.url}'`;
+      } else {
+        return `curl -X POST '${lastRequest.url}' \\
+  -H 'Content-Type: application/json' \\
+  -d '${JSON.stringify(lastRequest.body)}'`;
+      }
+    }
+
+    function generateNode() {
+      if (currentMode === 'scrape') {
+        const url = urlInput.value;
+        const options = [];
+        if (renderCheckbox.checked) options.push('render: true');
+        if (stealthCheckbox.checked) options.push('stealth: true');
+        if (formatSelect.value !== 'markdown') options.push(`format: '${formatSelect.value}'`);
+        
+        return `import { peel } from 'webpeel';
+
+const result = await peel('${url}'${options.length ? ', {\n  ' + options.join(',\n  ') + '\n}' : ''});
+console.log(result.content);`;
+      } else if (currentMode === 'search') {
+        return `// Search not available in Node SDK yet
+// Use the API endpoint:
+const response = await fetch('${lastRequest.url}');
+const data = await response.json();
+console.log(data);`;
+      } else {
+        return `import { crawl } from 'webpeel';
+
+const result = await crawl({
+  url: '${urlInput.value}',
+  limit: ${limitInput.value}
+});
+console.log(result.pages);`;
+      }
+    }
+
+    function generatePython() {
+      if (currentMode === 'scrape') {
+        const url = urlInput.value;
+        const options = [];
+        if (renderCheckbox.checked) options.push('render=True');
+        if (stealthCheckbox.checked) options.push('stealth=True');
+        if (formatSelect.value !== 'markdown') options.push(`format='${formatSelect.value}'`);
+        
+        return `from webpeel import WebPeel
+
+client = WebPeel()
+result = client.scrape('${url}'${options.length ? ', ' + options.join(', ') : ''})
+print(result.content)`;
+      } else if (currentMode === 'search') {
+        return `# Search not available in Python SDK yet
+# Use the API endpoint:
+import requests
+
+response = requests.get('${lastRequest.url}')
+data = response.json()
+print(data)`;
+      } else {
+        return `from webpeel import WebPeel
+
+client = WebPeel()
+result = client.crawl(
+    url='${urlInput.value}',
+    limit=${limitInput.value}
+)
+print(result['pages'])`;
+      }
+    }
+
+    function generateCLI() {
+      if (currentMode === 'scrape') {
+        const url = urlInput.value;
+        const flags = [];
+        if (renderCheckbox.checked) flags.push('--render');
+        if (stealthCheckbox.checked) flags.push('--stealth');
+        if (formatSelect.value !== 'markdown') flags.push(`--format ${formatSelect.value}`);
+        
+        return `webpeel "${url}"${flags.length ? ' ' + flags.join(' ') : ''}`;
+      } else if (currentMode === 'search') {
+        return `webpeel search "${urlInput.value}"`;
+      } else {
+        return `webpeel crawl "${urlInput.value}" --limit ${limitInput.value}`;
+      }
+    }
+
+    function switchCodeTab(lang) {
+      document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      document.querySelectorAll('.code-block').forEach(b => b.style.display = 'none');
+      document.getElementById('code-' + lang).style.display = 'block';
+    }
+
+    function copyCode(lang) {
+      const codeBlock = document.querySelector('#code-' + lang + ' pre');
+      const text = codeBlock.textContent;
+      
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Enter key to run
+    urlInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        runBtn.click();
+      }
+    });
+
+    // Initialize
+    updateUI();
+  </script>
+
+</body>
+</html>

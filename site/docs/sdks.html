@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDKs — WebPeel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="../styles/docs.css">
+</head>
+<body>
+  <nav class="docs-nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <a href="/docs/" class="sidebar-link">Overview</a>
+        <a href="/docs/api-reference.html" class="sidebar-link">API Reference</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">SDKs</div>
+        <a href="/docs/sdks.html" class="sidebar-link active">Node.js & Python</a>
+        <a href="/docs/cli.html" class="sidebar-link">CLI</a>
+        <a href="/docs/mcp.html" class="sidebar-link">MCP Server</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Deployment</div>
+        <a href="/docs/self-hosting.html" class="sidebar-link">Self-Hosting</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <div class="breadcrumbs">
+        <a href="/docs/">Documentation</a>
+        <span>/</span>
+        <span>SDKs</span>
+      </div>
+
+      <h1>Node.js & Python SDKs</h1>
+      <p class="lead">Official client libraries for WebPeel. Zero dependencies (Python), minimal footprint (Node.js).</p>
+
+      <h2>Node.js SDK</h2>
+
+      <h3>Installation</h3>
+      <pre><code class="language-bash">npm install webpeel</code></pre>
+
+      <h3>Quick Start</h3>
+      <pre><code class="language-javascript">import { peel } from 'webpeel';
+
+// Simple fetch
+const result = await peel('https://example.com');
+console.log(result.title);
+console.log(result.content); // Markdown
+
+// With options
+const result2 = await peel('https://example.com', {
+  format: 'text',
+  render: true,
+  selector: 'article'
+});</code></pre>
+
+      <h3>Core Functions</h3>
+
+      <h4><code>peel(url, options)</code></h4>
+      <p>Fetch and extract content from a URL.</p>
+
+      <pre><code class="language-javascript">import { peel } from 'webpeel';
+
+const result = await peel('https://example.com', {
+  // Output format
+  format: 'markdown', // 'markdown' | 'text' | 'html'
+  
+  // Rendering options
+  render: false,      // Force browser mode
+  stealth: false,     // Use stealth mode
+  wait: 0,            // Wait time in ms
+  
+  // Content filtering
+  selector: 'article',
+  exclude: ['.sidebar', '.ads'],
+  includeTags: ['article', 'main'],
+  excludeTags: ['nav', 'footer'],
+  
+  // Features
+  screenshot: true,
+  images: true,
+  maxTokens: 5000,
+  
+  // Page actions
+  actions: [
+    { type: 'click', selector: '.load-more' },
+    { type: 'wait', ms: 2000 }
+  ],
+  
+  // Structured extraction
+  extract: {
+    selectors: {
+      title: 'h1',
+      price: '.price'
+    }
+  }
+});
+
+console.log(result.url);
+console.log(result.title);
+console.log(result.content);
+console.log(result.metadata);
+console.log(result.links);
+console.log(result.method); // 'simple' | 'browser' | 'stealth'</code></pre>
+
+      <h4><code>crawl(url, options)</code></h4>
+      <p>Crawl a website recursively.</p>
+
+      <pre><code class="language-javascript">import { crawl } from 'webpeel';
+
+const results = await crawl('https://example.com', {
+  maxPages: 50,
+  maxDepth: 2,
+  excludePatterns: ['/admin/', '/login'],
+  respectRobotsTxt: true,
+  rateLimitMs: 1000
+});
+
+results.forEach(page => {
+  console.log(page.url);
+  console.log(page.title);
+  console.log(page.markdown);
+});</code></pre>
+
+      <h4><code>mapDomain(url, options)</code></h4>
+      <p>Discover all URLs on a domain.</p>
+
+      <pre><code class="language-javascript">import { mapDomain } from 'webpeel';
+
+const result = await mapDomain('https://example.com', {
+  maxUrls: 5000,
+  includePatterns: ['/docs/', '/blog/'],
+  excludePatterns: ['/admin/']
+});
+
+console.log(`Found ${result.total} URLs`);
+result.urls.forEach(url => console.log(url));</code></pre>
+
+      <h4><code>extractBranding(page)</code></h4>
+      <p>Extract design system and branding.</p>
+
+      <pre><code class="language-javascript">import { peel } from 'webpeel';
+
+const result = await peel('https://example.com', {
+  render: true,
+  branding: true
+});
+
+console.log(result.branding);
+// {
+//   colors: ['#8B5CF6', '#FAFAF8', ...],
+//   fonts: ['Inter', 'Instrument Serif'],
+//   ...
+// }</code></pre>
+
+      <h4><code>trackChange(url, content, fingerprint)</code></h4>
+      <p>Track content changes over time.</p>
+
+      <pre><code class="language-javascript">import { trackChange } from 'webpeel';
+
+const change = await trackChange('https://example.com', content, fingerprint);
+
+if (change.changed) {
+  console.log('Content changed!');
+  console.log('Added:', change.added);
+  console.log('Removed:', change.removed);
+}</code></pre>
+
+      <h4><code>runAgent(options)</code></h4>
+      <p>Run an autonomous research agent.</p>
+
+      <pre><code class="language-javascript">import { runAgent } from 'webpeel';
+
+const result = await runAgent({
+  prompt: 'Find the top 5 AI coding tools and compare them',
+  llmApiKey: process.env.OPENAI_API_KEY,
+  maxPages: 20,
+  schema: {
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        features: { type: 'array' }
+      }
+    }
+  },
+  onProgress: (progress) => {
+    console.log(progress.message);
+  }
+});
+
+console.log(result.data);
+console.log(result.sources);</code></pre>
+
+      <h4><code>summarizeContent(content, options)</code></h4>
+      <p>Generate AI summary of content.</p>
+
+      <pre><code class="language-javascript">import { summarizeContent } from 'webpeel';
+
+const summary = await summarizeContent(content, {
+  apiKey: process.env.OPENAI_API_KEY,
+  model: 'gpt-4o-mini',
+  maxWords: 150
+});
+
+console.log(summary);</code></pre>
+
+      <h4><code>extractWithLLM(content, options)</code></h4>
+      <p>AI-powered structured extraction.</p>
+
+      <pre><code class="language-javascript">import { extractWithLLM } from 'webpeel';
+
+const data = await extractWithLLM(content, {
+  prompt: 'Extract product name, price, and rating',
+  llmApiKey: process.env.OPENAI_API_KEY,
+  schema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+      price: { type: 'number' },
+      rating: { type: 'number' }
+    }
+  }
+});
+
+console.log(data);</code></pre>
+
+      <h2>Python SDK</h2>
+
+      <h3>Installation</h3>
+      <pre><code class="language-bash">pip install webpeel</code></pre>
+
+      <div class="callout callout-info">
+        <div class="callout-title">Zero Dependencies</div>
+        The Python SDK uses only the standard library — no external dependencies!
+      </div>
+
+      <h3>Quick Start</h3>
+      <pre><code class="language-python">from webpeel import WebPeel
+
+# Initialize client
+client = WebPeel(api_key="your-api-key")  # Free tier: no API key needed
+
+# Simple scrape
+result = client.scrape("https://example.com")
+print(result.title)
+print(result.content)
+
+# With options
+result = client.scrape(
+    "https://example.com",
+    formats=["markdown"],
+    render=True,
+    stealth=True
+)</code></pre>
+
+      <h3>Core Methods</h3>
+
+      <h4><code>scrape(url, **kwargs)</code></h4>
+      <p>Scrape a single URL.</p>
+
+      <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel(api_key="your-api-key")
+
+result = client.scrape(
+    "https://example.com",
+    formats=["markdown"],
+    max_tokens=5000,
+    render=False,
+    stealth=False,
+    actions=[
+        {"type": "click", "selector": ".load-more"},
+        {"type": "wait", "ms": 2000}
+    ],
+    extract={
+        "selectors": {
+            "title": "h1",
+            "price": ".price"
+        }
+    },
+    raw=False,
+    wait=0,
+    timeout=30
+)
+
+print(result.url)
+print(result.title)
+print(result.content)
+print(result.markdown)  # Alias for content
+print(result.metadata)
+print(result.links)
+print(result.method)  # 'simple' | 'browser' | 'stealth'
+print(result.extracted)  # Structured data</code></pre>
+
+      <h4><code>search(query, limit=5, scrape_results=False)</code></h4>
+      <p>Search the web.</p>
+
+      <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel()
+
+results = client.search("python web scraping", limit=10)
+
+for item in results.data.get("web", []):
+    print(item["title"])
+    print(item["url"])
+    print(item["snippet"])
+    print("---")</code></pre>
+
+      <h4><code>crawl(url, limit=50, max_depth=3, webhook=None)</code></h4>
+      <p>Start an async crawl job.</p>
+
+      <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel(api_key="your-api-key")
+
+# Start crawl
+job = client.crawl("https://example.com", limit=100, max_depth=2)
+print(f"Job ID: {job.id}")
+
+# Check status later
+status = client.get_job(job.id)
+print(status["status"])  # 'pending' | 'running' | 'completed' | 'failed'
+
+if status["status"] == "completed":
+    for page in status["data"]:
+        print(page["title"])
+        print(page["url"])</code></pre>
+
+      <h4><code>map(url, search=None)</code></h4>
+      <p>Discover all URLs on a domain.</p>
+
+      <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel()
+
+result = client.map("https://example.com")
+
+print(f"Found {result.total} URLs")
+for url in result.urls[:20]:
+    print(url)</code></pre>
+
+      <h4><code>batch_scrape(urls, **kwargs)</code></h4>
+      <p>Batch scrape multiple URLs.</p>
+
+      <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel(api_key="your-api-key")
+
+urls = [
+    "https://example.com/1",
+    "https://example.com/2",
+    "https://example.com/3"
+]
+
+job = client.batch_scrape(urls, formats=["markdown"])
+print(f"Job ID: {job.id}")
+
+# Poll for results
+status = client.get_job(job.id)
+if status["status"] == "completed":
+    for result in status["data"]:
+        print(result["title"])</code></pre>
+
+      <h3>Exception Handling</h3>
+      <pre><code class="language-python">from webpeel import WebPeel, WebPeelError, AuthError, RateLimitError, TimeoutError
+
+client = WebPeel(api_key="your-api-key")
+
+try:
+    result = client.scrape("https://example.com")
+except AuthError as e:
+    print(f"Authentication failed: {e}")
+except RateLimitError as e:
+    print(f"Rate limit exceeded: {e}")
+except TimeoutError as e:
+    print(f"Request timeout: {e}")
+except WebPeelError as e:
+    print(f"API error: {e}")</code></pre>
+
+      <h2>Framework Integrations</h2>
+
+      <h3>LangChain</h3>
+      <pre><code class="language-python">from langchain_community.document_loaders import WebPeelLoader
+
+loader = WebPeelLoader(
+    url="https://example.com",
+    api_key="your-api-key",
+    render=True
+)
+documents = loader.load()
+
+for doc in documents:
+    print(doc.page_content)
+    print(doc.metadata)</code></pre>
+
+      <h3>LlamaIndex</h3>
+      <pre><code class="language-python">from llama_index.readers.webpeel import WebPeelReader
+
+reader = WebPeelReader(api_key="your-api-key")
+documents = reader.load_data(url="https://example.com")
+
+for doc in documents:
+    print(doc.text)
+    print(doc.metadata)</code></pre>
+
+      <h2>Advanced Examples</h2>
+
+      <h3>Monitoring Price Changes</h3>
+      
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="node-price">Node.js</button>
+        <button class="tab-btn" data-tab="py-price">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="node-price">
+        <pre><code class="language-javascript">import { peel, trackChange } from 'webpeel';
+
+const url = 'https://example.com/product';
+
+// First fetch
+const result = await peel(url, {
+  extract: {
+    selectors: {
+      price: '.price',
+      stock: '.stock-status'
+    }
+  }
+});
+
+const fingerprint = result.fingerprint;
+
+// Later...
+const change = await trackChange(url, result.content, fingerprint);
+
+if (change.changed && result.extracted.price !== previousPrice) {
+  console.log('Price changed!');
+  console.log('Old:', previousPrice);
+  console.log('New:', result.extracted.price);
+}</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="py-price">
+        <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel()
+
+url = "https://example.com/product"
+
+# First fetch
+result = client.scrape(
+    url,
+    extract={
+        "selectors": {
+            "price": ".price",
+            "stock": ".stock-status"
+        }
+    }
+)
+
+fingerprint = result.fingerprint
+previous_price = result.extracted["price"]
+
+# Later...
+new_result = client.scrape(url, extract={"selectors": {"price": ".price"}})
+
+if new_result.fingerprint != fingerprint:
+    print(f"Price changed from {previous_price} to {new_result.extracted['price']}")</code></pre>
+      </div>
+
+      <h3>Batch Documentation Scraping</h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="node-batch">Node.js</button>
+        <button class="tab-btn" data-tab="py-batch">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="node-batch">
+        <pre><code class="language-javascript">import { mapDomain, peelBatch } from 'webpeel';
+
+// 1. Discover all docs URLs
+const map = await mapDomain('https://docs.example.com', {
+  includePatterns: ['/docs/'],
+  excludePatterns: ['/api/']
+});
+
+// 2. Batch scrape
+const results = await peelBatch(map.urls, {
+  concurrency: 5,
+  selector: 'article',
+  format: 'markdown'
+});
+
+// 3. Save to files
+import { writeFileSync } from 'fs';
+
+results.forEach(result => {
+  if ('content' in result) {
+    const filename = result.url.split('/').pop() + '.md';
+    writeFileSync(filename, result.content);
+  }
+});</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="py-batch">
+        <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel(api_key="your-api-key")
+
+# 1. Discover docs URLs
+map_result = client.map("https://docs.example.com")
+doc_urls = [url for url in map_result.urls if '/docs/' in url]
+
+# 2. Batch scrape
+job = client.batch_scrape(doc_urls[:50])
+
+# 3. Wait and save
+import time
+while True:
+    status = client.get_job(job.id)
+    if status["status"] == "completed":
+        break
+    time.sleep(5)
+
+for i, result in enumerate(status["data"]):
+    if "content" in result:
+        with open(f"doc_{i}.md", "w") as f:
+            f.write(result["content"])</code></pre>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="../scripts/docs.js"></script>
+</body>
+</html>
