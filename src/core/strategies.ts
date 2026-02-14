@@ -36,6 +36,11 @@ export interface StrategyOptions {
   }>;
   /** Keep browser page open for reuse (caller must close) */
   keepPageOpen?: boolean;
+  /** Location/language for geo-targeted scraping */
+  location?: {
+    country?: string;
+    languages?: string[];
+  };
 }
 
 export interface StrategyResult extends FetchResult {

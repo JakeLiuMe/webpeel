@@ -160,6 +160,126 @@ export function extractLinks(html: string, baseUrl: string): string[] {
 }
 
 /**
+ * Extract all images from HTML
+ * Resolves relative URLs to absolute and extracts metadata
+ * 
+ * @param html - HTML to extract images from
+ * @param baseUrl - Base URL for resolving relative paths
+ * @returns Array of image information, deduplicated by src
+ */
+export function extractImages(html: string, baseUrl: string): import('../types.js').ImageInfo[] {
+  const $ = cheerio.load(html);
+  const images = new Map<string, import('../types.js').ImageInfo>();
+
+  // Extract <img> tags
+  $('img[src]').each((_, elem) => {
+    const $img = $(elem);
+    const src = $img.attr('src');
+    if (!src) return;
+
+    try {
+      const absoluteUrl = new URL(src, baseUrl);
+      
+      // SECURITY: Only allow HTTP and HTTPS protocols
+      if (!['http:', 'https:'].includes(absoluteUrl.protocol)) {
+        return;
+      }
+
+      const alt = $img.attr('alt') || '';
+      const title = $img.attr('title');
+      const widthStr = $img.attr('width');
+      const heightStr = $img.attr('height');
+      
+      const width = widthStr ? parseInt(widthStr, 10) : undefined;
+      const height = heightStr ? parseInt(heightStr, 10) : undefined;
+
+      const imageInfo: import('../types.js').ImageInfo = {
+        src: absoluteUrl.href,
+        alt,
+        title,
+        width: width && !isNaN(width) ? width : undefined,
+        height: height && !isNaN(height) ? height : undefined,
+      };
+
+      // Deduplicate by src
+      images.set(absoluteUrl.href, imageInfo);
+    } catch {
+      // Invalid URL, skip
+    }
+  });
+
+  // Extract <picture><source> tags
+  $('picture source[srcset]').each((_, elem) => {
+    const $source = $(elem);
+    const srcset = $source.attr('srcset');
+    if (!srcset) return;
+
+    // Parse srcset (format: "url 1x, url 2x" or "url 100w, url 200w")
+    const srcsetParts = srcset.split(',').map(s => s.trim());
+    srcsetParts.forEach(part => {
+      const url = part.split(/\s+/)[0];
+      if (!url) return;
+
+      try {
+        const absoluteUrl = new URL(url, baseUrl);
+        
+        // SECURITY: Only allow HTTP and HTTPS protocols
+        if (!['http:', 'https:'].includes(absoluteUrl.protocol)) {
+          return;
+        }
+
+        // Try to get alt from parent picture's img
+        const alt = $source.closest('picture').find('img').attr('alt') || '';
+
+        const imageInfo: import('../types.js').ImageInfo = {
+          src: absoluteUrl.href,
+          alt,
+        };
+
+        images.set(absoluteUrl.href, imageInfo);
+      } catch {
+        // Invalid URL, skip
+      }
+    });
+  });
+
+  // Extract CSS background images
+  $('[style*="background"]').each((_, elem) => {
+    const style = $(elem).attr('style');
+    if (!style) return;
+
+    // Match url() in CSS
+    const urlMatches = style.match(/url\(['"]?([^'")\s]+)['"]?\)/g);
+    if (!urlMatches) return;
+
+    urlMatches.forEach(match => {
+      const url = match.replace(/url\(['"]?([^'")\s]+)['"]?\)/, '$1');
+      if (!url) return;
+
+      try {
+        const absoluteUrl = new URL(url, baseUrl);
+        
+        // SECURITY: Only allow HTTP and HTTPS protocols
+        if (!['http:', 'https:'].includes(absoluteUrl.protocol)) {
+          return;
+        }
+
+        const imageInfo: import('../types.js').ImageInfo = {
+          src: absoluteUrl.href,
+          alt: '', // Background images don't have alt text
+        };
+
+        images.set(absoluteUrl.href, imageInfo);
+      } catch {
+        // Invalid URL, skip
+      }
+    });
+  });
+
+  return Array.from(images.values());
+}
+
+/**
  * Extract all metadata from HTML
  */
 export function extractMetadata(html: string, _url: string): { title: string; metadata: PageMetadata } {

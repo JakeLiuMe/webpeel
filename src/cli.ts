@@ -92,15 +92,23 @@ program
   .option('--full-page', 'Full-page screenshot (use with --screenshot)')
   .option('--selector <css>', 'CSS selector to extract (e.g., "article", ".content")')
   .option('--exclude <selectors...>', 'CSS selectors to exclude (e.g., ".sidebar" ".ads")')
+  .option('--include-tags <tags>', 'Comma-separated HTML tags/selectors to include (e.g., "main,article,.content")')
+  .option('--exclude-tags <tags>', 'Comma-separated HTML tags/selectors to exclude (e.g., "nav,footer,aside")')
+  .option('--only-main-content', 'Shortcut for --include-tags main,article')
   .option('-H, --header <header...>', 'Custom headers (e.g., "Authorization: Bearer token")')
   .option('--cookie <cookie...>', 'Cookies to set (e.g., "session=abc123")')
   .option('--cache <ttl>', 'Cache results locally (e.g., "5m", "1h", "1d")')
   .option('--links', 'Output only the links found on the page')
+  .option('--images', 'Output image URLs from the page')
   .option('--meta', 'Output only the page metadata (title, description, author, etc.)')
   .option('--raw', 'Return full page without smart content extraction')
   .option('--action <actions...>', 'Page actions before scraping (e.g., "click:.btn" "wait:2000" "scroll:bottom")')
   .option('--extract <json>', 'Extract structured data using CSS selectors (JSON object of field:selector pairs)')
   .option('--llm-extract <prompt>', 'AI-powered extraction using LLM (requires OPENAI_API_KEY env var)')
+  .option('--llm-key <key>', 'LLM API key for AI features (or use OPENAI_API_KEY env var)')
+  .option('--summary', 'Generate AI summary of content (requires --llm-key or OPENAI_API_KEY)')
+  .option('--location <country>', 'ISO country code for geo-targeting (e.g., "US", "DE", "JP")')
+  .option('--language <lang>', 'Language preference (e.g., "en", "de", "ja")')
   .option('--max-tokens <n>', 'Maximum token count for output (truncate if exceeded)', parseInt)
   .action(async (url: string | undefined, options) => {
     if (!url) {
@@ -231,6 +239,32 @@ program
         }
       }
 
+      // Parse include-tags and exclude-tags
+      let includeTags: string[] | undefined;
+      let excludeTags: string[] | undefined;
+      
+      if (options.onlyMainContent) {
+        includeTags = ['main', 'article'];
+      } else if (options.includeTags) {
+        includeTags = options.includeTags.split(',').map((t: string) => t.trim());
+      }
+      
+      if (options.excludeTags) {
+        excludeTags = options.excludeTags.split(',').map((t: string) => t.trim());
+      }
+
+      // Build location options
+      let locationOptions: { country?: string; languages?: string[] } | undefined;
+      if (options.location || options.language) {
+        locationOptions = {};
+        if (options.location) {
+          locationOptions.country = options.location;
+        }
+        if (options.language) {
+          locationOptions.languages = [options.language];
+        }
+      }
+
       // Build peel options
       // --stealth auto-enables --render (stealth requires browser)
       // --action auto-enables --render (actions require browser)
@@ -245,13 +279,32 @@ program
         screenshotFullPage: options.fullPage || false,
         selector: options.selector,
         exclude: options.exclude,
+        includeTags,
+        excludeTags,
         headers,
         cookies: options.cookie,
         raw: options.raw || false,
         actions,
         maxTokens: options.maxTokens,
         extract,
+        images: options.images || false,
+        location: locationOptions,
       };
+
+      // Add summary option if requested
+      if (options.summary) {
+        const llmApiKey = options.llmKey || process.env.OPENAI_API_KEY;
+        if (!llmApiKey) {
+          console.error('Error: --summary requires --llm-key or OPENAI_API_KEY environment variable');
+          process.exit(1);
+        }
+        peelOptions.summary = true;
+        peelOptions.llm = {
+          apiKey: llmApiKey,
+          model: process.env.WEBPEEL_LLM_MODEL || 'gpt-4o-mini',
+          baseUrl: process.env.WEBPEEL_LLM_BASE_URL || 'https://api.openai.com/v1',
+        };
+      }
 
       // Determine format
       if (options.html) {
@@ -1137,6 +1190,26 @@ async function outputResult(result: PeelResult, options: any): Promise<void> {
     } else {
       for (const link of result.links) {
         await writeStdout(link + '\n');
+      }
+    }
+    return;
+  }
+
+  // --images: output only image URLs
+  if (options.images) {
+    // Extract image URLs from links that point to images
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+    const imageUrls = result.links.filter(link => {
+      const urlLower = link.toLowerCase();
+      return imageExtensions.some(ext => urlLower.includes(ext));
+    });
+    
+    if (options.json) {
+      const jsonStr = JSON.stringify(imageUrls, null, 2);
+      await writeStdout(jsonStr + '\n');
+    } else {
+      for (const imageUrl of imageUrls) {
+        await writeStdout(imageUrl + '\n');
       }
     }
     return;

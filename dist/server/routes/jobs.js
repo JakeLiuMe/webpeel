@@ -12,7 +12,7 @@ export function createJobsRouter() {
      */
     router.post('/v1/crawl', async (req, res) => {
         try {
-            const { url, limit, maxDepth, scrapeOptions, webhook } = req.body;
+            const { url, limit, maxDepth, scrapeOptions, webhook, location, languages } = req.body;
             // Validate required parameters
             if (!url || typeof url !== 'string') {
                 res.status(400).json({
@@ -68,7 +68,13 @@ export function createJobsRouter() {
                                 }).catch(() => { }); // Fire and forget
                             }
                         },
+                        // Spread existing scrapeOptions
                         ...scrapeOptions,
+                        // Add location support if provided (CrawlOptions extends PeelOptions)
+                        location: location || languages ? {
+                            country: location,
+                            languages: Array.isArray(languages) ? languages : (languages ? [languages] : undefined),
+                        } : undefined,
                     };
                     // Run crawl
                     const results = await crawl(url, crawlOptions);

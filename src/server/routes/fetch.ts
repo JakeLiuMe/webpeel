@@ -28,7 +28,18 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
   router.get('/v1/fetch', async (req: Request, res: Response) => {
     try {
-      const { url, render, wait, format } = req.query;
+      const { 
+        url, 
+        render, 
+        wait, 
+        format, 
+        includeTags, 
+        excludeTags, 
+        images, 
+        location, 
+        languages,
+        onlyMainContent 
+      } = req.query;
 
       // Validate URL parameter
       if (!url || typeof url !== 'string') {
@@ -65,8 +76,8 @@ export function createFetchRouter(authStore: AuthStore): Router {
         return;
       }
 
-      // Build cache key
-      const cacheKey = `fetch:${url}:${render}:${wait}:${format}`;
+      // Build cache key (include new parameters)
+      const cacheKey = `fetch:${url}:${render}:${wait}:${format}:${includeTags}:${excludeTags}:${images}:${location}:${languages}:${onlyMainContent}`;
 
       // Check cache
       const cached = cache.get(cacheKey);
@@ -80,12 +91,36 @@ export function createFetchRouter(authStore: AuthStore): Router {
       // Parse options
       const isSoftLimited = req.auth?.softLimited === true;
       const hasExtraUsage = req.auth?.extraUsageAvailable === true;
+      
+      // Parse tag arrays from comma-separated strings
+      const includeTagsArray = includeTags 
+        ? (includeTags as string).split(',').map(t => t.trim()).filter(Boolean)
+        : undefined;
+      const excludeTagsArray = excludeTags 
+        ? (excludeTags as string).split(',').map(t => t.trim()).filter(Boolean)
+        : undefined;
+      const languagesArray = languages 
+        ? (languages as string).split(',').map(l => l.trim()).filter(Boolean)
+        : undefined;
+      
+      // onlyMainContent is a shortcut for common include tags
+      const finalIncludeTags = onlyMainContent === 'true' 
+        ? ['main', 'article', '.content', '#content']
+        : includeTagsArray;
+
       const options: PeelOptions = {
         // SOFT LIMIT: When over quota AND no extra usage, force HTTP-only
         // If extra usage is available, allow full functionality
         render: (isSoftLimited && !hasExtraUsage) ? false : render === 'true',
         wait: (isSoftLimited && !hasExtraUsage) ? 0 : (wait ? parseInt(wait as string, 10) : undefined),
         format: (format as 'markdown' | 'text' | 'html') || 'markdown',
+        includeTags: finalIncludeTags,
+        excludeTags: excludeTagsArray,
+        images: images === 'true',
+        location: location || languagesArray ? {
+          country: location as string | undefined,
+          languages: languagesArray,
+        } : undefined,
       };
 
       // Inform the user if their request was degraded

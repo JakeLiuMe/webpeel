@@ -6,11 +6,11 @@
 
 import { createHash } from 'crypto';
 import { smartFetch } from './core/strategies.js';
-import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget } from './core/markdown.js';
-import { extractMetadata, extractLinks } from './core/metadata.js';
+import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget, filterByTags } from './core/markdown.js';
+import { extractMetadata, extractLinks, extractImages } from './core/metadata.js';
 import { cleanup } from './core/fetcher.js';
 import { extractStructured } from './core/extract.js';
-import type { PeelOptions, PeelResult } from './types.js';
+import type { PeelOptions, PeelResult, ImageInfo } from './types.js';
 
 export * from './types.js';
 export { crawl, type CrawlOptions, type CrawlResult, type CrawlProgress } from './core/crawler.js';
@@ -50,12 +50,16 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     screenshotFullPage = false,
     selector,
     exclude,
+    includeTags,
+    excludeTags,
     headers,
     cookies,
     raw = false,
     actions,
     extract,
     maxTokens,
+    images: extractImagesFlag = false,
+    location: _location,
   } = options;
 
   // Detect PDF URLs and force browser rendering
@@ -119,6 +123,12 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     if (isHTML) {
       // Standard HTML pipeline
       let html = fetchResult.html;
+      
+      // Apply include/exclude tags filtering first (before selector)
+      if (includeTags || excludeTags) {
+        html = filterByTags(html, includeTags, excludeTags);
+      }
+      
       if (selector) {
         html = selectContent(html, selector, exclude);
       }
@@ -205,6 +215,12 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       const found = content.match(urlRegex) || [];
       links = [...new Set(found)];
       quality = 1.0;
+    }
+
+    // Extract images if requested
+    let imagesList: ImageInfo[] | undefined;
+    if (extractImagesFlag && isHTML) {
+      imagesList = extractImages(fetchResult.html, fetchResult.url);
     }
 
     // Extract structured data if requested
@@ -304,6 +320,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       branding: brandingProfile,
       changeTracking: changeResult,
       summary: summaryText,
+      images: imagesList,
     };
   } catch (error) {
     // Clean up browser resources on error

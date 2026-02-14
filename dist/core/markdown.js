@@ -37,6 +37,45 @@ const JUNK_SELECTORS = [
     'svg:not(img svg)',
 ];
 /**
+ * Filter HTML by including or excluding specific tags/selectors
+ * Applied BEFORE markdown conversion for precise content control
+ *
+ * @param html - HTML to filter
+ * @param includeTags - Only keep content from these elements (e.g., ['article', 'main', '.content'])
+ * @param excludeTags - Remove these elements (e.g., ['nav', 'footer', 'header', '.sidebar'])
+ * @returns Filtered HTML
+ */
+export function filterByTags(html, includeTags, excludeTags) {
+    const $ = cheerio.load(html);
+    // Apply exclude tags first (remove unwanted elements)
+    if (excludeTags?.length) {
+        excludeTags.forEach(selector => {
+            $(selector).remove();
+        });
+    }
+    // Apply include tags (only keep specified elements)
+    if (includeTags?.length) {
+        // Collect all matching elements
+        const included = [];
+        includeTags.forEach(selector => {
+            const matches = $(selector);
+            if (matches.length > 0) {
+                matches.each((_, el) => {
+                    included.push($(el));
+                });
+            }
+        });
+        // If we found matching elements, return only those
+        if (included.length > 0) {
+            return included.map(el => $.html(el)).join('\n');
+        }
+        // If includeTags specified but nothing matched, return empty
+        return '';
+    }
+    // Return filtered HTML
+    return $.html();
+}
+/**
  * Extract content matching a CSS selector
  * Returns filtered HTML or full HTML if selector matches nothing
  */

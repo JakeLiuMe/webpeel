@@ -45,6 +45,10 @@ export interface PeelOptions {
     selector?: string;
     /** CSS selectors to exclude from content (e.g., [".sidebar", ".ads"]) */
     exclude?: string[];
+    /** Only include content from these HTML elements (e.g., ['article', 'main', '.content']) */
+    includeTags?: string[];
+    /** Remove these HTML elements (e.g., ['nav', 'footer', 'header', '.sidebar']) */
+    excludeTags?: string[];
     /** Custom HTTP headers to send */
     headers?: Record<string, string>;
     /** Cookies to set (key=value pairs) */
@@ -72,6 +76,27 @@ export interface PeelOptions {
         model?: string;
         baseUrl?: string;
     };
+    /** Extract images from the page */
+    images?: boolean;
+    /** Location and language preferences for browser rendering */
+    location?: {
+        /** ISO 3166-1 alpha-2 country code (e.g., 'US', 'DE', 'JP') */
+        country?: string;
+        /** Language preferences (e.g., ['en-US', 'de']) */
+        languages?: string[];
+    };
+}
+export interface ImageInfo {
+    /** Absolute URL of the image */
+    src: string;
+    /** Alt text */
+    alt: string;
+    /** Title attribute */
+    title?: string;
+    /** Width if specified */
+    width?: number;
+    /** Height if specified */
+    height?: number;
 }
 export interface PeelResult {
     /** Final URL (after redirects) */
@@ -106,6 +131,8 @@ export interface PeelResult {
     changeTracking?: import('./core/change-tracking.js').ChangeResult;
     /** AI-generated summary */
     summary?: string;
+    /** Extracted images (when images option is set) */
+    images?: ImageInfo[];
 }
 export interface PageMetadata {
     /** Meta description */

@@ -55,7 +55,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
   router.get('/v1/search', async (req: Request, res: Response) => {
     try {
-      const { q, count, scrapeResults, sources } = req.query;
+      const { q, count, scrapeResults, sources, categories, tbs, country, location } = req.query;
 
       // Validate query parameter
       if (!q || typeof q !== 'string') {
@@ -81,8 +81,14 @@ export function createSearchRouter(authStore: AuthStore): Router {
       const sourcesArray = sourcesStr.split(',').map(s => s.trim());
       const shouldScrape = scrapeResults === 'true';
 
-      // Build cache key
-      const cacheKey = `search:${q}:${resultCount}:${sourcesStr}:${shouldScrape}`;
+      // Parse new search parameters
+      const categoriesStr = (categories as string) || '';
+      const tbsStr = (tbs as string) || '';
+      const countryStr = (country as string) || '';
+      const locationStr = (location as string) || '';
+
+      // Build cache key (include all parameters)
+      const cacheKey = `search:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}`;
 
       // Check cache
       const cached = cache.get(cacheKey);
@@ -105,7 +111,24 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
       // Fetch web results
       if (sourcesArray.includes('web')) {
-        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
+        // Build search URL with parameters
+        const params = new URLSearchParams();
+        params.set('q', q);
+        
+        // Add DuckDuckGo-specific parameters
+        if (tbsStr) {
+          // Time-based search (tbs): qdr:d (day), qdr:w (week), qdr:m (month), qdr:y (year)
+          params.set('df', tbsStr);
+        }
+        
+        if (countryStr || locationStr) {
+          // Region/location preference (kl parameter)
+          // DuckDuckGo uses format like 'us-en' for US English
+          const region = countryStr || locationStr;
+          params.set('kl', region.toLowerCase());
+        }
+        
+        const searchUrl = `https://html.duckduckgo.com/html/?${params.toString()}`;
         const response = await undiciFetch(searchUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
@@ -160,9 +183,41 @@ export function createSearchRouter(authStore: AuthStore): Router {
           results.push({ title, url, snippet });
         });
 
+        // Apply category filtering if specified
+        let filteredResults = results;
+        if (categoriesStr) {
+          const categoryList = categoriesStr.split(',').map(c => c.trim().toLowerCase());
+          filteredResults = results.filter(result => {
+            const urlLower = result.url.toLowerCase();
+            return categoryList.some(category => {
+              switch (category) {
+                case 'github':
+                  return urlLower.includes('github.com');
+                case 'pdf':
+                  return urlLower.endsWith('.pdf');
+                case 'docs':
+                case 'documentation':
+                  return urlLower.includes('/docs') || urlLower.includes('/documentation');
+                case 'blog':
+                  return urlLower.includes('blog') || urlLower.includes('/post/');
+                case 'news':
+                  return urlLower.includes('news') || urlLower.includes('/article/');
+                case 'video':
+                  return urlLower.includes('youtube.com') || urlLower.includes('vimeo.com');
+                case 'social':
+                  return urlLower.includes('twitter.com') || urlLower.includes('x.com') || 
+                         urlLower.includes('facebook.com') || urlLower.includes('linkedin.com');
+                default:
+                  // Custom category: check if URL contains the category name
+                  return urlLower.includes(category);
+              }
+            });
+          });
+        }
+
         // Scrape each result URL if requested
         if (shouldScrape) {
-          for (const result of results) {
+          for (const result of filteredResults) {
             try {
               const peelResult = await peel(result.url, {
                 format: 'markdown',
@@ -176,7 +231,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
           }
         }
 
-        data.web = results;
+        data.web = filteredResults;
       }
 
       // Fetch news results

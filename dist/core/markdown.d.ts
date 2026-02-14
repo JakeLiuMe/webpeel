@@ -2,6 +2,16 @@
  * HTML to Markdown conversion with smart cleanup
  */
 /**
+ * Filter HTML by including or excluding specific tags/selectors
+ * Applied BEFORE markdown conversion for precise content control
+ *
+ * @param html - HTML to filter
+ * @param includeTags - Only keep content from these elements (e.g., ['article', 'main', '.content'])
+ * @param excludeTags - Remove these elements (e.g., ['nav', 'footer', 'header', '.sidebar'])
+ * @returns Filtered HTML
+ */
+export declare function filterByTags(html: string, includeTags?: string[], excludeTags?: string[]): string;
+/**
  * Extract content matching a CSS selector
  * Returns filtered HTML or full HTML if selector matches nothing
  */

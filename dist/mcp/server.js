@@ -116,7 +116,7 @@ async function searchWeb(query, count = 5) {
 const tools = [
     {
         name: 'webpeel_fetch',
-        description: 'Fetch a URL and return clean, AI-ready markdown content. Handles JavaScript rendering and anti-bot protections automatically. Supports page actions (click, scroll, type), structured extraction, and token budgets. Use stealth=true for protected sites.',
+        description: 'Fetch a URL and return clean, AI-ready markdown content. Handles JavaScript rendering and anti-bot protections automatically. Supports page actions (click, scroll, type), structured extraction, token budgets, image extraction, tag filtering, and geo-targeting. Use stealth=true for protected sites.',
         annotations: {
             title: 'Fetch Web Page',
             readOnlyHint: true,
@@ -172,6 +172,29 @@ const tools = [
                         type: 'string',
                     },
                     description: 'CSS selectors to exclude from content (e.g., [".sidebar", ".ads"])',
+                },
+                includeTags: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Only include content from these HTML tags/classes (e.g., ["article", "main", ".content"])',
+                },
+                excludeTags: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Remove these HTML tags/classes from content (e.g., ["nav", "footer", ".sidebar"])',
+                },
+                images: {
+                    type: 'boolean',
+                    description: 'Extract image URLs from the page (returns array of image objects with src, alt, title)',
+                    default: false,
+                },
+                location: {
+                    type: 'string',
+                    description: 'ISO 3166-1 alpha-2 country code for geo-targeting (e.g., "US", "DE", "JP")',
                 },
                 headers: {
                     type: 'object',
@@ -544,7 +567,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     try {
         if (name === 'webpeel_fetch') {
-            const { url, render, stealth, wait, format, screenshot, screenshotFullPage, selector, exclude, headers, actions, maxTokens, extract } = args;
+            const { url, render, stealth, wait, format, screenshot, screenshotFullPage, selector, exclude, includeTags, excludeTags, images, location, headers, actions, maxTokens, extract } = args;
             // SECURITY: Validate input parameters
             if (!url || typeof url !== 'string') {
                 throw new Error('Invalid URL parameter');
@@ -580,6 +603,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             if (extract !== undefined && typeof extract !== 'object') {
                 throw new Error('Invalid extract parameter: must be an object');
             }
+            if (includeTags !== undefined && !Array.isArray(includeTags)) {
+                throw new Error('Invalid includeTags parameter: must be an array');
+            }
+            if (excludeTags !== undefined && !Array.isArray(excludeTags)) {
+                throw new Error('Invalid excludeTags parameter: must be an array');
+            }
+            if (images !== undefined && typeof images !== 'boolean') {
+                throw new Error('Invalid images parameter: must be a boolean');
+            }
+            if (location !== undefined && typeof location !== 'string') {
+                throw new Error('Invalid location parameter: must be a string');
+            }
             const options = {
                 render: render || false,
                 stealth: stealth || false,
@@ -589,6 +624,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 screenshotFullPage: screenshotFullPage || false,
                 selector,
                 exclude,
+                includeTags,
+                excludeTags,
+                images,
+                location: location ? { country: location } : undefined,
                 headers,
                 actions,
                 maxTokens,
