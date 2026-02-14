@@ -263,6 +263,10 @@ export interface FetchResult {
   statusCode?: number;
   screenshot?: Buffer;
   contentType?: string;
+  /** Playwright page object (only available in browser/stealth mode, must be closed by caller) */
+  page?: import('playwright-core').Page;
+  /** Playwright browser object (only available in browser/stealth mode, must be closed by caller) */
+  browser?: import('playwright-core').Browser;
 }
 
 /**
@@ -532,6 +536,8 @@ export async function browserFetch(
       to?: 'top' | 'bottom' | number;
       timeout?: number;
     }>;
+    /** Keep the browser page open after fetch (caller must close page + browser) */
+    keepPageOpen?: boolean;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -546,7 +552,8 @@ export async function browserFetch(
     headers,
     cookies,
     stealth = false,
-    actions
+    actions,
+    keepPageOpen = false,
   } = options;
 
   // Validate user agent if provided
@@ -682,6 +689,17 @@ export async function browserFetch(
       });
     }
 
+    // If keepPageOpen, return page/browser for caller to use (e.g., branding extraction)
+    if (keepPageOpen && page) {
+      return {
+        html,
+        url: finalUrl,
+        screenshot: screenshotBuffer,
+        page,
+        browser,
+      };
+    }
+
     return {
       html,
       url: finalUrl,
@@ -700,8 +718,8 @@ export async function browserFetch(
       `Browser fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   } finally {
-    // CRITICAL: Always close page and decrement counter
-    if (page) {
+    // CRITICAL: Always close page and decrement counter (unless keepPageOpen and no error)
+    if (page && !keepPageOpen) {
       await page.close().catch(() => {});
     }
     activePagesCount--;

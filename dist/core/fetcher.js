@@ -436,7 +436,7 @@ async function getStealthBrowser() {
 export async function browserFetch(url, options = {}) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
-    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false, actions } = options;
+    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false, actions, keepPageOpen = false, } = options;
     // Validate user agent if provided
     const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
     // Validate wait time
@@ -548,6 +548,16 @@ export async function browserFetch(url, options = {}) {
                 type: 'png'
             });
         }
+        // If keepPageOpen, return page/browser for caller to use (e.g., branding extraction)
+        if (keepPageOpen && page) {
+            return {
+                html,
+                url: finalUrl,
+                screenshot: screenshotBuffer,
+                page,
+                browser,
+            };
+        }
         return {
             html,
             url: finalUrl,
@@ -564,8 +574,8 @@ export async function browserFetch(url, options = {}) {
         throw new NetworkError(`Browser fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     finally {
-        // CRITICAL: Always close page and decrement counter
-        if (page) {
+        // CRITICAL: Always close page and decrement counter (unless keepPageOpen and no error)
+        if (page && !keepPageOpen) {
             await page.close().catch(() => { });
         }
         activePagesCount--;

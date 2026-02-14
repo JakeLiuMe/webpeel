@@ -7,6 +7,10 @@ export interface FetchResult {
     statusCode?: number;
     screenshot?: Buffer;
     contentType?: string;
+    /** Playwright page object (only available in browser/stealth mode, must be closed by caller) */
+    page?: import('playwright-core').Page;
+    /** Playwright browser object (only available in browser/stealth mode, must be closed by caller) */
+    browser?: import('playwright-core').Browser;
 }
 /**
  * Simple HTTP fetch using native fetch + Cheerio
@@ -36,6 +40,8 @@ export declare function browserFetch(url: string, options?: {
         to?: 'top' | 'bottom' | number;
         timeout?: number;
     }>;
+    /** Keep the browser page open after fetch (caller must close page + browser) */
+    keepPageOpen?: boolean;
 }): Promise<FetchResult>;
 /**
  * Retry a fetch operation with exponential backoff

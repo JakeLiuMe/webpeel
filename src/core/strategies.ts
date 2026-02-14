@@ -34,6 +34,8 @@ export interface StrategyOptions {
     to?: 'top' | 'bottom' | number;
     timeout?: number;
   }>;
+  /** Keep browser page open for reuse (caller must close) */
+  keepPageOpen?: boolean;
 }
 
 export interface StrategyResult extends FetchResult {
@@ -63,7 +65,8 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     screenshotFullPage = false,
     headers,
     cookies,
-    actions
+    actions,
+    keepPageOpen = false,
   } = options;
 
   // If stealth is requested, force browser mode (stealth requires browser)
@@ -103,6 +106,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
       cookies,
       stealth,
       actions,
+      keepPageOpen,
     });
     return {
       ...result,
@@ -122,6 +126,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
           cookies,
           stealth: true, // Escalate to stealth mode
           actions,
+          keepPageOpen,
         });
         return {
           ...result,
@@ -148,6 +153,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
         cookies,
         stealth, // Keep stealth setting
         actions,
+        keepPageOpen,
       });
       return {
         ...result,

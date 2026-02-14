@@ -15,7 +15,7 @@ import { BlockedError, NetworkError } from '../types.js';
  * Returns the result along with which method worked
  */
 export async function smartFetch(url, options = {}) {
-    const { forceBrowser = false, stealth = false, waitMs = 0, userAgent, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, actions } = options;
+    const { forceBrowser = false, stealth = false, waitMs = 0, userAgent, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, actions, keepPageOpen = false, } = options;
     // If stealth is requested, force browser mode (stealth requires browser)
     const shouldUseBrowser = forceBrowser || screenshot || stealth;
     // Strategy 1: Simple fetch (unless browser is forced or screenshot is requested)
@@ -50,6 +50,7 @@ export async function smartFetch(url, options = {}) {
             cookies,
             stealth,
             actions,
+            keepPageOpen,
         });
         return {
             ...result,
@@ -70,6 +71,7 @@ export async function smartFetch(url, options = {}) {
                     cookies,
                     stealth: true, // Escalate to stealth mode
                     actions,
+                    keepPageOpen,
                 });
                 return {
                     ...result,
@@ -94,6 +96,7 @@ export async function smartFetch(url, options = {}) {
                 cookies,
                 stealth, // Keep stealth setting
                 actions,
+                keepPageOpen,
             });
             return {
                 ...result,

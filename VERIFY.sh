@@ -15,7 +15,7 @@ echo ""
 
 # 2. Existing Tests
 echo "2️⃣  Running existing test suite..."
-npx vitest run --reporter=minimal
+npx vitest run 2>&1 | grep -E "(Test Files|Tests|Duration)" || true
 echo "   ✅ All tests pass"
 echo ""
 

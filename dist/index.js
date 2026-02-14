@@ -57,7 +57,8 @@ export async function peel(url, options = {}) {
         render = true;
     }
     try {
-        // Fetch the page
+        // Fetch the page (keep browser open if branding extraction is needed)
+        const needsBranding = options.branding && render;
         const fetchResult = await smartFetch(url, {
             forceBrowser: render,
             stealth,
@@ -69,6 +70,7 @@ export async function peel(url, options = {}) {
             headers,
             cookies,
             actions,
+            keepPageOpen: needsBranding,
         });
         // Detect content type from the response
         const ct = (fetchResult.contentType || '').toLowerCase();
@@ -195,33 +197,25 @@ export async function peel(url, options = {}) {
         const fingerprint = createHash('sha256').update(content).digest('hex').slice(0, 16);
         // Convert screenshot buffer to base64 if present
         const screenshotBase64 = fetchResult.screenshot?.toString('base64');
-        // Extract branding if requested (requires browser)
+        // Extract branding if requested (reuses existing browser page when available)
         let brandingProfile;
-        if (options.branding && render) {
+        if (options.branding && render && fetchResult.page) {
             try {
-                // Import playwright and create a page for branding extraction
-                const { chromium } = await import('playwright-core');
-                const browser = await chromium.launch({ headless: true });
-                const page = await browser.newPage({
-                    userAgent: userAgent || undefined,
-                });
-                // Navigate to the URL
-                await page.goto(fetchResult.url, {
-                    waitUntil: 'domcontentloaded',
-                    timeout: timeout || 30000,
-                });
-                // Wait if specified
-                if (wait > 0) {
-                    await page.waitForTimeout(wait);
-                }
-                // Extract branding
                 const { extractBranding } = await import('./core/branding.js');
-                brandingProfile = await extractBranding(page);
-                // Clean up
-                await browser.close();
+                brandingProfile = await extractBranding(fetchResult.page);
             }
             catch (error) {
                 console.error('Branding extraction failed:', error);
+            }
+            finally {
+                // Clean up the kept-open page and browser
+                try {
+                    await fetchResult.page.close().catch(() => { });
+                    if (fetchResult.browser) {
+                        await fetchResult.browser.close().catch(() => { });
+                    }
+                }
+                catch { /* ignore cleanup errors */ }
             }
         }
         // Track content changes if requested

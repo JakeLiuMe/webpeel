@@ -31,6 +31,8 @@ export interface StrategyOptions {
         to?: 'top' | 'bottom' | number;
         timeout?: number;
     }>;
+    /** Keep browser page open for reuse (caller must close) */
+    keepPageOpen?: boolean;
 }
 export interface StrategyResult extends FetchResult {
     /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' */
