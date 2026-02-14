@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-02-13
+
+### Fixed
+- **CLI endpoint bug**: Fixed CLI calling `/v1/usage` (JWT-only) instead of `/v1/cli/usage` (API key auth)
+- **CLI response format**: Rewrote response handling to match actual API response shape
+- **API base URL**: Changed from `webpeel-api.onrender.com` to `api.webpeel.dev`
+- **Stealth auto-render**: `--stealth` now correctly auto-enables `--render`
+- **Dynamic versions**: Health endpoint and MCP server read version from package.json
+- **Health check 429**: Moved health route before rate limiter to prevent Render restart loops
+- **Removed CAPTCHA claims**: Removed AI CAPTCHA solving from roadmap and FAQ
+- **Fixed competitor pricing**: Corrected Jina Reader price in comparison tables
+
+### Added
+- `webpeel whoami` command — shows auth status, masked API key, cached plan tier
+- `webpeel login` validates API key against server before saving
+- 5s timeout on all CLI API calls
+- Billing page: upgrade buttons pass user email to Stripe checkout
+- Billing page: honest extra usage info (replaced non-functional controls)
+
 ## [0.3.0] - 2026-02-12
 
 ### Added

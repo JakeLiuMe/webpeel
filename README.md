@@ -41,7 +41,7 @@ npx webpeel https://news.ycombinator.com
 | **Crawl mode** | ✅ Pro plan | ✅ Yes | ❌ No | ❌ No |
 | **MCP Server** | ✅ Built-in | ✅ Separate repo | ❌ No | ✅ Yes |
 | **Zero config** | ✅ `npx webpeel` | ❌ API key required | ❌ API key required | ✅ Yes |
-| **Hosted API** | $9/mo (1,250/wk) | $16/mo (3K/mo) | $200/mo (Starter) | N/A |
+| **Hosted API** | $9/mo (1,250/wk) | $16/mo (3K/mo) | $10/mo (Starter) | N/A |
 | **Weekly reset** | ✅ Every Monday | ❌ Monthly only | ❌ Monthly only | N/A |
 | **Soft limits** | ✅ Never blocked | ❌ Hard cut-off | ❌ Rate limited | N/A |
 | **Markdown output** | ✅ Optimized for AI | ✅ Yes | ✅ Yes | ⚠️ Basic |
