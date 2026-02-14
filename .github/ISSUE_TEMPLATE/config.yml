@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://webpeel.dev/docs/
+    about: Check the docs before opening an issue
+  - name: Playground
+    url: https://webpeel.dev/playground
+    about: Try WebPeel in the interactive playground

@@ -1,0 +1,48 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug
+      placeholder: Tell us what you expected vs what actually happened
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: WebPeel Version
+      description: Run `webpeel --version` or check package.json
+      placeholder: "0.7.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: usage
+    attributes:
+      label: How are you using WebPeel?
+      options:
+        - CLI
+        - Node.js Library
+        - MCP Server
+        - Hosted API
+        - Python SDK
+        - Self-hosted
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps or code to reproduce the issue
+      placeholder: |
+        1. Run `webpeel "https://example.com" --stealth`
+        2. See error...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error output
+      description: Paste any error messages or logs
+      render: shell
