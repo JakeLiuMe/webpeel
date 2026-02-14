@@ -90,14 +90,14 @@ export default function DashboardPage() {
   { headers: { 'Authorization': 'Bearer ${apiKey}' } }
 );
 const data = await response.json();`,
-    python: `import requests
+    python: `from webpeel import WebPeel
 
-response = requests.get(
-    'https://api.webpeel.dev/v1/fetch',
-    params={'url': 'https://example.com'},
-    headers={'Authorization': f'Bearer ${apiKey}'}
-)
-data = response.json()`
+# Zero dependencies, pure stdlib
+client = WebPeel(api_key='${apiKey}')
+result = client.scrape('https://example.com')
+
+# Get clean markdown
+print(result.markdown)`
   };
 
   return (
