@@ -97,8 +97,8 @@
     .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
     .option-group { display: flex; flex-direction: column; gap: 6px; }
     .option-group label { font-size: 13px; font-weight: 500; color: var(--text-2); }
-    .option-group select, .option-group input[type="number"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
-    .option-group select:focus, .option-group input[type="number"]:focus { outline: none; border-color: var(--accent); }
+    .option-group select, .option-group input[type="number"], .option-group input[type="text"], .option-group input[type="password"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; }
+    .option-group select:focus, .option-group input[type="number"]:focus, .option-group input[type="text"]:focus, .option-group input[type="password"]:focus { outline: none; border-color: var(--accent); }
     .checkbox-group { display: flex; align-items: center; gap: 8px; }
     .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
 
@@ -246,6 +246,7 @@
         <div class="tabs">
           <button class="tab active" data-mode="scrape">Scrape</button>
           <button class="tab" data-mode="search">Search</button>
+          <button class="tab" data-mode="answer">Answer</button>
           <button class="tab" data-mode="crawl">Crawl</button>
           <button class="tab" data-mode="map">Map</button>
         </div>
@@ -289,6 +290,42 @@
               <input type="checkbox" id="stealth-checkbox" />
               <label for="stealth-checkbox">Stealth Mode</label>
             </div>
+
+            <!-- ANSWER OPTIONS -->
+            <div class="option-group" id="answer-search-provider-option" style="display: none;">
+              <label>Search Provider</label>
+              <select id="answer-search-provider-select">
+                <option value="duckduckgo">DuckDuckGo (default)</option>
+                <option value="brave">Brave (BYOK)</option>
+              </select>
+            </div>
+            <div class="option-group" id="answer-search-api-key-option" style="display: none;">
+              <label>Brave Search API Key</label>
+              <input type="password" id="answer-search-api-key-input" placeholder="BSA..." />
+            </div>
+            <div class="option-group" id="answer-llm-provider-option" style="display: none;">
+              <label>LLM Provider</label>
+              <select id="answer-llm-provider-select">
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="google">Google</option>
+              </select>
+            </div>
+            <div class="option-group" id="answer-llm-api-key-option" style="display: none;">
+              <label>LLM API Key (BYOK)</label>
+              <input type="password" id="answer-llm-api-key-input" placeholder="sk-..." />
+            </div>
+            <div class="option-group" id="answer-llm-model-option" style="display: none;">
+              <label>LLM Model (optional)</label>
+              <input type="text" id="answer-llm-model-input" placeholder="(provider default)" />
+            </div>
+            <div class="option-group" id="answer-max-sources-option" style="display: none;">
+              <label>Max Sources</label>
+              <input type="number" id="answer-max-sources-input" value="5" min="1" max="10" />
+            </div>
+          </div>
+          <div id="answer-note" style="display: none; margin-top: 12px; font-size: 12px; color: var(--text-3);">
+            BYOK: keys are only used for this request and are never stored.
           </div>
         </div>
 
@@ -344,6 +381,22 @@
     const renderCheckbox = document.getElementById('render-checkbox');
     const stealthCheckbox = document.getElementById('stealth-checkbox');
 
+    // Answer mode elements
+    const answerSearchProviderOption = document.getElementById('answer-search-provider-option');
+    const answerSearchApiKeyOption = document.getElementById('answer-search-api-key-option');
+    const answerLlmProviderOption = document.getElementById('answer-llm-provider-option');
+    const answerLlmApiKeyOption = document.getElementById('answer-llm-api-key-option');
+    const answerLlmModelOption = document.getElementById('answer-llm-model-option');
+    const answerMaxSourcesOption = document.getElementById('answer-max-sources-option');
+    const answerNote = document.getElementById('answer-note');
+
+    const answerSearchProviderSelect = document.getElementById('answer-search-provider-select');
+    const answerSearchApiKeyInput = document.getElementById('answer-search-api-key-input');
+    const answerLlmProviderSelect = document.getElementById('answer-llm-provider-select');
+    const answerLlmApiKeyInput = document.getElementById('answer-llm-api-key-input');
+    const answerLlmModelInput = document.getElementById('answer-llm-model-input');
+    const answerMaxSourcesInput = document.getElementById('answer-max-sources-input');
+
     // Tab switching
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
@@ -354,18 +407,35 @@
       });
     });
 
+    // Answer provider switching
+    answerSearchProviderSelect.addEventListener('change', () => {
+      answerSearchApiKeyOption.style.display = answerSearchProviderSelect.value === 'brave' ? 'flex' : 'none';
+    });
+
     // Update UI based on mode
     function updateUI() {
       // Update placeholder
       if (currentMode === 'search') {
         urlInput.placeholder = 'Enter search query...';
         urlInput.value = 'latest AI frameworks 2026';
+      } else if (currentMode === 'answer') {
+        urlInput.placeholder = 'Ask a question...';
+        urlInput.value = 'What is MCP and why does it matter for AI agents?';
       } else {
         urlInput.placeholder = 'https://example.com';
-        if (urlInput.value === 'latest AI frameworks 2026') {
+        if (urlInput.value === 'latest AI frameworks 2026' || urlInput.value === 'What is MCP and why does it matter for AI agents?') {
           urlInput.value = 'https://news.ycombinator.com';
         }
       }
+
+      // Default: hide answer options
+      answerSearchProviderOption.style.display = 'none';
+      answerSearchApiKeyOption.style.display = 'none';
+      answerLlmProviderOption.style.display = 'none';
+      answerLlmApiKeyOption.style.display = 'none';
+      answerLlmModelOption.style.display = 'none';
+      answerMaxSourcesOption.style.display = 'none';
+      answerNote.style.display = 'none';
 
       // Show/hide options
       if (currentMode === 'scrape') {
@@ -376,6 +446,20 @@
         stealthOption.style.display = 'flex';
       } else if (currentMode === 'search') {
         optionsPanel.style.display = 'none';
+      } else if (currentMode === 'answer') {
+        optionsPanel.style.display = 'grid';
+        formatOption.style.display = 'none';
+        limitOption.style.display = 'none';
+        renderOption.style.display = 'none';
+        stealthOption.style.display = 'none';
+
+        answerSearchProviderOption.style.display = 'flex';
+        answerLlmProviderOption.style.display = 'flex';
+        answerLlmApiKeyOption.style.display = 'flex';
+        answerLlmModelOption.style.display = 'flex';
+        answerMaxSourcesOption.style.display = 'flex';
+        answerSearchApiKeyOption.style.display = answerSearchProviderSelect.value === 'brave' ? 'flex' : 'none';
+        answerNote.style.display = 'block';
       } else if (currentMode === 'crawl' || currentMode === 'map') {
         optionsPanel.style.display = 'grid';
         formatOption.style.display = 'none';
@@ -425,6 +509,42 @@
           };
 
           response = await fetch(url);
+        } else if (currentMode === 'answer') {
+          const url = 'https://api.webpeel.dev/v1/answer';
+          const llmApiKey = (answerLlmApiKeyInput.value || '').trim();
+
+          if (!llmApiKey) {
+            throw new Error('LLM API key is required for Answer mode (BYOK).');
+          }
+
+          const body = {
+            question: input,
+            llmProvider: answerLlmProviderSelect.value,
+            llmApiKey: llmApiKey,
+            searchProvider: answerSearchProviderSelect.value,
+            maxSources: parseInt(answerMaxSourcesInput.value || '5', 10),
+            stream: false
+          };
+
+          const llmModel = (answerLlmModelInput.value || '').trim();
+          if (llmModel) body.llmModel = llmModel;
+
+          if (body.searchProvider === 'brave') {
+            const searchKey = (answerSearchApiKeyInput.value || '').trim();
+            if (searchKey) body.searchApiKey = searchKey;
+          }
+
+          requestData = {
+            method: 'POST',
+            url: url,
+            body: body
+          };
+
+          response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
         } else if (currentMode === 'crawl' || currentMode === 'map') {
           const url = 'https://api.webpeel.dev/v1/crawl';
           const body = {
@@ -535,6 +655,28 @@
             </div>
           </div>
         `;
+      } else if (currentMode === 'answer') {
+        const citations = Array.isArray(data.citations) ? data.citations : [];
+        metrics = `
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric-label">Response Time</div>
+              <div class="metric-value success">${responseTime}ms</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Sources</div>
+              <div class="metric-value">${citations.length}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Search</div>
+              <div class="metric-value">${escapeHtml((data.searchProvider || 'duckduckgo').toString())}</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">LLM</div>
+              <div class="metric-value">${escapeHtml((data.llmProvider || '').toString() || 'BYOK')}</div>
+            </div>
+          </div>
+        `;
       } else if (currentMode === 'crawl' || currentMode === 'map') {
         metrics = `
           <div class="metrics">
@@ -615,6 +757,30 @@
             <pre>${JSON.stringify(data, null, 2)}</pre>
           </div>
         `;
+      } else if (currentMode === 'answer') {
+        const answer = data.answer || '';
+        const citations = Array.isArray(data.citations) ? data.citations : [];
+        const sourcesMd = citations.length
+          ? citations
+              .map((c, i) => {
+                const title = c?.title || c?.url || `Source ${i + 1}`;
+                const url = c?.url || '';
+                const snippet = c?.snippet ? ` — ${c.snippet}` : '';
+                return `${i + 1}. [${title}](${url})${snippet}`;
+              })
+              .join('\n')
+          : '_No citations returned._';
+
+        const markdown = `${answer}\n\n---\n\n## Sources\n\n${sourcesMd}`;
+
+        resultContent = `
+          <div class="result-content markdown-body" id="result-markdown">
+            ${marked.parse(markdown)}
+          </div>
+          <div class="result-content json" id="result-json" style="display: none;">
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          </div>
+        `;
       } else if (currentMode === 'crawl' || currentMode === 'map') {
         const pages = data.pages || [];
         const markdown = pages.map((p, i) => 
@@ -659,7 +825,7 @@
     function copyResult() {
       const text = showingJSON 
         ? JSON.stringify(lastResponse, null, 2)
-        : (lastResponse.content || lastResponse.markdown || JSON.stringify(lastResponse, null, 2));
+        : (lastResponse.content || lastResponse.markdown || lastResponse.answer || JSON.stringify(lastResponse, null, 2));
       
       navigator.clipboard.writeText(text).then(() => {
         const btn = event.target.closest('button');
@@ -711,6 +877,14 @@
       `;
     }
 
+    function redactSecrets(body) {
+      if (!body || typeof body !== 'object') return body;
+      const cloned = JSON.parse(JSON.stringify(body));
+      if (cloned.llmApiKey) cloned.llmApiKey = '<YOUR_LLM_API_KEY>';
+      if (cloned.searchApiKey) cloned.searchApiKey = '<YOUR_SEARCH_API_KEY>';
+      return cloned;
+    }
+
     function generateCurl() {
       if (currentMode === 'scrape') {
         return `curl '${lastRequest.url}'`;
@@ -719,7 +893,7 @@
       } else {
         return `curl -X POST '${lastRequest.url}' \\
   -H 'Content-Type: application/json' \\
-  -d '${JSON.stringify(lastRequest.body)}'`;
+  -d '${JSON.stringify(currentMode === 'answer' ? redactSecrets(lastRequest.body) : lastRequest.body)}'`;
       }
     }
 
@@ -741,6 +915,16 @@ console.log(result.content);`;
 const response = await fetch('${lastRequest.url}');
 const data = await response.json();
 console.log(data);`;
+      } else if (currentMode === 'answer') {
+        return `// POST /v1/answer — BYOK
+const response = await fetch('https://api.webpeel.dev/v1/answer', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(${JSON.stringify(redactSecrets(lastRequest?.body), null, 2)})
+});
+const data = await response.json();
+console.log(data.answer);
+console.log(data.citations);`;
       } else {
         return `import { crawl } from 'webpeel';
 
@@ -773,6 +957,13 @@ import requests
 response = requests.get('${lastRequest.url}')
 data = response.json()
 print(data)`;
+      } else if (currentMode === 'answer') {
+        return `import requests
+
+response = requests.post('https://api.webpeel.dev/v1/answer', json=${JSON.stringify(redactSecrets(lastRequest?.body), null, 2).replace(/"/g, "'").replace(/null/g, 'None').replace(/true/g, 'True').replace(/false/g, 'False')})
+data = response.json()
+print(data['answer'])
+print(data['citations'])`;
       } else {
         return `from webpeel import WebPeel
 
@@ -796,6 +987,15 @@ print(result['pages'])`;
         return `webpeel "${url}"${flags.length ? ' ' + flags.join(' ') : ''}`;
       } else if (currentMode === 'search') {
         return `webpeel search "${urlInput.value}"`;
+      } else if (currentMode === 'answer') {
+        const flags = [`--llm ${answerLlmProviderSelect.value}`, '--llm-api-key <YOUR_LLM_API_KEY>'];
+        if (answerSearchProviderSelect.value === 'brave') {
+          flags.push('--provider brave', '--search-api-key <YOUR_SEARCH_API_KEY>');
+        }
+        const model = (answerLlmModelInput.value || '').trim();
+        if (model) flags.push(`--llm-model ${model}`);
+        flags.push(`--max-sources ${answerMaxSourcesInput.value || 5}`);
+        return `webpeel answer "${urlInput.value}" ${flags.join(' ')}`;
       } else {
         return `webpeel crawl "${urlInput.value}" --limit ${limitInput.value}`;
       }

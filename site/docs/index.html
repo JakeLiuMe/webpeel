@@ -253,6 +253,28 @@ if (change.changed) {
   console.log('Removed:', change.removed);
 }</code></pre>
 
+      <h3>Web Search (DuckDuckGo + Brave BYOK)</h3>
+      <p>WebPeel includes web search out of the box:</p>
+      <ul>
+        <li><strong>DuckDuckGo</strong> — default, free, no key required</li>
+        <li><strong>Brave Search</strong> — bring your own API key for higher-quality results</li>
+      </ul>
+
+      <pre><code class="language-bash"># DuckDuckGo (default)
+npx webpeel search "latest AI news"
+
+# Brave Search (BYOK)
+npx webpeel config set braveApiKey $BRAVE_KEY
+npx webpeel search "latest AI news" --provider brave</code></pre>
+
+      <h3>Cited Answers (<code>/v1/answer</code>)</h3>
+      <p>Need a single, cited answer instead of raw pages? Use the Answer endpoint (search + fetch + LLM → response with <code>[1]</code>, <code>[2]</code> citations). BYOK — use your own LLM key.</p>
+
+      <pre><code class="language-bash">npx webpeel answer "What is MCP?" \
+  --llm openai \
+  --llm-api-key $OPENAI_API_KEY \
+  --max-sources 5</code></pre>
+
       <h2 id="next-steps">Next Steps</h2>
 
       <div class="card-grid">

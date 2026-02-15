@@ -74,12 +74,29 @@
       </ul>
 
       <h2 id="quick-start">Quick Start</h2>
-      <p>WebPeel's MCP server runs locally via <code>npx</code> — no installation required.</p>
+      <p>Connect to WebPeel via MCP in two ways:</p>
+      <ul>
+        <li><strong>Hosted MCP endpoint</strong> — one URL, Streamable HTTP transport (recommended)</li>
+        <li><strong>Local MCP server</strong> — run via <code>npx</code> and connect over <code>stdio</code></li>
+      </ul>
 
-      <h3>Start the Server</h3>
+      <h3 id="hosted-mcp">Hosted MCP endpoint (recommended)</h3>
+      <p>Use the hosted endpoint at <code>https://api.webpeel.dev/mcp</code>. Any MCP client that supports Streamable HTTP can connect with just:</p>
+      <pre><code class="language-json">{
+  "url": "https://api.webpeel.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer &lt;key&gt;"
+  }
+}</code></pre>
+      <p><strong>Stateless:</strong> no session management required.</p>
+
+      <h3 id="local-mcp">Local MCP server</h3>
+      <p>Run WebPeel's MCP server locally via <code>npx</code> — no installation required.</p>
+
+      <h4>Start the Server</h4>
       <pre><code class="language-bash">npx webpeel mcp</code></pre>
 
-      <p>The server runs on <code>stdio</code> and is automatically managed by your MCP client.</p>
+      <p>The local server runs on <code>stdio</code> and is automatically managed by your MCP client.</p>
 
       <h2 id="configuration">Configuration</h2>
       <p>Add WebPeel to your MCP client's configuration file:</p>
@@ -199,7 +216,8 @@
       <pre><code class="language-bash">npx @smithery/cli install @webpeel/mcp</code></pre>
 
       <h2 id="available-tools">Available Tools</h2>
-      <p>The WebPeel MCP server provides 9 tools for web scraping and data extraction:</p>
+      <p>WebPeel provides 7 core MCP tools (supported by the hosted MCP endpoint): <code>webpeel_fetch</code>, <code>webpeel_search</code>, <code>webpeel_crawl</code>, <code>webpeel_map</code>, <code>webpeel_extract</code>, <code>webpeel_batch</code>, <code>webpeel_agent</code>.</p>
+      <p>The local MCP server may expose additional tools depending on your WebPeel version.</p>
 
       <h3 id="webpeel_fetch">webpeel_fetch</h3>
       <p>Fetch a URL and return clean, AI-ready markdown content.</p>
@@ -236,12 +254,14 @@
 "Fetch https://news.com and only show me the article content, excluding nav and ads"</code></pre>
 
       <h3 id="webpeel_search">webpeel_search</h3>
-      <p>Search the web using DuckDuckGo and return results with titles, URLs, and snippets.</p>
+      <p>Search the web (DuckDuckGo by default, or Brave Search with a BYOK API key) and return results with titles, URLs, and snippets.</p>
 
       <h4>Parameters</h4>
       <ul>
         <li><code>query</code> (string, <strong>required</strong>) — Search query</li>
         <li><code>count</code> (number) — Number of results (1-10, default: 5)</li>
+        <li><code>provider</code> (string) — <code>duckduckgo</code> (default) or <code>brave</code></li>
+        <li><code>searchApiKey</code> (string) — Brave Search API key (required when <code>provider="brave"</code>)</li>
       </ul>
 
       <h4>Example</h4>
@@ -324,6 +344,28 @@
       <h4>Example</h4>
       <pre><code class="language-javascript">// Ask your AI assistant:
 "Fetch these 5 URLs and compare their main content: [url1, url2, url3, url4, url5]"</code></pre>
+
+      <h3 id="webpeel_agent">webpeel_agent</h3>
+      <p>Run WebPeel’s research agent: search → fetch → analyze → answer. Supports streaming and structured output via JSON Schema.</p>
+
+      <h4>Parameters</h4>
+      <ul>
+        <li><code>prompt</code> (string, <strong>required</strong>) — Research task prompt</li>
+        <li><code>llmApiKey</code> (string, <strong>required</strong>) — LLM API key (BYOK)</li>
+        <li><code>llmModel</code> (string) — Model name (optional)</li>
+        <li><code>depth</code> (string) — <code>basic</code> or <code>thorough</code></li>
+        <li><code>topic</code> (string) — <code>general</code>, <code>news</code>, <code>technical</code>, <code>academic</code></li>
+        <li><code>maxSources</code> (number) — Max sources to fetch (1-20)</li>
+        <li><code>outputSchema</code> (object) — JSON Schema for structured output</li>
+        <li><code>stream</code> (boolean) — Stream progress + chunks via SSE</li>
+      </ul>
+
+      <h4>Example</h4>
+      <pre><code class="language-javascript">// Ask your AI assistant:
+"Use webpeel_agent to research the current best practices for SSE in Node.js.\nDepth: thorough. Topic: technical. Return JSON with fields: summary, pitfalls, and examples."</code></pre>
+
+      <hr style="margin: 32px 0; border: none; border-top: 1px solid #E4E4E7;" />
+      <p style="color: #71717A; font-size: 14px;">Additional tools (local MCP server only, if enabled):</p>
 
       <h3 id="webpeel_brand">webpeel_brand</h3>
       <p>Extract branding and design system from a URL. Returns colors, fonts, and visual identity.</p>

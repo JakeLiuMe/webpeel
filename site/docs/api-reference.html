@@ -55,9 +55,11 @@
         <div class="sidebar-title">Endpoints</div>
         <a href="#fetch" class="sidebar-link">Fetch</a>
         <a href="#search" class="sidebar-link">Search</a>
+        <a href="#answer" class="sidebar-link">Answer</a>
         <a href="#crawl" class="sidebar-link">Crawl</a>
         <a href="#batch" class="sidebar-link">Batch</a>
         <a href="#agent" class="sidebar-link">Agent</a>
+        <a href="#mcp" class="sidebar-link">MCP</a>
       </div>
     </aside>
 
@@ -255,7 +257,8 @@ with urllib.request.urlopen(req) as response:
       </div>
 
       <h2 id="search">GET /v1/search</h2>
-      <p>Search the web using DuckDuckGo and optionally scrape the results.</p>
+      <p>Search the web using DuckDuckGo (default, free) or Brave Search (BYOK for higher-quality results).</p>
+      <p>For Brave, pass your key via <code>searchApiKey</code> or the <code>x-search-api-key</code> header.</p>
 
       <div class="api-endpoint">
         <span class="api-method api-method-get">GET</span>
@@ -276,6 +279,16 @@ with urllib.request.urlopen(req) as response:
             <td><code class="param-name">q</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
             <td>Search query (max 500 characters)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">provider</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Search provider: <code>duckduckgo</code> (default) or <code>brave</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">searchApiKey</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Brave Search API key (alternative to <code>x-search-api-key</code> header)</td>
           </tr>
           <tr>
             <td><code class="param-name">count</code></td>
@@ -324,6 +337,101 @@ with urllib.request.urlopen(req) as response:
     ]
   }
 }</code></pre>
+
+      <h2 id="answer">POST /v1/answer</h2>
+      <p>Ask a question, search the web, fetch top sources, and generate an LLM answer with citations (<code>[1]</code>, <code>[2]</code>). BYOK — you provide your own LLM key.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/answer</span>
+      </div>
+
+      <h3>Request Body</h3>
+      <table class="param-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Type</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">question</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>The question to answer</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmProvider</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>LLM provider: <code>openai</code>, <code>anthropic</code>, or <code>google</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmApiKey</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>LLM API key (BYOK)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmModel</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Optional model name (uses provider default if omitted)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">searchProvider</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Search provider: <code>duckduckgo</code> (default) or <code>brave</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">searchApiKey</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Brave Search API key (optional; can also be sent via <code>x-search-api-key</code>)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">maxSources</code></td>
+            <td><span class="param-type">number</span></td>
+            <td>Max sources to fetch (default: 5)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">stream</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td>When <code>true</code>, stream via SSE (<code>text/event-stream</code>)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Example</h3>
+      <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/answer \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What is MCP and why does it matter for AI agents?",
+    "llmProvider": "openai",
+    "llmApiKey": "sk-...",
+    "searchProvider": "duckduckgo",
+    "maxSources": 5,
+    "stream": false
+  }'</code></pre>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "answer": "MCP (Model Context Protocol) is ... [1] ... [2] ...",
+  "citations": [
+    {
+      "title": "Model Context Protocol (MCP)",
+      "url": "https://example.com/mcp",
+      "snippet": "..."
+    }
+  ],
+  "searchProvider": "duckduckgo",
+  "llmProvider": "openai",
+  "llmModel": "gpt-4.1-mini",
+  "tokensUsed": { "input": 1234, "output": 456 }
+}</code></pre>
+
+      <h3>Streaming (SSE)</h3>
+      <p>When <code>stream=true</code>, the endpoint streams events like:</p>
+      <pre><code class="language-json">{"type":"chunk","text":"..."}
+{"type":"chunk","text":"..."}
+{"type":"done","citations":[{"title":"...","url":"..."}]}</code></pre>
 
       <h2 id="crawl">POST /v1/crawl</h2>
       <p>Start an async crawl job. Returns a job ID that can be polled for results.</p>
@@ -518,7 +626,32 @@ with urllib.request.urlopen(req) as response:
           <tr>
             <td><code class="param-name">schema</code></td>
             <td><span class="param-type">object</span></td>
-            <td>JSON schema for structured output</td>
+            <td>JSON schema for structured output (legacy — prefer <code>outputSchema</code>)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">outputSchema</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>JSON Schema for structured output (validated)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">depth</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Research depth: <code>basic</code> (default) or <code>thorough</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">topic</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>Topic hint: <code>general</code>, <code>news</code>, <code>technical</code>, <code>academic</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">maxSources</code></td>
+            <td><span class="param-type">number</span></td>
+            <td>Max sources to fetch and analyze (1-20, default: 5)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">stream</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td>When <code>true</code>, stream progress + chunks via SSE</td>
           </tr>
           <tr>
             <td><code class="param-name">maxIterations</code></td>
@@ -547,6 +680,28 @@ with urllib.request.urlopen(req) as response:
       }
     }
   }'</code></pre>
+
+      <h2 id="mcp">POST /mcp</h2>
+      <p>Hosted MCP endpoint (Streamable HTTP transport). Connect any MCP client with a single URL — no local server required.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/mcp</span>
+      </div>
+
+      <p>Endpoint URL: <code>https://api.webpeel.dev/mcp</code></p>
+      <p>Authentication: <code>Authorization: Bearer &lt;api_key&gt;</code></p>
+      <p>Supported tools: <code>webpeel_fetch</code>, <code>webpeel_search</code>, <code>webpeel_crawl</code>, <code>webpeel_map</code>, <code>webpeel_extract</code>, <code>webpeel_batch</code>, <code>webpeel_agent</code></p>
+
+      <h3>Client Setup</h3>
+      <pre><code class="language-json">{
+  "url": "https://api.webpeel.dev/mcp",
+  "headers": {
+    "Authorization": "Bearer &lt;key&gt;"
+  }
+}</code></pre>
+
+      <p><strong>Stateless:</strong> no session management required — each request is authenticated and handled independently.</p>
 
       <h2>Rate Limits</h2>
       <table>

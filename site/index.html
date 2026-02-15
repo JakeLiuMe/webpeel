@@ -392,7 +392,7 @@
   <!-- HERO -->
   <section class="hero">
     <div class="container">
-      <div class="hero-badge fade-up"><span class="dot"></span> v0.7.0 — Playground, Firecrawl-compatible API, docs & agent endpoint</div>
+      <div class="hero-badge fade-up"><span class="dot"></span> v0.7.0 — Answer endpoint, Brave Search BYOK, Hosted MCP, Playground</div>
       <h1 class="fade-up delay-1">Fetch the web,<br><em>read what matters.</em></h1>
       <p class="fade-up delay-2">125 free fetches every week. No credit card. Smart escalation from HTTP to headless browser. MCP server for Claude, Cursor & VS Code.</p>
       <div class="hero-actions fade-up delay-3">
@@ -496,9 +496,19 @@
           <p>Drop-in replacement. Change one URL and your Firecrawl code works with WebPeel. Zero code changes.</p>
         </div>
         <div class="step-card">
+          <div style="font-size: 32px; margin-bottom: 12px;">🧠</div>
+          <h3>Cited Answers</h3>
+          <p>Use <code>/v1/answer</code> to get a single, cited answer with <code>[1]</code>, <code>[2]</code> references. BYOK LLM key, no lock-in.</p>
+        </div>
+        <div class="step-card">
+          <div style="font-size: 32px; margin-bottom: 12px;">🔍</div>
+          <h3>Brave Search BYOK</h3>
+          <p>DuckDuckGo search is free by default. Bring your Brave Search API key for higher-quality results in the API, CLI, and Answer endpoint.</p>
+        </div>
+        <div class="step-card">
           <div style="font-size: 32px; margin-bottom: 12px;">🤖</div>
-          <h3>AI Agent Endpoint</h3>
-          <p>Autonomous web research via your own LLM. Give it a question, it searches and synthesizes the answer.</p>
+          <h3>AI Research Agent</h3>
+          <p>Autonomous web research via your own LLM. Streaming, depth controls, topic tuning, and JSON Schema output for structured results.</p>
         </div>
         <div class="step-card">
           <div style="font-size: 32px; margin-bottom: 12px;">🎨</div>
@@ -522,8 +532,8 @@
         </div>
         <div class="step-card">
           <div style="font-size: 32px; margin-bottom: 12px;">🔧</div>
-          <h3>9 MCP Tools</h3>
-          <p>Works with Claude, Cursor, Windsurf, VS Code. Fetch, search, crawl, map, extract, batch, brand, track, summarize.</p>
+          <h3>Hosted MCP Endpoint</h3>
+          <p>One URL, no local server. MCP Streamable HTTP transport with 7 core tools: fetch, search, crawl, map, extract, batch, agent.</p>
         </div>
       </div>
     </div>
@@ -664,7 +674,7 @@
               <div class="feature-tooltip">
                 Search built-in
                 <span class="tooltip-icon">ⓘ
-                  <span class="tooltip-text">DuckDuckGo search API included — no separate search tool needed</span>
+                  <span class="tooltip-text">DuckDuckGo included (free) + Brave Search BYOK for higher-quality results</span>
                 </span>
               </div>
             </td>

@@ -75,8 +75,14 @@ npx webpeel https://example.com --json
 # Use browser rendering
 npx webpeel https://example.com --render
 
-# Search the web
-npx webpeel search "AI news"</code></pre>
+# Search the web (DuckDuckGo default)
+npx webpeel search "AI news"
+
+# Search with Brave (BYOK)
+npx webpeel search "AI news" --provider brave --search-api-key $BRAVE_KEY
+
+# Get a cited answer (BYOK)
+npx webpeel answer "What is MCP?" --llm openai --llm-api-key $OPENAI_API_KEY</code></pre>
 
       <h2>Global Options</h2>
       <table>
@@ -245,10 +251,17 @@ npx webpeel https://example.com --cache 1h</code></pre>
       </table>
 
       <h3><code>webpeel search &lt;query&gt;</code></h3>
-      <p>Search the web using DuckDuckGo.</p>
+      <p>Search the web using DuckDuckGo (default, free) or Brave Search (BYOK).</p>
 
-      <pre><code class="language-bash"># Basic search
+      <pre><code class="language-bash"># Basic search (DuckDuckGo)
 npx webpeel search "AI news"
+
+# Use Brave Search (BYOK)
+npx webpeel search "AI news" --provider brave --search-api-key $BRAVE_KEY
+
+# Or set once in config
+npx webpeel config set braveApiKey $BRAVE_KEY
+npx webpeel search "AI news" --provider brave
 
 # Limit results
 npx webpeel search "python tutorials" -n 10
@@ -268,6 +281,77 @@ npx webpeel search "web scraping" --json</code></pre>
           <tr>
             <td><code>-n, --count &lt;n&gt;</code></td>
             <td>Number of results (1-10, default: 5)</td>
+          </tr>
+          <tr>
+            <td><code>--provider &lt;provider&gt;</code></td>
+            <td>Search provider: <code>duckduckgo</code> (default) or <code>brave</code></td>
+          </tr>
+          <tr>
+            <td><code>--search-api-key &lt;key&gt;</code></td>
+            <td>Brave Search API key (or env <code>WEBPEEL_BRAVE_API_KEY</code>)</td>
+          </tr>
+          <tr>
+            <td><code>--json</code></td>
+            <td>Output as JSON</td>
+          </tr>
+          <tr>
+            <td><code>-s, --silent</code></td>
+            <td>Silent mode</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><code>webpeel answer &lt;question&gt;</code></h3>
+      <p>Ask a question, search the web, fetch sources, and get an AI-generated answer with citations. BYOK — bring your own LLM API key.</p>
+
+      <pre><code class="language-bash"># Answer with citations (DuckDuckGo search by default)
+npx webpeel answer "What is MCP?" --llm openai --llm-api-key $OPENAI_API_KEY
+
+# Use Brave Search for higher-quality results (BYOK)
+npx webpeel answer "What is MCP?" \
+  --provider brave \
+  --search-api-key $BRAVE_KEY \
+  --llm anthropic \
+  --llm-api-key $ANTHROPIC_API_KEY \
+  --max-sources 5
+
+# JSON output
+npx webpeel answer "Compare DuckDuckGo vs Brave Search" \
+  --llm openai --llm-api-key $OPENAI_API_KEY \
+  --json</code></pre>
+
+      <h4>Options</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--provider &lt;provider&gt;</code></td>
+            <td>Search provider: <code>duckduckgo</code> (default) or <code>brave</code></td>
+          </tr>
+          <tr>
+            <td><code>--search-api-key &lt;key&gt;</code></td>
+            <td>Brave Search API key (or env <code>WEBPEEL_BRAVE_API_KEY</code>)</td>
+          </tr>
+          <tr>
+            <td><code>--llm &lt;provider&gt;</code></td>
+            <td>LLM provider: <code>openai</code>, <code>anthropic</code>, or <code>google</code></td>
+          </tr>
+          <tr>
+            <td><code>--llm-api-key &lt;key&gt;</code></td>
+            <td>LLM API key (or env <code>OPENAI_API_KEY</code> / <code>ANTHROPIC_API_KEY</code> / <code>GOOGLE_API_KEY</code>)</td>
+          </tr>
+          <tr>
+            <td><code>--llm-model &lt;model&gt;</code></td>
+            <td>Optional LLM model name (provider-specific)</td>
+          </tr>
+          <tr>
+            <td><code>--max-sources &lt;n&gt;</code></td>
+            <td>Maximum sources to fetch (1-10, default: 5)</td>
           </tr>
           <tr>
             <td><code>--json</code></td>
@@ -471,14 +555,17 @@ npx webpeel map https://example.com --include "/docs/" --exclude "/api/"</code><
 # Free: 45/125 fetches this week (36%)
 # Resets: Mon Feb 17 2026 00:00:00 EST</code></pre>
 
-      <h3><code>webpeel config [key] [value]</code></h3>
-      <p>View or update CLI configuration.</p>
+      <h3><code>webpeel config [action] [key] [value]</code></h3>
+      <p>View or update CLI configuration (stored in <code>~/.webpeel/config.json</code>).</p>
 
-      <pre><code class="language-bash"># Show all config
+      <pre><code class="language-bash"># Show overview
 npx webpeel config
 
 # Get specific key
-npx webpeel config apiKey</code></pre>
+npx webpeel config get braveApiKey
+
+# Set Brave Search API key (BYOK)
+npx webpeel config set braveApiKey $BRAVE_KEY</code></pre>
 
       <h3><code>webpeel cache &lt;action&gt;</code></h3>
       <p>Manage local response cache.</p>
@@ -570,6 +657,18 @@ npx webpeel summarize https://example.com \
           <tr>
             <td><code>OPENAI_API_KEY</code></td>
             <td>OpenAI API key for LLM features</td>
+          </tr>
+          <tr>
+            <td><code>ANTHROPIC_API_KEY</code></td>
+            <td>Anthropic API key for LLM features</td>
+          </tr>
+          <tr>
+            <td><code>GOOGLE_API_KEY</code></td>
+            <td>Google API key for Gemini / LLM features</td>
+          </tr>
+          <tr>
+            <td><code>WEBPEEL_BRAVE_API_KEY</code></td>
+            <td>Brave Search API key for <code>webpeel search</code> / <code>webpeel answer</code></td>
           </tr>
           <tr>
             <td><code>WEBPEEL_LLM_MODEL</code></td>
