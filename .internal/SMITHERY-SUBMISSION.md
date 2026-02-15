@@ -3,7 +3,7 @@
 ## How to Submit
 
 1. Go to https://smithery.ai
-2. Sign in with GitHub (JakeLiuMe)
+2. Sign in with GitHub (webpeel)
 3. Click "Submit Server" or "Add MCP Server"
 4. Fill in:
    - **Name:** WebPeel

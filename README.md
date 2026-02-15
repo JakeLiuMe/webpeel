@@ -251,7 +251,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT © [Jake Liu](https://github.com/JakeLiuMe)
+MIT © [WebPeel](https://github.com/webpeel)
 
 ---
 
