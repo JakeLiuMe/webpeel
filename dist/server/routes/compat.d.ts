@@ -6,6 +6,7 @@
  *
  * Implements Firecrawl endpoints:
  * - POST /v1/scrape
+ * - POST /v2/scrape  (v2 with formats: ["screenshot"] support)
  * - POST /v1/crawl
  * - GET /v1/crawl/:id
  * - POST /v1/search

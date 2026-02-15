@@ -32,6 +32,9 @@ export interface SearchProvider {
 export declare class DuckDuckGoProvider implements SearchProvider {
     readonly id: SearchProviderId;
     readonly requiresApiKey = false;
+    private buildQueryAttempts;
+    private buildSearchUrl;
+    private searchOnce;
     searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]>;
 }
 export declare class BraveSearchProvider implements SearchProvider {

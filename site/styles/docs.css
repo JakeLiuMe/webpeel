@@ -247,6 +247,22 @@ img, svg {
 }
 
 /* ---------- Typography ---------- */
+
+/* Make the docs landing page more compact so content starts above the fold */
+.docs-home .breadcrumbs {
+  margin-bottom: 14px;
+}
+
+.docs-home .docs-content h1 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.docs-home .lead {
+  font-size: 16px;
+  margin-bottom: 20px;
+}
+
 .docs-content h1 {
   font-family: 'Inter', sans-serif;
   font-size: 32px;

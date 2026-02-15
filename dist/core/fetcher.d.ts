@@ -1,11 +1,16 @@
 /**
  * Core fetching logic: simple HTTP and browser-based fetching
  */
+import type { PageAction } from '../types.js';
 export interface FetchResult {
+    /** Text content (HTML/JSON/XML/plain text). For binary documents, this may be an empty string. */
     html: string;
+    /** Raw response body (used for binary documents like PDFs/DOCX). */
+    buffer?: Buffer;
     url: string;
     statusCode?: number;
     screenshot?: Buffer;
+    /** Raw Content-Type header from the response (may include charset). */
     contentType?: string;
     /** Playwright page object (only available in browser/stealth mode, must be closed by caller) */
     page?: import('playwright-core').Page;
@@ -31,6 +36,25 @@ export declare function browserFetch(url: string, options?: {
     headers?: Record<string, string>;
     cookies?: string[];
     stealth?: boolean;
+    actions?: PageAction[];
+    /** Keep the browser page open after fetch (caller must close page + browser) */
+    keepPageOpen?: boolean;
+}): Promise<FetchResult>;
+/**
+ * Retry a fetch operation with exponential backoff
+ */
+export declare function browserScreenshot(url: string, options?: {
+    fullPage?: boolean;
+    width?: number;
+    height?: number;
+    format?: 'png' | 'jpeg';
+    quality?: number;
+    waitMs?: number;
+    timeoutMs?: number;
+    userAgent?: string;
+    headers?: Record<string, string>;
+    cookies?: string[];
+    stealth?: boolean;
     actions?: Array<{
         type: 'wait' | 'click' | 'scroll' | 'type' | 'fill' | 'select' | 'press' | 'hover' | 'waitForSelector' | 'screenshot';
         selector?: string;
@@ -40,12 +64,10 @@ export declare function browserFetch(url: string, options?: {
         to?: 'top' | 'bottom' | number;
         timeout?: number;
     }>;
-    /** Keep the browser page open after fetch (caller must close page + browser) */
-    keepPageOpen?: boolean;
-}): Promise<FetchResult>;
-/**
- * Retry a fetch operation with exponential backoff
- */
+}): Promise<{
+    buffer: Buffer;
+    finalUrl: string;
+}>;
 export declare function retryFetch<T>(fn: () => Promise<T>, maxAttempts?: number, baseDelayMs?: number): Promise<T>;
 /**
  * Clean up browser resources

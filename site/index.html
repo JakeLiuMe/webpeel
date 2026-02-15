@@ -56,7 +56,7 @@
         "name": "What happens if I exceed my WebPeel limits?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "When you reach your plan's weekly or hourly limit, further requests will be paused until the limit resets. You can upgrade your plan anytime for higher limits."
+          "text": "WebPeel enforces hard usage limits. If you hit your hourly burst limit or weekly cap, requests are blocked until the relevant window resets (hourly resets automatically; weekly resets every Monday). Paid plans work the same way with higher limits, and can add extra usage credits when needed."
         }
       },
       {
@@ -280,7 +280,7 @@
     .faq-item.open .faq-arrow { transform: rotate(180deg); }
     .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
     .faq-answer-inner { padding: 0 20px 16px; color: var(--text-2); font-size: 14px; line-height: 1.6; }
-    .faq-item.open .faq-answer { max-height: 200px; }
+    .faq-item.open .faq-answer { max-height: 320px; }
 
     /* CTA */
     .cta-section { text-align: center; padding: 100px 0; background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, transparent 100%); position: relative; overflow: hidden; }
@@ -1014,6 +1014,31 @@
         </div>
       </div>
 
+      <!-- EXTRA USAGE PRICING -->
+      <div style="max-width: 800px; margin: 20px auto 0; padding: 24px; background: white; border: 1px solid var(--border); border-radius: var(--radius);">
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--text);">Extra usage pricing</h3>
+        <p style="font-size: 14px; color: var(--text-3); margin-bottom: 18px;">If you’re on Pro or Max and run out of included usage, you can purchase extra credits. Free plan has no overages — requests pause until the weekly reset.</p>
+        <div style="display: grid; gap: 10px;">
+          <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
+            <span style="font-size: 14px; font-weight: 500; color: var(--text);">Basic fetch</span>
+            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.002 / extra credit</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
+            <span style="font-size: 14px; font-weight: 500; color: var(--text);">Search</span>
+            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.001 / extra credit</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
+            <span style="font-size: 14px; font-weight: 500; color: var(--text);">Stealth mode</span>
+            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.01 / extra credit</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
+            <span style="font-size: 14px; font-weight: 500; color: var(--text);">CAPTCHA solve</span>
+            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.02 / extra credit</span>
+          </div>
+        </div>
+        <div style="margin-top: 12px; font-size: 13px; color: var(--text-3);">Prices shown are per extra credit (usage above your included weekly credits).</div>
+      </div>
+
       <!-- FAQ SECTION -->
       <div class="faq-section">
         <div class="faq-title">Frequently Asked Questions</div>
@@ -1024,7 +1049,7 @@
           </div>
           <div class="faq-answer">
             <div class="faq-answer-inner">
-              When you reach your plan's weekly or hourly limit, further requests will be paused until the limit resets. You can upgrade your plan anytime for higher limits.
+              WebPeel enforces hard usage limits. If you hit your hourly burst limit or weekly cap, requests are blocked until the relevant window resets (hourly resets automatically; weekly resets every Monday). Free has no overages — you’ll need to wait for the reset. Pro/Max work the same way with higher limits, and can add extra usage credits when needed.
             </div>
           </div>
         </div>

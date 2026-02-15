@@ -84,7 +84,8 @@ export function createAuthMiddleware(authStore: AuthStore) {
         if (!keyInfo) {
           res.status(401).json({
             error: 'invalid_key',
-            message: 'Invalid API key',
+            message: 'Invalid or expired API key. Check your key at https://app.webpeel.dev/keys or generate a new one.',
+            docs: 'https://webpeel.dev/docs/api-reference#authentication',
           });
           return;
         }
@@ -101,10 +102,18 @@ export function createAuthMiddleware(authStore: AuthStore) {
             res.setHeader('X-Burst-Limit', burst.limit.toString());
             res.setHeader('X-Burst-Used', burst.count.toString());
             
+            const tier = keyInfo?.tier || 'free';
+            const upgradeHint = tier === 'free'
+              ? ' Upgrade to Pro ($9/mo) for 100/hr → https://webpeel.dev/pricing'
+              : tier === 'pro'
+              ? ' Upgrade to Max ($29/mo) for 500/hr → https://webpeel.dev/pricing'
+              : '';
             res.status(429).json({
               error: 'burst_limit_exceeded',
-              message: `Hourly burst limit exceeded (${burst.count}/${burst.limit}). Please wait ${burst.resetsIn} before making more requests.`,
+              message: `Hourly burst limit exceeded (${burst.count}/${burst.limit} on ${tier} plan). Resets in ${burst.resetsIn}.${upgradeHint}`,
               retryAfter: burst.resetsIn,
+              plan: tier,
+              docs: 'https://webpeel.dev/docs/api-reference#rate-limits',
             });
             return;
           }

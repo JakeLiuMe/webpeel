@@ -96,10 +96,19 @@ export function createRateLimitMiddleware(limiter) {
             }
             if (!result.allowed) {
                 res.setHeader('Retry-After', result.retryAfter.toString());
+                const tier = req.auth?.tier || 'free';
+                const upgradeHint = tier === 'free'
+                    ? ' Upgrade to Pro ($9/mo) for 100/hr burst limit → https://webpeel.dev/pricing'
+                    : tier === 'pro'
+                        ? ' Upgrade to Max ($29/mo) for 500/hr burst limit → https://webpeel.dev/pricing'
+                        : '';
                 res.status(429).json({
                     error: 'rate_limited',
-                    message: 'Rate limit exceeded',
+                    message: `Hourly rate limit exceeded (${limit} requests/hr on ${tier} plan). Try again in ${result.retryAfter}s.${upgradeHint}`,
                     retryAfter: result.retryAfter,
+                    limit,
+                    plan: tier,
+                    docs: 'https://webpeel.dev/docs/api-reference#rate-limits',
                 });
                 return; // Stop processing - rate limit exceeded
             }

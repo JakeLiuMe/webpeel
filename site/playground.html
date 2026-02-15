@@ -366,6 +366,8 @@
     let currentMode = 'scrape';
     let lastRequest = null;
     let lastResponse = null;
+    let lastRenderedMarkdown = '';
+    let lastRenderedJson = '';
 
     // DOM elements
     const tabs = document.querySelectorAll('.tab');
@@ -598,12 +600,23 @@
       // - { results: [...] }
       // - { data: { web: [...] } } (current /v1/search)
       // - { data: { results: [...] } }
-      const container = payload?.data || payload || {};
-      const raw =
-        (Array.isArray(container.results) && container.results) ||
-        (Array.isArray(container.web) && container.web) ||
-        (Array.isArray(container.items) && container.items) ||
-        [];
+      // - { data: { results: { web: [...] } } }
+      const container =
+        payload?.data?.data ||
+        payload?.data ||
+        payload ||
+        {};
+
+      const candidates = [
+        container?.results,
+        container?.web,
+        container?.items,
+        container?.results?.web,
+        container?.results?.items,
+        container?.web?.results
+      ];
+
+      const raw = candidates.find(Array.isArray) || [];
 
       return raw
         .map(r => ({
@@ -616,7 +629,12 @@
 
     // Display results
     function displayResults(data, responseTime) {
-      let content = '';
+      // Default to the formatted/markdown view for each new response.
+      showingJSON = false;
+      lastRenderedJson = JSON.stringify(data, null, 2);
+
+      const searchResults = currentMode === 'search' ? getSearchResults(data) : null;
+
       let metrics = '';
 
       // Build metrics
@@ -644,6 +662,7 @@
           </div>
         `;
       } else if (currentMode === 'search') {
+        const resultCount = (searchResults || []).length;
         metrics = `
           <div class="metrics">
             <div class="metric">
@@ -652,7 +671,7 @@
             </div>
             <div class="metric">
               <div class="metric-label">Results</div>
-              <div class="metric-value">${getSearchResults(data).length}</div>
+              <div class="metric-value">${resultCount.toLocaleString()}</div>
             </div>
           </div>
         `;
@@ -716,46 +735,44 @@
       let resultContent = '';
       if (currentMode === 'scrape') {
         const markdown = data.content || data.markdown || '';
+        lastRenderedMarkdown = markdown;
         resultContent = `
           <div class="result-content markdown-body" id="result-markdown">
             ${marked.parse(markdown)}
           </div>
           <div class="result-content json" id="result-json" style="display: none;">
-            <pre>${JSON.stringify(data, null, 2)}</pre>
+            <pre>${escapeHtml(lastRenderedJson)}</pre>
           </div>
         `;
       } else if (currentMode === 'search') {
-        const results = getSearchResults(data);
-        const itemsHtml = results
+        const results = searchResults || getSearchResults(data);
+
+        const itemsMd = results
           .map((r, i) => {
-            const title = escapeHtml(r.title || r.url || `Result ${i + 1}`);
-            const url = escapeHtml(r.url || '');
-            const snippet = r.snippet
-              ? `<div class="search-result-snippet">${escapeHtml(r.snippet)}</div>`
-              : '';
+            const title = escapeMarkdownText(r.title || r.url || `Result ${i + 1}`);
+            const url = (r.url || '').trim();
+            const hasUrl = url && /^https?:\/\//.test(url);
+            const snippet = escapeMarkdownText(r.snippet || '');
 
-            return `
-              <div class="search-result">
-                <div class="search-result-title">
-                  <a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>
-                </div>
-                ${url ? `<div class="search-result-url">${url}</div>` : ''}
-                ${snippet}
-              </div>
-            `;
+            const lines = [hasUrl ? `- [${title}](<${url}>)` : `- ${title}`];
+            if (hasUrl) lines.push(`  - URL: <${url}>`);
+            if (snippet) lines.push(`  - ${snippet}`);
+            return lines.join('\n');
           })
-          .join('');
+          .join('\n');
 
-        const html = results.length
-          ? `<div class="search-results">${itemsHtml}</div>`
-          : `<div class="search-empty">No results found.</div>`;
+        const markdown = results.length
+          ? `## Search Results (${results.length.toLocaleString()})\n\n${itemsMd}`
+          : `## Search Results\n\n_No results found._`;
+
+        lastRenderedMarkdown = markdown;
 
         resultContent = `
           <div class="result-content markdown-body" id="result-markdown">
-            ${html}
+            ${marked.parse(markdown)}
           </div>
           <div class="result-content json" id="result-json" style="display: none;">
-            <pre>${JSON.stringify(data, null, 2)}</pre>
+            <pre>${escapeHtml(lastRenderedJson)}</pre>
           </div>
         `;
       } else if (currentMode === 'answer') {
@@ -773,13 +790,14 @@
           : '_No citations returned._';
 
         const markdown = `${answer}\n\n---\n\n## Sources\n\n${sourcesMd}`;
+        lastRenderedMarkdown = markdown;
 
         resultContent = `
           <div class="result-content markdown-body" id="result-markdown">
             ${marked.parse(markdown)}
           </div>
           <div class="result-content json" id="result-json" style="display: none;">
-            <pre>${JSON.stringify(data, null, 2)}</pre>
+            <pre>${escapeHtml(lastRenderedJson)}</pre>
           </div>
         `;
       } else if (currentMode === 'crawl' || currentMode === 'map') {
@@ -787,12 +805,13 @@
         const markdown = pages.map((p, i) => 
           `### ${i + 1}. ${p.title || p.url}\n\n${p.url}\n\n${currentMode === 'crawl' ? (p.content?.substring(0, 200) + '...' || '') : ''}`
         ).join('\n\n---\n\n');
+        lastRenderedMarkdown = markdown;
         resultContent = `
           <div class="result-content markdown-body" id="result-markdown">
             ${marked.parse(markdown)}
           </div>
           <div class="result-content json" id="result-json" style="display: none;">
-            <pre>${JSON.stringify(data, null, 2)}</pre>
+            <pre>${escapeHtml(lastRenderedJson)}</pre>
           </div>
         `;
       }
@@ -824,10 +843,11 @@
 
     // Copy result
     function copyResult() {
-      const text = showingJSON 
-        ? JSON.stringify(lastResponse, null, 2)
-        : (lastResponse.content || lastResponse.markdown || lastResponse.answer || JSON.stringify(lastResponse, null, 2));
-      
+      const fallback = JSON.stringify(lastResponse, null, 2);
+      const text = showingJSON
+        ? (lastRenderedJson || fallback)
+        : (lastRenderedMarkdown || lastResponse?.content || lastResponse?.markdown || lastResponse?.answer || fallback);
+
       navigator.clipboard.writeText(text).then(() => {
         const btn = event.target.closest('button');
         const originalHTML = btn.innerHTML;
@@ -1029,6 +1049,18 @@ print(result['pages'])`;
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    function escapeMarkdownText(text) {
+      const cleaned = String(text || '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // Keep this minimal: we want readable markdown, but no accidental formatting.
+      return cleaned.replace(/([\\`*_\[\]()])/g, '\\$1');
     }
 
     // Enter key to run

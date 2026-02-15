@@ -53,7 +53,9 @@ export function createFetchRouter(authStore: AuthStore): Router {
       if (!url || typeof url !== 'string') {
         res.status(400).json({
           error: 'invalid_request',
-          message: 'Missing or invalid "url" parameter',
+          message: 'Missing or invalid "url" parameter. Pass a URL as a query parameter: GET /v1/fetch?url=https://example.com',
+          example: 'curl "https://api.webpeel.dev/v1/fetch?url=https://example.com"',
+          docs: 'https://webpeel.dev/docs/api-reference#fetch',
         });
         return;
       }
@@ -303,18 +305,32 @@ export function createFetchRouter(authStore: AuthStore): Router {
       
       // SECURITY: Sanitize error messages to prevent information disclosure
       if (err.code) {
-        // WebPeelError from core library - safe to expose
+        // WebPeelError from core library - safe to expose with helpful context
         const safeMessage = err.message.replace(/[<>"']/g, ''); // Remove HTML chars
-        res.status(500).json({
+        const statusCode = err.code === 'TIMEOUT' ? 504 
+          : err.code === 'BLOCKED' ? 403 
+          : err.code === 'NETWORK' ? 502 
+          : 500;
+        
+        const hints: Record<string, string> = {
+          TIMEOUT: 'Try increasing timeout with ?wait=10000, or use render=true for JS-heavy sites.',
+          BLOCKED: 'This site blocks automated requests. Try adding render=true or use stealth mode (costs 5 credits).',
+          NETWORK: 'Could not reach the target URL. Verify the URL is correct and the site is online.',
+        };
+
+        res.status(statusCode).json({
           error: err.code,
           message: safeMessage,
+          hint: hints[err.code] || undefined,
+          docs: 'https://webpeel.dev/docs/api-reference#errors',
         });
       } else {
         // Unexpected error - generic message only
         console.error('Fetch error:', err); // Log full error server-side
         res.status(500).json({
           error: 'internal_error',
-          message: 'An unexpected error occurred while fetching the URL',
+          message: 'An unexpected error occurred while fetching the URL. If this persists, check https://webpeel.dev/status',
+          docs: 'https://webpeel.dev/docs/api-reference#errors',
         });
       }
     }
@@ -371,7 +387,9 @@ export function createFetchRouter(authStore: AuthStore): Router {
       if (!url || typeof url !== 'string') {
         res.status(400).json({
           error: 'invalid_request',
-          message: 'Missing or invalid "url" parameter',
+          message: 'Missing or invalid "url" in request body. Send JSON: { "url": "https://example.com" }',
+          example: 'curl -X POST https://api.webpeel.dev/v1/fetch -H "Content-Type: application/json" -d \'{"url":"https://example.com"}\'',
+          docs: 'https://webpeel.dev/docs/api-reference#fetch',
         });
         return;
       }
@@ -603,11 +621,28 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
       if (err.code) {
         const safeMessage = err.message.replace(/[<>"']/g, '');
-        res.status(500).json({ error: err.code, message: safeMessage });
+        const statusCode = err.code === 'TIMEOUT' ? 504 
+          : err.code === 'BLOCKED' ? 403 
+          : err.code === 'NETWORK' ? 502 
+          : 500;
+        
+        const hints: Record<string, string> = {
+          TIMEOUT: 'Try increasing timeout, or set render:true for JS-heavy sites.',
+          BLOCKED: 'Site blocks automated requests. Try render:true or stealth mode.',
+          NETWORK: 'Could not reach the target URL. Verify it is correct and online.',
+        };
+
+        res.status(statusCode).json({
+          error: err.code,
+          message: safeMessage,
+          hint: hints[err.code] || undefined,
+          docs: 'https://webpeel.dev/docs/api-reference#errors',
+        });
       } else {
         res.status(500).json({
           error: 'internal_error',
-          message: 'An unexpected error occurred while fetching the URL',
+          message: 'An unexpected error occurred. If this persists, check https://webpeel.dev/status',
+          docs: 'https://webpeel.dev/docs/api-reference#errors',
         });
       }
     }

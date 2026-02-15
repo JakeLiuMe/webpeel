@@ -13,7 +13,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, } from '@modelcontextprotocol/sdk/types.js';
 import { peel, peelBatch } from '../../index.js';
+import { normalizeActions } from '../../core/actions.js';
 import { runAgent } from '../../core/agent.js';
+import { extractInlineJson } from '../../core/extract-inline.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -45,6 +47,37 @@ function getTools() {
                     selector: { type: 'string', description: 'CSS selector to extract specific content' },
                     maxTokens: { type: 'number', description: 'Maximum token count for output' },
                     images: { type: 'boolean', description: 'Extract image URLs', default: false },
+                    inlineExtract: {
+                        type: 'object',
+                        description: 'Inline LLM-powered JSON extraction (BYOK). Provide schema and/or prompt.',
+                        properties: {
+                            schema: { type: 'object', description: 'JSON Schema for desired output' },
+                            prompt: { type: 'string', description: 'Extraction prompt' },
+                        },
+                    },
+                    llmProvider: { type: 'string', enum: ['openai', 'anthropic', 'google'], description: 'LLM provider for inline extraction' },
+                    llmApiKey: { type: 'string', description: 'LLM API key (BYOK) for inline extraction' },
+                    llmModel: { type: 'string', description: 'LLM model name (optional)' },
+                    actions: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                type: { type: 'string', enum: ['click', 'type', 'fill', 'scroll', 'wait', 'press', 'hover', 'select', 'waitForSelector', 'screenshot'] },
+                                selector: { type: 'string' },
+                                value: { type: 'string' },
+                                text: { type: 'string' },
+                                key: { type: 'string' },
+                                milliseconds: { type: 'number' },
+                                ms: { type: 'number' },
+                                direction: { type: 'string', enum: ['up', 'down', 'left', 'right'] },
+                                amount: { type: 'number' },
+                                timeout: { type: 'number' },
+                            },
+                            required: ['type'],
+                        },
+                        description: 'Page actions to execute before extraction (auto-enables browser rendering)',
+                    },
                 },
                 required: ['url'],
             },
@@ -159,19 +192,42 @@ async function handleToolCall(name, args) {
                 throw new Error('Invalid URL');
             if (url.length > 2048)
                 throw new Error('URL too long');
+            // Normalize actions (handles Firecrawl-style aliases)
+            const parsedActions = args.actions ? normalizeActions(args.actions) : undefined;
+            const hasActions = parsedActions && parsedActions.length > 0;
             const options = {
-                render: args.render || false,
+                render: args.render || hasActions || false,
                 stealth: args.stealth || false,
                 wait: args.wait || 0,
                 format: args.format || 'markdown',
                 selector: args.selector,
                 maxTokens: args.maxTokens,
                 images: args.images,
+                actions: parsedActions,
             };
             const result = await Promise.race([
                 peel(url, options),
                 timeout(60000, 'Fetch timed out'),
             ]);
+            // Inline LLM extraction (post-fetch, BYOK)
+            const inlineExtract = args.inlineExtract;
+            const llmProvider = args.llmProvider;
+            const llmApiKey = args.llmApiKey;
+            const llmModel = args.llmModel;
+            if (inlineExtract && (inlineExtract.schema || inlineExtract.prompt) && llmApiKey && llmProvider) {
+                const validProviders = ['openai', 'anthropic', 'google'];
+                if (validProviders.includes(llmProvider)) {
+                    const extractResult = await extractInlineJson(result.content, {
+                        schema: inlineExtract.schema,
+                        prompt: inlineExtract.prompt,
+                        llmProvider: llmProvider,
+                        llmApiKey,
+                        llmModel,
+                    });
+                    result.json = extractResult.data;
+                    result.extractTokensUsed = extractResult.tokensUsed;
+                }
+            }
             return ok(safeStringify(result));
         }
         // webpeel_search

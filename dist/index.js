@@ -9,6 +9,7 @@ import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainCo
 import { extractMetadata, extractLinks, extractImages } from './core/metadata.js';
 import { cleanup } from './core/fetcher.js';
 import { extractStructured } from './core/extract.js';
+import { isPdfContentType, isDocxContentType, extractDocumentToFormat } from './core/documents.js';
 export * from './types.js';
 export { crawl } from './core/crawler.js';
 export { discoverSitemap } from './core/sitemap.js';
@@ -16,6 +17,8 @@ export { mapDomain } from './core/map.js';
 export { extractBranding } from './core/branding.js';
 export { trackChange, getSnapshot, clearSnapshots } from './core/change-tracking.js';
 export { extractWithLLM } from './core/extract.js';
+export { extractDocumentToFormat, isPdfContentType, isDocxContentType } from './core/documents.js';
+export { extractInlineJson } from './core/extract-inline.js';
 export { runAgent } from './core/agent.js';
 export { summarizeContent } from './core/summarize.js';
 export { getSearchProvider, DuckDuckGoProvider, BraveSearchProvider, } from './core/search-provider.js';
@@ -39,11 +42,8 @@ export { answerQuestion, } from './core/answer.js';
 export async function peel(url, options = {}) {
     const startTime = Date.now();
     let { render = false, stealth = false, wait = 0, format = 'markdown', timeout = 30000, userAgent, screenshot = false, screenshotFullPage = false, selector, exclude, includeTags, excludeTags, headers, cookies, raw = false, actions, extract, maxTokens, images: extractImagesFlag = false, location: _location, } = options;
-    // Detect PDF URLs and force browser rendering
-    const isPdf = url.toLowerCase().endsWith('.pdf');
-    if (isPdf) {
-        render = true;
-    }
+    // NOTE: PDFs/DOCX are now handled via simpleFetch + document parser.
+    // No need to force browser rendering for them.
     // If screenshot is requested, force render mode
     if (screenshot) {
         render = true;
@@ -78,17 +78,34 @@ export async function peel(url, options = {}) {
         });
         // Detect content type from the response
         const ct = (fetchResult.contentType || '').toLowerCase();
-        const isHTML = ct.includes('html') || ct.includes('xhtml') || (!ct && fetchResult.html.trimStart().startsWith('<'));
-        const isJSON = ct.includes('json');
-        const isXML = ct.includes('xml') || ct.includes('rss') || ct.includes('atom');
-        const isPlainText = ct.includes('text/plain') || ct.includes('text/markdown') || ct.includes('text/csv') || ct.includes('text/css') || ct.includes('javascript');
-        const detectedType = isHTML ? 'html' : isJSON ? 'json' : isXML ? 'xml' : isPlainText ? 'text' : 'html';
+        const urlLower = fetchResult.url.toLowerCase();
+        // Check for binary document types (PDF/DOCX)
+        const isDocument = isPdfContentType(ct) || isDocxContentType(ct) ||
+            urlLower.endsWith('.pdf') || urlLower.endsWith('.docx');
+        const hasBuffer = !!fetchResult.buffer;
+        const isHTML = !isDocument && (ct.includes('html') || ct.includes('xhtml') || (!ct && fetchResult.html.trimStart().startsWith('<')));
+        const isJSON = !isDocument && ct.includes('json');
+        const isXML = !isDocument && (ct.includes('xml') || ct.includes('rss') || ct.includes('atom'));
+        const isPlainText = !isDocument && (ct.includes('text/plain') || ct.includes('text/markdown') || ct.includes('text/csv') || ct.includes('text/css') || ct.includes('javascript'));
+        const detectedType = isDocument ? 'document' : isHTML ? 'html' : isJSON ? 'json' : isXML ? 'xml' : isPlainText ? 'text' : 'html';
         let content;
         let title = '';
         let metadata = {};
         let links = [];
         let quality = 0;
-        if (isHTML) {
+        if (isDocument && hasBuffer) {
+            // Document parsing pipeline (PDF/DOCX)
+            const docResult = await extractDocumentToFormat(fetchResult.buffer, {
+                url: fetchResult.url,
+                contentType: fetchResult.contentType,
+                format,
+            });
+            content = docResult.content;
+            title = docResult.metadata.title;
+            metadata = docResult.metadata;
+            quality = 1.0; // Documents are inherently structured content
+        }
+        else if (isHTML) {
             // Standard HTML pipeline
             let html = fetchResult.html;
             // Apply include/exclude tags filtering first (before selector)

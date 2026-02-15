@@ -38,12 +38,128 @@ export interface SearchProvider {
   searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]>;
 }
 
+function decodeHtmlEntities(input: string): string {
+  // Cheerio usually decodes entities when using `.text()`, but keep this as a
+  // safety net since DuckDuckGo snippets sometimes leak encoded entities.
+  return input
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => {
+      const cp = Number.parseInt(String(hex), 16);
+      if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff) return _m;
+      try {
+        return String.fromCodePoint(cp);
+      } catch {
+        return _m;
+      }
+    })
+    .replace(/&#(\d+);/g, (_m, num) => {
+      const cp = Number.parseInt(String(num), 10);
+      if (!Number.isFinite(cp) || cp < 0 || cp > 0x10ffff) return _m;
+      try {
+        return String.fromCodePoint(cp);
+      } catch {
+        return _m;
+      }
+    });
+}
+
+function cleanText(
+  input: string,
+  opts: {
+    maxLen: number;
+    stripEllipsisPadding?: boolean;
+  },
+): string {
+  let s = decodeHtmlEntities(input);
+  s = s.replace(/\s+/g, ' ').trim();
+
+  if (opts.stripEllipsisPadding) {
+    // Remove leading/trailing "..." or Unicode ellipsis padding.
+    s = s
+      .replace(/^(?:\.{3,}|…)+\s*/g, '')
+      .replace(/\s*(?:\.{3,}|…)+$/g, '')
+      .trim();
+  }
+
+  if (s.length > opts.maxLen) s = s.slice(0, opts.maxLen);
+  return s;
+}
+
+function normalizeUrlForDedupe(rawUrl: string): string {
+  try {
+    const u = new URL(rawUrl);
+    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    let path = u.pathname || '/';
+    path = path.replace(/\/+$/g, '');
+    return `${host}${path}`;
+  } catch {
+    return rawUrl
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/[?#].*$/, '')
+      .replace(/\/+$/g, '');
+  }
+}
+
 export class DuckDuckGoProvider implements SearchProvider {
   readonly id: SearchProviderId = 'duckduckgo';
   readonly requiresApiKey = false;
 
-  async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
-    const { count, tbs, country, location, signal } = options;
+  private buildQueryAttempts(originalQuery: string): string[] {
+    const q = originalQuery.trim();
+    if (!q) return [];
+
+    const attempts: string[] = [];
+
+    // Required retry strategy order:
+    // 1) original query
+    // 2) quoted query
+    // 3) query site:*
+    attempts.push(q);
+    if (!/^".*"$/.test(q)) attempts.push(`"${q}"`);
+    attempts.push(`${q} site:*`);
+
+    // Single-word queries are disproportionately likely to return 0 results on
+    // the DDG HTML endpoint (e.g. "openai" vs "open ai"). When the first three
+    // attempts fail, try a few light-touch strategies that tend to coax the
+    // parser into returning web results.
+    const isSingleWord = !/\s/.test(q);
+    const looksLikeUrlOrDomain = /[./]/.test(q) || /^https?:/i.test(q);
+
+    if (isSingleWord && !looksLikeUrlOrDomain) {
+      // Try splitting a common suffix (e.g. openai -> open ai)
+      if (/^[a-z]{5,}ai$/i.test(q)) {
+        attempts.push(`${q.slice(0, -2)} ai`);
+      }
+
+      // Common suffixes that often return at least the official domain
+      attempts.push(`${q}.com`);
+      attempts.push(`site:${q}.com`);
+      attempts.push(`${q} website`);
+    }
+
+    // De-dupe attempts (case-insensitive)
+    const seen = new Set<string>();
+    return attempts
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+      .filter((s) => {
+        const key = s.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  }
+
+  private buildSearchUrl(query: string, options: WebSearchOptions): string {
+    const { tbs, country, location } = options;
 
     const params = new URLSearchParams();
     params.set('q', query);
@@ -59,11 +175,19 @@ export class DuckDuckGoProvider implements SearchProvider {
       if (region) params.set('kl', region);
     }
 
-    const searchUrl = `https://html.duckduckgo.com/html/?${params.toString()}`;
+    return `https://html.duckduckgo.com/html/?${params.toString()}`;
+  }
+
+  private async searchOnce(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
+    const { count, signal } = options;
+
+    const searchUrl = this.buildSearchUrl(query, options);
 
     const response = await undiciFetch(searchUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
       signal,
     });
@@ -76,14 +200,21 @@ export class DuckDuckGoProvider implements SearchProvider {
     const $ = load(html);
 
     const results: WebSearchResult[] = [];
+    const seen = new Set<string>();
 
     $('.result').each((_i, elem) => {
       if (results.length >= count) return;
 
       const $result = $(elem);
-      let title = $result.find('.result__title').text().trim();
+
+      // Be resilient to markup variations: title can be in .result__title or
+      // directly on the anchor.
+      const titleRaw = $result.find('.result__title').text() || $result.find('.result__a').text();
       const rawUrl = $result.find('.result__a').attr('href') || '';
-      let snippet = $result.find('.result__snippet').text().trim();
+      const snippetRaw = $result.find('.result__snippet').text();
+
+      let title = cleanText(titleRaw, { maxLen: 200 });
+      let snippet = cleanText(snippetRaw, { maxLen: 500, stripEllipsisPadding: true });
 
       if (!title || !rawUrl) return;
 
@@ -92,16 +223,20 @@ export class DuckDuckGoProvider implements SearchProvider {
       try {
         const ddgUrl = new URL(rawUrl, 'https://duckduckgo.com');
         const uddg = ddgUrl.searchParams.get('uddg');
-        if (uddg) {
-          url = decodeURIComponent(uddg);
-        }
+        if (uddg) url = decodeURIComponent(uddg);
       } catch {
         // Use raw URL if parsing fails
       }
 
       // SECURITY: Validate and sanitize results — only allow HTTP/HTTPS URLs
       try {
-        const parsed = new URL(url);
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          // Handle protocol-relative or relative URLs (rare but possible)
+          parsed = new URL(url, 'https://duckduckgo.com');
+        }
         if (!['http:', 'https:'].includes(parsed.protocol)) {
           return;
         }
@@ -110,14 +245,27 @@ export class DuckDuckGoProvider implements SearchProvider {
         return;
       }
 
-      // Limit text lengths to prevent bloat
-      title = title.slice(0, 200);
-      snippet = snippet.slice(0, 500);
+      // Deduplicate by normalized URL (strip query params, www, trailing slash)
+      const dedupeKey = normalizeUrlForDedupe(url);
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
 
       results.push({ title, url, snippet });
     });
 
     return results;
+  }
+
+  async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
+    const attempts = this.buildQueryAttempts(query);
+
+    // Retry only when DDG returns 0 results.
+    for (const q of attempts) {
+      const results = await this.searchOnce(q, options);
+      if (results.length > 0) return results;
+    }
+
+    return [];
   }
 }
 

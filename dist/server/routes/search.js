@@ -35,7 +35,9 @@ export function createSearchRouter(authStore) {
             if (!q || typeof q !== 'string') {
                 res.status(400).json({
                     error: 'invalid_request',
-                    message: 'Missing or invalid "q" parameter',
+                    message: 'Missing or invalid "q" parameter. Pass a search query: GET /v1/search?q=your+search+terms',
+                    example: 'curl "https://api.webpeel.dev/v1/search?q=latest+AI+news&count=5"',
+                    docs: 'https://webpeel.dev/docs/api-reference#search',
                 });
                 return;
             }
@@ -274,7 +276,9 @@ export function createSearchRouter(authStore) {
             console.error('Search error:', err); // Log full error server-side
             res.status(500).json({
                 error: 'search_failed',
-                message: 'Search request failed. Please try again.',
+                message: 'Search request failed. If using Brave provider, verify your API key. Otherwise try again.',
+                hint: 'Free search uses DuckDuckGo (no key required). For higher quality, add provider=brave&searchApiKey=YOUR_KEY',
+                docs: 'https://webpeel.dev/docs/api-reference#search',
             });
         }
     });

@@ -4,7 +4,9 @@
 export async function extractPdf(buffer) {
     try {
         const pdfParse = (await import('pdf-parse')).default;
-        const data = await pdfParse(buffer);
+        // pdf-parse (pdfjs) requires Uint8Array — passing a Node Buffer causes xref parse errors.
+        // The type definitions say Buffer, but at runtime pdfjs needs a plain Uint8Array.
+        const data = await pdfParse(new Uint8Array(buffer));
         return {
             text: data.text,
             metadata: {

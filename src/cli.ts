@@ -417,6 +417,22 @@ program
 
       if (error instanceof Error) {
         console.error(`\nError: ${error.message}`);
+        
+        // Provide actionable hints based on error type
+        const msg = error.message.toLowerCase();
+        if (msg.includes('timeout') || msg.includes('timed out')) {
+          console.error('\n💡 Hint: Try --render for JS-heavy sites, or --wait 5000 to wait longer.');
+        } else if (msg.includes('blocked') || msg.includes('403') || msg.includes('cloudflare')) {
+          console.error('\n💡 Hint: Try --stealth to bypass bot detection (uses more credits).');
+        } else if (msg.includes('enotfound') || msg.includes('getaddrinfo')) {
+          console.error('\n💡 Hint: Could not resolve hostname. Check the URL is correct.');
+        } else if (msg.includes('econnrefused') || msg.includes('econnreset')) {
+          console.error('\n💡 Hint: Connection refused. The site may be down or blocking requests.');
+        } else if (msg.includes('certificate') || msg.includes('ssl') || msg.includes('tls')) {
+          console.error('\n💡 Hint: SSL/TLS error. The site may have an invalid certificate.');
+        } else if (msg.includes('usage') || msg.includes('quota') || msg.includes('limit')) {
+          console.error('\n💡 Hint: Run `webpeel usage` to check your quota, or `webpeel login` to authenticate.');
+        }
       } else {
         console.error('\nError: Unknown error occurred');
       }
@@ -501,6 +517,14 @@ program
 
       if (error instanceof Error) {
         console.error(`\nError: ${error.message}`);
+        
+        const msg = error.message.toLowerCase();
+        if (msg.includes('brave') && msg.includes('api key')) {
+          console.error('\n💡 Hint: Set your Brave API key: webpeel config set braveApiKey YOUR_KEY');
+          console.error('   Or use free DuckDuckGo search (default, no key needed).');
+        } else if (msg.includes('timeout') || msg.includes('timed out')) {
+          console.error('\n💡 Hint: Search timed out. Try a more specific query or try again.');
+        }
       } else {
         console.error('\nError: Unknown error occurred');
       }
