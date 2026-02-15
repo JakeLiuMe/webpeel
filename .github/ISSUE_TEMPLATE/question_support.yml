@@ -1,0 +1,60 @@
+name: Question / Support
+description: Ask a question or get help using WebPeel
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for using WebPeel!
+
+        Before posting, please check:
+        - Docs: https://webpeel.dev/docs/
+        - Discussions: https://github.com/JakeLiuMe/webpeel/discussions
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What are you trying to do, and what’s blocking you?
+      placeholder: |
+        I’m trying to ...
+        I expected ...
+        Instead I got ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: usage
+    attributes:
+      label: How are you using WebPeel?
+      options:
+        - CLI
+        - Node.js Library
+        - MCP Server
+        - Hosted API
+        - Python SDK
+        - Self-hosted
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: WebPeel version (if applicable)
+      description: Run `webpeel --version` (or share package.json version).
+      placeholder: "0.7.0"
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / code / command
+      description: Paste the minimal code or command you’re running.
+      render: shell
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / error output
+      description: Paste any relevant logs or error output.
+      render: shell

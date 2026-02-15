@@ -1,4 +1,4 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
   - name: Documentation
     url: https://webpeel.dev/docs/
@@ -6,3 +6,6 @@ contact_links:
   - name: Playground
     url: https://webpeel.dev/playground
     about: Try WebPeel in the interactive playground
+  - name: Discussions
+    url: https://github.com/JakeLiuMe/webpeel/discussions
+    about: Ask questions and get help from the community
