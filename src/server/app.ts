@@ -85,6 +85,8 @@ export function createApp(config: ServerConfig = {}): Express {
     // API-safe CSP: JSON-only API does not need scripts/styles/fonts.
     // Keep this strict to reduce attack surface without affecting API clients.
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+    // Best-effort removal of Render's origin header (may be re-added by proxy)
+    res.removeHeader('x-render-origin-server');
     next();
   });
 
@@ -112,7 +114,7 @@ export function createApp(config: ServerConfig = {}): Express {
   const jobQueue = createJobQueue();
 
   // Rate limiter
-  const rateLimiter = new RateLimiter(config.rateLimitWindowMs || 60000);
+  const rateLimiter = new RateLimiter(config.rateLimitWindowMs || 3_600_000); // 1 hour
 
   // Clean up rate limiter every 5 minutes
   setInterval(() => {

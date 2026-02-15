@@ -136,7 +136,18 @@
     .markdown-body ul, .markdown-body ol { margin-left: 24px; margin-bottom: 16px; }
     .markdown-body li { margin-bottom: 8px; }
     .markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text-2); margin: 16px 0; }
-    
+
+    /* SEARCH RESULTS */
+    .search-results { display: flex; flex-direction: column; gap: 20px; }
+    .search-result { padding: 16px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: all 0.15s; }
+    .search-result:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(139,92,246,0.08); }
+    .search-result-title { margin-bottom: 4px; }
+    .search-result-title a { font-size: 16px; font-weight: 600; color: var(--accent); text-decoration: none; transition: color 0.15s; }
+    .search-result-title a:hover { color: #7C3AED; text-decoration: underline; }
+    .search-result-url { font-size: 13px; color: var(--text-4); font-family: 'JetBrains Mono', monospace; margin-bottom: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .search-result-snippet { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+    .search-empty { text-align: center; padding: 40px 20px; color: var(--text-3); font-size: 15px; }
+
     /* CODE GENERATION */
     .code-gen { background: var(--border-light); border-radius: var(--radius); padding: 20px; margin-top: 24px; }
     .code-gen h4 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: var(--text-2); }
@@ -195,7 +206,7 @@
         <a href="/playground.html">Playground</a>
         <a href="/#pricing">Pricing</a>
         <a href="/blog/">Blog</a>
-        <a href="https://github.com/JakeLiuMe/webpeel#readme">Docs</a>
+        <a href="/docs/">Docs</a>
         <a href="https://app.webpeel.dev/login" class="nav-btn nav-btn-ghost">Log in</a>
         <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Sign up</a>
       </div>
@@ -286,7 +297,11 @@
       <div class="footer-links">
         <a href="https://github.com/JakeLiuMe/webpeel">GitHub</a>
         <a href="https://app.webpeel.dev">Dashboard</a>
-        <a href="mailto:support@webpeel.dev">Support</a>
+        <a href="/status">Status</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/acceptable-use">Acceptable Use</a>
+        <a href="https://github.com/JakeLiuMe/webpeel/issues">Support</a>
       </div>
     </div>
   </footer>
@@ -440,6 +455,27 @@
       }
     });
 
+    function getSearchResults(payload) {
+      // Support multiple API shapes:
+      // - { results: [...] }
+      // - { data: { web: [...] } } (current /v1/search)
+      // - { data: { results: [...] } }
+      const container = payload?.data || payload || {};
+      const raw =
+        (Array.isArray(container.results) && container.results) ||
+        (Array.isArray(container.web) && container.web) ||
+        (Array.isArray(container.items) && container.items) ||
+        [];
+
+      return raw
+        .map(r => ({
+          title: r?.title || r?.name || '',
+          url: r?.url || r?.link || r?.href || '',
+          snippet: r?.snippet || r?.description || r?.text || ''
+        }))
+        .filter(r => (r.url && /^https?:\/\//.test(r.url)) || r.title || r.snippet);
+    }
+
     // Display results
     function displayResults(data, responseTime) {
       let content = '';
@@ -478,7 +514,7 @@
             </div>
             <div class="metric">
               <div class="metric-label">Results</div>
-              <div class="metric-value">${data.results?.length || 0}</div>
+              <div class="metric-value">${getSearchResults(data).length}</div>
             </div>
           </div>
         `;
@@ -529,13 +565,34 @@
           </div>
         `;
       } else if (currentMode === 'search') {
-        const results = data.results || [];
-        const markdown = results.map((r, i) => 
-          `${i + 1}. [${r.title}](${r.url})\n   ${r.description || ''}`
-        ).join('\n\n');
+        const results = getSearchResults(data);
+        const itemsHtml = results
+          .map((r, i) => {
+            const title = escapeHtml(r.title || r.url || `Result ${i + 1}`);
+            const url = escapeHtml(r.url || '');
+            const snippet = r.snippet
+              ? `<div class="search-result-snippet">${escapeHtml(r.snippet)}</div>`
+              : '';
+
+            return `
+              <div class="search-result">
+                <div class="search-result-title">
+                  <a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>
+                </div>
+                ${url ? `<div class="search-result-url">${url}</div>` : ''}
+                ${snippet}
+              </div>
+            `;
+          })
+          .join('');
+
+        const html = results.length
+          ? `<div class="search-results">${itemsHtml}</div>`
+          : `<div class="search-empty">No results found.</div>`;
+
         resultContent = `
           <div class="result-content markdown-body" id="result-markdown">
-            ${marked.parse(markdown)}
+            ${html}
           </div>
           <div class="result-content json" id="result-json" style="display: none;">
             <pre>${JSON.stringify(data, null, 2)}</pre>
