@@ -53,6 +53,11 @@
     .nav-links { display:flex; align-items:center; gap:22px; }
     .nav-links a { font-size:14px; color:var(--text-3); transition: color 0.15s; }
     .nav-links a:hover { color:var(--text); }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn-ghost { color: var(--text-2); }
+    .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
+    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
     .nav-links a.active { color:var(--text); font-weight:600; }
 
     main { padding: 72px 0; }
@@ -107,12 +112,14 @@
         WebPeel
       </a>
       <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/docs/">Docs</a>
+        <a href="/#how">How It Works</a>
         <a href="/playground">Playground</a>
-        <a href="/blog">Blog</a>
-        <a href="/changelog" class="active">Changelog</a>
-        <a href="https://github.com/webpeel/webpeel">GitHub</a>
+        <a href="/#compare">Compare</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/blog/">Blog</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
+        <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Get Started</a>
       </div>
     </div>
   </nav>
@@ -232,11 +239,12 @@
       <div class="footer-left">© 2026 WebPeel. Open source under MIT.</div>
       <div class="footer-links">
         <a href="https://github.com/webpeel/webpeel">GitHub</a>
-        <a href="/docs/">Docs</a>
-        <a href="/playground">Playground</a>
-        <a href="/blog">Blog</a>
+        <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="/status">Status</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <a href="/acceptable-use">Acceptable Use</a>
+        <a href="https://github.com/webpeel/webpeel/issues">Support</a>
       </div>
     </div>
   </footer>

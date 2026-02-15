@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Terms of Service — WebPeel</title>
   <meta name="description" content="WebPeel terms of service. Rules for using our web fetching API and tools.">
-  <link rel="canonical" href="https://webpeel.dev/terms">
+  <link rel="canonical" href="/terms">
 
   <meta property="og:image" content="https://webpeel.dev/og-image.png">
   <meta name="twitter:image" content="https://webpeel.dev/og-image.png">
@@ -27,6 +27,11 @@
     .nav-logo svg { width:24px; height:24px; }
     .nav-links { display:flex; align-items:center; gap:24px; }
     .nav-links a { font-size:14px; color:var(--text-3); text-decoration:none; } .nav-links a:hover { color:var(--text); }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn-ghost { color: var(--text-2); }
+    .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
+    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
     main { padding:80px 0; }
     h1 { font-family:'Instrument Serif',serif; font-size:42px; font-weight:400; margin-bottom:8px; }
     .updated { font-size:14px; color:var(--text-3); margin-bottom:48px; }
@@ -49,10 +54,14 @@
         WebPeel
       </a>
       <div class="nav-links">
-        <a href="/">Home</a>
+        <a href="/#how">How It Works</a>
+        <a href="/playground">Playground</a>
+        <a href="/#compare">Compare</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/blog/">Blog</a>
         <a href="/docs/">Docs</a>
-        <a href="/changelog">Changelog</a>
-        <a href="/privacy">Privacy</a>
+        <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
+        <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Get Started</a>
       </div>
     </div>
   </nav>
@@ -121,8 +130,11 @@
       <div class="footer-links">
         <a href="https://github.com/webpeel/webpeel">GitHub</a>
         <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="/status">Status</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <a href="/acceptable-use">Acceptable Use</a>
+        <a href="https://github.com/webpeel/webpeel/issues">Support</a>
       </div>
     </div>
   </footer>

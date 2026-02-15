@@ -10,11 +10,89 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <title>API Reference — WebPeel</title>
+  <meta name="description" content="Complete REST API reference for WebPeel. Fetch, search, crawl, screenshot, batch, agent, and answer endpoints with full parameter docs and examples.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
   <link rel="stylesheet" href="../styles/docs.css">
+  <style>
+    /* API Reference page extras */
+    .credit-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 10px; border-radius: 6px;
+      background: #DCFCE7; color: #16A34A;
+      font-size: 12px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+    }
+    .credit-badge.stealth { background: #EDE9FE; color: #7C3AED; }
+    .credit-badge.free { background: #F0FDF4; color: #15803D; }
+    .api-method-delete { background: #FEE2E2; color: #DC2626; }
+    .endpoint-meta {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .auth-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .auth-badge.required { background: #FEF3C7; color: #92400E; }
+    .auth-badge.optional { background: #F0FDF4; color: #15803D; }
+    .auth-badge.none { background: #F4F4F5; color: #71717A; }
+    .callout-warning {
+      background: #FFFBEB; border: 1px solid rgba(234, 179, 8, 0.3);
+    }
+    .callout-warning .callout-title { color: #92400E; }
+    .callout-success {
+      background: #F0FDF4; border: 1px solid rgba(22, 163, 74, 0.2);
+    }
+    .callout-success .callout-title { color: #16A34A; }
+    .response-header-table td:first-child code {
+      font-weight: 600; color: var(--text);
+    }
+    .toc-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px; margin: 20px 0 32px;
+    }
+    .toc-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--surface); transition: all 0.15s;
+      text-decoration: none !important;
+    }
+    .toc-item:hover {
+      border-color: var(--accent); transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .toc-method {
+      font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+      padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .toc-method.get { background: #DCFCE7; color: #16A34A; }
+    .toc-method.post { background: #DBEAFE; color: #2563EB; }
+    .toc-method.delete { background: #FEE2E2; color: #DC2626; }
+    .toc-path {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text);
+    }
+    .footer-docs {
+      border-top: 1px solid var(--border); padding: 32px 0; margin-top: 64px;
+    }
+    .footer-docs-inner {
+      display: flex; justify-content: space-between; align-items: center;
+      max-width: 1200px; margin: 0 auto; padding: 0 24px;
+    }
+    .footer-docs-left { font-size: 13px; color: var(--text-4); }
+    .footer-docs-links { display: flex; gap: 20px; }
+    .footer-docs-links a { font-size: 13px; color: var(--text-3); transition: color 0.15s; }
+    .footer-docs-links a:hover { color: var(--text); }
+    @media (max-width: 768px) {
+      .toc-grid { grid-template-columns: 1fr; }
+      .footer-docs-inner { flex-direction: column; gap: 12px; text-align: center; }
+      .footer-docs-links { flex-direction: column; gap: 8px; }
+      .endpoint-meta { gap: 8px; }
+    }
+  </style>
 </head>
 <body>
   <nav class="docs-nav">
@@ -40,28 +118,53 @@
         <a href="/docs/" class="sidebar-link">Overview</a>
         <a href="/docs/api-reference.html" class="sidebar-link active">API Reference</a>
       </div>
-      
       <div class="sidebar-section">
         <div class="sidebar-title">SDKs</div>
-        <a href="/docs/sdks.html" class="sidebar-link">Node.js & Python</a>
+        <a href="/docs/sdks.html" class="sidebar-link">Node.js &amp; Python</a>
         <a href="/docs/cli.html" class="sidebar-link">CLI</a>
         <a href="/docs/mcp.html" class="sidebar-link">MCP Server</a>
       </div>
-      
       <div class="sidebar-section">
         <div class="sidebar-title">Deployment</div>
         <a href="/docs/self-hosting.html" class="sidebar-link">Self-Hosting</a>
       </div>
-      
       <div class="sidebar-section">
-        <div class="sidebar-title">Endpoints</div>
-        <a href="#fetch" class="sidebar-link">Fetch</a>
-        <a href="#search" class="sidebar-link">Search</a>
-        <a href="#answer" class="sidebar-link">Answer</a>
-        <a href="#crawl" class="sidebar-link">Crawl</a>
-        <a href="#batch" class="sidebar-link">Batch</a>
-        <a href="#agent" class="sidebar-link">Agent</a>
-        <a href="#mcp" class="sidebar-link">MCP</a>
+        <div class="sidebar-title">Core Endpoints</div>
+        <a href="#fetch-get" class="sidebar-link">GET /v1/fetch</a>
+        <a href="#fetch-post" class="sidebar-link">POST /v1/fetch</a>
+        <a href="#search" class="sidebar-link">GET /v1/search</a>
+        <a href="#screenshot" class="sidebar-link">POST /v1/screenshot</a>
+        <a href="#answer" class="sidebar-link">POST /v1/answer</a>
+        <a href="#agent" class="sidebar-link">POST /v1/agent</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Async Jobs</div>
+        <a href="#crawl" class="sidebar-link">POST /v1/crawl</a>
+        <a href="#batch" class="sidebar-link">POST /v1/batch/scrape</a>
+        <a href="#map" class="sidebar-link">POST /v1/map</a>
+        <a href="#jobs" class="sidebar-link">GET /v1/jobs</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Firecrawl Compat</div>
+        <a href="#compat-scrape" class="sidebar-link">POST /v1/scrape</a>
+        <a href="#compat-v2-scrape" class="sidebar-link">POST /v2/scrape</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Hosted MCP</div>
+        <a href="#mcp" class="sidebar-link">POST /mcp</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Utility</div>
+        <a href="#health" class="sidebar-link">GET /health</a>
+        <a href="#stats" class="sidebar-link">GET /v1/stats</a>
+        <a href="#cli-usage" class="sidebar-link">GET /v1/cli/usage</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Reference</div>
+        <a href="#authentication" class="sidebar-link">Authentication</a>
+        <a href="#rate-limits" class="sidebar-link">Rate Limits</a>
+        <a href="#errors" class="sidebar-link">Errors</a>
+        <a href="#response-headers" class="sidebar-link">Response Headers</a>
       </div>
     </aside>
 
@@ -73,119 +176,153 @@
       </div>
 
       <h1>API Reference</h1>
-      <p class="lead">Complete REST API documentation for WebPeel. All endpoints return JSON responses.</p>
+      <p class="lead">Complete REST API documentation for WebPeel. All endpoints return JSON and use standard HTTP status codes.</p>
 
       <div class="callout callout-info">
         <div class="callout-title">Base URL</div>
-        Production: <code>https://api.webpeel.dev</code><br>
-        Self-hosted: <code>http://localhost:3000</code> (configurable)
+        <strong>Production:</strong> <code>https://api.webpeel.dev</code><br>
+        <strong>Self-hosted:</strong> <code>http://localhost:3000</code> (configurable via <code>PORT</code> env var)
       </div>
 
-      <h2>Authentication</h2>
-      <p>Pass your API key in the <code>Authorization</code> header:</p>
-      
-      <pre><code class="language-bash">curl https://api.webpeel.dev/v1/fetch?url=https://example.com \
-  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
+      <!-- ================================================================== -->
+      <!-- TABLE OF CONTENTS                                                   -->
+      <!-- ================================================================== -->
 
-      <p>Free tier: No API key required (125 fetches/week, HTTP-only)</p>
+      <div class="toc-grid">
+        <a href="#fetch-get" class="toc-item"><span class="toc-method get">GET</span><span class="toc-path">/v1/fetch</span></a>
+        <a href="#fetch-post" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/fetch</span></a>
+        <a href="#search" class="toc-item"><span class="toc-method get">GET</span><span class="toc-path">/v1/search</span></a>
+        <a href="#screenshot" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/screenshot</span></a>
+        <a href="#answer" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/answer</span></a>
+        <a href="#agent" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/agent</span></a>
+        <a href="#crawl" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/crawl</span></a>
+        <a href="#batch" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/batch/scrape</span></a>
+        <a href="#map" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/map</span></a>
+        <a href="#compat-scrape" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v1/scrape</span></a>
+        <a href="#compat-v2-scrape" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/v2/scrape</span></a>
+        <a href="#mcp" class="toc-item"><span class="toc-method post">POST</span><span class="toc-path">/mcp</span></a>
+        <a href="#health" class="toc-item"><span class="toc-method get">GET</span><span class="toc-path">/health</span></a>
+        <a href="#stats" class="toc-item"><span class="toc-method get">GET</span><span class="toc-path">/v1/stats</span></a>
+        <a href="#cli-usage" class="toc-item"><span class="toc-method get">GET</span><span class="toc-path">/v1/cli/usage</span></a>
+      </div>
 
-      <h2 id="fetch">GET /v1/fetch</h2>
-      <p>Fetch and extract content from a URL. Automatically escalates from HTTP to browser to stealth mode as needed.</p>
+      <!-- ================================================================== -->
+      <!-- AUTHENTICATION                                                      -->
+      <!-- ================================================================== -->
+
+      <h2 id="authentication">Authentication</h2>
+      <p>Pass your API key via the <code>Authorization</code> header or the <code>X-API-Key</code> header:</p>
+
+      <pre><code class="language-bash"># Option 1: Bearer token (recommended)
+curl https://api.webpeel.dev/v1/fetch?url=https://example.com \
+  -H "Authorization: Bearer wp_live_abc123..."
+
+# Option 2: X-API-Key header
+curl https://api.webpeel.dev/v1/fetch?url=https://example.com \
+  -H "X-API-Key: wp_live_abc123..."</code></pre>
+
+      <div class="callout callout-success">
+        <div class="callout-title">Anonymous Access</div>
+        No API key is required for basic usage. Anonymous requests are subject to the free-tier rate limits (25 requests/hour). Sign up for an API key to get a weekly quota and access the dashboard.
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- GET /v1/fetch                                                       -->
+      <!-- ================================================================== -->
+
+      <h2 id="fetch-get">GET /v1/fetch</h2>
+      <p>Fetch and extract clean, AI-ready content from any URL. WebPeel automatically escalates from fast HTTP to browser rendering to stealth mode as needed.</p>
 
       <div class="api-endpoint">
         <span class="api-method api-method-get">GET</span>
         <span class="api-path">/v1/fetch</span>
       </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit</span>
+      </div>
 
       <h3>Query Parameters</h3>
       <table class="param-table">
-        <thead>
-          <tr>
-            <th>Parameter</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
           <tr>
             <td><code class="param-name">url</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
-            <td>URL to fetch (max 2048 characters)</td>
+            <td>—</td>
+            <td>URL to fetch (max 2048 characters). Must be <code>http://</code> or <code>https://</code>.</td>
           </tr>
           <tr>
             <td><code class="param-name">format</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Output format: <code>markdown</code> (default), <code>text</code>, <code>html</code></td>
+            <td><code>markdown</code></td>
+            <td>Output format: <code>markdown</code>, <code>text</code>, or <code>html</code></td>
           </tr>
           <tr>
             <td><code class="param-name">render</code></td>
             <td><span class="param-type">boolean</span></td>
-            <td>Force browser rendering (for JS-heavy sites)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">stealth</code></td>
-            <td><span class="param-type">boolean</span></td>
-            <td>Use stealth mode to bypass bot detection (auto-enables <code>render</code>)</td>
+            <td><code>false</code></td>
+            <td>Force headless browser rendering (for JS-heavy sites, SPAs)</td>
           </tr>
           <tr>
             <td><code class="param-name">wait</code></td>
             <td><span class="param-type">number</span></td>
-            <td>Wait time in milliseconds after page load (0-60000)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">selector</code></td>
-            <td><span class="param-type">string</span></td>
-            <td>CSS selector to extract specific content (e.g., <code>article</code>, <code>.content</code>)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">exclude</code></td>
-            <td><span class="param-type">string[]</span></td>
-            <td>CSS selectors to exclude (comma-separated: <code>.sidebar,.ads</code>)</td>
+            <td><code>0</code></td>
+            <td>Milliseconds to wait after page load (0–60000). Only applies when <code>render=true</code>.</td>
           </tr>
           <tr>
             <td><code class="param-name">includeTags</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Only include these tags (comma-separated: <code>article,main</code>)</td>
+            <td>—</td>
+            <td>Comma-separated HTML tags/selectors to include (e.g. <code>article,main</code>)</td>
           </tr>
           <tr>
             <td><code class="param-name">excludeTags</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Remove these tags (comma-separated: <code>nav,footer</code>)</td>
+            <td>—</td>
+            <td>Comma-separated HTML tags/selectors to remove (e.g. <code>nav,footer,.sidebar</code>)</td>
           </tr>
           <tr>
             <td><code class="param-name">onlyMainContent</code></td>
             <td><span class="param-type">boolean</span></td>
-            <td>Shortcut for <code>includeTags=main,article</code></td>
-          </tr>
-          <tr>
-            <td><code class="param-name">screenshot</code></td>
-            <td><span class="param-type">boolean</span></td>
-            <td>Capture a screenshot (returns base64 PNG)</td>
+            <td><code>false</code></td>
+            <td>Shortcut: sets <code>includeTags</code> to <code>main,article,.content,#content</code></td>
           </tr>
           <tr>
             <td><code class="param-name">images</code></td>
             <td><span class="param-type">boolean</span></td>
+            <td><code>false</code></td>
             <td>Extract image URLs from the page</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">maxTokens</code></td>
-            <td><span class="param-type">number</span></td>
-            <td>Maximum token count for output (truncate if exceeded)</td>
           </tr>
           <tr>
             <td><code class="param-name">location</code></td>
             <td><span class="param-type">string</span></td>
-            <td>ISO country code for geo-targeting (e.g., <code>US</code>, <code>DE</code>)</td>
+            <td>—</td>
+            <td>ISO 3166-1 alpha-2 country code for geo-targeting (e.g. <code>US</code>, <code>DE</code>)</td>
           </tr>
           <tr>
             <td><code class="param-name">languages</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Language preferences (comma-separated: <code>en,de</code>)</td>
+            <td>—</td>
+            <td>Comma-separated language preferences (e.g. <code>en,de</code>)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">actions</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>JSON-encoded array of <a href="#page-actions">page actions</a> to execute before extraction. Auto-enables <code>render</code>.</td>
           </tr>
           <tr>
             <td><code class="param-name">maxAge</code></td>
             <td><span class="param-type">number</span></td>
-            <td>Cache max age in milliseconds (default: 172800000 = 2 days)</td>
+            <td><code>172800000</code></td>
+            <td>Cache freshness threshold in milliseconds (default 2 days). Set to <code>0</code> to bypass cache.</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">storeInCache</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>true</code></td>
+            <td>Set to <code>false</code> to skip caching the response</td>
           </tr>
         </tbody>
       </table>
@@ -194,7 +331,7 @@
       <pre><code class="language-json">{
   "url": "https://example.com",
   "title": "Example Domain",
-  "content": "# Example Domain\n\nThis domain is for use...",
+  "content": "# Example Domain\n\nThis domain is for use in illustrative examples...",
   "metadata": {
     "description": "Example Domain",
     "author": null,
@@ -202,9 +339,7 @@
     "image": null,
     "canonical": "https://example.com"
   },
-  "links": [
-    "https://www.iana.org/domains/example"
-  ],
+  "links": ["https://www.iana.org/domains/example"],
   "tokens": 125,
   "method": "simple",
   "elapsed": 118,
@@ -213,114 +348,442 @@
   "fingerprint": "a1b2c3d4e5f6g7h8"
 }</code></pre>
 
-      <h3>Example Requests</h3>
+      <details>
+        <summary><strong>Response fields</strong></summary>
+        <table class="param-table" style="margin-top:12px">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code class="param-name">url</code></td><td><span class="param-type">string</span></td><td>Final URL after redirects</td></tr>
+            <tr><td><code class="param-name">title</code></td><td><span class="param-type">string</span></td><td>Page title</td></tr>
+            <tr><td><code class="param-name">content</code></td><td><span class="param-type">string</span></td><td>Extracted content in the requested format</td></tr>
+            <tr><td><code class="param-name">metadata</code></td><td><span class="param-type">object</span></td><td>Structured metadata: <code>description</code>, <code>author</code>, <code>published</code>, <code>image</code>, <code>canonical</code></td></tr>
+            <tr><td><code class="param-name">links</code></td><td><span class="param-type">string[]</span></td><td>All links found on the page (absolute, deduplicated)</td></tr>
+            <tr><td><code class="param-name">tokens</code></td><td><span class="param-type">number</span></td><td>Estimated token count (content.length / 4)</td></tr>
+            <tr><td><code class="param-name">method</code></td><td><span class="param-type">string</span></td><td>Fetch method used: <code>simple</code>, <code>browser</code>, or <code>stealth</code></td></tr>
+            <tr><td><code class="param-name">elapsed</code></td><td><span class="param-type">number</span></td><td>Processing time in milliseconds</td></tr>
+            <tr><td><code class="param-name">contentType</code></td><td><span class="param-type">string</span></td><td>Detected type: <code>html</code>, <code>json</code>, <code>xml</code>, <code>text</code>, <code>document</code></td></tr>
+            <tr><td><code class="param-name">quality</code></td><td><span class="param-type">number</span></td><td>Extraction quality score (0–1)</td></tr>
+            <tr><td><code class="param-name">fingerprint</code></td><td><span class="param-type">string</span></td><td>SHA-256 hash prefix for change detection</td></tr>
+            <tr><td><code class="param-name">images</code></td><td><span class="param-type">object[]</span></td><td>Image info (only when <code>images=true</code>): <code>src</code>, <code>alt</code>, <code>title</code>, <code>width</code>, <code>height</code></td></tr>
+            <tr><td><code class="param-name">screenshot</code></td><td><span class="param-type">string</span></td><td>Base64 PNG screenshot (only when <code>screenshot=true</code> via POST)</td></tr>
+          </tbody>
+        </table>
+      </details>
+
+      <h3>Examples</h3>
 
       <div class="tabs">
-        <button class="tab-btn active" data-tab="curl1">cURL</button>
-        <button class="tab-btn" data-tab="js1">JavaScript</button>
-        <button class="tab-btn" data-tab="py1">Python</button>
+        <button class="tab-btn active" data-tab="fetch-curl">cURL</button>
+        <button class="tab-btn" data-tab="fetch-js">JavaScript</button>
+        <button class="tab-btn" data-tab="fetch-py">Python</button>
       </div>
 
-      <div class="tab-content active" data-content="curl1">
+      <div class="tab-content active" data-content="fetch-curl">
         <pre><code class="language-bash"># Basic fetch
 curl "https://api.webpeel.dev/v1/fetch?url=https://example.com"
 
 # With browser rendering
 curl "https://api.webpeel.dev/v1/fetch?url=https://example.com&render=true"
 
-# Extract only article content
-curl "https://api.webpeel.dev/v1/fetch?url=https://example.com&selector=article&exclude=.sidebar,.ads"</code></pre>
+# Extract only main content, exclude nav/footer
+curl "https://api.webpeel.dev/v1/fetch?url=https://example.com&onlyMainContent=true&excludeTags=nav,footer"
+
+# With authentication
+curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
+  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
       </div>
 
-      <div class="tab-content" data-content="js1">
+      <div class="tab-content" data-content="fetch-js">
         <pre><code class="language-javascript">const response = await fetch(
-  'https://api.webpeel.dev/v1/fetch?url=https://example.com',
+  'https://api.webpeel.dev/v1/fetch?url=https://example.com&format=markdown',
   {
-    headers: {
-      'Authorization': 'Bearer YOUR_API_KEY'
-    }
+    headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
   }
 );
 const data = await response.json();
-console.log(data.content);</code></pre>
+
+console.log(data.title);    // "Example Domain"
+console.log(data.content);  // Markdown content
+console.log(data.method);   // "simple" | "browser" | "stealth"</code></pre>
       </div>
 
-      <div class="tab-content" data-content="py1">
-        <pre><code class="language-python">import urllib.request
-import json
+      <div class="tab-content" data-content="fetch-py">
+        <pre><code class="language-python">import urllib.request, json
 
-url = 'https://api.webpeel.dev/v1/fetch?url=https://example.com'
+url = "https://api.webpeel.dev/v1/fetch?url=https://example.com"
 req = urllib.request.Request(url)
-req.add_header('Authorization', 'Bearer YOUR_API_KEY')
+req.add_header("Authorization", "Bearer YOUR_API_KEY")
 
-with urllib.request.urlopen(req) as response:
-    data = json.loads(response.read())
-    print(data['content'])</code></pre>
+with urllib.request.urlopen(req) as resp:
+    data = json.loads(resp.read())
+    print(data["title"])    # "Example Domain"
+    print(data["content"])  # Markdown content</code></pre>
       </div>
+
+      <h3>Error Responses</h3>
+      <table class="param-table">
+        <thead><tr><th>Status</th><th>Code</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>400</td><td><code>invalid_request</code></td><td>Missing or invalid <code>url</code>, <code>format</code>, <code>wait</code>, or <code>actions</code> parameter</td></tr>
+          <tr><td>400</td><td><code>invalid_url</code></td><td>URL too long (&gt;2048 chars) or malformed</td></tr>
+          <tr><td>400</td><td><code>forbidden_url</code></td><td>Attempt to fetch localhost, private networks, or non-HTTP URLs (SSRF protection)</td></tr>
+          <tr><td>429</td><td><code>rate_limited</code></td><td>Hourly burst limit exceeded</td></tr>
+          <tr><td>500</td><td><code>TIMEOUT</code></td><td>Request timed out</td></tr>
+          <tr><td>500</td><td><code>BLOCKED</code></td><td>Site blocked the request — try <code>render=true</code> or stealth mode</td></tr>
+          <tr><td>500</td><td><code>internal_error</code></td><td>Unexpected server error</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ================================================================== -->
+      <!-- POST /v1/fetch                                                      -->
+      <!-- ================================================================== -->
+
+      <h2 id="fetch-post">POST /v1/fetch</h2>
+      <p>Same as <a href="#fetch-get">GET /v1/fetch</a> but accepts a JSON body. Adds support for <strong>page actions</strong>, <strong>inline LLM extraction</strong> (BYOK), and the Firecrawl-compatible <code>formats</code> array.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/fetch</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit</span>
+      </div>
+
+      <h3>Request Body <small>(JSON)</small></h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">url</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>URL to fetch (max 2048 characters)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">render</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Force browser rendering</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">wait</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>0</code></td>
+            <td>Wait time in ms after page load (0–60000)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">format</code></td>
+            <td><span class="param-type">string</span></td>
+            <td><code>markdown</code></td>
+            <td><code>markdown</code>, <code>text</code>, or <code>html</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">includeTags</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Array of HTML tags/selectors to include</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">excludeTags</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Array of HTML tags/selectors to remove</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">onlyMainContent</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Include only main content tags</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">images</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Extract image URLs</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">location</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Country code for geo-targeting</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">languages</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Language preferences</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">actions</code></td>
+            <td><span class="param-type">object[]</span></td>
+            <td>—</td>
+            <td><a href="#page-actions">Page actions</a> to execute before extraction. Auto-enables <code>render</code>.</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">storeInCache</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>true</code></td>
+            <td>Store result in server-side cache</td>
+          </tr>
+          <tr>
+            <td colspan="4" style="background: var(--accent-light); font-weight: 600; color: var(--accent); font-size: 13px;">Inline LLM Extraction (BYOK)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">extract</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Object with <code>schema</code> (JSON Schema) and/or <code>prompt</code> (string) for LLM extraction</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmProvider</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Required when <code>extract</code> is set. One of: <code>openai</code>, <code>anthropic</code>, <code>google</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmApiKey</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Required when <code>extract</code> is set. Your LLM API key (BYOK)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmModel</code></td>
+            <td><span class="param-type">string</span></td>
+            <td><em>Provider default</em></td>
+            <td>LLM model name (optional)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">formats</code></td>
+            <td><span class="param-type">array</span></td>
+            <td>—</td>
+            <td>Firecrawl-compatible formats array. Supports <code>{type: "json", schema: {...}}</code> for extraction.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Response</h3>
+      <p>Same as <a href="#fetch-get">GET /v1/fetch</a>, plus these additional fields when inline extraction is used:</p>
+      <pre><code class="language-json">{
+  "url": "https://example.com",
+  "title": "Example Domain",
+  "content": "# Example Domain\n...",
+  "json": {
+    "company": "Example Corp",
+    "founded": 2006
+  },
+  "extractTokensUsed": { "input": 1234, "output": 56 },
+  ...
+}</code></pre>
+
+      <h3>Examples</h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="fetchpost-curl">cURL</button>
+        <button class="tab-btn" data-tab="fetchpost-js">JavaScript</button>
+        <button class="tab-btn" data-tab="fetchpost-py">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="fetchpost-curl">
+        <pre><code class="language-bash"># Basic POST fetch
+curl -X POST https://api.webpeel.dev/v1/fetch \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "url": "https://example.com",
+    "format": "markdown",
+    "onlyMainContent": true
+  }'
+
+# With inline LLM extraction
+curl -X POST https://api.webpeel.dev/v1/fetch \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "url": "https://example.com/about",
+    "extract": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "company": { "type": "string" },
+          "founded": { "type": "number" }
+        }
+      }
+    },
+    "llmProvider": "openai",
+    "llmApiKey": "sk-..."
+  }'</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="fetchpost-js">
+        <pre><code class="language-javascript">const response = await fetch('https://api.webpeel.dev/v1/fetch', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_API_KEY'
+  },
+  body: JSON.stringify({
+    url: 'https://example.com/about',
+    extract: {
+      schema: {
+        type: 'object',
+        properties: {
+          company: { type: 'string' },
+          founded: { type: 'number' }
+        }
+      }
+    },
+    llmProvider: 'openai',
+    llmApiKey: 'sk-...'
+  })
+});
+
+const data = await response.json();
+console.log(data.json);  // { company: "Example Corp", founded: 2006 }</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="fetchpost-py">
+        <pre><code class="language-python">import urllib.request, json
+
+body = json.dumps({
+    "url": "https://example.com/about",
+    "extract": {
+        "schema": {
+            "type": "object",
+            "properties": {
+                "company": {"type": "string"},
+                "founded": {"type": "number"}
+            }
+        }
+    },
+    "llmProvider": "openai",
+    "llmApiKey": "sk-..."
+}).encode()
+
+req = urllib.request.Request(
+    "https://api.webpeel.dev/v1/fetch",
+    data=body, method="POST"
+)
+req.add_header("Content-Type", "application/json")
+req.add_header("Authorization", "Bearer YOUR_API_KEY")
+
+with urllib.request.urlopen(req) as resp:
+    data = json.loads(resp.read())
+    print(data["json"])  # {"company": "Example Corp", "founded": 2006}</code></pre>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- PAGE ACTIONS                                                        -->
+      <!-- ================================================================== -->
+
+      <h3 id="page-actions">Page Actions</h3>
+      <p>Page actions let you interact with a page (click, type, scroll, wait) before content is extracted. Actions auto-enable browser rendering. Compatible with Firecrawl's action format.</p>
+
+      <table class="param-table">
+        <thead><tr><th>Action Type</th><th>Fields</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>click</code></td><td><code>selector</code></td><td>Click an element</td></tr>
+          <tr><td><code>type</code></td><td><code>selector</code>, <code>value</code>/<code>text</code></td><td>Type text into an input (keystroke by keystroke)</td></tr>
+          <tr><td><code>fill</code></td><td><code>selector</code>, <code>value</code>/<code>text</code></td><td>Fill an input (set value directly)</td></tr>
+          <tr><td><code>select</code></td><td><code>selector</code>, <code>value</code></td><td>Select a dropdown option</td></tr>
+          <tr><td><code>scroll</code></td><td><code>direction</code>, <code>amount</code></td><td>Scroll the page. Direction: <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code></td></tr>
+          <tr><td><code>wait</code></td><td><code>ms</code>/<code>milliseconds</code></td><td>Wait a fixed duration</td></tr>
+          <tr><td><code>waitForSelector</code></td><td><code>selector</code>, <code>timeout</code></td><td>Wait for an element to appear</td></tr>
+          <tr><td><code>press</code></td><td><code>key</code></td><td>Press a keyboard key (e.g. <code>Enter</code>)</td></tr>
+          <tr><td><code>hover</code></td><td><code>selector</code></td><td>Hover over an element</td></tr>
+          <tr><td><code>screenshot</code></td><td>—</td><td>Take a screenshot at this point</td></tr>
+        </tbody>
+      </table>
+
+      <pre><code class="language-json">{
+  "url": "https://example.com/search",
+  "actions": [
+    { "type": "fill", "selector": "#search-input", "value": "AI agents" },
+    { "type": "click", "selector": "#search-btn" },
+    { "type": "wait", "ms": 2000 },
+    { "type": "scroll", "direction": "down", "amount": 500 }
+  ]
+}</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- GET /v1/search                                                      -->
+      <!-- ================================================================== -->
 
       <h2 id="search">GET /v1/search</h2>
-      <p>Search the web using DuckDuckGo (default, free) or Brave Search (BYOK for higher-quality results).</p>
-      <p>For Brave, pass your key via <code>searchApiKey</code> or the <code>x-search-api-key</code> header.</p>
+      <p>Search the web using DuckDuckGo (free, default) or Brave Search (BYOK for higher-quality results). Optionally scrape each result URL for full content.</p>
 
       <div class="api-endpoint">
         <span class="api-method api-method-get">GET</span>
         <span class="api-path">/v1/search</span>
       </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit</span>
+      </div>
 
       <h3>Query Parameters</h3>
       <table class="param-table">
-        <thead>
-          <tr>
-            <th>Parameter</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
           <tr>
             <td><code class="param-name">q</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
+            <td>—</td>
             <td>Search query (max 500 characters)</td>
           </tr>
           <tr>
             <td><code class="param-name">provider</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Search provider: <code>duckduckgo</code> (default) or <code>brave</code></td>
+            <td><code>duckduckgo</code></td>
+            <td>Search provider: <code>duckduckgo</code> or <code>brave</code></td>
           </tr>
           <tr>
             <td><code class="param-name">searchApiKey</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Brave Search API key (alternative to <code>x-search-api-key</code> header)</td>
+            <td>—</td>
+            <td>Brave Search API key. Alternative: <code>x-search-api-key</code> header.</td>
           </tr>
           <tr>
             <td><code class="param-name">count</code></td>
             <td><span class="param-type">number</span></td>
-            <td>Number of results (1-10, default: 5)</td>
+            <td><code>5</code></td>
+            <td>Number of results (1–10)</td>
           </tr>
           <tr>
             <td><code class="param-name">scrapeResults</code></td>
             <td><span class="param-type">boolean</span></td>
-            <td>Scrape each result URL (returns full content)</td>
+            <td><code>false</code></td>
+            <td>When <code>true</code>, fetches each result URL and adds <code>content</code> field</td>
           </tr>
           <tr>
             <td><code class="param-name">sources</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Comma-separated sources: <code>web,news,images</code></td>
+            <td><code>web</code></td>
+            <td>Comma-separated: <code>web</code>, <code>news</code>, <code>images</code></td>
           </tr>
           <tr>
             <td><code class="param-name">categories</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Filter by category: <code>github,pdf,docs,blog,news</code></td>
+            <td>—</td>
+            <td>Filter by category: <code>github</code>, <code>pdf</code>, <code>docs</code>, <code>blog</code>, <code>news</code>, <code>video</code>, <code>social</code></td>
           </tr>
           <tr>
             <td><code class="param-name">tbs</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Time-based filter: <code>qdr:d</code> (day), <code>qdr:w</code> (week), <code>qdr:m</code> (month)</td>
+            <td>—</td>
+            <td>Time filter: <code>qdr:d</code> (day), <code>qdr:w</code> (week), <code>qdr:m</code> (month), <code>qdr:y</code> (year)</td>
           </tr>
           <tr>
             <td><code class="param-name">country</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Country code for regional results (e.g., <code>us-en</code>, <code>de-de</code>)</td>
+            <td>—</td>
+            <td>Country/region code (e.g. <code>us-en</code>, <code>de-de</code>)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">location</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Location string for localized results</td>
           </tr>
         </tbody>
       </table>
@@ -334,412 +797,1323 @@ with urllib.request.urlopen(req) as response:
         "title": "Example Domain",
         "url": "https://example.com",
         "snippet": "This domain is for use in illustrative examples...",
-        "content": "..." // Only if scrapeResults=true
+        "content": "# Example Domain\n..."  // Only if scrapeResults=true
       }
-    ]
+    ],
+    "news": [ ... ],   // Only if sources includes "news"
+    "images": [ ... ]  // Only if sources includes "images"
   }
 }</code></pre>
 
+      <h3>Examples</h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="search-curl">cURL</button>
+        <button class="tab-btn" data-tab="search-js">JavaScript</button>
+        <button class="tab-btn" data-tab="search-py">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="search-curl">
+        <pre><code class="language-bash"># Basic search
+curl "https://api.webpeel.dev/v1/search?q=latest+AI+news&count=5"
+
+# With Brave Search (BYOK)
+curl "https://api.webpeel.dev/v1/search?q=latest+AI+news&provider=brave" \
+  -H "x-search-api-key: YOUR_BRAVE_KEY"
+
+# Search + scrape results
+curl "https://api.webpeel.dev/v1/search?q=MCP+protocol&scrapeResults=true&count=3"</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="search-js">
+        <pre><code class="language-javascript">const resp = await fetch(
+  'https://api.webpeel.dev/v1/search?q=latest+AI+news&count=5',
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
+);
+const { data } = await resp.json();
+
+for (const result of data.web) {
+  console.log(`${result.title}: ${result.url}`);
+}</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="search-py">
+        <pre><code class="language-python">import urllib.request, json
+
+url = "https://api.webpeel.dev/v1/search?q=latest+AI+news&count=5"
+req = urllib.request.Request(url)
+req.add_header("Authorization", "Bearer YOUR_API_KEY")
+
+with urllib.request.urlopen(req) as resp:
+    data = json.loads(resp.read())
+    for r in data["data"]["web"]:
+        print(f"{r['title']}: {r['url']}")</code></pre>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- POST /v1/screenshot                                                 -->
+      <!-- ================================================================== -->
+
+      <h2 id="screenshot">POST /v1/screenshot</h2>
+      <p>Take a screenshot of any URL and return a base64-encoded image. Supports full-page capture, custom viewport sizes, page actions, and stealth mode.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/screenshot</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge stealth">1 credit (stealth)</span>
+      </div>
+
+      <h3>Request Body <small>(JSON)</small></h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">url</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>URL to screenshot (max 2048 characters)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">fullPage</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Capture the entire scrollable page</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">width</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>1280</code></td>
+            <td>Viewport width in pixels (100–5000)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">height</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>720</code></td>
+            <td>Viewport height in pixels (100–5000)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">format</code></td>
+            <td><span class="param-type">string</span></td>
+            <td><code>png</code></td>
+            <td>Image format: <code>png</code>, <code>jpeg</code>, or <code>jpg</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">quality</code></td>
+            <td><span class="param-type">number</span></td>
+            <td>—</td>
+            <td>Image quality for JPEG (1–100)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">waitFor</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>0</code></td>
+            <td>Milliseconds to wait before capture (0–60000)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">timeout</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>30000</code></td>
+            <td>Total timeout in milliseconds</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">stealth</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>false</code></td>
+            <td>Use stealth mode to bypass bot detection</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">actions</code></td>
+            <td><span class="param-type">object[]</span></td>
+            <td>—</td>
+            <td><a href="#page-actions">Page actions</a> to execute before screenshot</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">headers</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Custom HTTP headers</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">cookies</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Cookies to set (key=value pairs)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "url": "https://example.com",
+    "screenshot": "data:image/png;base64,iVBORw0KGgo...",
+    "metadata": {
+      "sourceURL": "https://example.com",
+      "format": "png",
+      "width": 1280,
+      "height": 720,
+      "fullPage": false
+    }
+  }
+}</code></pre>
+
+      <h3>Examples</h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="ss-curl">cURL</button>
+        <button class="tab-btn" data-tab="ss-js">JavaScript</button>
+        <button class="tab-btn" data-tab="ss-py">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="ss-curl">
+        <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/screenshot \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "url": "https://example.com",
+    "fullPage": true,
+    "width": 1440,
+    "format": "png"
+  }'</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="ss-js">
+        <pre><code class="language-javascript">const resp = await fetch('https://api.webpeel.dev/v1/screenshot', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_API_KEY'
+  },
+  body: JSON.stringify({
+    url: 'https://example.com',
+    fullPage: true,
+    width: 1440
+  })
+});
+
+const { data } = await resp.json();
+// data.screenshot is a data: URL — use directly in &lt;img src="..."&gt;</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="ss-py">
+        <pre><code class="language-python">import urllib.request, json, base64
+
+body = json.dumps({
+    "url": "https://example.com",
+    "fullPage": True,
+    "width": 1440
+}).encode()
+
+req = urllib.request.Request(
+    "https://api.webpeel.dev/v1/screenshot",
+    data=body, method="POST"
+)
+req.add_header("Content-Type", "application/json")
+req.add_header("Authorization", "Bearer YOUR_API_KEY")
+
+with urllib.request.urlopen(req) as resp:
+    data = json.loads(resp.read())
+    # Save screenshot to file
+    img_data = data["data"]["screenshot"].split(",")[1]
+    with open("screenshot.png", "wb") as f:
+        f.write(base64.b64decode(img_data))</code></pre>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- POST /v1/answer                                                     -->
+      <!-- ================================================================== -->
+
       <h2 id="answer">POST /v1/answer</h2>
-      <p>Ask a question, search the web, fetch top sources, and generate an LLM answer with citations (<code>[1]</code>, <code>[2]</code>). BYOK — you provide your own LLM key.</p>
+      <p>Ask a question, search the web, fetch top sources, and generate an LLM answer with inline citations (<code>[1]</code>, <code>[2]</code>). BYOK — you provide your own LLM API key. Supports SSE streaming.</p>
 
       <div class="api-endpoint">
         <span class="api-method api-method-post">POST</span>
         <span class="api-path">/v1/answer</span>
       </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit + LLM cost (BYOK)</span>
+      </div>
 
-      <h3>Request Body</h3>
+      <h3>Request Body <small>(JSON)</small></h3>
       <table class="param-table">
-        <thead>
-          <tr>
-            <th>Field</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
           <tr>
             <td><code class="param-name">question</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
-            <td>The question to answer</td>
+            <td>—</td>
+            <td>The question to answer (max 2000 characters)</td>
           </tr>
           <tr>
             <td><code class="param-name">llmProvider</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
+            <td>—</td>
             <td>LLM provider: <code>openai</code>, <code>anthropic</code>, or <code>google</code></td>
           </tr>
           <tr>
             <td><code class="param-name">llmApiKey</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
-            <td>LLM API key (BYOK)</td>
+            <td>—</td>
+            <td>Your LLM API key (BYOK)</td>
           </tr>
           <tr>
             <td><code class="param-name">llmModel</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Optional model name (uses provider default if omitted)</td>
+            <td><em>Provider default</em></td>
+            <td>Model name. Defaults: <code>gpt-4o-mini</code> (OpenAI), <code>claude-3-5-sonnet-latest</code> (Anthropic), <code>gemini-1.5-flash</code> (Google)</td>
           </tr>
           <tr>
             <td><code class="param-name">searchProvider</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Search provider: <code>duckduckgo</code> (default) or <code>brave</code></td>
+            <td><code>duckduckgo</code></td>
+            <td>Search provider: <code>duckduckgo</code> or <code>brave</code></td>
           </tr>
           <tr>
             <td><code class="param-name">searchApiKey</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Brave Search API key (optional; can also be sent via <code>x-search-api-key</code>)</td>
+            <td>—</td>
+            <td>Brave Search API key (also accepted via <code>x-search-api-key</code> header)</td>
           </tr>
           <tr>
             <td><code class="param-name">maxSources</code></td>
             <td><span class="param-type">number</span></td>
-            <td>Max sources to fetch (default: 5)</td>
+            <td><code>5</code></td>
+            <td>Maximum sources to fetch and cite (1–10)</td>
           </tr>
           <tr>
             <td><code class="param-name">stream</code></td>
             <td><span class="param-type">boolean</span></td>
-            <td>When <code>true</code>, stream via SSE (<code>text/event-stream</code>)</td>
+            <td><code>false</code></td>
+            <td>When <code>true</code>, stream response via SSE (<code>text/event-stream</code>)</td>
           </tr>
         </tbody>
       </table>
 
-      <h3>Example</h3>
-      <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/answer \
+      <h3>Response (non-streaming)</h3>
+      <pre><code class="language-json">{
+  "answer": "MCP (Model Context Protocol) is an open standard... [1] ... [2] ...",
+  "citations": [
+    { "title": "Model Context Protocol", "url": "https://...", "snippet": "..." },
+    { "title": "MCP Documentation", "url": "https://...", "snippet": "..." }
+  ],
+  "searchProvider": "duckduckgo",
+  "llmProvider": "openai",
+  "llmModel": "gpt-4o-mini",
+  "tokensUsed": { "input": 3456, "output": 789 }
+}</code></pre>
+
+      <h3>Response (streaming)</h3>
+      <p>When <code>stream=true</code>, the endpoint returns <code>text/event-stream</code> with JSON-encoded events:</p>
+      <pre><code class="language-json">data: {"type":"chunk","text":"MCP (Model Context Protocol) is"}
+data: {"type":"chunk","text":" an open standard for AI tool..."}
+data: {"type":"done","citations":[...],"searchProvider":"duckduckgo","llmProvider":"openai","llmModel":"gpt-4o-mini","tokensUsed":{"input":3456,"output":789}}</code></pre>
+
+      <h3>Examples</h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="answer-curl">cURL</button>
+        <button class="tab-btn" data-tab="answer-js">JavaScript</button>
+        <button class="tab-btn" data-tab="answer-py">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="answer-curl">
+        <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/answer \
   -H "Content-Type: application/json" \
   -d '{
     "question": "What is MCP and why does it matter for AI agents?",
     "llmProvider": "openai",
     "llmApiKey": "sk-...",
-    "searchProvider": "duckduckgo",
     "maxSources": 5,
     "stream": false
   }'</code></pre>
-
-      <h3>Response</h3>
-      <pre><code class="language-json">{
-  "answer": "MCP (Model Context Protocol) is ... [1] ... [2] ...",
-  "citations": [
-    {
-      "title": "Model Context Protocol (MCP)",
-      "url": "https://example.com/mcp",
-      "snippet": "..."
-    }
-  ],
-  "searchProvider": "duckduckgo",
-  "llmProvider": "openai",
-  "llmModel": "gpt-4.1-mini",
-  "tokensUsed": { "input": 1234, "output": 456 }
-}</code></pre>
-
-      <h3>Streaming (SSE)</h3>
-      <p>When <code>stream=true</code>, the endpoint streams events like:</p>
-      <pre><code class="language-json">{"type":"chunk","text":"..."}
-{"type":"chunk","text":"..."}
-{"type":"done","citations":[{"title":"...","url":"..."}]}</code></pre>
-
-      <h2 id="crawl">POST /v1/crawl</h2>
-      <p>Start an async crawl job. Returns a job ID that can be polled for results.</p>
-
-      <div class="api-endpoint">
-        <span class="api-method api-method-post">POST</span>
-        <span class="api-path">/v1/crawl</span>
       </div>
 
-      <h3>Request Body</h3>
-      <table class="param-table">
-        <thead>
-          <tr>
-            <th>Field</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code class="param-name">url</code> <span class="param-required">required</span></td>
-            <td><span class="param-type">string</span></td>
-            <td>Starting URL to crawl from</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">limit</code></td>
-            <td><span class="param-type">number</span></td>
-            <td>Maximum pages to crawl (default: 10, max: 100)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">maxDepth</code></td>
-            <td><span class="param-type">number</span></td>
-            <td>Maximum crawl depth (default: 2, max: 5)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">includePaths</code></td>
-            <td><span class="param-type">string[]</span></td>
-            <td>Only crawl URLs matching these patterns</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">excludePaths</code></td>
-            <td><span class="param-type">string[]</span></td>
-            <td>Exclude URLs matching these patterns</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">webhook</code></td>
-            <td><span class="param-type">object</span></td>
-            <td>Webhook URL and events for notifications</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="tab-content" data-content="answer-js">
+        <pre><code class="language-javascript">const resp = await fetch('https://api.webpeel.dev/v1/answer', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    question: 'What is MCP and why does it matter for AI agents?',
+    llmProvider: 'openai',
+    llmApiKey: 'sk-...',
+    maxSources: 5
+  })
+});
 
-      <h3>Response</h3>
-      <pre><code class="language-json">{
-  "success": true,
-  "id": "crawl_abc123xyz789",
-  "url": "/v1/crawl/crawl_abc123xyz789"
-}</code></pre>
-
-      <h3>Example</h3>
-      <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/crawl \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -d '{
-    "url": "https://example.com",
-    "limit": 50,
-    "maxDepth": 3,
-    "excludePaths": ["/admin", "/login"]
-  }'</code></pre>
-
-      <h2>GET /v1/crawl/:id</h2>
-      <p>Check status and retrieve results of a crawl job.</p>
-
-      <div class="api-endpoint">
-        <span class="api-method api-method-get">GET</span>
-        <span class="api-path">/v1/crawl/:id</span>
+const data = await resp.json();
+console.log(data.answer);
+console.log(data.citations);</code></pre>
       </div>
 
-      <h3>Response</h3>
-      <pre><code class="language-json">{
-  "success": true,
-  "status": "completed",
-  "progress": 1.0,
-  "total": 50,
-  "completed": 50,
-  "creditsUsed": 50,
-  "data": [
-    {
-      "url": "https://example.com",
-      "title": "Home",
-      "markdown": "# Home\n...",
-      "links": [...],
-      "depth": 0
-    }
-  ]
-}</code></pre>
+      <div class="tab-content" data-content="answer-py">
+        <pre><code class="language-python">import urllib.request, json
 
-      <h2 id="batch">POST /v1/batch/scrape</h2>
-      <p>Batch scrape multiple URLs with concurrency control.</p>
+body = json.dumps({
+    "question": "What is MCP and why does it matter for AI agents?",
+    "llmProvider": "openai",
+    "llmApiKey": "sk-...",
+    "maxSources": 5
+}).encode()
 
-      <div class="api-endpoint">
-        <span class="api-method api-method-post">POST</span>
-        <span class="api-path">/v1/batch/scrape</span>
+req = urllib.request.Request(
+    "https://api.webpeel.dev/v1/answer",
+    data=body, method="POST"
+)
+req.add_header("Content-Type", "application/json")
+
+with urllib.request.urlopen(req) as resp:
+    data = json.loads(resp.read())
+    print(data["answer"])</code></pre>
       </div>
 
-      <h3>Request Body</h3>
-      <table class="param-table">
-        <thead>
-          <tr>
-            <th>Field</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code class="param-name">urls</code> <span class="param-required">required</span></td>
-            <td><span class="param-type">string[]</span></td>
-            <td>Array of URLs to scrape (max 100)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">formats</code></td>
-            <td><span class="param-type">string[]</span></td>
-            <td>Output formats (default: <code>["markdown"]</code>)</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">maxTokens</code></td>
-            <td><span class="param-type">number</span></td>
-            <td>Max tokens per result</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">webhook</code></td>
-            <td><span class="param-type">string</span></td>
-            <td>Webhook URL for progress notifications</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3>Response</h3>
-      <pre><code class="language-json">{
-  "success": true,
-  "id": "batch_xyz789abc123",
-  "url": "/v1/batch/scrape/batch_xyz789abc123"
-}</code></pre>
-
-      <h2>GET /v1/batch/scrape/:id</h2>
-      <p>Get batch job status and results.</p>
-
-      <div class="api-endpoint">
-        <span class="api-method api-method-get">GET</span>
-        <span class="api-path">/v1/batch/scrape/:id</span>
-      </div>
+      <!-- ================================================================== -->
+      <!-- POST /v1/agent                                                      -->
+      <!-- ================================================================== -->
 
       <h2 id="agent">POST /v1/agent</h2>
-      <p>Run an autonomous agent for web research with AI-powered planning.</p>
+      <p>Run an autonomous AI research agent. It plans search queries, fetches pages, and synthesizes a structured answer using your LLM (BYOK). Supports basic and thorough research depth, topic tuning, JSON Schema output, and SSE streaming.</p>
 
       <div class="api-endpoint">
         <span class="api-method api-method-post">POST</span>
         <span class="api-path">/v1/agent</span>
       </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit per page fetched + LLM cost (BYOK)</span>
+      </div>
 
-      <h3>Request Body</h3>
+      <h3>Request Body <small>(JSON)</small></h3>
       <table class="param-table">
-        <thead>
-          <tr>
-            <th>Field</th>
-            <th>Type</th>
-            <th>Description</th>
-          </tr>
-        </thead>
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
           <tr>
             <td><code class="param-name">prompt</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
-            <td>Natural language task description</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">urls</code></td>
-            <td><span class="param-type">string[]</span></td>
-            <td>Optional starting URLs (agent will search if not provided)</td>
+            <td>—</td>
+            <td>Natural language research task</td>
           </tr>
           <tr>
             <td><code class="param-name">llmApiKey</code> <span class="param-required">required</span></td>
             <td><span class="param-type">string</span></td>
+            <td>—</td>
             <td>OpenAI-compatible API key (BYOK)</td>
           </tr>
           <tr>
             <td><code class="param-name">llmModel</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Model to use (default: <code>gpt-4o-mini</code>)</td>
+            <td><code>gpt-4o-mini</code></td>
+            <td>LLM model to use</td>
           </tr>
           <tr>
-            <td><code class="param-name">schema</code></td>
-            <td><span class="param-type">object</span></td>
-            <td>JSON schema for structured output (legacy — prefer <code>outputSchema</code>)</td>
+            <td><code class="param-name">llmApiBase</code></td>
+            <td><span class="param-type">string</span></td>
+            <td><code>https://api.openai.com/v1</code></td>
+            <td>Custom LLM API base URL (for OpenRouter, local models, etc.)</td>
           </tr>
           <tr>
-            <td><code class="param-name">outputSchema</code></td>
-            <td><span class="param-type">object</span></td>
-            <td>JSON Schema for structured output (validated)</td>
+            <td><code class="param-name">urls</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Starting URLs. If not provided, the agent searches the web.</td>
           </tr>
           <tr>
             <td><code class="param-name">depth</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Research depth: <code>basic</code> (default) or <code>thorough</code></td>
+            <td><code>basic</code></td>
+            <td>Research depth: <code>basic</code> (1 query, ~3 sources) or <code>thorough</code> (multi-query, ~10 sources, gap analysis)</td>
           </tr>
           <tr>
             <td><code class="param-name">topic</code></td>
             <td><span class="param-type">string</span></td>
-            <td>Topic hint: <code>general</code>, <code>news</code>, <code>technical</code>, <code>academic</code></td>
+            <td><code>general</code></td>
+            <td>Topic hint: <code>general</code>, <code>news</code>, <code>technical</code>, <code>academic</code>. Adjusts search queries and source prioritization.</td>
           </tr>
           <tr>
             <td><code class="param-name">maxSources</code></td>
             <td><span class="param-type">number</span></td>
-            <td>Max sources to fetch and analyze (1-20, default: 5)</td>
+            <td><code>5</code></td>
+            <td>Max sources to fetch and analyze (1–20)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">maxCredits</code></td>
+            <td><span class="param-type">number</span></td>
+            <td>—</td>
+            <td>Spending cap (stops fetching when reached)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">outputSchema</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>JSON Schema for structured output. Agent validates and may retry if output doesn't match.</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">schema</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Legacy alias for <code>outputSchema</code></td>
           </tr>
           <tr>
             <td><code class="param-name">stream</code></td>
             <td><span class="param-type">boolean</span></td>
-            <td>When <code>true</code>, stream progress + chunks via SSE</td>
-          </tr>
-          <tr>
-            <td><code class="param-name">maxIterations</code></td>
-            <td><span class="param-type">number</span></td>
-            <td>Max research steps (default: 10)</td>
+            <td><code>false</code></td>
+            <td>When <code>true</code>, stream progress and answer via SSE</td>
           </tr>
         </tbody>
       </table>
+
+      <h3>Response (synchronous)</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "answer": "## AI Coding Assistants Comparison\n...",
+    "keyFindings": ["Finding 1", "Finding 2"]
+  },
+  "answer": "## AI Coding Assistants Comparison\n...",
+  "sources": ["https://...", "https://..."],
+  "sourcesDetailed": [
+    { "url": "https://...", "title": "Source Title" }
+  ],
+  "pagesVisited": 5,
+  "creditsUsed": 6,
+  "tokensUsed": { "input": 12000, "output": 2500 }
+}</code></pre>
+
+      <h3>SSE Streaming Events</h3>
+      <p>When <code>stream=true</code>, the endpoint returns <code>text/event-stream</code>:</p>
+      <pre><code class="language-json">data: {"type":"step","action":"searching","query":"AI coding assistants 2026"}
+data: {"type":"step","action":"fetching","url":"https://..."}
+data: {"type":"step","action":"analyzing","summary":"Synthesizing from 5 sources..."}
+data: {"type":"chunk","text":"## AI Coding Assistants\n"}
+data: {"type":"chunk","text":"Here are the top 5..."}
+data: {"type":"done","answer":"...","sources":[...],"tokensUsed":{...}}</code></pre>
+
+      <h3>Async Mode</h3>
+      <p>For long-running research, use the async endpoint:</p>
+
+      <div class="api-endpoint" style="margin-top:8px">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/agent/async</span>
+      </div>
+      <p>Same request body as above, plus optional <code>webhook</code> (WebhookConfig object). Returns a job ID:</p>
+      <pre><code class="language-json">{ "success": true, "id": "job-uuid", "url": "/v1/agent/job-uuid" }</code></pre>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-get">GET</span>
+        <span class="api-path">/v1/agent/:id</span>
+      </div>
+      <p>Poll job status and results.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method" style="background:#FEE2E2;color:#DC2626;">DELETE</span>
+        <span class="api-path">/v1/agent/:id</span>
+      </div>
+      <p>Cancel a running agent job.</p>
 
       <h3>Example</h3>
       <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/agent \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
-    "prompt": "Find the top 5 AI coding assistants and compare their features",
+    "prompt": "Compare the top 5 AI coding assistants by features and pricing",
     "llmApiKey": "sk-...",
-    "schema": {
+    "depth": "thorough",
+    "topic": "technical",
+    "maxSources": 10,
+    "outputSchema": {
       "type": "array",
       "items": {
         "type": "object",
         "properties": {
           "name": { "type": "string" },
-          "features": { "type": "array" },
+          "features": { "type": "array", "items": { "type": "string" } },
           "pricing": { "type": "string" }
-        }
+        },
+        "required": ["name", "features", "pricing"]
       }
     }
   }'</code></pre>
 
+      <!-- ================================================================== -->
+      <!-- POST /v1/crawl                                                      -->
+      <!-- ================================================================== -->
+
+      <h2 id="crawl">POST /v1/crawl</h2>
+      <p>Start an async crawl job. Follows links from a starting URL and extracts content from each page. Returns a job ID for polling. Supports webhooks and SSE for real-time progress.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/crawl</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit per page crawled</span>
+      </div>
+
+      <h3>Request Body <small>(JSON)</small></h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">url</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Starting URL to crawl from</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">limit</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>100</code></td>
+            <td>Maximum pages to crawl</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">maxDepth</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>3</code></td>
+            <td>Maximum link-following depth</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">scrapeOptions</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Passed through to each page fetch (e.g. <code>format</code>, <code>render</code>)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">location</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Country code for geo-targeting</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">languages</code></td>
+            <td><span class="param-type">string | string[]</span></td>
+            <td>—</td>
+            <td>Language preferences</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">webhook</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td><a href="#webhooks">Webhook config</a> for progress notifications</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Response (202 Accepted)</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "id": "crawl_abc123",
+  "url": "/v1/crawl/crawl_abc123"
+}</code></pre>
+
+      <h3>GET /v1/crawl/:id — Poll Results</h3>
+      <div class="api-endpoint">
+        <span class="api-method api-method-get">GET</span>
+        <span class="api-path">/v1/crawl/:id</span>
+      </div>
+      <p>Returns job status and results. Supports SSE by sending <code>Accept: text/event-stream</code> for real-time progress updates.</p>
+      <pre><code class="language-json">{
+  "success": true,
+  "status": "completed",
+  "progress": 100,
+  "total": 50,
+  "completed": 50,
+  "creditsUsed": 50,
+  "expiresAt": "2026-02-16T00:00:00.000Z",
+  "data": [
+    {
+      "url": "https://example.com",
+      "title": "Home",
+      "markdown": "# Home\n...",
+      "links": ["https://example.com/about"]
+    }
+  ]
+}</code></pre>
+
+      <h3>DELETE /v1/crawl/:id — Cancel Job</h3>
+      <div class="api-endpoint">
+        <span class="api-method" style="background:#FEE2E2;color:#DC2626;">DELETE</span>
+        <span class="api-path">/v1/crawl/:id</span>
+      </div>
+      <p>Cancel a queued or in-progress crawl job.</p>
+
+      <h3>Example</h3>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="crawl-curl">cURL</button>
+        <button class="tab-btn" data-tab="crawl-js">JavaScript</button>
+        <button class="tab-btn" data-tab="crawl-py">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="crawl-curl">
+        <pre><code class="language-bash"># Start crawl
+curl -X POST https://api.webpeel.dev/v1/crawl \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{ "url": "https://docs.example.com", "limit": 50, "maxDepth": 3 }'
+
+# Poll results
+curl "https://api.webpeel.dev/v1/crawl/crawl_abc123" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+
+# Cancel
+curl -X DELETE "https://api.webpeel.dev/v1/crawl/crawl_abc123" \
+  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="crawl-js">
+        <pre><code class="language-javascript">// Start crawl
+const { id } = await (await fetch('https://api.webpeel.dev/v1/crawl', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_API_KEY'
+  },
+  body: JSON.stringify({ url: 'https://docs.example.com', limit: 50 })
+})).json();
+
+// Poll until complete
+let job;
+do {
+  await new Promise(r => setTimeout(r, 2000));
+  job = await (await fetch(`https://api.webpeel.dev/v1/crawl/${id}`, {
+    headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+  })).json();
+  console.log(`Progress: ${job.completed}/${job.total}`);
+} while (job.status === 'processing' || job.status === 'queued');
+
+console.log(`Done! ${job.data.length} pages crawled.`);</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="crawl-py">
+        <pre><code class="language-python">import urllib.request, json, time
+
+# Start crawl
+body = json.dumps({"url": "https://docs.example.com", "limit": 50}).encode()
+req = urllib.request.Request(
+    "https://api.webpeel.dev/v1/crawl", data=body, method="POST"
+)
+req.add_header("Content-Type", "application/json")
+req.add_header("Authorization", "Bearer YOUR_API_KEY")
+
+with urllib.request.urlopen(req) as resp:
+    job_id = json.loads(resp.read())["id"]
+
+# Poll until complete
+while True:
+    time.sleep(2)
+    req = urllib.request.Request(f"https://api.webpeel.dev/v1/crawl/{job_id}")
+    req.add_header("Authorization", "Bearer YOUR_API_KEY")
+    with urllib.request.urlopen(req) as resp:
+        job = json.loads(resp.read())
+    if job["status"] in ("completed", "failed"):
+        break
+    print(f"Progress: {job['completed']}/{job['total']}")
+
+print(f"Done! {len(job['data'])} pages.")</code></pre>
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- POST /v1/batch/scrape                                               -->
+      <!-- ================================================================== -->
+
+      <h2 id="batch">POST /v1/batch/scrape</h2>
+      <p>Batch scrape multiple URLs concurrently. Creates an async job with up to 5 parallel fetches. Poll for results or use webhooks.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/batch/scrape</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit per URL</span>
+      </div>
+
+      <h3>Request Body <small>(JSON)</small></h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">urls</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Array of URLs to scrape (max 100)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">formats</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td><code>["markdown"]</code></td>
+            <td>Output formats</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">maxTokens</code></td>
+            <td><span class="param-type">number</span></td>
+            <td>—</td>
+            <td>Max tokens per result</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">extract</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Extraction options (passed through to each fetch)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">webhook</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Webhook URL for progress notifications</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Response (202 Accepted)</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "id": "batch_xyz789",
+  "url": "/v1/batch/scrape/batch_xyz789"
+}</code></pre>
+
+      <h3>GET /v1/batch/scrape/:id — Poll Results</h3>
+      <p>Same response format as crawl jobs:</p>
+      <pre><code class="language-json">{
+  "success": true,
+  "status": "completed",
+  "progress": 100,
+  "total": 10,
+  "completed": 10,
+  "creditsUsed": 10,
+  "data": [ { "url": "...", "content": "...", ... }, ... ]
+}</code></pre>
+
+      <h3>DELETE /v1/batch/scrape/:id — Cancel Job</h3>
+      <p>Cancel a running batch job.</p>
+
+      <h3>Example</h3>
+      <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/batch/scrape \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "urls": [
+      "https://example.com/page1",
+      "https://example.com/page2",
+      "https://example.com/page3"
+    ],
+    "formats": ["markdown"]
+  }'</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- POST /v1/map                                                        -->
+      <!-- ================================================================== -->
+
+      <h2 id="map">POST /v1/map</h2>
+      <p>Discover all URLs on a domain using sitemap.xml and link crawling. Returns a flat list of URLs without fetching page content. Much faster and cheaper than a full crawl.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/map</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit</span>
+      </div>
+
+      <h3>Request Body <small>(JSON)</small></h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">url</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Starting URL or domain</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">limit</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>5000</code></td>
+            <td>Maximum URLs to return</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">search</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Filter URLs containing this substring</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "links": [
+    "https://example.com/",
+    "https://example.com/about",
+    "https://example.com/blog",
+    "https://example.com/blog/post-1",
+    ...
+  ]
+}</code></pre>
+
+      <h3>Example</h3>
+      <pre><code class="language-bash">curl -X POST https://api.webpeel.dev/v1/map \
+  -H "Content-Type: application/json" \
+  -d '{ "url": "https://example.com", "limit": 100, "search": "/blog" }'</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- GET /v1/jobs                                                        -->
+      <!-- ================================================================== -->
+
+      <h2 id="jobs">GET /v1/jobs</h2>
+      <p>List all async jobs (crawl, batch, agent). Useful for dashboards and monitoring.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-get">GET</span>
+        <span class="api-path">/v1/jobs</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge free">Free</span>
+      </div>
+
+      <h3>Query Parameters</h3>
+      <table class="param-table">
+        <thead><tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code class="param-name">type</code></td><td><span class="param-type">string</span></td><td>—</td><td>Filter by type: <code>crawl</code>, <code>batch</code>, <code>extract</code></td></tr>
+          <tr><td><code class="param-name">status</code></td><td><span class="param-type">string</span></td><td>—</td><td>Filter by status: <code>queued</code>, <code>processing</code>, <code>completed</code>, <code>failed</code>, <code>cancelled</code></td></tr>
+          <tr><td><code class="param-name">limit</code></td><td><span class="param-type">number</span></td><td><code>50</code></td><td>Maximum results to return</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "count": 3,
+  "jobs": [
+    {
+      "id": "crawl_abc123",
+      "type": "crawl",
+      "status": "completed",
+      "progress": 100,
+      "total": 50,
+      "completed": 50,
+      "creditsUsed": 50,
+      "createdAt": "2026-02-15T10:00:00Z",
+      "expiresAt": "2026-02-16T10:00:00Z"
+    }
+  ]
+}</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- FIRECRAWL COMPATIBILITY                                             -->
+      <!-- ================================================================== -->
+
+      <h2 id="compat-scrape">POST /v1/scrape <small style="color:var(--text-3);font-weight:400">(Firecrawl-compatible)</small></h2>
+      <p>Drop-in replacement for Firecrawl's <code>/v1/scrape</code> endpoint. Change your base URL from <code>api.firecrawl.dev</code> to <code>api.webpeel.dev</code> and your existing code works — zero changes needed.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v1/scrape</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit</span>
+      </div>
+
+      <h3>Request Body <small>(Firecrawl format)</small></h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code class="param-name">url</code> <span class="param-required">required</span></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>URL to scrape</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">formats</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td><code>["markdown"]</code></td>
+            <td>Output formats: <code>markdown</code>, <code>html</code>, <code>rawHtml</code>, <code>links</code>, <code>screenshot</code>, <code>images</code>, <code>json</code>, <code>branding</code>, <code>summary</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">onlyMainContent</code></td>
+            <td><span class="param-type">boolean</span></td>
+            <td><code>true</code></td>
+            <td>Smart content extraction (Firecrawl defaults to true)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">includeTags</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Tags to include</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">excludeTags</code></td>
+            <td><span class="param-type">string[]</span></td>
+            <td>—</td>
+            <td>Tags to exclude</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">waitFor</code></td>
+            <td><span class="param-type">number</span></td>
+            <td>—</td>
+            <td>Wait time in ms (auto-enables browser rendering)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">timeout</code></td>
+            <td><span class="param-type">number</span></td>
+            <td><code>30000</code></td>
+            <td>Request timeout in ms</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">actions</code></td>
+            <td><span class="param-type">object[]</span></td>
+            <td>—</td>
+            <td>Page actions (Firecrawl format supported)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">headers</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Custom headers</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">location</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td>Object with <code>country</code> and <code>languages</code></td>
+          </tr>
+          <tr>
+            <td colspan="4" style="background: var(--accent-light); font-weight: 600; color: var(--accent); font-size: 13px;">Inline LLM Extraction (BYOK)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">extract</code></td>
+            <td><span class="param-type">object</span></td>
+            <td>—</td>
+            <td><code>{ schema: {...}, prompt: "..." }</code> for LLM extraction</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmProvider</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td><code>openai</code>, <code>anthropic</code>, or <code>google</code></td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmApiKey</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Your LLM API key (BYOK)</td>
+          </tr>
+          <tr>
+            <td><code class="param-name">llmModel</code></td>
+            <td><span class="param-type">string</span></td>
+            <td>—</td>
+            <td>Model override</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "success": true,
+  "data": {
+    "markdown": "# Page Title\n\nContent...",
+    "metadata": {
+      "title": "Page Title",
+      "description": "...",
+      "sourceURL": "https://example.com",
+      "statusCode": 200
+    },
+    "links": ["https://..."],
+    "screenshot": "data:image/png;base64,...",
+    "json": { ... }
+  }
+}</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- POST /v2/scrape                                                     -->
+      <!-- ================================================================== -->
+
+      <h2 id="compat-v2-scrape">POST /v2/scrape <small style="color:var(--text-3);font-weight:400">(Firecrawl v2)</small></h2>
+      <p>Firecrawl v2 compatible endpoint with first-class screenshot support. When <code>formats</code> is <code>["screenshot"]</code> only, it uses a dedicated screenshot pipeline for faster, higher-quality captures.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-post">POST</span>
+        <span class="api-path">/v2/scrape</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge optional">Auth optional</span>
+        <span class="credit-badge">1 credit</span>
+      </div>
+
+      <p>Accepts the same body as <a href="#compat-scrape">POST /v1/scrape</a> plus these additional fields:</p>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code class="param-name">fullPage</code></td><td><span class="param-type">boolean</span></td><td><code>false</code></td><td>Full-page screenshot</td></tr>
+          <tr><td><code class="param-name">width</code></td><td><span class="param-type">number</span></td><td>—</td><td>Viewport width (pixels)</td></tr>
+          <tr><td><code class="param-name">height</code></td><td><span class="param-type">number</span></td><td>—</td><td>Viewport height (pixels)</td></tr>
+          <tr><td><code class="param-name">screenshotFormat</code></td><td><span class="param-type">string</span></td><td><code>png</code></td><td>Image format: <code>png</code> or <code>jpeg</code></td></tr>
+          <tr><td><code class="param-name">quality</code></td><td><span class="param-type">number</span></td><td>—</td><td>JPEG quality (1–100)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-info">
+        <div class="callout-title">Also available as POST /v1/fetch</div>
+        <code>POST /v2/scrape</code> is an alias for <code>POST /v1/fetch</code>. They share the same handler. Use whichever you prefer.
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- POST /mcp                                                           -->
+      <!-- ================================================================== -->
+
       <h2 id="mcp">POST /mcp</h2>
-      <p>Hosted MCP endpoint (Streamable HTTP transport). Connect any MCP client with a single URL — no local server required.</p>
+      <p>Hosted MCP endpoint using Streamable HTTP transport. Connect any MCP client (Claude, Cursor, VS Code) with a single URL — no local server required.</p>
 
       <div class="api-endpoint">
         <span class="api-method api-method-post">POST</span>
         <span class="api-path">/mcp</span>
       </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge required">Auth required</span>
+        <span class="credit-badge">1 credit per tool call</span>
+      </div>
 
-      <p>Endpoint URL: <code>https://api.webpeel.dev/mcp</code></p>
-      <p>Authentication: <code>Authorization: Bearer &lt;api_key&gt;</code></p>
-      <p>Supported tools: <code>webpeel_fetch</code>, <code>webpeel_search</code>, <code>webpeel_crawl</code>, <code>webpeel_map</code>, <code>webpeel_extract</code>, <code>webpeel_batch</code>, <code>webpeel_agent</code></p>
-
-      <h3>Client Setup</h3>
+      <h3>Connection</h3>
       <pre><code class="language-json">{
   "url": "https://api.webpeel.dev/mcp",
   "headers": {
-    "Authorization": "Bearer &lt;key&gt;"
+    "Authorization": "Bearer YOUR_API_KEY"
   }
 }</code></pre>
 
-      <p><strong>Stateless:</strong> no session management required — each request is authenticated and handled independently.</p>
+      <h3>Available Tools</h3>
+      <table class="param-table">
+        <thead><tr><th>Tool Name</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code class="param-name">webpeel_fetch</code></td><td>Fetch a URL and return clean markdown. Supports render, stealth, actions, inline extraction.</td></tr>
+          <tr><td><code class="param-name">webpeel_search</code></td><td>Search the web (DuckDuckGo). Returns titles, URLs, snippets.</td></tr>
+          <tr><td><code class="param-name">webpeel_crawl</code></td><td>Crawl a website following links. Max 100 pages, depth 1–5.</td></tr>
+          <tr><td><code class="param-name">webpeel_map</code></td><td>Discover all URLs on a domain via sitemap + crawling.</td></tr>
+          <tr><td><code class="param-name">webpeel_extract</code></td><td>Extract structured data using CSS selectors or AI.</td></tr>
+          <tr><td><code class="param-name">webpeel_batch</code></td><td>Fetch multiple URLs in batch (max 50, configurable concurrency).</td></tr>
+          <tr><td><code class="param-name">webpeel_agent</code></td><td>Autonomous web research: search, fetch, synthesize (BYOK).</td></tr>
+        </tbody>
+      </table>
 
-      <h2>Rate Limits</h2>
+      <p><strong>Stateless:</strong> No session management required. Each request is authenticated and handled independently.</p>
+      <p><code>GET /mcp</code> returns 405. <code>DELETE /mcp</code> returns 200 (no-op for stateless mode).</p>
+
+      <!-- ================================================================== -->
+      <!-- GET /health                                                         -->
+      <!-- ================================================================== -->
+
+      <h2 id="health">GET /health</h2>
+      <p>Health check endpoint. Returns server status, version, and uptime. Not rate-limited — safe for monitoring services to poll frequently.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-get">GET</span>
+        <span class="api-path">/health</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge none">No auth</span>
+        <span class="credit-badge free">Free</span>
+      </div>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "status": "healthy",
+  "version": "0.7.0",
+  "uptime": 86400,
+  "timestamp": "2026-02-15T21:00:00.000Z"
+}</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- GET /v1/stats                                                       -->
+      <!-- ================================================================== -->
+
+      <h2 id="stats">GET /v1/stats</h2>
+      <p>Get usage statistics for the authenticated API key's account. Shows total requests, success rate, and average response time.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-get">GET</span>
+        <span class="api-path">/v1/stats</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge required">Auth required</span>
+        <span class="credit-badge free">Free</span>
+      </div>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "totalRequests": 1523,
+  "successRate": 98.2,
+  "avgResponseTime": 342
+}</code></pre>
+
+      <div class="callout callout-warning">
+        <div class="callout-title">PostgreSQL Required</div>
+        This endpoint requires a PostgreSQL backend. Self-hosted instances using in-memory storage will return <code>501 Not Implemented</code>.
+      </div>
+
+      <!-- ================================================================== -->
+      <!-- GET /v1/cli/usage                                                   -->
+      <!-- ================================================================== -->
+
+      <h2 id="cli-usage">GET /v1/cli/usage</h2>
+      <p>Get detailed usage information for the CLI's <code>webpeel usage</code> command. Shows plan info, weekly quota usage, burst limits, and reset times.</p>
+
+      <div class="api-endpoint">
+        <span class="api-method api-method-get">GET</span>
+        <span class="api-path">/v1/cli/usage</span>
+      </div>
+      <div class="endpoint-meta">
+        <span class="auth-badge required">Auth required</span>
+        <span class="credit-badge free">Free</span>
+      </div>
+
+      <h3>Response</h3>
+      <pre><code class="language-json">{
+  "plan": {
+    "tier": "pro",
+    "weeklyLimit": 1250,
+    "burstLimit": 100
+  },
+  "weekly": {
+    "used": 342,
+    "limit": 1250,
+    "remaining": 908,
+    "resetsAt": "2026-02-17T00:00:00.000Z",
+    "percentUsed": 27
+  },
+  "burst": {
+    "used": 12,
+    "limit": 100,
+    "resetsIn": "47m"
+  },
+  "canFetch": true,
+  "upgradeUrl": "https://webpeel.dev/#pricing"
+}</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- WEBHOOKS                                                            -->
+      <!-- ================================================================== -->
+
+      <h2 id="webhooks">Webhooks</h2>
+      <p>Async jobs (crawl, batch, agent) support webhook notifications. Webhooks are signed with HMAC-SHA256 if you provide a secret, and retried up to 3 times with exponential backoff.</p>
+
+      <h3>Webhook Config Object</h3>
+      <table class="param-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code class="param-name">url</code></td><td><span class="param-type">string</span></td><td>HTTPS URL to receive webhooks</td></tr>
+          <tr><td><code class="param-name">events</code></td><td><span class="param-type">string[]</span></td><td>Events to subscribe to: <code>started</code>, <code>page</code>, <code>completed</code>, <code>failed</code></td></tr>
+          <tr><td><code class="param-name">secret</code></td><td><span class="param-type">string</span></td><td>HMAC-SHA256 signing secret. Signature sent in <code>X-WebPeel-Signature</code> header.</td></tr>
+          <tr><td><code class="param-name">metadata</code></td><td><span class="param-type">object</span></td><td>Custom metadata included in every webhook payload</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Webhook Payload</h3>
+      <pre><code class="language-json">{
+  "event": "completed",
+  "timestamp": "2026-02-15T21:00:00.000Z",
+  "data": {
+    "jobId": "crawl_abc123",
+    "total": 50,
+    "completed": 50
+  }
+}</code></pre>
+
+      <!-- ================================================================== -->
+      <!-- RATE LIMITS                                                         -->
+      <!-- ================================================================== -->
+
+      <h2 id="rate-limits">Rate Limits</h2>
+      <p>WebPeel uses a two-tier rate limiting system: <strong>weekly quotas</strong> (soft limit) and <strong>hourly burst limits</strong> (hard limit).</p>
+
       <table>
         <thead>
           <tr>
             <th>Tier</th>
             <th>Weekly Quota</th>
             <th>Burst Limit</th>
-            <th>Features</th>
+            <th>Price</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Free</td>
-            <td>125/week</td>
-            <td>25/hour</td>
-            <td>All features included</td>
+            <td><strong>Free</strong></td>
+            <td>125 / week</td>
+            <td>25 / hour</td>
+            <td>$0</td>
           </tr>
           <tr>
-            <td>Pro ($9/mo)</td>
-            <td>1,250/week</td>
-            <td>100/hour</td>
-            <td>All features + extra usage</td>
+            <td><strong>Pro</strong></td>
+            <td>1,250 / week</td>
+            <td>100 / hour</td>
+            <td>$9/mo</td>
           </tr>
           <tr>
-            <td>Max ($29/mo)</td>
-            <td>6,250/week</td>
-            <td>500/hour</td>
-            <td>All features + extra usage</td>
+            <td><strong>Max</strong></td>
+            <td>6,250 / week</td>
+            <td>500 / hour</td>
+            <td>$29/mo</td>
           </tr>
         </tbody>
       </table>
 
-      <h2>Error Responses</h2>
-      <p>All errors follow the same format:</p>
-      
+      <h3>Soft vs Hard Limits</h3>
+      <ul>
+        <li><strong>Weekly quota exceeded (soft limit):</strong> Requests are not blocked. Instead, they are <strong>degraded to HTTP-only mode</strong> (no browser rendering or stealth). The <code>X-Soft-Limited</code> header is set.</li>
+        <li><strong>Burst limit exceeded (hard limit):</strong> Returns <code>429 Too Many Requests</code> with a <code>Retry-After</code> header.</li>
+        <li><strong>Extra usage:</strong> If enabled on your account, you can continue using full features beyond your weekly quota at per-request pricing.</li>
+      </ul>
+
+      <!-- ================================================================== -->
+      <!-- RESPONSE HEADERS                                                    -->
+      <!-- ================================================================== -->
+
+      <h2 id="response-headers">Response Headers</h2>
+      <p>WebPeel includes useful metadata in response headers:</p>
+
+      <table class="param-table response-header-table">
+        <thead><tr><th>Header</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>X-Credits-Used</code></td><td>Number of credits consumed by this request</td></tr>
+          <tr><td><code>X-Processing-Time</code></td><td>Server-side processing time in milliseconds</td></tr>
+          <tr><td><code>X-Fetch-Type</code></td><td>Fetch method used: <code>basic</code>, <code>stealth</code>, <code>search</code>, <code>screenshot</code></td></tr>
+          <tr><td><code>X-Cache</code></td><td><code>HIT</code> or <code>MISS</code></td></tr>
+          <tr><td><code>X-Cache-Age</code></td><td>Cache entry age in seconds (on HIT)</td></tr>
+          <tr><td><code>X-WebPeel-Plan</code></td><td>Your plan tier: <code>free</code>, <code>pro</code>, <code>max</code></td></tr>
+          <tr><td><code>X-Weekly-Limit</code></td><td>Your weekly quota</td></tr>
+          <tr><td><code>X-Weekly-Used</code></td><td>Credits used this week</td></tr>
+          <tr><td><code>X-Weekly-Remaining</code></td><td>Credits remaining this week</td></tr>
+          <tr><td><code>X-Weekly-Resets-At</code></td><td>ISO timestamp of next Monday 00:00 UTC</td></tr>
+          <tr><td><code>X-Burst-Limit</code></td><td>Hourly burst limit</td></tr>
+          <tr><td><code>X-Burst-Used</code></td><td>Burst requests this hour</td></tr>
+          <tr><td><code>X-Burst-Remaining</code></td><td>Burst requests remaining</td></tr>
+          <tr><td><code>X-Soft-Limited</code></td><td>Present when over weekly quota (degraded mode)</td></tr>
+          <tr><td><code>X-Degraded</code></td><td>Explanation of degradation (e.g. "render=true downgraded to HTTP-only")</td></tr>
+          <tr><td><code>X-Extra-Usage-Charged</code></td><td>Cost charged to extra usage balance</td></tr>
+          <tr><td><code>X-Extra-Usage-New-Balance</code></td><td>Remaining extra usage balance</td></tr>
+          <tr><td><code>X-RateLimit-Limit</code></td><td>Burst limit for the sliding window</td></tr>
+          <tr><td><code>X-RateLimit-Remaining</code></td><td>Remaining requests in the window</td></tr>
+          <tr><td><code>X-RateLimit-Reset</code></td><td>Unix timestamp when the window resets</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ================================================================== -->
+      <!-- ERROR RESPONSES                                                     -->
+      <!-- ================================================================== -->
+
+      <h2 id="errors">Error Responses</h2>
+      <p>All errors return a consistent JSON format:</p>
+
       <pre><code class="language-json">{
   "error": "error_code",
   "message": "Human-readable error message"
@@ -748,51 +2122,49 @@ with urllib.request.urlopen(req) as response:
       <table>
         <thead>
           <tr>
-            <th>Status Code</th>
+            <th>Status</th>
             <th>Error Code</th>
             <th>Description</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>400</td>
-            <td><code>invalid_request</code></td>
-            <td>Missing or invalid parameters</td>
-          </tr>
-          <tr>
-            <td>400</td>
-            <td><code>invalid_url</code></td>
-            <td>Malformed URL</td>
-          </tr>
-          <tr>
-            <td>401</td>
-            <td><code>unauthorized</code></td>
-            <td>Missing or invalid API key</td>
-          </tr>
-          <tr>
-            <td>429</td>
-            <td><code>rate_limit_exceeded</code></td>
-            <td>Too many requests</td>
-          </tr>
-          <tr>
-            <td>500</td>
-            <td><code>internal_error</code></td>
-            <td>Server error</td>
-          </tr>
-          <tr>
-            <td>500</td>
-            <td><code>TIMEOUT</code></td>
-            <td>Request timeout</td>
-          </tr>
-          <tr>
-            <td>500</td>
-            <td><code>BLOCKED</code></td>
-            <td>Site blocked the request (try stealth mode)</td>
-          </tr>
+          <tr><td>400</td><td><code>invalid_request</code></td><td>Missing or invalid parameters</td></tr>
+          <tr><td>400</td><td><code>invalid_url</code></td><td>Malformed URL or URL too long (&gt;2048 chars)</td></tr>
+          <tr><td>400</td><td><code>forbidden_url</code></td><td>SSRF protection — cannot fetch localhost, private networks, or non-HTTP URLs</td></tr>
+          <tr><td>400</td><td><code>invalid_json</code></td><td>Malformed JSON in request body</td></tr>
+          <tr><td>401</td><td><code>invalid_key</code></td><td>Invalid or revoked API key</td></tr>
+          <tr><td>401</td><td><code>unauthorized</code></td><td>Valid API key required (for protected endpoints)</td></tr>
+          <tr><td>404</td><td><code>not_found</code></td><td>Route not found or job ID not found</td></tr>
+          <tr><td>429</td><td><code>rate_limited</code></td><td>Hourly burst limit exceeded. Check <code>Retry-After</code> header.</td></tr>
+          <tr><td>429</td><td><code>burst_limit_exceeded</code></td><td>Hourly burst limit exceeded (per API key). Check <code>Retry-After</code>.</td></tr>
+          <tr><td>500</td><td><code>TIMEOUT</code></td><td>Request timed out while fetching</td></tr>
+          <tr><td>500</td><td><code>BLOCKED</code></td><td>Target site blocked the request — try <code>render=true</code> or <code>stealth=true</code></td></tr>
+          <tr><td>500</td><td><code>NETWORK</code></td><td>Network error (DNS failure, connection refused, etc.)</td></tr>
+          <tr><td>500</td><td><code>internal_error</code></td><td>Unexpected server error</td></tr>
+          <tr><td>500</td><td><code>search_failed</code></td><td>Search request failed</td></tr>
+          <tr><td>500</td><td><code>answer_failed</code></td><td>Answer generation failed</td></tr>
+          <tr><td>501</td><td><code>not_implemented</code></td><td>Feature requires PostgreSQL backend (self-hosted only)</td></tr>
         </tbody>
       </table>
+
     </main>
   </div>
+
+  <!-- FOOTER -->
+  <footer class="footer-docs">
+    <div class="footer-docs-inner">
+      <div class="footer-docs-left">© 2026 WebPeel. Open source under MIT.</div>
+      <div class="footer-docs-links">
+        <a href="https://github.com/webpeel/webpeel">GitHub</a>
+        <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/status">Status</a>
+        <a href="https://webpeel.dev/privacy">Privacy</a>
+        <a href="https://webpeel.dev/terms">Terms</a>
+        <a href="https://github.com/webpeel/webpeel/issues">Support</a>
+      </div>
+    </div>
+  </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>

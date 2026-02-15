@@ -116,6 +116,38 @@ img, svg {
   color: var(--accent);
 }
 
+.nav-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  letter-spacing: 0.01em;
+}
+
+.nav-btn-ghost {
+  color: var(--text-2);
+}
+
+.nav-btn-ghost:hover {
+  color: var(--text);
+  background: var(--border-light);
+}
+
+.nav-links a.nav-btn-primary {
+  background: #7C3AED;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.nav-links a.nav-btn-primary:hover {
+  background: #6D28D9;
+  color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(139,92,246,0.25);
+}
+
 /* ---------- Mobile hamburger (injected by JS) ---------- */
 .hamburger-btn {
   display: none;
@@ -832,6 +864,53 @@ pre:hover .copy-btn {
 @media (min-width: 769px) {
   .hamburger-btn {
     display: none !important;
+  }
+}
+
+/* ---------- Footer ---------- */
+.docs-footer {
+  border-top: 1px solid var(--border);
+  padding: 40px 0;
+  margin-top: 48px;
+}
+
+.docs-footer .footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.docs-footer .footer-left {
+  font-size: 13px;
+  color: var(--text-4);
+}
+
+.docs-footer .footer-links {
+  display: flex;
+  gap: 20px;
+}
+
+.docs-footer .footer-links a {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+.docs-footer .footer-links a:hover {
+  color: var(--text);
+}
+
+@media (max-width: 768px) {
+  .docs-footer .footer-inner {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  .docs-footer .footer-links {
+    flex-direction: column;
+    gap: 12px;
   }
 }
 
