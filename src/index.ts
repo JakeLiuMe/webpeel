@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 import { smartFetch } from './core/strategies.js';
 import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget, filterByTags } from './core/markdown.js';
 import { extractMetadata, extractLinks, extractImages } from './core/metadata.js';
-import { cleanup } from './core/fetcher.js';
+import { cleanup, warmup, closePool } from './core/fetcher.js';
 import { extractStructured } from './core/extract.js';
 import { isPdfContentType, isDocxContentType, extractDocumentToFormat } from './core/documents.js';
 import type { PeelOptions, PeelResult, ImageInfo } from './types.js';
@@ -346,7 +346,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       metadata,
       links,
       tokens,
-      method: fetchResult.method,
+      method: fetchResult.method === 'cached' ? 'simple' : fetchResult.method,
       elapsed,
       screenshot: screenshotBase64,
       contentType: detectedType,
@@ -413,4 +413,5 @@ export async function peelBatch(
  * Clean up any browser resources
  * Call this when you're done using WebPeel
  */
-export { cleanup };
+export { cleanup, warmup, closePool };
+export { getCached, setCached, clearCache, setCacheTTL } from './core/cache.js';

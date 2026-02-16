@@ -12,7 +12,7 @@ dns.setDefaultResultOrder('ipv4first');
 import { chromium, type Browser, type Page } from 'playwright';
 import { chromium as stealthChromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { fetch as undiciFetch } from 'undici';
+import { fetch as undiciFetch, Agent } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
 import type { PageAction } from '../types.js';
 
@@ -29,6 +29,23 @@ const USER_AGENTS = [
 
 function getRandomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
+function createHttpPool(): Agent {
+  return new Agent({
+    connections: 10,
+    pipelining: 1,
+    keepAliveTimeout: 30000,
+    keepAliveMaxTimeout: 60000,
+  });
+}
+
+let httpPool = createHttpPool();
+
+function createAbortError(): Error {
+  const error = new Error('Operation aborted');
+  error.name = 'AbortError';
+  return error;
 }
 
 /**
@@ -290,10 +307,15 @@ export async function simpleFetch(
   url: string,
   userAgent?: string,
   timeoutMs: number = 30000,
-  customHeaders?: Record<string, string>
+  customHeaders?: Record<string, string>,
+  abortSignal?: AbortSignal
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
   validateUrl(url);
+
+  if (abortSignal?.aborted) {
+    throw createAbortError();
+  }
 
   // Validate user agent if provided
   // SEC.gov requires a User-Agent with contact info (their documented automated access policy)
@@ -341,13 +363,17 @@ export async function simpleFetch(
     // Re-validate on each redirect
     validateUrl(currentUrl);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timeoutController = new AbortController();
+    const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+    const signal = abortSignal
+      ? AbortSignal.any([timeoutController.signal, abortSignal])
+      : timeoutController.signal;
 
     try {
       const response = await undiciFetch(currentUrl, {
         headers: mergedHeaders,
-        signal: controller.signal,
+        signal,
+        dispatcher: httpPool,
         redirect: 'manual', // SECURITY: Manual redirect handling
       });
 
@@ -488,6 +514,9 @@ export async function simpleFetch(
       }
 
       if (error instanceof Error && error.name === 'AbortError') {
+        if (abortSignal?.aborted && !timeoutController.signal.aborted) {
+          throw createAbortError();
+        }
         throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
       }
 
@@ -520,16 +549,114 @@ export async function simpleFetch(
   throw new WebPeelError(`Too many redirects (max ${MAX_REDIRECTS})`);
 }
 
+export async function closePool(): Promise<void> {
+  const oldPool = httpPool;
+  httpPool = createHttpPool();
+  await oldPool.close().catch(() => {});
+}
+
 let sharedBrowser: Browser | null = null;
 let sharedStealthBrowser: Browser | null = null;
 let activePagesCount = 0;
 const MAX_CONCURRENT_PAGES = 5;
+const PAGE_POOL_SIZE = 3;
+const pooledPages = new Set<Page>();
+const idlePagePool: Page[] = [];
+let pagePoolFillPromise: Promise<void> | null = null;
+
+function removePooledPage(page: Page): void {
+  pooledPages.delete(page);
+  const idleIndex = idlePagePool.indexOf(page);
+  if (idleIndex >= 0) {
+    idlePagePool.splice(idleIndex, 1);
+  }
+}
+
+function takePooledPage(): Page | null {
+  while (idlePagePool.length > 0) {
+    const page = idlePagePool.shift()!;
+    if (page.isClosed()) {
+      removePooledPage(page);
+      continue;
+    }
+    return page;
+  }
+
+  return null;
+}
+
+async function ensurePagePool(browser?: Browser): Promise<void> {
+  const activeBrowser = browser ?? sharedBrowser;
+  if (!activeBrowser || !activeBrowser.isConnected()) {
+    return;
+  }
+
+  if (pagePoolFillPromise) {
+    await pagePoolFillPromise;
+    return;
+  }
+
+  pagePoolFillPromise = (async () => {
+    while (pooledPages.size < PAGE_POOL_SIZE) {
+      const pooledPage = await activeBrowser.newPage({
+        userAgent: getRandomUserAgent(),
+      });
+      pooledPages.add(pooledPage);
+      idlePagePool.push(pooledPage);
+    }
+  })().finally(() => {
+    pagePoolFillPromise = null;
+  });
+
+  await pagePoolFillPromise;
+}
+
+async function recyclePooledPage(page: Page): Promise<void> {
+  if (!pooledPages.has(page)) {
+    await page.close().catch(() => {});
+    return;
+  }
+
+  if (page.isClosed()) {
+    removePooledPage(page);
+    if (sharedBrowser?.isConnected()) {
+      void ensurePagePool(sharedBrowser).catch(() => {});
+    }
+    return;
+  }
+
+  try {
+    await page.unroute('**/*').catch(() => {});
+    await page.context().clearCookies().catch(() => {});
+    await page.setExtraHTTPHeaders({});
+    await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {});
+
+    if (!idlePagePool.includes(page)) {
+      idlePagePool.push(page);
+    }
+  } catch {
+    removePooledPage(page);
+    await page.close().catch(() => {});
+  }
+
+  if (sharedBrowser?.isConnected() && pooledPages.size < PAGE_POOL_SIZE) {
+    void ensurePagePool(sharedBrowser).catch(() => {});
+  }
+}
+
+export async function warmup(): Promise<void> {
+  const browser = await getBrowser();
+  await ensurePagePool(browser);
+}
 
 async function getBrowser(): Promise<Browser> {
   // SECURITY: Check if browser is still connected and healthy
   if (sharedBrowser) {
     try {
       if (sharedBrowser.isConnected()) {
+        if (pooledPages.size < PAGE_POOL_SIZE) {
+          void ensurePagePool(sharedBrowser).catch(() => {});
+        }
         return sharedBrowser;
       }
     } catch {
@@ -537,8 +664,13 @@ async function getBrowser(): Promise<Browser> {
       sharedBrowser = null;
     }
   }
-  
+
+  pooledPages.clear();
+  idlePagePool.length = 0;
+  pagePoolFillPromise = null;
+
   sharedBrowser = await chromium.launch({ headless: true });
+  void ensurePagePool(sharedBrowser).catch(() => {});
   return sharedBrowser;
 }
 
@@ -554,7 +686,7 @@ async function getStealthBrowser(): Promise<Browser> {
       sharedStealthBrowser = null;
     }
   }
-  
+
   sharedStealthBrowser = await stealthChromium.launch({ headless: true });
   return sharedStealthBrowser;
 }
@@ -577,6 +709,8 @@ export async function browserFetch(
     actions?: PageAction[];
     /** Keep the browser page open after fetch (caller must close page + browser) */
     keepPageOpen?: boolean;
+    /** Abort signal for internal races/cancellation */
+    signal?: AbortSignal;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -593,6 +727,7 @@ export async function browserFetch(
     stealth = false,
     actions,
     keepPageOpen = false,
+    signal,
   } = options;
 
   // Validate user agent if provided
@@ -601,6 +736,10 @@ export async function browserFetch(
   // Validate wait time
   if (waitMs < 0 || waitMs > 60000) {
     throw new WebPeelError('Wait time must be between 0 and 60000ms');
+  }
+
+  if (signal?.aborted) {
+    throw createAbortError();
   }
 
   // SECURITY: Validate custom headers if provided
@@ -629,27 +768,57 @@ export async function browserFetch(
 
   activePagesCount++;
   let page: Page | null = null;
+  let usingPooledPage = false;
+  let abortHandler: (() => void) | undefined;
 
   try {
     const browser = stealth ? await getStealthBrowser() : await getBrowser();
 
-    const pageOptions = {
-      userAgent: validatedUserAgent,
-      ...(stealth
-        ? {
-            viewport: { width: 1920, height: 1080 },
-            locale: 'en-US',
-            timezoneId: 'America/New_York',
-            javaScriptEnabled: true,
-          }
-        : {}),
-    };
+    const shouldUsePagePool = !stealth && !userAgent && !keepPageOpen;
+    if (shouldUsePagePool) {
+      page = takePooledPage();
+      usingPooledPage = !!page;
+      if (usingPooledPage && pooledPages.size < PAGE_POOL_SIZE) {
+        void ensurePagePool(browser).catch(() => {});
+      }
+    }
 
-    page = await browser.newPage(pageOptions);
+    if (!page) {
+      const pageOptions = {
+        userAgent: validatedUserAgent,
+        ...(stealth
+          ? {
+              viewport: { width: 1920, height: 1080 },
+              locale: 'en-US',
+              timezoneId: 'America/New_York',
+              javaScriptEnabled: true,
+            }
+          : {}),
+      };
 
-    // Set custom headers if provided
-    if (headers && Object.keys(headers).length > 0) {
-      await page.setExtraHTTPHeaders(headers);
+      page = await browser.newPage(pageOptions);
+      usingPooledPage = false;
+    } else {
+      await page.setViewportSize({ width: 1280, height: 720 }).catch(() => {});
+    }
+
+    if (signal) {
+      abortHandler = () => {
+        if (page && !page.isClosed()) {
+          void page.close().catch(() => {});
+        }
+      };
+      signal.addEventListener('abort', abortHandler, { once: true });
+    }
+
+    await page.unroute('**/*').catch(() => {});
+
+    const mergedHeaders: Record<string, string> = { ...(headers || {}) };
+    if (usingPooledPage) {
+      mergedHeaders['User-Agent'] = validatedUserAgent;
+    }
+    if (usingPooledPage || Object.keys(mergedHeaders).length > 0) {
+      await page.setExtraHTTPHeaders(mergedHeaders);
     }
 
     // Set cookies if provided
@@ -657,7 +826,7 @@ export async function browserFetch(
       const parsedCookies = cookies.map(cookie => {
         const [nameValue] = cookie.split(';').map(s => s.trim());
         const [name, value] = nameValue.split('=');
-        
+
         if (!name || value === undefined) {
           throw new WebPeelError(`Invalid cookie format: ${cookie}`);
         }
@@ -670,6 +839,10 @@ export async function browserFetch(
       });
 
       await page.context().addCookies(parsedCookies);
+    }
+
+    if (signal?.aborted) {
+      throw createAbortError();
     }
 
     // Block images/fonts/etc for speed in non-stealth mode.
@@ -690,12 +863,26 @@ export async function browserFetch(
 
     // SECURITY: Wrap entire operation in timeout
     let screenshotBuffer: Buffer | undefined;
-    
+    const throwIfAborted = () => {
+      if (signal?.aborted) {
+        throw createAbortError();
+      }
+    };
+
     const fetchPromise = (async () => {
       const response = await page!.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: timeoutMs,
       });
+      throwIfAborted();
+
+      // Quick check: if body text is very thin, wait for JS to render more content.
+      // Only adds latency when the page clearly hasn't loaded yet.
+      const bodyTextLength = await page!.evaluate(() => document.body?.innerText?.trim().length || 0).catch(() => 0);
+      if (bodyTextLength < 500) {
+        await page!.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
+        throwIfAborted();
+      }
 
       const finalUrl = page!.url();
       const contentType = response?.headers()?.['content-type'] || '';
@@ -710,11 +897,13 @@ export async function browserFetch(
       if (stealth) {
         const extraDelayMs = 500 + Math.floor(Math.random() * 1501);
         await page!.waitForTimeout(extraDelayMs);
+        throwIfAborted();
       }
 
       // Wait for additional time if requested (for dynamic content / screenshots)
       if (waitMs > 0) {
         await page!.waitForTimeout(waitMs);
+        throwIfAborted();
       }
 
       // Execute page actions if provided
@@ -724,11 +913,13 @@ export async function browserFetch(
         if (actionScreenshot) {
           screenshotBuffer = actionScreenshot;
         }
+        throwIfAborted();
       }
 
       // If the navigation returned a binary document (PDF/DOCX), grab the raw body.
       if (isBinaryDoc) {
         const buffer = await response!.body();
+        throwIfAborted();
 
         // Capture screenshot if requested (and not already captured by actions)
         if (screenshot && !screenshotBuffer) {
@@ -748,6 +939,7 @@ export async function browserFetch(
       }
 
       const html = await page!.content();
+      throwIfAborted();
 
       return {
         html,
@@ -757,11 +949,15 @@ export async function browserFetch(
       };
     })();
 
+    let operationTimeout: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+      operationTimeout = setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
     });
 
     const fetchData = await Promise.race([fetchPromise, timeoutPromise]);
+    if (operationTimeout) {
+      clearTimeout(operationTimeout);
+    }
     const { html, finalUrl } = fetchData;
     const fetchBuffer = 'buffer' in fetchData ? (fetchData as any).buffer as Buffer | undefined : undefined;
     const fetchContentType = 'contentType' in fetchData ? (fetchData as any).contentType as string | undefined : undefined;
@@ -814,6 +1010,10 @@ export async function browserFetch(
       throw error;
     }
 
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw error;
+    }
+
     if (error instanceof Error && error.message.includes('Timeout')) {
       throw new TimeoutError(`Browser navigation timed out`);
     }
@@ -822,9 +1022,17 @@ export async function browserFetch(
       `Browser fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   } finally {
-    // CRITICAL: Always close page and decrement counter (unless keepPageOpen and no error)
+    if (signal && abortHandler) {
+      signal.removeEventListener('abort', abortHandler);
+    }
+
+    // CRITICAL: Always release/close page and decrement counter (unless keepPageOpen and no error)
     if (page && !keepPageOpen) {
-      await page.close().catch(() => {});
+      if (usingPooledPage) {
+        await recyclePooledPage(page);
+      } else {
+        await page.close().catch(() => {});
+      }
     }
     activePagesCount--;
   }
@@ -927,20 +1135,44 @@ export async function browserScreenshot(
 
   activePagesCount++;
   let page: Page | null = null;
+  let usingPooledPage = false;
 
   try {
     const browser = stealth ? await getStealthBrowser() : await getBrowser();
 
-    page = await browser.newPage({
-      userAgent: validatedUserAgent,
-      viewport: width || height ? {
+    const shouldUsePagePool = !stealth && !userAgent;
+    if (shouldUsePagePool) {
+      page = takePooledPage();
+      usingPooledPage = !!page;
+      if (usingPooledPage && pooledPages.size < PAGE_POOL_SIZE) {
+        void ensurePagePool(browser).catch(() => {});
+      }
+    }
+
+    if (!page) {
+      page = await browser.newPage({
+        userAgent: validatedUserAgent,
+        viewport: width || height ? {
+          width: width || 1280,
+          height: height || 720,
+        } : undefined,
+      });
+      usingPooledPage = false;
+    } else {
+      await page.setViewportSize({
         width: width || 1280,
         height: height || 720,
-      } : undefined,
-    });
+      }).catch(() => {});
+    }
 
-    if (headers && Object.keys(headers).length > 0) {
-      await page.setExtraHTTPHeaders(headers);
+    await page.unroute('**/*').catch(() => {});
+
+    const mergedHeaders: Record<string, string> = { ...(headers || {}) };
+    if (usingPooledPage) {
+      mergedHeaders['User-Agent'] = validatedUserAgent;
+    }
+    if (usingPooledPage || Object.keys(mergedHeaders).length > 0) {
+      await page.setExtraHTTPHeaders(mergedHeaders);
     }
 
     if (cookies && cookies.length > 0) {
@@ -1003,11 +1235,15 @@ export async function browserScreenshot(
       return { finalUrl, screenshotBuffer: screenshotBuffer! };
     })();
 
+    let operationTimeout: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+      operationTimeout = setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
     });
 
     const { finalUrl, screenshotBuffer: buf } = await Promise.race([doWork, timeoutPromise]);
+    if (operationTimeout) {
+      clearTimeout(operationTimeout);
+    }
 
     return { buffer: buf, finalUrl };
   } catch (error) {
@@ -1024,7 +1260,11 @@ export async function browserScreenshot(
     );
   } finally {
     if (page) {
-      await page.close().catch(() => {});
+      if (usingPooledPage) {
+        await recyclePooledPage(page);
+      } else {
+        await page.close().catch(() => {});
+      }
     }
     activePagesCount--;
   }
@@ -1062,6 +1302,13 @@ export async function retryFetch<T>(
  * Clean up browser resources
  */
 export async function cleanup(): Promise<void> {
+  const pagesToClose = Array.from(pooledPages);
+  pooledPages.clear();
+  idlePagePool.length = 0;
+  pagePoolFillPromise = null;
+
+  await Promise.all(pagesToClose.map((page) => page.close().catch(() => {})));
+
   if (sharedBrowser) {
     await sharedBrowser.close();
     sharedBrowser = null;
@@ -1070,4 +1317,6 @@ export async function cleanup(): Promise<void> {
     await sharedStealthBrowser.close();
     sharedStealthBrowser = null;
   }
+
+  await closePool().catch(() => {});
 }

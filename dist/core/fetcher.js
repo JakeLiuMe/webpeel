@@ -10,7 +10,7 @@ dns.setDefaultResultOrder('ipv4first');
 import { chromium } from 'playwright';
 import { chromium as stealthChromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { fetch as undiciFetch } from 'undici';
+import { fetch as undiciFetch, Agent } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
 // Add stealth plugin to playwright-extra
 stealthChromium.use(StealthPlugin());
@@ -23,6 +23,20 @@ const USER_AGENTS = [
 ];
 function getRandomUserAgent() {
     return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+function createHttpPool() {
+    return new Agent({
+        connections: 10,
+        pipelining: 1,
+        keepAliveTimeout: 30000,
+        keepAliveMaxTimeout: 60000,
+    });
+}
+let httpPool = createHttpPool();
+function createAbortError() {
+    const error = new Error('Operation aborted');
+    error.name = 'AbortError';
+    return error;
 }
 /**
  * SECURITY: Validate URL to prevent SSRF attacks
@@ -235,9 +249,12 @@ function validateUserAgent(userAgent) {
  * Fast and lightweight, but can be blocked by Cloudflare/bot detection
  * SECURITY: Manual redirect handling with SSRF re-validation
  */
-export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeaders) {
+export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeaders, abortSignal) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
+    if (abortSignal?.aborted) {
+        throw createAbortError();
+    }
     // Validate user agent if provided
     // SEC.gov requires a User-Agent with contact info (their documented automated access policy)
     const hostname = new URL(url).hostname.toLowerCase();
@@ -277,12 +294,16 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
         seenUrls.add(currentUrl);
         // Re-validate on each redirect
         validateUrl(currentUrl);
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const timeoutController = new AbortController();
+        const timer = setTimeout(() => timeoutController.abort(), timeoutMs);
+        const signal = abortSignal
+            ? AbortSignal.any([timeoutController.signal, abortSignal])
+            : timeoutController.signal;
         try {
             const response = await undiciFetch(currentUrl, {
                 headers: mergedHeaders,
-                signal: controller.signal,
+                signal,
+                dispatcher: httpPool,
                 redirect: 'manual', // SECURITY: Manual redirect handling
             });
             clearTimeout(timer);
@@ -398,6 +419,9 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
                 throw error;
             }
             if (error instanceof Error && error.name === 'AbortError') {
+                if (abortSignal?.aborted && !timeoutController.signal.aborted) {
+                    throw createAbortError();
+                }
                 throw new TimeoutError(`Request timed out after ${timeoutMs}ms`);
             }
             // Provide specific error messages based on the actual cause
@@ -425,15 +449,100 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
     }
     throw new WebPeelError(`Too many redirects (max ${MAX_REDIRECTS})`);
 }
+export async function closePool() {
+    const oldPool = httpPool;
+    httpPool = createHttpPool();
+    await oldPool.close().catch(() => { });
+}
 let sharedBrowser = null;
 let sharedStealthBrowser = null;
 let activePagesCount = 0;
 const MAX_CONCURRENT_PAGES = 5;
+const PAGE_POOL_SIZE = 3;
+const pooledPages = new Set();
+const idlePagePool = [];
+let pagePoolFillPromise = null;
+function removePooledPage(page) {
+    pooledPages.delete(page);
+    const idleIndex = idlePagePool.indexOf(page);
+    if (idleIndex >= 0) {
+        idlePagePool.splice(idleIndex, 1);
+    }
+}
+function takePooledPage() {
+    while (idlePagePool.length > 0) {
+        const page = idlePagePool.shift();
+        if (page.isClosed()) {
+            removePooledPage(page);
+            continue;
+        }
+        return page;
+    }
+    return null;
+}
+async function ensurePagePool(browser) {
+    const activeBrowser = browser ?? sharedBrowser;
+    if (!activeBrowser || !activeBrowser.isConnected()) {
+        return;
+    }
+    if (pagePoolFillPromise) {
+        await pagePoolFillPromise;
+        return;
+    }
+    pagePoolFillPromise = (async () => {
+        while (pooledPages.size < PAGE_POOL_SIZE) {
+            const pooledPage = await activeBrowser.newPage({
+                userAgent: getRandomUserAgent(),
+            });
+            pooledPages.add(pooledPage);
+            idlePagePool.push(pooledPage);
+        }
+    })().finally(() => {
+        pagePoolFillPromise = null;
+    });
+    await pagePoolFillPromise;
+}
+async function recyclePooledPage(page) {
+    if (!pooledPages.has(page)) {
+        await page.close().catch(() => { });
+        return;
+    }
+    if (page.isClosed()) {
+        removePooledPage(page);
+        if (sharedBrowser?.isConnected()) {
+            void ensurePagePool(sharedBrowser).catch(() => { });
+        }
+        return;
+    }
+    try {
+        await page.unroute('**/*').catch(() => { });
+        await page.context().clearCookies().catch(() => { });
+        await page.setExtraHTTPHeaders({});
+        await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => { });
+        if (!idlePagePool.includes(page)) {
+            idlePagePool.push(page);
+        }
+    }
+    catch {
+        removePooledPage(page);
+        await page.close().catch(() => { });
+    }
+    if (sharedBrowser?.isConnected() && pooledPages.size < PAGE_POOL_SIZE) {
+        void ensurePagePool(sharedBrowser).catch(() => { });
+    }
+}
+export async function warmup() {
+    const browser = await getBrowser();
+    await ensurePagePool(browser);
+}
 async function getBrowser() {
     // SECURITY: Check if browser is still connected and healthy
     if (sharedBrowser) {
         try {
             if (sharedBrowser.isConnected()) {
+                if (pooledPages.size < PAGE_POOL_SIZE) {
+                    void ensurePagePool(sharedBrowser).catch(() => { });
+                }
                 return sharedBrowser;
             }
         }
@@ -442,7 +551,11 @@ async function getBrowser() {
             sharedBrowser = null;
         }
     }
+    pooledPages.clear();
+    idlePagePool.length = 0;
+    pagePoolFillPromise = null;
     sharedBrowser = await chromium.launch({ headless: true });
+    void ensurePagePool(sharedBrowser).catch(() => { });
     return sharedBrowser;
 }
 async function getStealthBrowser() {
@@ -468,12 +581,15 @@ async function getStealthBrowser() {
 export async function browserFetch(url, options = {}) {
     // SECURITY: Validate URL to prevent SSRF
     validateUrl(url);
-    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false, actions, keepPageOpen = false, } = options;
+    const { userAgent, waitMs = 0, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, stealth = false, actions, keepPageOpen = false, signal, } = options;
     // Validate user agent if provided
     const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
     // Validate wait time
     if (waitMs < 0 || waitMs > 60000) {
         throw new WebPeelError('Wait time must be between 0 and 60000ms');
+    }
+    if (signal?.aborted) {
+        throw createAbortError();
     }
     // SECURITY: Validate custom headers if provided
     if (headers) {
@@ -498,23 +614,51 @@ export async function browserFetch(url, options = {}) {
     }
     activePagesCount++;
     let page = null;
+    let usingPooledPage = false;
+    let abortHandler;
     try {
         const browser = stealth ? await getStealthBrowser() : await getBrowser();
-        const pageOptions = {
-            userAgent: validatedUserAgent,
-            ...(stealth
-                ? {
-                    viewport: { width: 1920, height: 1080 },
-                    locale: 'en-US',
-                    timezoneId: 'America/New_York',
-                    javaScriptEnabled: true,
+        const shouldUsePagePool = !stealth && !userAgent && !keepPageOpen;
+        if (shouldUsePagePool) {
+            page = takePooledPage();
+            usingPooledPage = !!page;
+            if (usingPooledPage && pooledPages.size < PAGE_POOL_SIZE) {
+                void ensurePagePool(browser).catch(() => { });
+            }
+        }
+        if (!page) {
+            const pageOptions = {
+                userAgent: validatedUserAgent,
+                ...(stealth
+                    ? {
+                        viewport: { width: 1920, height: 1080 },
+                        locale: 'en-US',
+                        timezoneId: 'America/New_York',
+                        javaScriptEnabled: true,
+                    }
+                    : {}),
+            };
+            page = await browser.newPage(pageOptions);
+            usingPooledPage = false;
+        }
+        else {
+            await page.setViewportSize({ width: 1280, height: 720 }).catch(() => { });
+        }
+        if (signal) {
+            abortHandler = () => {
+                if (page && !page.isClosed()) {
+                    void page.close().catch(() => { });
                 }
-                : {}),
-        };
-        page = await browser.newPage(pageOptions);
-        // Set custom headers if provided
-        if (headers && Object.keys(headers).length > 0) {
-            await page.setExtraHTTPHeaders(headers);
+            };
+            signal.addEventListener('abort', abortHandler, { once: true });
+        }
+        await page.unroute('**/*').catch(() => { });
+        const mergedHeaders = { ...(headers || {}) };
+        if (usingPooledPage) {
+            mergedHeaders['User-Agent'] = validatedUserAgent;
+        }
+        if (usingPooledPage || Object.keys(mergedHeaders).length > 0) {
+            await page.setExtraHTTPHeaders(mergedHeaders);
         }
         // Set cookies if provided
         if (cookies && cookies.length > 0) {
@@ -531,6 +675,9 @@ export async function browserFetch(url, options = {}) {
                 };
             });
             await page.context().addCookies(parsedCookies);
+        }
+        if (signal?.aborted) {
+            throw createAbortError();
         }
         // Block images/fonts/etc for speed in non-stealth mode.
         // In stealth mode, blocking common resources can be a bot-detection signal.
@@ -551,11 +698,17 @@ export async function browserFetch(url, options = {}) {
         }
         // SECURITY: Wrap entire operation in timeout
         let screenshotBuffer;
+        const throwIfAborted = () => {
+            if (signal?.aborted) {
+                throw createAbortError();
+            }
+        };
         const fetchPromise = (async () => {
             const response = await page.goto(url, {
                 waitUntil: 'domcontentloaded',
                 timeout: timeoutMs,
             });
+            throwIfAborted();
             const finalUrl = page.url();
             const contentType = response?.headers()?.['content-type'] || '';
             const contentTypeLower = contentType.toLowerCase();
@@ -567,10 +720,12 @@ export async function browserFetch(url, options = {}) {
             if (stealth) {
                 const extraDelayMs = 500 + Math.floor(Math.random() * 1501);
                 await page.waitForTimeout(extraDelayMs);
+                throwIfAborted();
             }
             // Wait for additional time if requested (for dynamic content / screenshots)
             if (waitMs > 0) {
                 await page.waitForTimeout(waitMs);
+                throwIfAborted();
             }
             // Execute page actions if provided
             if (actions && actions.length > 0) {
@@ -579,10 +734,12 @@ export async function browserFetch(url, options = {}) {
                 if (actionScreenshot) {
                     screenshotBuffer = actionScreenshot;
                 }
+                throwIfAborted();
             }
             // If the navigation returned a binary document (PDF/DOCX), grab the raw body.
             if (isBinaryDoc) {
                 const buffer = await response.body();
+                throwIfAborted();
                 // Capture screenshot if requested (and not already captured by actions)
                 if (screenshot && !screenshotBuffer) {
                     screenshotBuffer = await page.screenshot({
@@ -599,6 +756,7 @@ export async function browserFetch(url, options = {}) {
                 };
             }
             const html = await page.content();
+            throwIfAborted();
             return {
                 html,
                 finalUrl,
@@ -606,10 +764,14 @@ export async function browserFetch(url, options = {}) {
                 statusCode: response?.status(),
             };
         })();
+        let operationTimeout;
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+            operationTimeout = setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
         });
         const fetchData = await Promise.race([fetchPromise, timeoutPromise]);
+        if (operationTimeout) {
+            clearTimeout(operationTimeout);
+        }
         const { html, finalUrl } = fetchData;
         const fetchBuffer = 'buffer' in fetchData ? fetchData.buffer : undefined;
         const fetchContentType = 'contentType' in fetchData ? fetchData.contentType : undefined;
@@ -657,15 +819,26 @@ export async function browserFetch(url, options = {}) {
         if (error instanceof BlockedError || error instanceof WebPeelError || error instanceof TimeoutError) {
             throw error;
         }
+        if (error instanceof Error && error.name === 'AbortError') {
+            throw error;
+        }
         if (error instanceof Error && error.message.includes('Timeout')) {
             throw new TimeoutError(`Browser navigation timed out`);
         }
         throw new NetworkError(`Browser fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
     finally {
-        // CRITICAL: Always close page and decrement counter (unless keepPageOpen and no error)
+        if (signal && abortHandler) {
+            signal.removeEventListener('abort', abortHandler);
+        }
+        // CRITICAL: Always release/close page and decrement counter (unless keepPageOpen and no error)
         if (page && !keepPageOpen) {
-            await page.close().catch(() => { });
+            if (usingPooledPage) {
+                await recyclePooledPage(page);
+            }
+            else {
+                await page.close().catch(() => { });
+            }
         }
         activePagesCount--;
     }
@@ -721,17 +894,40 @@ export async function browserScreenshot(url, options = {}) {
     }
     activePagesCount++;
     let page = null;
+    let usingPooledPage = false;
     try {
         const browser = stealth ? await getStealthBrowser() : await getBrowser();
-        page = await browser.newPage({
-            userAgent: validatedUserAgent,
-            viewport: width || height ? {
+        const shouldUsePagePool = !stealth && !userAgent;
+        if (shouldUsePagePool) {
+            page = takePooledPage();
+            usingPooledPage = !!page;
+            if (usingPooledPage && pooledPages.size < PAGE_POOL_SIZE) {
+                void ensurePagePool(browser).catch(() => { });
+            }
+        }
+        if (!page) {
+            page = await browser.newPage({
+                userAgent: validatedUserAgent,
+                viewport: width || height ? {
+                    width: width || 1280,
+                    height: height || 720,
+                } : undefined,
+            });
+            usingPooledPage = false;
+        }
+        else {
+            await page.setViewportSize({
                 width: width || 1280,
                 height: height || 720,
-            } : undefined,
-        });
-        if (headers && Object.keys(headers).length > 0) {
-            await page.setExtraHTTPHeaders(headers);
+            }).catch(() => { });
+        }
+        await page.unroute('**/*').catch(() => { });
+        const mergedHeaders = { ...(headers || {}) };
+        if (usingPooledPage) {
+            mergedHeaders['User-Agent'] = validatedUserAgent;
+        }
+        if (usingPooledPage || Object.keys(mergedHeaders).length > 0) {
+            await page.setExtraHTTPHeaders(mergedHeaders);
         }
         if (cookies && cookies.length > 0) {
             const parsedCookies = cookies.map(cookie => {
@@ -781,10 +977,14 @@ export async function browserScreenshot(url, options = {}) {
             }
             return { finalUrl, screenshotBuffer: screenshotBuffer };
         })();
+        let operationTimeout;
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
+            operationTimeout = setTimeout(() => reject(new TimeoutError(`Operation timed out after ${timeoutMs}ms`)), timeoutMs);
         });
         const { finalUrl, screenshotBuffer: buf } = await Promise.race([doWork, timeoutPromise]);
+        if (operationTimeout) {
+            clearTimeout(operationTimeout);
+        }
         return { buffer: buf, finalUrl };
     }
     catch (error) {
@@ -798,7 +998,12 @@ export async function browserScreenshot(url, options = {}) {
     }
     finally {
         if (page) {
-            await page.close().catch(() => { });
+            if (usingPooledPage) {
+                await recyclePooledPage(page);
+            }
+            else {
+                await page.close().catch(() => { });
+            }
         }
         activePagesCount--;
     }
@@ -827,6 +1032,11 @@ export async function retryFetch(fn, maxAttempts = 3, baseDelayMs = 1000) {
  * Clean up browser resources
  */
 export async function cleanup() {
+    const pagesToClose = Array.from(pooledPages);
+    pooledPages.clear();
+    idlePagePool.length = 0;
+    pagePoolFillPromise = null;
+    await Promise.all(pagesToClose.map((page) => page.close().catch(() => { })));
     if (sharedBrowser) {
         await sharedBrowser.close();
         sharedBrowser = null;
@@ -835,5 +1045,6 @@ export async function cleanup() {
         await sharedStealthBrowser.close();
         sharedStealthBrowser = null;
     }
+    await closePool().catch(() => { });
 }
 //# sourceMappingURL=fetcher.js.map

@@ -29,6 +29,8 @@ type RunnerId =
   | 'webpeel-api'
   | 'firecrawl'
   | 'tavily'
+  | 'jina-reader'
+  | 'scrapingbee'
   | 'raw-fetch';
 
 interface BenchmarkUrl {
@@ -539,6 +541,157 @@ async function runRawFetch(target: BenchmarkUrl, timeoutMs: number): Promise<{
   };
 }
 
+async function runJinaReader(target: BenchmarkUrl, timeoutMs: number): Promise<{
+  statusCode: number | null;
+  title: string;
+  content: string;
+  links: string[];
+  metadata: any;
+  method: MethodUsed;
+}> {
+  const key = process.env.JINA_API_KEY || '';
+  const jinaUrl = `https://r.jina.ai/${target.url}`;
+
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'X-Return-Format': 'markdown',
+  };
+  if (key) headers['Authorization'] = `Bearer ${key}`;
+
+  const resp = await fetchWithTimeout(jinaUrl, { method: 'GET', headers }, timeoutMs);
+  const statusCode = resp.status;
+
+  let data: any;
+  try {
+    data = await resp.json();
+  } catch {
+    // Jina may return plain markdown without JSON wrapper
+    const text = await resp.text().catch(() => '');
+    if (!resp.ok) throw new Error(`HTTP ${statusCode}: ${text.slice(0, 200)}`);
+    // Parse title from first markdown heading
+    const headingMatch = text.match(/^#\s+(.+)/m);
+    return {
+      statusCode,
+      title: headingMatch?.[1] || '',
+      content: text,
+      links: [],
+      metadata: {},
+      method: 'unknown',
+    };
+  }
+
+  if (!resp.ok) {
+    const msg = data?.message || data?.error || `HTTP ${statusCode}`;
+    throw new Error(String(msg));
+  }
+
+  const content = data?.data?.content || data?.content || '';
+  const title = data?.data?.title || data?.title || '';
+  const description = data?.data?.description || data?.description || '';
+
+  // Extract links from data if available
+  const links: string[] = [];
+  if (Array.isArray(data?.data?.links)) {
+    links.push(...data.data.links);
+  }
+
+  return {
+    statusCode,
+    title,
+    content,
+    links: [...new Set(links)],
+    metadata: { description },
+    method: 'unknown',
+  };
+}
+
+async function runScrapingBee(target: BenchmarkUrl, timeoutMs: number): Promise<{
+  statusCode: number | null;
+  title: string;
+  content: string;
+  links: string[];
+  metadata: any;
+  method: MethodUsed;
+}> {
+  const key = process.env.SCRAPINGBEE_API_KEY;
+  if (!key) throw new Error('SCRAPINGBEE_API_KEY not set');
+
+  const u = new URL('https://app.scrapingbee.com/api/v1/');
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('url', target.url);
+  u.searchParams.set('render_js', 'false');
+  u.searchParams.set('extract_rules', JSON.stringify({ title: 'title', body: 'body' }));
+
+  const resp = await fetchWithTimeout(u.toString(), {
+    method: 'GET',
+    headers: { 'Accept': 'application/json' },
+  }, timeoutMs);
+
+  const statusCode = resp.status;
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(`HTTP ${statusCode}: ${text.slice(0, 200)}`);
+  }
+
+  let data: any;
+  const rawText = await resp.text();
+
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    // ScrapingBee may return raw HTML when extract_rules aren't applicable
+    const $ = cheerio.load(rawText);
+    const title = normalizeText($('title').first().text());
+    $('script, style, noscript').remove();
+    const main = $('main');
+    const article = $('article');
+    const contentRoot = main.length ? main : (article.length ? article : $('body'));
+    const content = normalizeText(contentRoot.text());
+    const links: string[] = [];
+    $('a[href]').each((_, el) => {
+      const href = $(el).attr('href');
+      if (href) {
+        try { links.push(new URL(href, target.url).toString()); } catch { /* ignore */ }
+      }
+    });
+    const desc = $('meta[name="description"]').attr('content') || '';
+    return {
+      statusCode,
+      title,
+      content,
+      links: [...new Set(links)],
+      metadata: desc ? { description: normalizeText(desc) } : {},
+      method: 'unknown',
+    };
+  }
+
+  // If we got JSON extract_rules response
+  const title = typeof data?.title === 'string' ? normalizeText(data.title) : '';
+  const body = typeof data?.body === 'string' ? data.body : '';
+
+  // Parse body HTML for content and links
+  const $ = cheerio.load(body || '<body></body>');
+  $('script, style, noscript').remove();
+  const content = normalizeText($('body').text());
+  const links: string[] = [];
+  $('a[href]').each((_, el) => {
+    const href = $(el).attr('href');
+    if (href) {
+      try { links.push(new URL(href, target.url).toString()); } catch { /* ignore */ }
+    }
+  });
+
+  return {
+    statusCode,
+    title,
+    content,
+    links: [...new Set(links)],
+    metadata: {},
+    method: 'unknown',
+  };
+}
+
 function getRunner(runner: RunnerId) {
   switch (runner) {
     case 'webpeel-local':
@@ -549,6 +702,10 @@ function getRunner(runner: RunnerId) {
       return runFirecrawl;
     case 'tavily':
       return runTavily;
+    case 'jina-reader':
+      return runJinaReader;
+    case 'scrapingbee':
+      return runScrapingBee;
     case 'raw-fetch':
       return runRawFetch;
     default: {
@@ -625,6 +782,18 @@ async function runOneRunner(params: {
       skip_reason: 'TAVILY_API_KEY not set',
     };
   }
+
+  if (runner === 'scrapingbee' && !process.env.SCRAPINGBEE_API_KEY) {
+    return {
+      runner,
+      results: [],
+      summary: summarize([]),
+      skipped: true,
+      skip_reason: 'SCRAPINGBEE_API_KEY not set',
+    };
+  }
+
+  // Jina Reader works without a key (free tier) but rate-limited; key is optional.
 
   const impl = getRunner(runner);
   const total = targets.length;
@@ -720,14 +889,14 @@ async function runOneRunner(params: {
 function parseRunnerList(input: string): RunnerId[] {
   const trimmed = input.trim();
   if (trimmed === 'all') {
-    return ['webpeel-local', 'webpeel-api', 'raw-fetch', 'firecrawl', 'tavily'];
+    return ['webpeel-local', 'webpeel-api', 'raw-fetch', 'firecrawl', 'tavily', 'jina-reader', 'scrapingbee'];
   }
   return trimmed
     .split(',')
     .map(s => s.trim())
     .filter(Boolean)
     .map(s => {
-      const allowed: RunnerId[] = ['webpeel-local', 'webpeel-api', 'raw-fetch', 'firecrawl', 'tavily'];
+      const allowed: RunnerId[] = ['webpeel-local', 'webpeel-api', 'raw-fetch', 'firecrawl', 'tavily', 'jina-reader', 'scrapingbee'];
       if (!allowed.includes(s as RunnerId)) {
         throw new Error(`Invalid --runner ${JSON.stringify(s)}. Allowed: ${allowed.join(', ')}, all`);
       }

@@ -3,7 +3,7 @@
  *
  * Main library export
  */
-import { cleanup } from './core/fetcher.js';
+import { cleanup, warmup, closePool } from './core/fetcher.js';
 import type { PeelOptions, PeelResult } from './types.js';
 export * from './types.js';
 export { crawl, type CrawlOptions, type CrawlResult, type CrawlProgress } from './core/crawler.js';
@@ -61,5 +61,6 @@ export declare function peelBatch(urls: string[], options?: PeelOptions & {
  * Clean up any browser resources
  * Call this when you're done using WebPeel
  */
-export { cleanup };
+export { cleanup, warmup, closePool };
+export { getCached, setCached, clearCache, setCacheTTL } from './core/cache.js';
 //# sourceMappingURL=index.d.ts.map

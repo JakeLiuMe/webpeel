@@ -240,13 +240,9 @@ export function calculateQuality(content, originalHtml) {
         lengthScore * 0.2);
     return Math.round(quality * 100) / 100;
 }
-/**
- * Convert HTML to clean, readable Markdown
- * @param html - HTML to convert
- */
-export function htmlToMarkdown(html, _options) {
-    const cleanedHTML = cleanHTML(html);
-    const turndown = new TurndownService({
+// Module-level singleton TurndownService — stateless per-call, safe to reuse.
+const turndownSingleton = (() => {
+    const td = new TurndownService({
         headingStyle: 'atx',
         codeBlockStyle: 'fenced',
         bulletListMarker: '-',
@@ -254,9 +250,9 @@ export function htmlToMarkdown(html, _options) {
         strongDelimiter: '**',
     });
     // Preserve tables
-    turndown.keep(['table', 'thead', 'tbody', 'tr', 'th', 'td']);
+    td.keep(['table', 'thead', 'tbody', 'tr', 'th', 'td']);
     // Custom rule: convert images to alt text or skip
-    turndown.addRule('images', {
+    td.addRule('images', {
         filter: 'img',
         replacement: (_content, node) => {
             const alt = node.alt;
@@ -268,7 +264,7 @@ export function htmlToMarkdown(html, _options) {
         },
     });
     // Custom rule: preserve code blocks
-    turndown.addRule('codeBlocks', {
+    td.addRule('codeBlocks', {
         filter: (node) => {
             return node.nodeName === 'PRE' && node.firstChild?.nodeName === 'CODE';
         },
@@ -279,7 +275,15 @@ export function htmlToMarkdown(html, _options) {
             return '\n\n```' + language + '\n' + codeNode.textContent + '\n```\n\n';
         },
     });
-    let markdown = turndown.turndown(cleanedHTML);
+    return td;
+})();
+/**
+ * Convert HTML to clean, readable Markdown
+ * @param html - HTML to convert
+ */
+export function htmlToMarkdown(html, _options) {
+    const cleanedHTML = cleanHTML(html);
+    let markdown = turndownSingleton.turndown(cleanedHTML);
     // SECURITY: Protect against ReDoS - limit input size before regex
     if (markdown.length > 1024 * 1024) { // 1MB limit for markdown
         markdown = markdown.slice(0, 1024 * 1024);

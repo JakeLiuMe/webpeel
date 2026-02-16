@@ -23,10 +23,11 @@ vi.mock('../core/map.js', () => ({
   mapDomain: vi.fn(),
 }));
 
-// Mock undici for search tests
-vi.mock('undici', () => ({
-  fetch: vi.fn(),
-}));
+// Mock undici for search tests (keep Agent for connection pooling)
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('undici')>();
+  return { ...actual, fetch: vi.fn() };
+});
 
 import { peel as mockPeel } from '../index.js';
 import { crawl as mockCrawl } from '../core/crawler.js';

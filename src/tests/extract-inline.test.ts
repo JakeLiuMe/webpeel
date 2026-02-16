@@ -36,10 +36,11 @@ vi.mock('../core/map.js', () => ({
   mapDomain: vi.fn(),
 }));
 
-// Mock undici (used by compat.ts search)
-vi.mock('undici', () => ({
-  fetch: vi.fn(),
-}));
+// Mock undici (used by compat.ts search — keep Agent for connection pooling)
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('undici')>();
+  return { ...actual, fetch: vi.fn() };
+});
 
 // Mock URL validator
 vi.mock('../server/middleware/url-validator.js', () => ({

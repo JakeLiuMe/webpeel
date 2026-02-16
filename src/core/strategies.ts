@@ -3,6 +3,7 @@
  */
 
 import { simpleFetch, browserFetch, retryFetch, type FetchResult } from './fetcher.js';
+import { getCached, setCached } from './cache.js';
 import { BlockedError, NetworkError } from '../types.js';
 
 type ForcedRecommendation = { mode: 'browser' | 'stealth' };
@@ -15,6 +16,19 @@ function shouldForceBrowser(url: string): ForcedRecommendation | null {
     if (hostname === 'reddit.com' || hostname.endsWith('.reddit.com')) {
       return { mode: 'browser' };
     }
+
+    // npmjs blocks simple fetch with 403 frequently
+    if (
+      hostname === 'npmjs.com' ||
+      hostname === 'www.npmjs.com' ||
+      hostname.endsWith('.npmjs.com')
+    ) {
+      return { mode: 'browser' };
+    }
+
+    // StackOverflow commonly serves shell-like content to simple fetch clients
+    // Note: NOT forced — let the shell-page detector escalate naturally
+    // since SO needs extra wait time that the escalation path handles better
 
     // These are known to aggressively block automation; go straight to stealth
     if (hostname === 'glassdoor.com' || hostname.endsWith('.glassdoor.com')) {
@@ -34,6 +48,28 @@ function shouldForceBrowser(url: string): ForcedRecommendation | null {
   }
 
   return null;
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function shouldEscalateSimpleError(error: unknown): boolean {
+  if (error instanceof BlockedError) {
+    return true;
+  }
+
+  return error instanceof NetworkError && error.message.includes('TLS/SSL');
+}
+
+function looksLikeShellPage(result: FetchResult): boolean {
+  const contentTypeLower = (result.contentType || '').toLowerCase();
+  if (!contentTypeLower.includes('html')) {
+    return false;
+  }
+
+  const textContent = result.html.replace(/<[^>]*>/g, '').trim();
+  return textContent.length < 500 && result.html.length > 1000;
 }
 
 export interface StrategyOptions {
@@ -67,6 +103,10 @@ export interface StrategyOptions {
   }>;
   /** Keep browser page open for reuse (caller must close) */
   keepPageOpen?: boolean;
+  /** Disable response cache for this request */
+  noCache?: boolean;
+  /** Time to wait before launching browser in parallel with simple fetch */
+  raceTimeoutMs?: number;
   /** Location/language for geo-targeted scraping */
   location?: {
     country?: string;
@@ -75,27 +115,120 @@ export interface StrategyOptions {
 }
 
 export interface StrategyResult extends FetchResult {
-  /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' */
-  method: 'simple' | 'browser' | 'stealth';
+  /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' | 'cached' */
+  method: 'simple' | 'browser' | 'stealth' | 'cached';
+}
+
+interface BrowserStrategyOptions {
+  userAgent?: string;
+  waitMs: number;
+  timeoutMs: number;
+  screenshot: boolean;
+  screenshotFullPage: boolean;
+  headers?: Record<string, string>;
+  cookies?: string[];
+  actions?: StrategyOptions['actions'];
+  keepPageOpen: boolean;
+  effectiveStealth: boolean;
+  signal?: AbortSignal;
+}
+
+async function fetchWithBrowserStrategy(url: string, options: BrowserStrategyOptions): Promise<StrategyResult> {
+  const {
+    userAgent,
+    waitMs,
+    timeoutMs,
+    screenshot,
+    screenshotFullPage,
+    headers,
+    cookies,
+    actions,
+    keepPageOpen,
+    effectiveStealth,
+    signal,
+  } = options;
+
+  try {
+    const result = await browserFetch(url, {
+      userAgent,
+      waitMs,
+      timeoutMs,
+      screenshot,
+      screenshotFullPage,
+      headers,
+      cookies,
+      stealth: effectiveStealth,
+      actions,
+      keepPageOpen,
+      signal,
+    });
+
+    return {
+      ...result,
+      method: effectiveStealth ? 'stealth' : 'browser',
+    };
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
+    // Strategy 3: If browser gets blocked, try stealth mode as fallback (unless already using stealth)
+    if (!effectiveStealth && error instanceof BlockedError) {
+      const result = await browserFetch(url, {
+        userAgent,
+        waitMs,
+        timeoutMs,
+        screenshot,
+        screenshotFullPage,
+        headers,
+        cookies,
+        stealth: true,
+        actions,
+        keepPageOpen,
+        signal,
+      });
+
+      return {
+        ...result,
+        method: 'stealth',
+      };
+    }
+
+    // If browser encounters Cloudflare, retry with extra wait time
+    if (error instanceof NetworkError && error.message.toLowerCase().includes('cloudflare')) {
+      const result = await browserFetch(url, {
+        userAgent,
+        waitMs: 5000,
+        timeoutMs,
+        screenshot,
+        screenshotFullPage,
+        headers,
+        cookies,
+        stealth: effectiveStealth,
+        actions,
+        keepPageOpen,
+        signal,
+      });
+
+      return {
+        ...result,
+        method: effectiveStealth ? 'stealth' : 'browser',
+      };
+    }
+
+    throw error;
+  }
 }
 
 /**
  * Smart fetch with automatic escalation
- * 
- * Strategy:
- * 1. Try simple HTTP fetch first (fast, ~200ms)
- * 2. If blocked (403, 503, Cloudflare, empty body) → try browser
- * 3. If browser gets blocked (403, CAPTCHA) → try stealth mode
- * 4. If stealth mode is explicitly requested → skip to stealth
- * 
- * Returns the result along with which method worked
  */
 export async function smartFetch(url: string, options: StrategyOptions = {}): Promise<StrategyResult> {
-  const { 
+  const {
     forceBrowser = false,
     stealth = false,
-    waitMs = 0, 
-    userAgent, 
+    waitMs = 0,
+    userAgent,
     timeoutMs = 30000,
     screenshot = false,
     screenshotFullPage = false,
@@ -103,6 +236,8 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     cookies,
     actions,
     keepPageOpen = false,
+    noCache = false,
+    raceTimeoutMs = 3000,
   } = options;
 
   // Site-specific escalation overrides
@@ -117,115 +252,154 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     }
   }
 
+  const canUseCache =
+    !noCache &&
+    !effectiveForceBrowser &&
+    !effectiveStealth &&
+    !screenshot &&
+    !keepPageOpen &&
+    !actions?.length &&
+    !headers &&
+    !cookies &&
+    waitMs === 0 &&
+    !userAgent;
+
+  if (canUseCache) {
+    const cached = getCached<StrategyResult>(url);
+    if (cached) {
+      return {
+        ...cached,
+        method: 'cached',
+      };
+    }
+  }
+
   // If stealth is requested, force browser mode (stealth requires browser)
   let shouldUseBrowser = effectiveForceBrowser || screenshot || effectiveStealth;
 
+  const browserOptions: BrowserStrategyOptions = {
+    userAgent,
+    waitMs,
+    timeoutMs,
+    screenshot,
+    screenshotFullPage,
+    headers,
+    cookies,
+    actions,
+    keepPageOpen,
+    effectiveStealth,
+  };
+
   // Strategy 1: Simple fetch (unless browser is forced or screenshot is requested)
   if (!shouldUseBrowser) {
-    try {
-      const result = await retryFetch(
-        () => simpleFetch(url, userAgent, timeoutMs, headers),
-        3
-      );
+    const simpleAbortController = new AbortController();
 
-      // Check if content is suspiciously thin (might be a JS shell page)
-      const contentTypeLower = (result.contentType || '').toLowerCase();
-      if (contentTypeLower.includes('html')) {
-        const textContent = result.html.replace(/<[^>]*>/g, '').trim();
-        if (textContent.length < 500 && result.html.length > 1000) {
-          // Shell page detected — HTML is large but text content is minimal
-          // Escalate to browser rendering
-          shouldUseBrowser = true;
-        }
+    const simplePromise = retryFetch(
+      () => simpleFetch(url, userAgent, timeoutMs, headers, simpleAbortController.signal),
+      3
+    ).then((result) => {
+      if (looksLikeShellPage(result)) {
+        throw new BlockedError('Shell page detected. Browser rendering required.');
       }
-
-      if (!shouldUseBrowser) {
-        return {
-          ...result,
-          method: 'simple',
-        };
-      }
-    } catch (error) {
-      // If blocked, needs JS, or has TLS issues, escalate to browser
-      if (error instanceof BlockedError) {
-        // Fall through to browser strategy
-      } else if (error instanceof NetworkError && error.message.includes('TLS/SSL')) {
-        // TLS errors may work with browser (different cert handling)
-        // Fall through to browser strategy
-      } else {
-        // Re-throw other errors (timeout, DNS, connection refused)
-        throw error;
-      }
-    }
-  }
-
-  // Strategy 2: Browser fetch (with or without stealth)
-  try {
-    const result = await browserFetch(url, {
-      userAgent,
-      waitMs,
-      timeoutMs,
-      screenshot,
-      screenshotFullPage,
-      headers,
-      cookies,
-      stealth: effectiveStealth,
-      actions,
-      keepPageOpen,
+      return result;
     });
-    return {
-      ...result,
-      method: effectiveStealth ? 'stealth' : 'browser',
-    };
-  } catch (error) {
-    // Strategy 3: If browser gets blocked, try stealth mode as fallback (unless already using stealth)
-    if (!effectiveStealth && error instanceof BlockedError) {
-      try {
-        const result = await browserFetch(url, {
-          userAgent,
-          waitMs,
-          timeoutMs,
-          screenshot,
-          screenshotFullPage,
-          headers,
-          cookies,
-          stealth: true, // Escalate to stealth mode
-          actions,
-          keepPageOpen,
+
+    let raceTimer: ReturnType<typeof setTimeout> | undefined;
+    const simpleOrTimeout = await Promise.race([
+      simplePromise
+        .then((result) => ({ type: 'simple-success' as const, result }))
+        .catch((error) => ({ type: 'simple-error' as const, error })),
+      new Promise<{ type: 'race-timeout' }>((resolve) => {
+        raceTimer = setTimeout(() => resolve({ type: 'race-timeout' }), Math.max(raceTimeoutMs, 0));
+      }),
+    ]);
+
+    if (raceTimer) {
+      clearTimeout(raceTimer);
+    }
+
+    if (simpleOrTimeout.type === 'simple-success') {
+      const strategyResult: StrategyResult = {
+        ...simpleOrTimeout.result,
+        method: 'simple',
+      };
+      if (canUseCache) {
+        setCached(url, strategyResult);
+      }
+      return strategyResult;
+    }
+
+    if (simpleOrTimeout.type === 'simple-error') {
+      if (!shouldEscalateSimpleError(simpleOrTimeout.error)) {
+        throw simpleOrTimeout.error;
+      }
+      shouldUseBrowser = true;
+    } else {
+      // Simple fetch is slow - start browser in parallel and return whichever succeeds first.
+      const browserAbortController = new AbortController();
+
+      let simpleError: unknown;
+      let browserError: unknown;
+
+      const simpleCandidate = simplePromise
+        .then((result) => ({ source: 'simple' as const, result }))
+        .catch((error) => {
+          simpleError = error;
+          throw error;
         });
-        return {
-          ...result,
-          method: 'stealth',
-        };
-      } catch (stealthError) {
-        // If stealth also fails, throw the original error
-        throw stealthError;
+
+      const browserCandidate = fetchWithBrowserStrategy(url, {
+        ...browserOptions,
+        signal: browserAbortController.signal,
+      })
+        .then((result) => ({ source: 'browser' as const, result }))
+        .catch((error) => {
+          browserError = error;
+          throw error;
+        });
+
+      try {
+        const winner = await Promise.any([simpleCandidate, browserCandidate]);
+
+        if (winner.source === 'simple') {
+          browserAbortController.abort();
+          const strategyResult: StrategyResult = {
+            ...winner.result,
+            method: 'simple',
+          };
+          if (canUseCache) {
+            setCached(url, strategyResult);
+          }
+          return strategyResult;
+        }
+
+        simpleAbortController.abort();
+        if (canUseCache) {
+          setCached(url, winner.result);
+        }
+        return winner.result;
+      } catch {
+        // Both failed: prefer non-escalation simple errors, otherwise return browser-side error.
+        if (simpleError && !shouldEscalateSimpleError(simpleError) && !isAbortError(simpleError)) {
+          throw simpleError;
+        }
+
+        if (browserError) {
+          throw browserError;
+        }
+
+        if (simpleError) {
+          throw simpleError;
+        }
+
+        throw new Error('Both simple and browser fetch attempts failed');
       }
     }
-
-    // If browser encounters Cloudflare, retry with extra wait time
-    if (
-      error instanceof NetworkError &&
-      error.message.toLowerCase().includes('cloudflare')
-    ) {
-      const result = await browserFetch(url, {
-        userAgent,
-        waitMs: 5000, // Wait 5s for Cloudflare challenge
-        timeoutMs,
-        screenshot,
-        screenshotFullPage,
-        headers,
-        cookies,
-        stealth: effectiveStealth, // Keep stealth setting
-        actions,
-        keepPageOpen,
-      });
-      return {
-        ...result,
-        method: effectiveStealth ? 'stealth' : 'browser',
-      };
-    }
-
-    throw error;
   }
+
+  const browserResult = await fetchWithBrowserStrategy(url, browserOptions);
+  if (canUseCache) {
+    setCached(url, browserResult);
+  }
+  return browserResult;
 }

@@ -22,7 +22,9 @@ export interface FetchResult {
  * Fast and lightweight, but can be blocked by Cloudflare/bot detection
  * SECURITY: Manual redirect handling with SSRF re-validation
  */
-export declare function simpleFetch(url: string, userAgent?: string, timeoutMs?: number, customHeaders?: Record<string, string>): Promise<FetchResult>;
+export declare function simpleFetch(url: string, userAgent?: string, timeoutMs?: number, customHeaders?: Record<string, string>, abortSignal?: AbortSignal): Promise<FetchResult>;
+export declare function closePool(): Promise<void>;
+export declare function warmup(): Promise<void>;
 /**
  * Fetch using headless Chromium via Playwright
  * Slower but can handle JavaScript-heavy sites and bypass some bot detection
@@ -39,6 +41,8 @@ export declare function browserFetch(url: string, options?: {
     actions?: PageAction[];
     /** Keep the browser page open after fetch (caller must close page + browser) */
     keepPageOpen?: boolean;
+    /** Abort signal for internal races/cancellation */
+    signal?: AbortSignal;
 }): Promise<FetchResult>;
 /**
  * Retry a fetch operation with exponential backoff

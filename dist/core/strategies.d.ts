@@ -33,6 +33,10 @@ export interface StrategyOptions {
     }>;
     /** Keep browser page open for reuse (caller must close) */
     keepPageOpen?: boolean;
+    /** Disable response cache for this request */
+    noCache?: boolean;
+    /** Time to wait before launching browser in parallel with simple fetch */
+    raceTimeoutMs?: number;
     /** Location/language for geo-targeted scraping */
     location?: {
         country?: string;
@@ -40,19 +44,11 @@ export interface StrategyOptions {
     };
 }
 export interface StrategyResult extends FetchResult {
-    /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' */
-    method: 'simple' | 'browser' | 'stealth';
+    /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' | 'cached' */
+    method: 'simple' | 'browser' | 'stealth' | 'cached';
 }
 /**
  * Smart fetch with automatic escalation
- *
- * Strategy:
- * 1. Try simple HTTP fetch first (fast, ~200ms)
- * 2. If blocked (403, 503, Cloudflare, empty body) → try browser
- * 3. If browser gets blocked (403, CAPTCHA) → try stealth mode
- * 4. If stealth mode is explicitly requested → skip to stealth
- *
- * Returns the result along with which method worked
  */
 export declare function smartFetch(url: string, options?: StrategyOptions): Promise<StrategyResult>;
 //# sourceMappingURL=strategies.d.ts.map

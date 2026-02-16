@@ -32,6 +32,7 @@ import { createScreenshotRouter } from './routes/screenshot.js';
 import { createJobQueue } from './job-queue.js';
 import { createCompatRouter } from './routes/compat.js';
 import { createSentryHooks } from './sentry.js';
+import { warmup, cleanup as cleanupFetcher } from '../core/fetcher.js';
 
 export interface ServerConfig {
   port?: number;
@@ -179,6 +180,11 @@ export function startServer(config: ServerConfig = {}): void {
   const app = createApp(config);
   const port = config.port || parseInt(process.env.PORT || '3000', 10);
 
+  // Pre-warm browser resources in the background to reduce first-request latency.
+  void warmup().catch((error) => {
+    console.warn('Browser warmup failed:', error instanceof Error ? error.message : String(error));
+  });
+
   const server = app.listen(port, () => {
     console.log(`WebPeel API server listening on port ${port}`);
     console.log(`Health check: http://localhost:${port}/health`);
@@ -191,7 +197,9 @@ export function startServer(config: ServerConfig = {}): void {
     console.log('\nShutting down gracefully...');
     server.close(() => {
       console.log('Server closed');
-      process.exit(0);
+      void cleanupFetcher().finally(() => {
+        process.exit(0);
+      });
     });
 
     // Force shutdown after 10 seconds

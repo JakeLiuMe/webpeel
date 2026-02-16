@@ -277,14 +277,9 @@ export function calculateQuality(content: string, originalHtml: string): number 
   return Math.round(quality * 100) / 100;
 }
 
-/**
- * Convert HTML to clean, readable Markdown
- * @param html - HTML to convert
- */
-export function htmlToMarkdown(html: string, _options?: { raw?: boolean }): string {
-  const cleanedHTML = cleanHTML(html);
-
-  const turndown = new TurndownService({
+// Module-level singleton TurndownService — stateless per-call, safe to reuse.
+const turndownSingleton = (() => {
+  const td = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
     bulletListMarker: '-',
@@ -293,10 +288,10 @@ export function htmlToMarkdown(html: string, _options?: { raw?: boolean }): stri
   });
 
   // Preserve tables
-  turndown.keep(['table', 'thead', 'tbody', 'tr', 'th', 'td']);
+  td.keep(['table', 'thead', 'tbody', 'tr', 'th', 'td']);
 
   // Custom rule: convert images to alt text or skip
-  turndown.addRule('images', {
+  td.addRule('images', {
     filter: 'img',
     replacement: (_content, node) => {
       const alt = (node as any).alt;
@@ -309,7 +304,7 @@ export function htmlToMarkdown(html: string, _options?: { raw?: boolean }): stri
   });
 
   // Custom rule: preserve code blocks
-  turndown.addRule('codeBlocks', {
+  td.addRule('codeBlocks', {
     filter: (node) => {
       return node.nodeName === 'PRE' && node.firstChild?.nodeName === 'CODE';
     },
@@ -321,7 +316,17 @@ export function htmlToMarkdown(html: string, _options?: { raw?: boolean }): stri
     },
   });
 
-  let markdown = turndown.turndown(cleanedHTML);
+  return td;
+})();
+
+/**
+ * Convert HTML to clean, readable Markdown
+ * @param html - HTML to convert
+ */
+export function htmlToMarkdown(html: string, _options?: { raw?: boolean }): string {
+  const cleanedHTML = cleanHTML(html);
+
+  let markdown = turndownSingleton.turndown(cleanedHTML);
 
   // SECURITY: Protect against ReDoS - limit input size before regex
   if (markdown.length > 1024 * 1024) { // 1MB limit for markdown
