@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Ping health endpoint
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://webpeel-api.onrender.com/health)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.webpeel.dev/health)
           echo "Status: $response"
           if [ "$response" != "200" ]; then
             echo "::warning::API returned $response"

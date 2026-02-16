@@ -257,7 +257,7 @@ print(result.markdown)`
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-zinc-900">Current Session</h3>
               <a
-                href="https://github.com/JakeLiuMe/webpeel#usage-limits"
+                href="https://webpeel.dev/docs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-violet-600 hover:underline flex items-center gap-1"
@@ -348,7 +348,7 @@ print(result.markdown)`
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button asChild className="bg-violet-600 hover:bg-violet-700 flex-1">
-              <a href="https://github.com/JakeLiuMe/webpeel#readme" target="_blank" rel="noopener noreferrer">
+              <a href="https://webpeel.dev/docs" target="_blank" rel="noopener noreferrer">
                 View Documentation
               </a>
             </Button>

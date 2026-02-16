@@ -208,7 +208,7 @@ export default function UsagePage() {
                     <p className="text-sm text-zinc-500 text-center max-w-md">
                       Daily usage history will appear here once you start making API requests.
                       Check out the{' '}
-                      <a href="https://github.com/JakeLiuMe/webpeel#readme" className="text-violet-600 hover:underline">
+                      <a href="https://webpeel.dev/docs" className="text-violet-600 hover:underline">
                         documentation
                       </a>{' '}
                       to get started.

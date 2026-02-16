@@ -26,7 +26,7 @@ export function ActivityTable({ requests = [] }: ActivityTableProps) {
         <h3 className="text-lg font-semibold text-zinc-900 mb-2">No requests yet</h3>
         <p className="text-sm text-zinc-500 text-center max-w-md">
           Make your first API call to see activity here. Check out the{' '}
-          <a href="https://github.com/JakeLiuMe/webpeel#readme" className="text-violet-600 hover:underline">
+          <a href="https://webpeel.dev/docs" className="text-violet-600 hover:underline">
             documentation
           </a>{' '}
           to get started.

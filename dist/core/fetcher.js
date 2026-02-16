@@ -709,6 +709,14 @@ export async function browserFetch(url, options = {}) {
                 timeout: timeoutMs,
             });
             throwIfAborted();
+            // Quick check: if body text is very thin, wait for JS to render more content.
+            // Only adds latency when the page clearly hasn't loaded yet.
+            // eslint-disable-next-line @typescript-eslint/no-implied-eval
+            const bodyTextLength = await page.evaluate('document.body?.innerText?.trim().length || 0').catch(() => 0);
+            if (bodyTextLength < 500) {
+                await page.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => { });
+                throwIfAborted();
+            }
             const finalUrl = page.url();
             const contentType = response?.headers()?.['content-type'] || '';
             const contentTypeLower = contentType.toLowerCase();

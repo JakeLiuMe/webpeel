@@ -18,13 +18,8 @@ function shouldForceBrowser(url) {
             return { mode: 'browser' };
         }
         // StackOverflow commonly serves shell-like content to simple fetch clients
-        if (hostname === 'stackoverflow.com' || hostname.endsWith('.stackoverflow.com')) {
-            return { mode: 'browser' };
-        }
-        // LinkedIn is highly aggressive with anti-bot measures
-        if (hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com')) {
-            return { mode: 'stealth' };
-        }
+        // Note: NOT forced — let the shell-page detector escalate naturally
+        // since SO needs extra wait time that the escalation path handles better
         // These are known to aggressively block automation; go straight to stealth
         if (hostname === 'glassdoor.com' || hostname.endsWith('.glassdoor.com')) {
             return { mode: 'stealth' };

@@ -85,7 +85,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
         )}
         
         <a
-          href="https://github.com/JakeLiuMe/webpeel#readme"
+          href="https://webpeel.dev/docs"
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
@@ -185,7 +185,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
             )}
             
             <a
-              href="https://github.com/JakeLiuMe/webpeel#readme"
+              href="https://webpeel.dev/docs"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600"
@@ -250,7 +250,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
             </Link>
           )}
           <a
-            href="https://github.com/JakeLiuMe/webpeel#readme"
+            href="https://webpeel.dev/docs"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-zinc-50 hover:text-zinc-600"

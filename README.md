@@ -219,10 +219,10 @@ curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
 | Plan | Price | Weekly Fetches | Burst | Extra Usage |
 |------|------:|---------------:|:-----:|:-----------:|
 | **Free** | $0 | 125/wk | 25/hr | — |
-| **Pro** | $9/mo | 1,250/wk | 100/hr | ✅ $0.002/req |
-| **Max** | $29/mo | 6,250/wk | 500/hr | ✅ $0.002/req |
+| **Pro** | $9/mo | 1,250/wk | 100/hr | ✅ from $0.001 |
+| **Max** | $29/mo | 6,250/wk | 500/hr | ✅ from $0.001 |
 
-Resets every Monday. All features on all plans. [Compare with Firecrawl →](https://webpeel.dev/migrate-from-firecrawl)
+Extra credit costs: fetch $0.002, search $0.001, stealth $0.01. Resets every Monday. All features on all plans. [Compare with Firecrawl →](https://webpeel.dev/migrate-from-firecrawl)
 
 ## Development
 
