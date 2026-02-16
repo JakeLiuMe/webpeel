@@ -17,6 +17,10 @@ function shouldForceBrowser(url) {
         if (hostname === 'bloomberg.com' || hostname.endsWith('.bloomberg.com')) {
             return { mode: 'stealth' };
         }
+        // Indeed uses Cloudflare aggressively on job detail pages
+        if (hostname === 'indeed.com' || hostname.endsWith('.indeed.com')) {
+            return { mode: 'stealth' };
+        }
     }
     catch {
         // Ignore URL parsing errors here; validation happens inside fetchers

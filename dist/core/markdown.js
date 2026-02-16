@@ -34,6 +34,10 @@ const JUNK_SELECTORS = [
     '.related-posts', '[class*="you-may-also"]', '[class*="more-stories"]',
     // Comments — only sections/forms, not comment text
     '.comments-section', '.comment-form', '#comments',
+    // Job site CTAs — resume upload prompts, apply nudges, sign-in gates
+    '[class*="resume-upload"]', '[class*="resumeUpload"]',
+    '[class*="job-alert"]', '[class*="jobAlert"]',
+    '[class*="sign-in-gate"]', '[class*="signin-prompt"]',
 ];
 /**
  * Filter HTML by including or excluding specific tags/selectors
@@ -290,6 +294,64 @@ export function htmlToMarkdown(html, _options) {
             return acc;
         return acc + '\n' + line;
     }, '');
+    // Remove common CTA / noise lines (job sites, sign-up prompts, etc.)
+    // Strip markdown heading prefix before matching (e.g., "## Are you open...")
+    markdown = markdown.split('\n').filter(line => {
+        const trimmed = line.trim().toLowerCase().replace(/^#{1,6}\s*/, '');
+        // Job site CTA noise
+        if (trimmed === 'upload resume' || trimmed === 'upload your resume')
+            return false;
+        if (trimmed === 'apply now' || trimmed === 'apply on employer site' || trimmed === 'apply on employer siteapply now')
+            return false;
+        if (trimmed === 'easy apply' || trimmed === 'save job' || trimmed === 'easy apply onlyremote only')
+            return false;
+        if (/^(is your resume a good match|are you open to new opportunities)\??$/.test(trimmed))
+            return false;
+        if (/^upload your resume to increase your chances/i.test(trimmed))
+            return false;
+        if (/^use ai to find out how well/i.test(trimmed))
+            return false;
+        // Job site filter sidebar labels (standalone)
+        if (trimmed === 'company rating' || trimmed === 'date posted' || trimmed === 'salary range')
+            return false;
+        // Indeed profile insights noise
+        if (/^do you have (experience in|a )/i.test(trimmed))
+            return false;
+        if (trimmed === 'yesno' || trimmed === 'yes no')
+            return false;
+        if (trimmed === 'profile insights' || trimmed === 'find out how your skills align')
+            return false;
+        if (/^find out how your skills align/i.test(trimmed))
+            return false;
+        // Common UI artifacts (icons, loading, inline labels)
+        if (trimmed === 'save-icon' || trimmed === 'loading' || trimmed === 'report job')
+            return false;
+        if (/^show more(chevron down)?$/i.test(trimmed))
+            return false;
+        if (trimmed === 'whatwherefind jobs')
+            return false;
+        return true;
+    }).join('\n');
+    // Truncate trailing recommendation/related-jobs sections (common on job sites like Indeed)
+    // These appear after the main content and add 1000+ tokens of noise
+    const trailCutPatterns = [
+        /^#{1,3}\s*(explore other jobs|discover opportunities beyond)/im,
+        /^#{1,3}\s*(jobs with similar titles)/im,
+        /^#{1,3}\s*(similar job categories)/im,
+        /^#{1,3}\s*(career guide articles)/im,
+        /^#{1,3}\s*(similar jobs nearby)/im,
+        /^#{1,3}\s*(company and salary information)/im,
+    ];
+    for (const pattern of trailCutPatterns) {
+        const match = pattern.exec(markdown);
+        if (match && match.index !== undefined) {
+            // Only truncate if the noise section is in the bottom 40% of the content
+            if (match.index > markdown.length * 0.6) {
+                markdown = markdown.slice(0, match.index).trim();
+                break;
+            }
+        }
+    }
     // Remove leading/trailing whitespace
     markdown = markdown.trim();
     return markdown;
