@@ -116,7 +116,7 @@ export function createApp(config = {}) {
     app.use(createStatsRouter(authStore));
     app.use(createActivityRouter(authStore));
     app.use(createCLIUsageRouter());
-    app.use(createJobsRouter(jobQueue));
+    app.use(createJobsRouter(jobQueue, authStore));
     app.use(createBatchRouter(jobQueue));
     app.use(createAgentRouter());
     app.use(createAnswerRouter());

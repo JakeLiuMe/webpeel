@@ -28,6 +28,7 @@ curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
 - `webpeel_crawl` — Crawl a website following links. Params: url (required), maxPages, maxDepth, allowedDomains, excludePatterns, render, stealth, sitemapFirst
 - `webpeel_map` — Discover all URLs on a domain via sitemap.xml & link crawling. Params: url (required), maxUrls, includePatterns, excludePatterns
 - `webpeel_extract` — Extract structured data using CSS selectors or JSON schema. Params: url (required), selectors, schema, render
+- `webpeel_jobs` — Search job boards (LinkedIn, Indeed, Glassdoor). Params: keywords (required), location, source (glassdoor|indeed|linkedin), limit, fetchDetails, timeout
 
 ## MCP Configuration
 
@@ -45,6 +46,15 @@ Works with: Claude Code, Claude Desktop, Cursor, VS Code (Cline), Windsurf, Cont
 ```
 
 For Claude Code: `claude mcp add webpeel -- npx -y webpeel mcp`
+
+## API Endpoints
+
+- `GET /v1/fetch?url=<url>` — Fetch and extract content from a URL
+- `POST /v1/fetch` — Fetch with JSON body (supports inline extraction)
+- `GET /v1/search?q=<query>` — Search the web (DuckDuckGo or Brave)
+- `POST /v1/jobs` — Search job boards. Body: `{ "keywords": "...", "location": "...", "source": "linkedin", "limit": 10, "fetchDetails": 3 }`. Credits: 1 + 1 per detail page fetched.
+- `POST /v1/crawl` — Start async crawl job
+- `GET /v1/crawl/:id` — Get crawl job status / results
 
 ## Key Features
 

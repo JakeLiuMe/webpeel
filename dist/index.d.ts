@@ -18,6 +18,7 @@ export { runAgent, type AgentOptions, type AgentResult, type AgentProgress, type
 export { summarizeContent, type SummarizeOptions } from './core/summarize.js';
 export { getSearchProvider, DuckDuckGoProvider, BraveSearchProvider, type SearchProvider, type SearchProviderId, type WebSearchResult, type WebSearchOptions, } from './core/search-provider.js';
 export { answerQuestion, type AnswerRequest, type AnswerResponse, type AnswerCitation, type LLMProviderId, type TokensUsed, } from './core/answer.js';
+export { searchJobs, type JobCard, type JobDetail, type JobSearchOptions, type JobSearchResult } from './core/jobs.js';
 /**
  * Fetch and extract content from a URL
  *

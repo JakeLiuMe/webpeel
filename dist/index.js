@@ -23,6 +23,7 @@ export { runAgent } from './core/agent.js';
 export { summarizeContent } from './core/summarize.js';
 export { getSearchProvider, DuckDuckGoProvider, BraveSearchProvider, } from './core/search-provider.js';
 export { answerQuestion, } from './core/answer.js';
+export { searchJobs } from './core/jobs.js';
 /**
  * Fetch and extract content from a URL
  *

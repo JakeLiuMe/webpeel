@@ -5,10 +5,13 @@
 import { Router, Request, Response } from 'express';
 import { crawl } from '../../index.js';
 import type { CrawlOptions } from '../../index.js';
+import { searchJobs } from '../../core/jobs.js';
+import type { JobSearchOptions } from '../../core/jobs.js';
+import type { AuthStore } from '../auth-store.js';
 import type { IJobQueue } from '../job-queue.js';
 import { sendWebhook } from './webhooks.js';
 
-export function createJobsRouter(jobQueue: IJobQueue): Router {
+export function createJobsRouter(jobQueue: IJobQueue, authStore: AuthStore): Router {
   const router = Router();
 
   /**
@@ -274,6 +277,136 @@ export function createJobsRouter(jobQueue: IJobQueue): Router {
       res.status(500).json({
         error: 'internal_error',
         message: 'Failed to list jobs',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/jobs — Search job boards (LinkedIn, Indeed, Glassdoor)
+   *
+   * Credits: 1 for the search + 1 per detail page fetched.
+   */
+  router.post('/v1/jobs', async (req: Request, res: Response) => {
+    try {
+      const {
+        url,
+        keywords,
+        location,
+        source,
+        limit,
+        fetchDetails,
+        timeout,
+      } = req.body as {
+        url?: string;
+        keywords?: string;
+        location?: string;
+        source?: 'glassdoor' | 'indeed' | 'linkedin';
+        limit?: number;
+        fetchDetails?: number;
+        timeout?: number;
+      };
+
+      // Must provide either url or keywords
+      if (!url && !keywords) {
+        res.status(400).json({
+          error: 'invalid_request',
+          message: 'Provide either "url" or "keywords" in the request body.',
+          docs: 'https://webpeel.dev/docs/api-reference#jobs',
+        });
+        return;
+      }
+
+      // Validate source
+      const validSources = ['glassdoor', 'indeed', 'linkedin'];
+      if (source && !validSources.includes(source)) {
+        res.status(400).json({
+          error: 'invalid_request',
+          message: `Invalid "source": must be one of ${validSources.join(', ')}`,
+        });
+        return;
+      }
+
+      // Validate numeric params
+      const resolvedLimit = typeof limit === 'number' ? Math.min(Math.max(limit, 1), 100) : 25;
+      const resolvedDetails = typeof fetchDetails === 'number' ? Math.min(Math.max(fetchDetails, 0), resolvedLimit) : 0;
+      const resolvedTimeout = typeof timeout === 'number' ? Math.min(Math.max(timeout, 5000), 120000) : 30000;
+
+      const searchOpts: JobSearchOptions = {
+        url: url || undefined,
+        keywords: keywords || undefined,
+        location: location || undefined,
+        source: source || undefined,
+        limit: resolvedLimit,
+        fetchDetails: resolvedDetails,
+        timeout: resolvedTimeout,
+      };
+
+      const startTime = Date.now();
+      const result = await searchJobs(searchOpts);
+      const elapsed = Date.now() - startTime;
+
+      // Credits: 1 for the search + 1 per detail page fetched
+      const creditsUsed = 1 + result.detailsFetched;
+
+      // Track usage
+      const isSoftLimited = req.auth?.softLimited === true;
+      const hasExtraUsage = req.auth?.extraUsageAvailable === true;
+      const pgStore = authStore as any;
+
+      if (req.auth?.keyInfo?.accountId && typeof pgStore.pool !== 'undefined') {
+        pgStore.pool.query(
+          `INSERT INTO usage_logs
+            (user_id, endpoint, url, method, processing_time_ms, status_code, ip_address, user_agent)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            req.auth.keyInfo.accountId,
+            'jobs',
+            result.searchUrl || keywords || url || '',
+            'basic',
+            elapsed,
+            200,
+            req.ip || req.socket.remoteAddress,
+            req.get('user-agent'),
+          ]
+        ).catch((err: any) => {
+          console.error('Failed to log jobs request to usage_logs:', err);
+        });
+      }
+
+      if (req.auth?.keyInfo?.key && typeof pgStore.trackBurstUsage === 'function') {
+        await pgStore.trackBurstUsage(req.auth.keyInfo.key);
+
+        if (isSoftLimited && hasExtraUsage) {
+          const extraResult = await pgStore.trackExtraUsage(
+            req.auth.keyInfo.key,
+            'search',
+            result.searchUrl || keywords || url || '',
+            elapsed,
+            200
+          );
+          if (extraResult.success) {
+            res.setHeader('X-Extra-Usage-Charged', `$${extraResult.cost.toFixed(4)}`);
+            res.setHeader('X-Extra-Usage-New-Balance', extraResult.newBalance.toFixed(2));
+          }
+        } else if (!isSoftLimited) {
+          await pgStore.trackUsage(req.auth.keyInfo.key, 'search');
+        }
+      }
+
+      res.setHeader('X-Credits-Used', creditsUsed.toString());
+      res.setHeader('X-Processing-Time', elapsed.toString());
+
+      res.json({
+        success: true,
+        data: result,
+        creditsUsed,
+      });
+    } catch (error: any) {
+      console.error('POST /v1/jobs error:', error);
+      res.status(500).json({
+        error: 'internal_error',
+        message: 'Job search failed. Please try again.',
+        docs: 'https://webpeel.dev/docs/api-reference#jobs',
       });
     }
   });

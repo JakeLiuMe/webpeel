@@ -42,6 +42,8 @@ export {
   type TokensUsed,
 } from './core/answer.js';
 
+export { searchJobs, type JobCard, type JobDetail, type JobSearchOptions, type JobSearchResult } from './core/jobs.js';
+
 /**
  * Fetch and extract content from a URL
  * 

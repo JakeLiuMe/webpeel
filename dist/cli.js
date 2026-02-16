@@ -1145,10 +1145,121 @@ program
         process.exit(1);
     }
 });
-// Jobs command - list active jobs
+// Jobs command - search job boards (LinkedIn, Indeed, Glassdoor)
 program
-    .command('jobs')
-    .description('List active jobs (crawl, batch)')
+    .command('jobs <keywords>')
+    .description('Search job boards for listings (LinkedIn, Indeed, Glassdoor)')
+    .option('-l, --location <location>', 'Location filter')
+    .option('-s, --source <source>', 'Job board: glassdoor, indeed, or linkedin (default: linkedin)', 'linkedin')
+    .option('-n, --limit <number>', 'Max results (default: 25)', '25')
+    .option('-d, --details <number>', 'Fetch full details for top N results (default: 0)', '0')
+    .option('--json', 'Output raw JSON')
+    .option('--timeout <ms>', 'Request timeout in ms (default: 30000)', '30000')
+    .option('--silent', 'Silent mode (no spinner)')
+    .action(async (keywords, options) => {
+    const spinner = options.silent ? null : ora('Searching jobs...').start();
+    try {
+        const { searchJobs } = await import('./core/jobs.js');
+        const source = (['glassdoor', 'indeed', 'linkedin'].includes(options.source) ? options.source : 'linkedin');
+        const limit = Math.min(Math.max(parseInt(options.limit, 10) || 25, 1), 100);
+        const fetchDetails = Math.min(Math.max(parseInt(options.details, 10) || 0, 0), limit);
+        const timeout = parseInt(options.timeout, 10) || 30000;
+        const result = await searchJobs({
+            keywords,
+            location: options.location,
+            source,
+            limit,
+            fetchDetails,
+            timeout,
+        });
+        if (spinner)
+            spinner.stop();
+        // --json: raw output
+        if (options.json) {
+            await writeStdout(JSON.stringify(result, null, 2) + '\n');
+            process.exit(0);
+        }
+        // Formatted table output
+        const totalLabel = result.totalFound >= 1000
+            ? `${(result.totalFound / 1000).toFixed(0).replace(/\.0$/, '')}k+`
+            : String(result.totalFound);
+        const locationLabel = options.location ? ` in ${options.location}` : '';
+        console.log(`\n🔍 Found ${totalLabel} ${keywords} jobs${locationLabel} (${result.source})\n`);
+        if (result.jobs.length === 0) {
+            console.log('  No jobs found.\n');
+            process.exit(0);
+        }
+        // Column widths
+        const colNum = 3;
+        const colTitle = 40;
+        const colCompany = 18;
+        const colLocation = 16;
+        const colSalary = 14;
+        const colPosted = 10;
+        const pad = (s, w) => s.length > w ? s.slice(0, w - 1) + '…' : s.padEnd(w);
+        const rpad = (s, w) => s.padStart(w);
+        // Header
+        console.log(` ${rpad('#', colNum)}  ${pad('Title', colTitle)}  ${pad('Company', colCompany)}  ${pad('Location', colLocation)}  ${pad('Salary', colSalary)}  ${pad('Posted', colPosted)}`);
+        // Rows
+        result.jobs.forEach((job, i) => {
+            const title = job.title + (job.remote ? ' 🏠' : '');
+            console.log(` ${rpad(String(i + 1), colNum)}  ${pad(title, colTitle)}  ${pad(job.company, colCompany)}  ${pad(job.location, colLocation)}  ${pad(job.salary || '', colSalary)}  ${pad(job.postedAt || '', colPosted)}`);
+        });
+        // Footer
+        const timeSec = (result.timeTakenMs / 1000).toFixed(1);
+        const detailsNote = fetchDetails > 0 ? ` | Details: ${result.detailsFetched} fetched` : '';
+        console.log(`\nFetched ${result.jobs.length} jobs in ${timeSec}s${detailsNote}\n`);
+        // Detailed job cards (when --details > 0)
+        const detailedJobs = result.jobs.filter((j) => 'description' in j);
+        for (let i = 0; i < detailedJobs.length; i++) {
+            const job = detailedJobs[i];
+            console.log(`━━━ Job #${i + 1}: ${job.title} ━━━`);
+            const metaParts = [`Company: ${job.company}`, `Location: ${job.location}`];
+            if (job.salary)
+                metaParts.push(`Salary: ${job.salary}`);
+            console.log(metaParts.join(' | '));
+            const typeParts = [];
+            if (job.employmentType)
+                typeParts.push(`Type: ${job.employmentType}`);
+            if (job.experienceLevel)
+                typeParts.push(`Level: ${job.experienceLevel}`);
+            if (job.postedAt)
+                typeParts.push(`Posted: ${job.postedAt}`);
+            if (typeParts.length > 0)
+                console.log(typeParts.join(' | '));
+            if (job.description) {
+                console.log(`\nDescription:\n  ${job.description.slice(0, 500).replace(/\n/g, '\n  ')}`);
+            }
+            if (job.requirements && job.requirements.length > 0) {
+                console.log(`\nRequirements:`);
+                job.requirements.forEach(r => console.log(`  • ${r}`));
+            }
+            if (job.responsibilities && job.responsibilities.length > 0) {
+                console.log(`\nResponsibilities:`);
+                job.responsibilities.forEach(r => console.log(`  • ${r}`));
+            }
+            if (job.benefits && job.benefits.length > 0) {
+                console.log(`\nBenefits:`);
+                job.benefits.forEach(b => console.log(`  • ${b}`));
+            }
+            if (job.applyUrl) {
+                console.log(`\nApply: ${job.applyUrl}`);
+            }
+            console.log('');
+        }
+        process.exit(0);
+    }
+    catch (error) {
+        if (spinner)
+            spinner.fail('Job search failed');
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        process.exit(1);
+    }
+});
+// Queue command - list active async jobs (crawl, batch)
+program
+    .command('queue')
+    .description('List active async jobs (crawl, batch)')
     .option('--json', 'Output as JSON')
     .action(async (options) => {
     try {
@@ -1166,12 +1277,13 @@ program
         if (!response.ok) {
             throw new Error(`API error: HTTP ${response.status}`);
         }
-        const jobs = await response.json();
+        const data = await response.json();
+        const jobs = data.jobs || data;
         if (options.json) {
-            console.log(JSON.stringify(jobs, null, 2));
+            console.log(JSON.stringify(data, null, 2));
         }
         else {
-            if (jobs.length === 0) {
+            if (!Array.isArray(jobs) || jobs.length === 0) {
                 console.log('No active jobs.');
             }
             else {
