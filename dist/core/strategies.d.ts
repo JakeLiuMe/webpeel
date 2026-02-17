@@ -1,28 +1,23 @@
 /**
- * Smart escalation strategy: try simple fetch first, escalate to browser if needed
+ * Smart escalation strategy: try simple fetch first, escalate to browser if needed.
+ *
+ * Premium server-side optimisations (SWR cache, domain intelligence, parallel
+ * race) are injected via the hook system in `strategy-hooks.ts`.  When no hooks
+ * are registered the strategy degrades gracefully to a simple escalation path
+ * that works great for CLI / npm library usage.
  */
-import { type FetchResult } from './fetcher.js';
-export declare function clearDomainIntel(): void;
+import { type StrategyResult } from './strategy-hooks.js';
+export type { StrategyResult } from './strategy-hooks.js';
 export interface StrategyOptions {
-    /** Force browser mode (skip simple fetch) */
     forceBrowser?: boolean;
-    /** Use stealth mode to bypass bot detection */
     stealth?: boolean;
-    /** Wait time after page load in browser mode (ms) */
     waitMs?: number;
-    /** Custom user agent */
     userAgent?: string;
-    /** Request timeout (ms) */
     timeoutMs?: number;
-    /** Capture a screenshot of the page */
     screenshot?: boolean;
-    /** Full-page screenshot (default: viewport only) */
     screenshotFullPage?: boolean;
-    /** Custom HTTP headers to send */
     headers?: Record<string, string>;
-    /** Cookies to set (key=value pairs) */
     cookies?: string[];
-    /** Page actions to execute before extraction */
     actions?: Array<{
         type: 'wait' | 'click' | 'scroll' | 'type' | 'fill' | 'select' | 'press' | 'hover' | 'waitForSelector' | 'screenshot';
         selector?: string;
@@ -32,24 +27,23 @@ export interface StrategyOptions {
         to?: 'top' | 'bottom' | number;
         timeout?: number;
     }>;
-    /** Keep browser page open for reuse (caller must close) */
     keepPageOpen?: boolean;
-    /** Disable response cache for this request */
     noCache?: boolean;
-    /** Time to wait before launching browser in parallel with simple fetch */
     raceTimeoutMs?: number;
-    /** Location/language for geo-targeted scraping */
     location?: {
         country?: string;
         languages?: string[];
     };
 }
-export interface StrategyResult extends FetchResult {
-    /** Which strategy succeeded: 'simple' | 'browser' | 'stealth' | 'cached' */
-    method: 'simple' | 'browser' | 'stealth' | 'cached';
-}
 /**
- * Smart fetch with automatic escalation
+ * Smart fetch with automatic escalation.
+ *
+ * Without hooks: simple fetch → browser → stealth escalation.
+ * With premium hooks: SWR cache → domain intel → parallel race → escalation.
  */
 export declare function smartFetch(url: string, options?: StrategyOptions): Promise<StrategyResult>;
+/**
+ * @deprecated Use `clearStrategyHooks()` from strategy-hooks.ts instead.
+ */
+export { clearStrategyHooks as clearDomainIntel } from './strategy-hooks.js';
 //# sourceMappingURL=strategies.d.ts.map

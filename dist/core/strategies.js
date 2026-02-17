@@ -1,116 +1,21 @@
 /**
- * Smart escalation strategy: try simple fetch first, escalate to browser if needed
+ * Smart escalation strategy: try simple fetch first, escalate to browser if needed.
+ *
+ * Premium server-side optimisations (SWR cache, domain intelligence, parallel
+ * race) are injected via the hook system in `strategy-hooks.ts`.  When no hooks
+ * are registered the strategy degrades gracefully to a simple escalation path
+ * that works great for CLI / npm library usage.
  */
 import { simpleFetch, browserFetch, retryFetch } from './fetcher.js';
-import { getCachedWithSWR, setCached, markRevalidating } from './cache.js';
+import { getCached, setCached as setBasicCache } from './cache.js';
 import { resolveAndCache } from './dns-cache.js';
 import { BlockedError, NetworkError } from '../types.js';
-const DOMAIN_INTEL_MAX = 500;
-const DOMAIN_INTEL_TTL_MS = 60 * 60 * 1000; // 1 hour
-const DOMAIN_INTEL_EMA_ALPHA = 0.3;
-const domainIntel = new Map();
-const domainMethodCounts = new Map();
-function getDomainKey(url) {
-    try {
-        return new URL(url).hostname.toLowerCase();
-    }
-    catch {
-        return '';
-    }
-}
-function pruneDomainIntel(now) {
-    for (const [key, intel] of domainIntel) {
-        if (now - intel.lastSeen > DOMAIN_INTEL_TTL_MS) {
-            domainIntel.delete(key);
-            domainMethodCounts.delete(key);
-        }
-    }
-}
-function recordDomainResult(url, method, latencyMs) {
-    const key = getDomainKey(url);
-    if (!key) {
-        return;
-    }
-    const now = Date.now();
-    pruneDomainIntel(now);
-    const existing = domainIntel.get(key);
-    const sanitizedLatency = Number.isFinite(latencyMs) && latencyMs > 0
-        ? latencyMs
-        : (existing?.avgLatencyMs ?? 0);
-    const next = existing
-        ? {
-            needsBrowser: existing.needsBrowser || method === 'browser' || method === 'stealth',
-            needsStealth: existing.needsStealth || method === 'stealth',
-            avgLatencyMs: existing.avgLatencyMs === 0
-                ? sanitizedLatency
-                : (existing.avgLatencyMs * (1 - DOMAIN_INTEL_EMA_ALPHA)) + (sanitizedLatency * DOMAIN_INTEL_EMA_ALPHA),
-            lastSeen: now,
-            sampleCount: existing.sampleCount + 1,
-        }
-        : {
-            needsBrowser: method === 'browser' || method === 'stealth',
-            needsStealth: method === 'stealth',
-            avgLatencyMs: sanitizedLatency,
-            lastSeen: now,
-            sampleCount: 1,
-        };
-    const existingCounts = domainMethodCounts.get(key) ?? { simple: 0, browser: 0, stealth: 0 };
-    existingCounts[method] += 1;
-    domainIntel.delete(key);
-    domainIntel.set(key, next);
-    domainMethodCounts.set(key, existingCounts);
-    while (domainIntel.size > DOMAIN_INTEL_MAX) {
-        const oldestKey = domainIntel.keys().next().value;
-        if (!oldestKey) {
-            break;
-        }
-        domainIntel.delete(oldestKey);
-        domainMethodCounts.delete(oldestKey);
-    }
-}
-function getDomainRecommendation(url) {
-    const key = getDomainKey(url);
-    if (!key) {
-        return null;
-    }
-    const intel = domainIntel.get(key);
-    if (!intel) {
-        return null;
-    }
-    const now = Date.now();
-    if (now - intel.lastSeen > DOMAIN_INTEL_TTL_MS) {
-        domainIntel.delete(key);
-        domainMethodCounts.delete(key);
-        return null;
-    }
-    if (intel.sampleCount <= 2) {
-        return null;
-    }
-    const counts = domainMethodCounts.get(key);
-    if (!counts) {
-        return null;
-    }
-    // LRU touch
-    domainIntel.delete(key);
-    domainIntel.set(key, intel);
-    const allStealth = counts.stealth === intel.sampleCount;
-    if (allStealth && intel.needsStealth) {
-        return { mode: 'stealth' };
-    }
-    const allBrowser = counts.simple === 0 && (counts.browser + counts.stealth === intel.sampleCount);
-    if (allBrowser && intel.needsBrowser) {
-        return { mode: 'browser' };
-    }
-    return null;
-}
-export function clearDomainIntel() {
-    domainIntel.clear();
-    domainMethodCounts.clear();
-}
+import { getStrategyHooks, } from './strategy-hooks.js';
+/* ---------- hardcoded domain rules -------------------------------------- */
 function shouldForceBrowser(url) {
     try {
         const hostname = new URL(url).hostname.toLowerCase();
-        // Reddit often returns an HTML shell via simple fetch; browser rendering is needed for real content
+        // Reddit often returns an HTML shell via simple fetch
         if (hostname === 'reddit.com' || hostname.endsWith('.reddit.com')) {
             return { mode: 'browser' };
         }
@@ -120,52 +25,45 @@ function shouldForceBrowser(url) {
             hostname.endsWith('.npmjs.com')) {
             return { mode: 'browser' };
         }
-        // StackOverflow commonly serves shell-like content to simple fetch clients
-        // Note: NOT forced — let the shell-page detector escalate naturally
-        // since SO needs extra wait time that the escalation path handles better
-        // These are known to aggressively block automation; go straight to stealth
+        // These are known to aggressively block automation
         if (hostname === 'glassdoor.com' || hostname.endsWith('.glassdoor.com')) {
             return { mode: 'stealth' };
         }
         if (hostname === 'bloomberg.com' || hostname.endsWith('.bloomberg.com')) {
             return { mode: 'stealth' };
         }
-        // Indeed uses Cloudflare aggressively on job detail pages
         if (hostname === 'indeed.com' || hostname.endsWith('.indeed.com')) {
             return { mode: 'stealth' };
         }
     }
     catch {
-        // Ignore URL parsing errors here; validation happens inside fetchers
+        // Ignore URL parsing errors; validation happens inside fetchers.
     }
     return null;
 }
+/* ---------- helpers ------------------------------------------------------ */
 function isAbortError(error) {
     return error instanceof Error && error.name === 'AbortError';
 }
 function shouldEscalateSimpleError(error) {
-    if (error instanceof BlockedError) {
+    if (error instanceof BlockedError)
         return true;
-    }
     return error instanceof NetworkError && error.message.includes('TLS/SSL');
 }
 function looksLikeShellPage(result) {
-    const contentTypeLower = (result.contentType || '').toLowerCase();
-    if (!contentTypeLower.includes('html')) {
+    const ct = (result.contentType || '').toLowerCase();
+    if (!ct.includes('html'))
         return false;
-    }
-    const textContent = result.html.replace(/<[^>]*>/g, '').trim();
-    return textContent.length < 500 && result.html.length > 1000;
+    const text = result.html.replace(/<[^>]*>/g, '').trim();
+    return text.length < 500 && result.html.length > 1000;
 }
 function prefetchDns(url) {
     try {
         const hostname = new URL(url).hostname;
-        void resolveAndCache(hostname).catch(() => {
-            // Best-effort optimization only.
-        });
+        void resolveAndCache(hostname).catch(() => { });
     }
     catch {
-        // Ignore invalid URL here; fetchers handle validation.
+        // Ignore invalid URL.
     }
 }
 async function fetchWithBrowserStrategy(url, options) {
@@ -190,10 +88,9 @@ async function fetchWithBrowserStrategy(url, options) {
         };
     }
     catch (error) {
-        if (isAbortError(error)) {
+        if (isAbortError(error))
             throw error;
-        }
-        // Strategy 3: If browser gets blocked, try stealth mode as fallback (unless already using stealth)
+        // If browser gets blocked, try stealth as fallback (unless already stealth)
         if (!effectiveStealth && error instanceof BlockedError) {
             const result = await browserFetch(url, {
                 userAgent,
@@ -208,13 +105,11 @@ async function fetchWithBrowserStrategy(url, options) {
                 keepPageOpen,
                 signal,
             });
-            return {
-                ...result,
-                method: 'stealth',
-            };
+            return { ...result, method: 'stealth' };
         }
-        // If browser encounters Cloudflare, retry with extra wait time
-        if (error instanceof NetworkError && error.message.toLowerCase().includes('cloudflare')) {
+        // If Cloudflare detected, retry with extra wait time
+        if (error instanceof NetworkError &&
+            error.message.toLowerCase().includes('cloudflare')) {
             const result = await browserFetch(url, {
                 userAgent,
                 waitMs: 5000,
@@ -228,40 +123,41 @@ async function fetchWithBrowserStrategy(url, options) {
                 keepPageOpen,
                 signal,
             });
-            return {
-                ...result,
-                method: effectiveStealth ? 'stealth' : 'browser',
-            };
+            return { ...result, method: effectiveStealth ? 'stealth' : 'browser' };
         }
         throw error;
     }
 }
+/* ---------- main entry point -------------------------------------------- */
 /**
- * Smart fetch with automatic escalation
+ * Smart fetch with automatic escalation.
+ *
+ * Without hooks: simple fetch → browser → stealth escalation.
+ * With premium hooks: SWR cache → domain intel → parallel race → escalation.
  */
 export async function smartFetch(url, options = {}) {
     const { forceBrowser = false, stealth = false, waitMs = 0, userAgent, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, actions, keepPageOpen = false, noCache = false, raceTimeoutMs = 2000, } = options;
+    const hooks = getStrategyHooks();
     const fetchStartMs = Date.now();
-    const recordSuccessfulMethod = (method) => {
-        if (method === 'cached') {
+    const recordMethod = (method) => {
+        if (method === 'cached')
             return;
-        }
-        recordDomainResult(url, method, Date.now() - fetchStartMs);
+        hooks.recordDomainResult?.(url, method, Date.now() - fetchStartMs);
     };
-    // Site-specific escalation overrides
-    // Hardcoded rules take priority (manually verified), domain intel is fallback
+    /* ---- determine effective mode ---------------------------------------- */
+    // Hardcoded rules always take priority, then hook-based domain intelligence.
     const forced = shouldForceBrowser(url);
-    const recommended = getDomainRecommendation(url);
-    const selectedRecommendation = forced ?? recommended;
+    const recommended = hooks.getDomainRecommendation?.(url) ?? null;
+    const selected = forced ?? recommended;
     let effectiveForceBrowser = forceBrowser;
     let effectiveStealth = stealth;
-    if (selectedRecommendation) {
+    if (selected) {
         effectiveForceBrowser = true;
-        if (selectedRecommendation.mode === 'stealth') {
+        if (selected.mode === 'stealth')
             effectiveStealth = true;
-        }
     }
     prefetchDns(url);
+    /* ---- cache eligibility ----------------------------------------------- */
     const canUseCache = !noCache &&
         !effectiveForceBrowser &&
         !effectiveStealth &&
@@ -272,33 +168,35 @@ export async function smartFetch(url, options = {}) {
         !cookies &&
         waitMs === 0 &&
         !userAgent;
-    if (canUseCache) {
-        const cacheResult = getCachedWithSWR(url);
-        if (cacheResult) {
-            if (cacheResult.stale) {
-                // Stale-while-revalidate: serve stale immediately, refresh in background
-                if (markRevalidating(url)) {
-                    // Fire-and-forget background revalidation
-                    void (async () => {
-                        try {
-                            const freshResult = await simpleFetch(url, userAgent, timeoutMs);
-                            if (!looksLikeShellPage(freshResult)) {
-                                setCached(url, { ...freshResult, method: 'simple' });
-                            }
+    /* ---- hook-based cache check (premium) -------------------------------- */
+    if (canUseCache && hooks.checkCache) {
+        const cached = hooks.checkCache(url);
+        if (cached) {
+            if (cached.stale && hooks.markRevalidating?.(url)) {
+                // Background revalidation — fire-and-forget
+                void (async () => {
+                    try {
+                        const fresh = await simpleFetch(url, userAgent, timeoutMs);
+                        if (!looksLikeShellPage(fresh)) {
+                            hooks.setCache?.(url, { ...fresh, method: 'simple' });
                         }
-                        catch {
-                            // Background revalidation failed — stale entry continues serving
-                        }
-                    })();
-                }
+                    }
+                    catch {
+                        // Stale entry continues serving.
+                    }
+                })();
             }
-            return {
-                ...cacheResult.value,
-                method: 'cached',
-            };
+            return { ...cached.value, method: 'cached' };
         }
     }
-    // If stealth is requested, force browser mode (stealth requires browser)
+    /* ---- basic cache check (non-premium fallback) ------------------------ */
+    if (canUseCache && !hooks.checkCache) {
+        const basicCached = getCached(url);
+        if (basicCached) {
+            return { ...basicCached, method: 'cached' };
+        }
+    }
+    /* ---- browser-level options ------------------------------------------- */
     let shouldUseBrowser = effectiveForceBrowser || screenshot || effectiveStealth;
     const browserOptions = {
         userAgent,
@@ -312,7 +210,7 @@ export async function smartFetch(url, options = {}) {
         keepPageOpen,
         effectiveStealth,
     };
-    // Strategy 1: Simple fetch (unless browser is forced or screenshot is requested)
+    /* ---- Strategy: simple fetch (with optional race) --------------------- */
     if (!shouldUseBrowser) {
         const simpleAbortController = new AbortController();
         const simplePromise = retryFetch(() => simpleFetch(url, userAgent, timeoutMs, headers, simpleAbortController.signal), 3).then((result) => {
@@ -321,27 +219,31 @@ export async function smartFetch(url, options = {}) {
             }
             return result;
         });
+        // Determine race timeout — hooks can override
+        const useRace = hooks.shouldRace?.() ?? false;
+        const effectiveRaceTimeout = useRace
+            ? (hooks.getRaceTimeoutMs?.() ?? raceTimeoutMs)
+            : raceTimeoutMs;
         let raceTimer;
         const simpleOrTimeout = await Promise.race([
             simplePromise
                 .then((result) => ({ type: 'simple-success', result }))
                 .catch((error) => ({ type: 'simple-error', error })),
             new Promise((resolve) => {
-                raceTimer = setTimeout(() => resolve({ type: 'race-timeout' }), Math.max(raceTimeoutMs, 0));
+                raceTimer = setTimeout(() => resolve({ type: 'race-timeout' }), Math.max(effectiveRaceTimeout, 0));
             }),
         ]);
-        if (raceTimer) {
+        if (raceTimer)
             clearTimeout(raceTimer);
-        }
         if (simpleOrTimeout.type === 'simple-success') {
             const strategyResult = {
                 ...simpleOrTimeout.result,
                 method: 'simple',
             };
             if (canUseCache) {
-                setCached(url, strategyResult);
+                hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
             }
-            recordSuccessfulMethod('simple');
+            recordMethod('simple');
             return strategyResult;
         }
         if (simpleOrTimeout.type === 'simple-error') {
@@ -351,66 +253,98 @@ export async function smartFetch(url, options = {}) {
             shouldUseBrowser = true;
         }
         else {
-            // Simple fetch is slow - start browser in parallel and return whichever succeeds first.
-            const browserAbortController = new AbortController();
-            let simpleError;
-            let browserError;
-            const simpleCandidate = simplePromise
-                .then((result) => ({ source: 'simple', result }))
-                .catch((error) => {
-                simpleError = error;
-                throw error;
-            });
-            const browserCandidate = fetchWithBrowserStrategy(url, {
-                ...browserOptions,
-                signal: browserAbortController.signal,
-            })
-                .then((result) => ({ source: 'browser', result }))
-                .catch((error) => {
-                browserError = error;
-                throw error;
-            });
-            try {
-                const winner = await Promise.any([simpleCandidate, browserCandidate]);
-                if (winner.source === 'simple') {
-                    browserAbortController.abort();
+            // Race timeout — only start parallel browser if hooks say to race
+            if (useRace) {
+                // Parallel race: simple still running, start browser too
+                const browserAbortController = new AbortController();
+                let simpleError;
+                let browserError;
+                const simpleCandidate = simplePromise
+                    .then((result) => ({ source: 'simple', result }))
+                    .catch((error) => {
+                    simpleError = error;
+                    throw error;
+                });
+                const browserCandidate = fetchWithBrowserStrategy(url, {
+                    ...browserOptions,
+                    signal: browserAbortController.signal,
+                })
+                    .then((result) => ({ source: 'browser', result }))
+                    .catch((error) => {
+                    browserError = error;
+                    throw error;
+                });
+                try {
+                    const winner = await Promise.any([
+                        simpleCandidate,
+                        browserCandidate,
+                    ]);
+                    if (winner.source === 'simple') {
+                        browserAbortController.abort();
+                        const strategyResult = {
+                            ...winner.result,
+                            method: 'simple',
+                        };
+                        if (canUseCache) {
+                            hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
+                        }
+                        recordMethod('simple');
+                        return strategyResult;
+                    }
+                    simpleAbortController.abort();
+                    if (canUseCache) {
+                        hooks.setCache?.(url, winner.result) ?? setBasicCache(url, winner.result);
+                    }
+                    recordMethod(winner.result.method);
+                    return winner.result;
+                }
+                catch {
+                    if (simpleError &&
+                        !shouldEscalateSimpleError(simpleError) &&
+                        !isAbortError(simpleError)) {
+                        throw simpleError;
+                    }
+                    if (browserError)
+                        throw browserError;
+                    if (simpleError)
+                        throw simpleError;
+                    throw new Error('Both simple and browser fetch attempts failed');
+                }
+            }
+            else {
+                // No race — just wait for the simple fetch to finish
+                const simpleResult = await simplePromise
+                    .then((result) => ({ type: 'simple-success', result }))
+                    .catch((error) => ({ type: 'simple-error', error }));
+                if (simpleResult.type === 'simple-success') {
                     const strategyResult = {
-                        ...winner.result,
+                        ...simpleResult.result,
                         method: 'simple',
                     };
                     if (canUseCache) {
-                        setCached(url, strategyResult);
+                        hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
                     }
-                    recordSuccessfulMethod('simple');
+                    recordMethod('simple');
                     return strategyResult;
                 }
-                simpleAbortController.abort();
-                if (canUseCache) {
-                    setCached(url, winner.result);
+                if (!shouldEscalateSimpleError(simpleResult.error)) {
+                    throw simpleResult.error;
                 }
-                recordSuccessfulMethod(winner.result.method);
-                return winner.result;
-            }
-            catch {
-                // Both failed: prefer non-escalation simple errors, otherwise return browser-side error.
-                if (simpleError && !shouldEscalateSimpleError(simpleError) && !isAbortError(simpleError)) {
-                    throw simpleError;
-                }
-                if (browserError) {
-                    throw browserError;
-                }
-                if (simpleError) {
-                    throw simpleError;
-                }
-                throw new Error('Both simple and browser fetch attempts failed');
+                shouldUseBrowser = true;
             }
         }
     }
+    /* ---- browser / stealth fallback -------------------------------------- */
     const browserResult = await fetchWithBrowserStrategy(url, browserOptions);
     if (canUseCache) {
-        setCached(url, browserResult);
+        hooks.setCache?.(url, browserResult) ?? setBasicCache(url, browserResult);
     }
-    recordSuccessfulMethod(browserResult.method);
+    recordMethod(browserResult.method);
     return browserResult;
 }
+/* ---------- legacy export for tests ------------------------------------- */
+/**
+ * @deprecated Use `clearStrategyHooks()` from strategy-hooks.ts instead.
+ */
+export { clearStrategyHooks as clearDomainIntel } from './strategy-hooks.js';
 //# sourceMappingURL=strategies.js.map
