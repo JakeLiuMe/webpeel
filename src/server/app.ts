@@ -33,6 +33,7 @@ import { createJobQueue } from './job-queue.js';
 import { createCompatRouter } from './routes/compat.js';
 import { createSentryHooks } from './sentry.js';
 import { warmup, cleanup as cleanupFetcher } from '../core/fetcher.js';
+import { registerPremiumHooks } from './premium/index.js';
 
 export interface ServerConfig {
   port?: number;
@@ -179,6 +180,9 @@ export function createApp(config: ServerConfig = {}): Express {
 export function startServer(config: ServerConfig = {}): void {
   const app = createApp(config);
   const port = config.port || parseInt(process.env.PORT || '3000', 10);
+
+  // Activate premium strategy hooks (SWR cache, domain intelligence, race).
+  registerPremiumHooks();
 
   // Pre-warm browser resources in the background to reduce first-request latency.
   void warmup().catch((error) => {
