@@ -1,4 +1,8 @@
 {
+  "redirects": [
+    { "source": "/pricing", "destination": "/#pricing", "statusCode": 301 },
+    { "source": "/pricing/", "destination": "/#pricing", "statusCode": 301 }
+  ],
   "rewrites": [
     { "source": "/docs", "destination": "/docs/index.html" },
     { "source": "/docs/", "destination": "/docs/index.html" },
