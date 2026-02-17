@@ -231,7 +231,7 @@
     .benchmark-header h2 { font-family: 'Instrument Serif', serif; font-size: 42px; font-weight: 400; margin-bottom: 4px; }
     .benchmark-kicker { font-size: 28px; line-height: 1; margin-bottom: 14px; color: var(--text); font-style: italic; }
     .benchmark-subtitle { font-size: 15px; color: var(--text-2); max-width: 640px; margin: 0 auto; }
-    .benchmark-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .benchmark-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
     .benchmark-card { background: #FAFAFA; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
     .benchmark-card h3 { font-size: 18px; font-weight: 600; margin-bottom: 4px; letter-spacing: -0.01em; }
     .benchmark-card p { font-size: 13px; color: var(--text-3); line-height: 1.5; }
@@ -448,6 +448,105 @@
     </div>
   </section>
 
+  <!-- BENCHMARKS -->
+  <section id="benchmarks" class="benchmark-section reveal" data-reveal style="--accent: #7C3AED;">
+    <div class="container">
+      <div class="benchmark-header">
+        <h2>Benchmarks</h2>
+        <p class="benchmark-kicker serif"><em>Tested on 30 real-world URLs</em></p>
+        <p class="benchmark-subtitle">Independent benchmark across news, docs, e-commerce, social media, and enterprise sites.</p>
+      </div>
+
+      <div class="benchmark-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));" class="reveal-stagger" data-reveal>
+        <article class="benchmark-card">
+          <h3>Success Rate</h3>
+          <p>Successful extraction across 30 real-world URLs.</p>
+          <div class="benchmark-bars">
+            <div class="benchmark-row webpeel">
+              <div class="benchmark-label">WebPeel</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 100%;"></div></div>
+              <div class="benchmark-value">100%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Firecrawl</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 93.3%;"></div></div>
+              <div class="benchmark-value">93.3%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Exa</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 93.3%;"></div></div>
+              <div class="benchmark-value">93.3%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">LinkUp</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 93.3%;"></div></div>
+              <div class="benchmark-value">93.3%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Tavily</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 83.3%;"></div></div>
+              <div class="benchmark-value">83.3%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">ScrapingBee</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 80%;"></div></div>
+              <div class="benchmark-value">80%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Jina Reader</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 53%;"></div></div>
+              <div class="benchmark-value">53%</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="benchmark-card">
+          <h3>Quality Score</h3>
+          <p>Content extraction quality — clean markdown, metadata, links.</p>
+          <div class="benchmark-bars">
+            <div class="benchmark-row webpeel">
+              <div class="benchmark-label">WebPeel</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 92.3%;"></div></div>
+              <div class="benchmark-value">92.3%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Exa</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 83.2%;"></div></div>
+              <div class="benchmark-value">83.2%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">LinkUp</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 81.3%;"></div></div>
+              <div class="benchmark-value">81.3%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Tavily</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 81.2%;"></div></div>
+              <div class="benchmark-value">81.2%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Firecrawl</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 77.9%;"></div></div>
+              <div class="benchmark-value">77.9%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">ScrapingBee</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 74.4%;"></div></div>
+              <div class="benchmark-value">74.4%</div>
+            </div>
+            <div class="benchmark-row">
+              <div class="benchmark-label">Jina Reader</div>
+              <div class="benchmark-track"><div class="benchmark-fill" style="width: 69.1%;"></div></div>
+              <div class="benchmark-value">69.1%</div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="benchmark-methodology">30-URL benchmark suite across 6 categories · 7 competitors. Run Feb 2026. <a href="/blog/benchmarks" rel="noopener noreferrer">Full methodology &amp; results →</a></div>
+    </div>
+  </section>
+
   <!-- STATS -->
   <div class="container">
     <div class="stats reveal-stagger" data-reveal>
@@ -610,146 +709,7 @@
   </section>
 
 
-  <!-- BENCHMARKS -->
-  <section id="benchmarks" class="benchmark-section reveal" data-reveal style="--accent: #7C3AED;">
-    <div class="container">
-      <div class="benchmark-header">
-        <h2>Benchmarks</h2>
-        <p class="benchmark-kicker serif"><em>Tested on 30 real-world URLs</em></p>
-        <p class="benchmark-subtitle">Independent benchmark across news, docs, e-commerce, social media, and enterprise sites.</p>
-      </div>
-
-      <div class="benchmark-grid reveal-stagger" data-reveal>
-        <article class="benchmark-card">
-          <h3>Success Rate</h3>
-          <p>Successful extraction across 30 real-world URLs.</p>
-          <div class="benchmark-bars">
-            <div class="benchmark-row webpeel">
-              <div class="benchmark-label">WebPeel</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 100%;"></div></div>
-              <div class="benchmark-value">100%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Firecrawl</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 93.3%;"></div></div>
-              <div class="benchmark-value">93.3%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Exa</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 93.3%;"></div></div>
-              <div class="benchmark-value">93.3%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Tavily</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 83.3%;"></div></div>
-              <div class="benchmark-value">83.3%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">LinkUp</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 93.3%;"></div></div>
-              <div class="benchmark-value">93.3%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">ScrapingBee</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 80%;"></div></div>
-              <div class="benchmark-value">80%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Jina Reader</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 53%;"></div></div>
-              <div class="benchmark-value">53%</div>
-            </div>
-          </div>
-        </article>
-
-        <article class="benchmark-card">
-          <h3>Median Speed</h3>
-          <p>Median response time. Faster = longer bar.</p>
-          <div class="benchmark-bars">
-            <div class="benchmark-row">
-              <div class="benchmark-label">Tavily</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 100%;"></div></div>
-              <div class="benchmark-value">47ms</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Exa</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 88%;"></div></div>
-              <div class="benchmark-value">132ms</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Firecrawl</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 68%;"></div></div>
-              <div class="benchmark-value">231ms</div>
-            </div>
-            <div class="benchmark-row webpeel">
-              <div class="benchmark-label">WebPeel</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 52%;"></div></div>
-              <div class="benchmark-value">441ms</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">ScrapingBee</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 10%;"></div></div>
-              <div class="benchmark-value">1,728ms</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Jina Reader</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 8%;"></div></div>
-              <div class="benchmark-value">2,908ms</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">LinkUp</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 5%;"></div></div>
-              <div class="benchmark-value">4,518ms</div>
-            </div>
-          </div>
-          <div class="benchmark-footnote">Tavily and Exa return pre-indexed results. WebPeel fetches live with JS rendering + stealth.</div>
-        </article>
-
-        <article class="benchmark-card">
-          <h3>Quality Score</h3>
-          <p>Content extraction quality — clean markdown, metadata, links.</p>
-          <div class="benchmark-bars">
-            <div class="benchmark-row webpeel">
-              <div class="benchmark-label">WebPeel</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 86.7%;"></div></div>
-              <div class="benchmark-value">86.7%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Exa</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 83.2%;"></div></div>
-              <div class="benchmark-value">83.2%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Tavily</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 81.2%;"></div></div>
-              <div class="benchmark-value">81.2%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Firecrawl</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 77.9%;"></div></div>
-              <div class="benchmark-value">77.9%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">LinkUp</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 81.3%;"></div></div>
-              <div class="benchmark-value">81.3%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">ScrapingBee</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 74.4%;"></div></div>
-              <div class="benchmark-value">74.4%</div>
-            </div>
-            <div class="benchmark-row">
-              <div class="benchmark-label">Jina Reader</div>
-              <div class="benchmark-track"><div class="benchmark-fill" style="width: 69.1%;"></div></div>
-              <div class="benchmark-value">69.1%</div>
-            </div>
-          </div>
-        </article>
-
-      <div class="benchmark-methodology">30-URL benchmark suite across 6 categories · 7 competitors. Run Feb 2026. <a href="/blog/benchmarks" rel="noopener noreferrer">Full methodology &amp; results →</a></div>
-    </div>
-  </section>
+  <!-- BENCHMARKS (moved to after hero for visibility) -->
 
   <!-- COMPARE -->
   <section id="compare" class="reveal" data-reveal>
@@ -1423,7 +1383,7 @@ console.<span class="hl-fn">log</span>(result.markdown);`
     ];
 
     let currentDemo = 0;
-    let typingSpeed = 40;
+    let typingSpeed = 25;
 
     async function typeText(element, text, speed) {
       element.innerHTML = '';
