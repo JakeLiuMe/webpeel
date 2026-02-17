@@ -98,6 +98,7 @@
     "playwright-extra": "^4.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2",
     "undici": "^7.2.0"
   },
   "optionalDependencies": {

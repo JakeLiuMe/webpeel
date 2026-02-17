@@ -434,12 +434,21 @@ export async function simpleFetch(
   // SECURITY: Merge custom headers with defaults, block Host header override
   const defaultHeaders: Record<string, string> = {
     'User-Agent': validatedUserAgent,
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept-Encoding': 'br, gzip, deflate',
     'DNT': '1',
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
+    'Sec-CH-UA': '"Chromium";v="131", "Not_A Brand";v="24"',
+    'Sec-CH-UA-Mobile': '?0',
+    'Sec-CH-UA-Platform': '"macOS"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0',
+    'Priority': 'u=0, i',
   };
 
   const mergedHeaders = { ...defaultHeaders };
