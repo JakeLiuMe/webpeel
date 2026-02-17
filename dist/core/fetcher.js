@@ -12,7 +12,8 @@ import { chromium as stealthChromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { fetch as undiciFetch, Agent } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
-import { cachedLookup, startDnsWarmup } from './dns-cache.js';
+import { getCached } from './cache.js';
+import { cachedLookup, resolveAndCache, startDnsWarmup } from './dns-cache.js';
 // Add stealth plugin to playwright-extra
 stealthChromium.use(StealthPlugin());
 const USER_AGENTS = [
@@ -39,6 +40,83 @@ function createHttpPool() {
 }
 let httpPool = createHttpPool();
 startDnsWarmup();
+const CONDITIONAL_CACHE_MAX_ENTRIES = 2000;
+const conditionalValidatorsByUrl = new Map();
+function normalizeUrlForConditionalCache(url) {
+    try {
+        const normalized = new URL(url);
+        normalized.hash = '';
+        normalized.hostname = normalized.hostname.toLowerCase();
+        if ((normalized.protocol === 'http:' && normalized.port === '80') ||
+            (normalized.protocol === 'https:' && normalized.port === '443')) {
+            normalized.port = '';
+        }
+        if (!normalized.pathname) {
+            normalized.pathname = '/';
+        }
+        const sortedParams = [...normalized.searchParams.entries()]
+            .sort(([a], [b]) => a.localeCompare(b));
+        normalized.search = '';
+        for (const [key, value] of sortedParams) {
+            normalized.searchParams.append(key, value);
+        }
+        return normalized.toString();
+    }
+    catch {
+        return url.trim();
+    }
+}
+function getConditionalValidators(url) {
+    const key = normalizeUrlForConditionalCache(url);
+    const existing = conditionalValidatorsByUrl.get(key);
+    if (!existing) {
+        return null;
+    }
+    // LRU touch
+    conditionalValidatorsByUrl.delete(key);
+    conditionalValidatorsByUrl.set(key, existing);
+    return existing;
+}
+function setConditionalValidators(url, validators) {
+    const key = normalizeUrlForConditionalCache(url);
+    if (conditionalValidatorsByUrl.has(key)) {
+        conditionalValidatorsByUrl.delete(key);
+    }
+    conditionalValidatorsByUrl.set(key, validators);
+    while (conditionalValidatorsByUrl.size > CONDITIONAL_CACHE_MAX_ENTRIES) {
+        const oldestKey = conditionalValidatorsByUrl.keys().next().value;
+        if (!oldestKey) {
+            break;
+        }
+        conditionalValidatorsByUrl.delete(oldestKey);
+    }
+}
+function rememberConditionalValidators(url, response) {
+    const etag = response.headers.get('etag') || undefined;
+    const lastModified = response.headers.get('last-modified') || undefined;
+    if (!etag && !lastModified) {
+        return;
+    }
+    setConditionalValidators(url, { etag, lastModified });
+}
+function hasHeader(headers, name) {
+    const lowered = name.toLowerCase();
+    return Object.keys(headers).some((header) => header.toLowerCase() === lowered);
+}
+function getCachedResultFor304(url, fallbackUrl) {
+    const cached = getCached(url) || (fallbackUrl ? getCached(fallbackUrl) : null);
+    if (!cached) {
+        return null;
+    }
+    return {
+        html: cached.html,
+        buffer: cached.buffer,
+        url: cached.url || url,
+        statusCode: 304,
+        contentType: cached.contentType,
+        screenshot: cached.screenshot,
+    };
+}
 function createAbortError() {
     const error = new Error('Operation aborted');
     error.name = 'AbortError';
@@ -273,7 +351,7 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
         'User-Agent': validatedUserAgent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'br, gzip, deflate',
         'DNT': '1',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
@@ -292,6 +370,15 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
     let redirectCount = 0;
     let currentUrl = url;
     const seenUrls = new Set();
+    try {
+        const hostname = new URL(url).hostname;
+        void resolveAndCache(hostname).catch(() => {
+            // Best-effort optimization only.
+        });
+    }
+    catch {
+        // Ignore URL parsing errors here; validation handles invalid input below.
+    }
     while (redirectCount <= MAX_REDIRECTS) {
         // Detect redirect loops
         if (seenUrls.has(currentUrl)) {
@@ -306,13 +393,28 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
             ? AbortSignal.any([timeoutController.signal, abortSignal])
             : timeoutController.signal;
         try {
+            const requestHeaders = { ...mergedHeaders };
+            const validators = getConditionalValidators(currentUrl);
+            if (validators?.etag && !hasHeader(requestHeaders, 'if-none-match')) {
+                requestHeaders['If-None-Match'] = validators.etag;
+            }
+            if (validators?.lastModified && !hasHeader(requestHeaders, 'if-modified-since')) {
+                requestHeaders['If-Modified-Since'] = validators.lastModified;
+            }
             const response = await undiciFetch(currentUrl, {
-                headers: mergedHeaders,
+                headers: requestHeaders,
                 signal,
                 dispatcher: httpPool,
                 redirect: 'manual', // SECURITY: Manual redirect handling
             });
             clearTimeout(timer);
+            if (response.status === 304) {
+                const cachedResult = getCachedResultFor304(currentUrl, url);
+                if (cachedResult) {
+                    return cachedResult;
+                }
+                throw new NetworkError('HTTP 304 received but no cached response is available');
+            }
             // Handle redirects manually
             if (response.status >= 300 && response.status < 400) {
                 const location = response.headers.get('location');
@@ -321,6 +423,15 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
                 }
                 // Resolve relative URLs
                 currentUrl = new URL(location, currentUrl).href;
+                try {
+                    const hostname = new URL(currentUrl).hostname;
+                    void resolveAndCache(hostname).catch(() => {
+                        // Best-effort optimization only.
+                    });
+                }
+                catch {
+                    // Ignore URL parsing errors here; validation handles invalid input below.
+                }
                 redirectCount++;
                 continue;
             }
@@ -330,6 +441,7 @@ export async function simpleFetch(url, userAgent, timeoutMs = 30000, customHeade
                 }
                 throw new NetworkError(`HTTP ${response.status}: ${response.statusText}`);
             }
+            rememberConditionalValidators(currentUrl, response);
             // Content-Type detection
             const contentType = response.headers.get('content-type') || '';
             const contentTypeLower = contentType.toLowerCase();

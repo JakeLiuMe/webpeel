@@ -12,10 +12,11 @@ dns.setDefaultResultOrder('ipv4first');
 import { chromium, type Browser, type Page } from 'playwright';
 import { chromium as stealthChromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { fetch as undiciFetch, Agent } from 'undici';
+import { fetch as undiciFetch, Agent, type Response } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
 import type { PageAction } from '../types.js';
-import { cachedLookup, startDnsWarmup } from './dns-cache.js';
+import { getCached } from './cache.js';
+import { cachedLookup, resolveAndCache, startDnsWarmup } from './dns-cache.js';
 
 // Add stealth plugin to playwright-extra
 stealthChromium.use(StealthPlugin());
@@ -47,6 +48,105 @@ function createHttpPool(): Agent {
 
 let httpPool = createHttpPool();
 startDnsWarmup();
+
+interface ConditionalValidators {
+  etag?: string;
+  lastModified?: string;
+}
+
+const CONDITIONAL_CACHE_MAX_ENTRIES = 2000;
+const conditionalValidatorsByUrl = new Map<string, ConditionalValidators>();
+
+function normalizeUrlForConditionalCache(url: string): string {
+  try {
+    const normalized = new URL(url);
+    normalized.hash = '';
+    normalized.hostname = normalized.hostname.toLowerCase();
+
+    if ((normalized.protocol === 'http:' && normalized.port === '80') ||
+        (normalized.protocol === 'https:' && normalized.port === '443')) {
+      normalized.port = '';
+    }
+
+    if (!normalized.pathname) {
+      normalized.pathname = '/';
+    }
+
+    const sortedParams = [...normalized.searchParams.entries()]
+      .sort(([a], [b]) => a.localeCompare(b));
+    normalized.search = '';
+    for (const [key, value] of sortedParams) {
+      normalized.searchParams.append(key, value);
+    }
+
+    return normalized.toString();
+  } catch {
+    return url.trim();
+  }
+}
+
+function getConditionalValidators(url: string): ConditionalValidators | null {
+  const key = normalizeUrlForConditionalCache(url);
+  const existing = conditionalValidatorsByUrl.get(key);
+  if (!existing) {
+    return null;
+  }
+
+  // LRU touch
+  conditionalValidatorsByUrl.delete(key);
+  conditionalValidatorsByUrl.set(key, existing);
+  return existing;
+}
+
+function setConditionalValidators(url: string, validators: ConditionalValidators): void {
+  const key = normalizeUrlForConditionalCache(url);
+
+  if (conditionalValidatorsByUrl.has(key)) {
+    conditionalValidatorsByUrl.delete(key);
+  }
+
+  conditionalValidatorsByUrl.set(key, validators);
+
+  while (conditionalValidatorsByUrl.size > CONDITIONAL_CACHE_MAX_ENTRIES) {
+    const oldestKey = conditionalValidatorsByUrl.keys().next().value;
+    if (!oldestKey) {
+      break;
+    }
+    conditionalValidatorsByUrl.delete(oldestKey);
+  }
+}
+
+function rememberConditionalValidators(url: string, response: Response): void {
+  const etag = response.headers.get('etag') || undefined;
+  const lastModified = response.headers.get('last-modified') || undefined;
+
+  if (!etag && !lastModified) {
+    return;
+  }
+
+  setConditionalValidators(url, { etag, lastModified });
+}
+
+function hasHeader(headers: Record<string, string>, name: string): boolean {
+  const lowered = name.toLowerCase();
+  return Object.keys(headers).some((header) => header.toLowerCase() === lowered);
+}
+
+function getCachedResultFor304(url: string, fallbackUrl?: string): FetchResult | null {
+  const cached = getCached<FetchResult>(url) || (fallbackUrl ? getCached<FetchResult>(fallbackUrl) : null);
+  if (!cached) {
+    return null;
+  }
+
+  return {
+    html: cached.html,
+    buffer: cached.buffer,
+    url: cached.url || url,
+    statusCode: 304,
+    contentType: cached.contentType,
+    screenshot: cached.screenshot,
+  };
+}
 
 function createAbortError(): Error {
   const error = new Error('Operation aborted');
@@ -336,7 +436,7 @@ export async function simpleFetch(
     'User-Agent': validatedUserAgent,
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
+    'Accept-Encoding': 'br, gzip, deflate',
     'DNT': '1',
     'Connection': 'keep-alive',
     'Upgrade-Insecure-Requests': '1',
@@ -359,6 +459,15 @@ export async function simpleFetch(
   let currentUrl = url;
   const seenUrls = new Set<string>();
 
+  try {
+    const hostname = new URL(url).hostname;
+    void resolveAndCache(hostname).catch(() => {
+      // Best-effort optimization only.
+    });
+  } catch {
+    // Ignore URL parsing errors here; validation handles invalid input below.
+  }
+
   while (redirectCount <= MAX_REDIRECTS) {
     // Detect redirect loops
     if (seenUrls.has(currentUrl)) {
@@ -376,14 +485,32 @@ export async function simpleFetch(
       : timeoutController.signal;
 
     try {
+      const requestHeaders: Record<string, string> = { ...mergedHeaders };
+      const validators = getConditionalValidators(currentUrl);
+      if (validators?.etag && !hasHeader(requestHeaders, 'if-none-match')) {
+        requestHeaders['If-None-Match'] = validators.etag;
+      }
+      if (validators?.lastModified && !hasHeader(requestHeaders, 'if-modified-since')) {
+        requestHeaders['If-Modified-Since'] = validators.lastModified;
+      }
+
       const response = await undiciFetch(currentUrl, {
-        headers: mergedHeaders,
+        headers: requestHeaders,
         signal,
         dispatcher: httpPool,
         redirect: 'manual', // SECURITY: Manual redirect handling
       });
 
       clearTimeout(timer);
+
+      if (response.status === 304) {
+        const cachedResult = getCachedResultFor304(currentUrl, url);
+        if (cachedResult) {
+          return cachedResult;
+        }
+
+        throw new NetworkError('HTTP 304 received but no cached response is available');
+      }
 
       // Handle redirects manually
       if (response.status >= 300 && response.status < 400) {
@@ -394,6 +521,14 @@ export async function simpleFetch(
 
         // Resolve relative URLs
         currentUrl = new URL(location, currentUrl).href;
+        try {
+          const hostname = new URL(currentUrl).hostname;
+          void resolveAndCache(hostname).catch(() => {
+            // Best-effort optimization only.
+          });
+        } catch {
+          // Ignore URL parsing errors here; validation handles invalid input below.
+        }
         redirectCount++;
         continue;
       }
@@ -406,6 +541,8 @@ export async function simpleFetch(
         }
         throw new NetworkError(`HTTP ${response.status}: ${response.statusText}`);
       }
+
+      rememberConditionalValidators(currentUrl, response);
 
       // Content-Type detection
       const contentType = response.headers.get('content-type') || '';

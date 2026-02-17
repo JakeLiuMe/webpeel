@@ -2,7 +2,8 @@
  * Smart escalation strategy: try simple fetch first, escalate to browser if needed
  */
 import { simpleFetch, browserFetch, retryFetch } from './fetcher.js';
-import { getCachedAsync, setCached } from './cache.js';
+import { getCached, setCached } from './cache.js';
+import { resolveAndCache } from './dns-cache.js';
 import { BlockedError, NetworkError } from '../types.js';
 function shouldForceBrowser(url) {
     try {
@@ -53,6 +54,17 @@ function looksLikeShellPage(result) {
     }
     const textContent = result.html.replace(/<[^>]*>/g, '').trim();
     return textContent.length < 500 && result.html.length > 1000;
+}
+function prefetchDns(url) {
+    try {
+        const hostname = new URL(url).hostname;
+        void resolveAndCache(hostname).catch(() => {
+            // Best-effort optimization only.
+        });
+    }
+    catch {
+        // Ignore invalid URL here; fetchers handle validation.
+    }
 }
 async function fetchWithBrowserStrategy(url, options) {
     const { userAgent, waitMs, timeoutMs, screenshot, screenshotFullPage, headers, cookies, actions, keepPageOpen, effectiveStealth, signal, } = options;
@@ -126,7 +138,7 @@ async function fetchWithBrowserStrategy(url, options) {
  * Smart fetch with automatic escalation
  */
 export async function smartFetch(url, options = {}) {
-    const { forceBrowser = false, stealth = false, waitMs = 0, userAgent, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, actions, keepPageOpen = false, noCache = false, raceTimeoutMs = 3000, } = options;
+    const { forceBrowser = false, stealth = false, waitMs = 0, userAgent, timeoutMs = 30000, screenshot = false, screenshotFullPage = false, headers, cookies, actions, keepPageOpen = false, noCache = false, raceTimeoutMs = 2000, } = options;
     // Site-specific escalation overrides
     const forced = shouldForceBrowser(url);
     let effectiveForceBrowser = forceBrowser;
@@ -137,6 +149,7 @@ export async function smartFetch(url, options = {}) {
             effectiveStealth = true;
         }
     }
+    prefetchDns(url);
     const canUseCache = !noCache &&
         !effectiveForceBrowser &&
         !effectiveStealth &&
@@ -148,7 +161,7 @@ export async function smartFetch(url, options = {}) {
         waitMs === 0 &&
         !userAgent;
     if (canUseCache) {
-        const cached = await getCachedAsync(url);
+        const cached = getCached(url);
         if (cached) {
             return {
                 ...cached,

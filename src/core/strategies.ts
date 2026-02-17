@@ -3,7 +3,8 @@
  */
 
 import { simpleFetch, browserFetch, retryFetch, type FetchResult } from './fetcher.js';
-import { getCachedAsync, setCached } from './cache.js';
+import { getCached, setCached } from './cache.js';
+import { resolveAndCache } from './dns-cache.js';
 import { BlockedError, NetworkError } from '../types.js';
 
 type ForcedRecommendation = { mode: 'browser' | 'stealth' };
@@ -70,6 +71,17 @@ function looksLikeShellPage(result: FetchResult): boolean {
 
   const textContent = result.html.replace(/<[^>]*>/g, '').trim();
   return textContent.length < 500 && result.html.length > 1000;
+}
+
+function prefetchDns(url: string): void {
+  try {
+    const hostname = new URL(url).hostname;
+    void resolveAndCache(hostname).catch(() => {
+      // Best-effort optimization only.
+    });
+  } catch {
+    // Ignore invalid URL here; fetchers handle validation.
+  }
 }
 
 export interface StrategyOptions {
@@ -237,7 +249,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     actions,
     keepPageOpen = false,
     noCache = false,
-    raceTimeoutMs = 3000,
+    raceTimeoutMs = 2000,
   } = options;
 
   // Site-specific escalation overrides
@@ -252,6 +264,8 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     }
   }
 
+  prefetchDns(url);
+
   const canUseCache =
     !noCache &&
     !effectiveForceBrowser &&
@@ -265,7 +279,7 @@ export async function smartFetch(url: string, options: StrategyOptions = {}): Pr
     !userAgent;
 
   if (canUseCache) {
-    const cached = await getCachedAsync<StrategyResult>(url);
+    const cached = getCached<StrategyResult>(url);
     if (cached) {
       return {
         ...cached,
