@@ -168,16 +168,20 @@ function hasMeaningfulText(content: string): boolean {
 }
 
 function looksLikeBlockOrError(content: string): boolean {
-  const hay = content.toLowerCase();
+  // Only flag as blocked if the page is SHORT and contains block-like phrases.
+  // Long pages mentioning "cloudflare" or "forbidden" in their actual content
+  // (e.g. Wikipedia article about web scraping, RFC defining HTTP 403) are NOT blocks.
+  const text = normalizeText(content);
+  if (text.length > 2000) return false; // Real content pages aren't block pages
+
+  const hay = text.toLowerCase();
   const patterns = [
     'access denied',
     'request blocked',
-    'forbidden',
     'service unavailable',
     'unusual traffic',
     'verify you are a human',
     'captcha',
-    'cloudflare',
     'attention required',
     'enable javascript',
     'bot detection',

@@ -1025,7 +1025,7 @@ export async function browserFetch(
       // eslint-disable-next-line @typescript-eslint/no-implied-eval
       const bodyTextLength = await page!.evaluate('document.body?.innerText?.trim().length || 0').catch(() => 0) as number;
       if (bodyTextLength < 500) {
-        await page!.waitForLoadState('networkidle', { timeout: 2000 }).catch(() => {});
+        await page!.waitForLoadState('networkidle', { timeout: 1500 }).catch(() => {});
         throwIfAborted();
       }
 
@@ -1039,8 +1039,9 @@ export async function browserFetch(
       const isBinaryDoc = !!response && (isPdf || isDocx);
 
       // Small randomized delay in stealth mode (simulate human behavior)
+      // Keep it short — enough to look human, not enough to kill latency
       if (stealth) {
-        const extraDelayMs = 500 + Math.floor(Math.random() * 1501);
+        const extraDelayMs = 200 + Math.floor(Math.random() * 601);
         await page!.waitForTimeout(extraDelayMs);
         throwIfAborted();
       }
