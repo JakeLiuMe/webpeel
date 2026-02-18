@@ -26,6 +26,7 @@ export interface Job {
   data: any[]; // Results array
   error?: string;
   webhook?: WebhookConfig;
+  ownerId?: string; // User ID who created the job (for authorization)
   createdAt: string;
   updatedAt: string;
   expiresAt: string; // 24h after completion
@@ -35,11 +36,11 @@ export interface Job {
  * Job queue interface - implemented by both in-memory and PostgreSQL queues
  */
 export interface IJobQueue {
-  createJob(type: Job['type'], webhook?: WebhookConfig): Job | Promise<Job>;
+  createJob(type: Job['type'], webhook?: WebhookConfig, ownerId?: string): Job | Promise<Job>;
   getJob(id: string): Job | null | Promise<Job | null>;
   updateJob(id: string, update: Partial<Job>): void | Promise<void>;
   cancelJob(id: string): boolean | Promise<boolean>;
-  listJobs(options?: { type?: string; status?: string; limit?: number }): Job[] | Promise<Job[]>;
+  listJobs(options?: { type?: string; status?: string; limit?: number; ownerId?: string }): Job[] | Promise<Job[]>;
   destroy(): void;
 }
 
@@ -60,7 +61,7 @@ export class InMemoryJobQueue implements IJobQueue {
   /**
    * Create a new job
    */
-  createJob(type: Job['type'], webhook?: WebhookConfig): Job {
+  createJob(type: Job['type'], webhook?: WebhookConfig, ownerId?: string): Job {
     const now = new Date().toISOString();
     const job: Job = {
       id: randomUUID(),
@@ -72,6 +73,7 @@ export class InMemoryJobQueue implements IJobQueue {
       creditsUsed: 0,
       data: [],
       webhook,
+      ownerId,
       createdAt: now,
       updatedAt: now,
       expiresAt: new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString(), // 25h from now (updated on completion)
@@ -139,8 +141,13 @@ export class InMemoryJobQueue implements IJobQueue {
     type?: string; 
     status?: string; 
     limit?: number;
+    ownerId?: string;
   }): Job[] {
     let jobs = Array.from(this.jobs.values());
+
+    if (options?.ownerId) {
+      jobs = jobs.filter(j => j.ownerId === options.ownerId);
+    }
 
     if (options?.type) {
       jobs = jobs.filter(j => j.type === options.type);

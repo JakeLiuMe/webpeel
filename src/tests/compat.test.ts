@@ -319,7 +319,7 @@ describe('Firecrawl compatibility routes', () => {
           limit: 50
         });
 
-      expect(mockJobQueue.createJob).toHaveBeenCalledWith('crawl', undefined);
+      expect(mockJobQueue.createJob).toHaveBeenCalledWith('crawl', undefined, undefined);
     });
 
     it('handles maxDepth parameter', async () => {

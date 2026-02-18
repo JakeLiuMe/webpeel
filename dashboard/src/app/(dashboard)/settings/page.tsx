@@ -31,7 +31,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
 
   const token = (session as any)?.apiToken;
-  const isOAuthUser = session?.user?.email?.endsWith('@github.com') || session?.user?.email?.endsWith('@google.com');
+  const isOAuthUser = (session as any)?.provider !== 'credentials';
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();

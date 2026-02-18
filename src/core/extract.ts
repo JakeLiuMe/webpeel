@@ -71,10 +71,22 @@ export function extractStructured(html: string, options: ExtractOptions): Record
   
   if (options.selectors) {
     // Direct CSS selector extraction
-    for (const [field, selector] of Object.entries(options.selectors)) {
-      const elements = $(selector);
+    for (const [field, selectorRaw] of Object.entries(options.selectors)) {
+      // Support @attr syntax: "a@href" extracts the href attribute from <a> elements
+      const attrMatch = selectorRaw.match(/^(.+?)@([a-zA-Z-]+)$/);
+      const cssSelector = attrMatch ? attrMatch[1] : selectorRaw;
+      const attrName = attrMatch ? attrMatch[2] : null;
+
+      const elements = $(cssSelector);
       if (elements.length === 0) {
         result[field] = null;
+      } else if (attrName) {
+        // Extract attribute value(s)
+        if (elements.length === 1) {
+          result[field] = elements.first().attr(attrName) ?? null;
+        } else {
+          result[field] = elements.map((_, el) => $(el).attr(attrName) ?? null).get();
+        }
       } else if (elements.length === 1) {
         result[field] = elements.first().text().trim();
       } else {

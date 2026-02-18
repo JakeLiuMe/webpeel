@@ -1038,6 +1038,29 @@ export async function browserFetch(
         throwIfAborted();
       }
 
+      // DOM stability check: wait for SPA hydration to settle.
+      // Polls innerText length every 500ms — if still growing, keep waiting (max 3s extra).
+      {
+        const stabilityStart = Date.now();
+        const MAX_STABILITY_WAIT_MS = 3000;
+        const POLL_INTERVAL_MS = 500;
+        let prevLength = await page!.evaluate('document.body?.innerText?.length || 0').catch(() => 0) as number;
+        let stableCount = 0;
+
+        while (Date.now() - stabilityStart < MAX_STABILITY_WAIT_MS) {
+          throwIfAborted();
+          await page!.waitForTimeout(POLL_INTERVAL_MS);
+          const curLength = await page!.evaluate('document.body?.innerText?.length || 0').catch(() => 0) as number;
+          if (curLength === prevLength) {
+            stableCount++;
+            if (stableCount >= 2) break; // stable for 2 consecutive checks (~1s)
+          } else {
+            stableCount = 0;
+          }
+          prevLength = curLength;
+        }
+      }
+
       const finalUrl = page!.url();
       const contentType = response?.headers()?.['content-type'] || '';
       const contentTypeLower = contentType.toLowerCase();
@@ -1451,6 +1474,32 @@ export async function retryFetch<T>(
   }
 
   throw lastError || new NetworkError('Retry failed');
+}
+
+/**
+ * Scroll to the bottom of the page N times, waiting for the network to
+ * settle between each scroll.  Useful for triggering lazy-loaded content
+ * (infinite scroll, deferred images, etc.).
+ *
+ * @param page   - Playwright Page instance.
+ * @param times  - Number of scroll-and-wait cycles (default: 3).
+ * @returns        The final page HTML after all scrolls complete.
+ */
+export async function scrollAndWait(page: Page, times = 3): Promise<string> {
+  for (let i = 0; i < times; i++) {
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+
+    // Wait for network to settle (500 ms of no new requests) or 2 s max.
+    try {
+      await page.waitForLoadState('networkidle', { timeout: 2000 });
+    } catch {
+      // networkidle may never fire — fall back to a flat delay.
+      await page.waitForTimeout(1000);
+    }
+  }
+
+  return page.content();
 }
 
 /**

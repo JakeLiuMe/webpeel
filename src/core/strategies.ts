@@ -75,6 +75,25 @@ function looksLikeShellPage(result: FetchResult): boolean {
   return text.length < 500 && result.html.length > 1000;
 }
 
+/**
+ * Detect pages that returned HTML but have very little actual text content.
+ * This catches JS-rendered SPAs that return a shell page with a big HTML payload
+ * (scripts, styles, framework boilerplate) but minimal visible text.
+ */
+function shouldEscalateForLowContent(result: FetchResult): boolean {
+  const ct = (result.contentType || '').toLowerCase();
+  if (!ct.includes('html')) return false;
+  if (result.html.length <= 1500) return false;
+
+  // Strip script/style blocks and their contents first, then strip remaining tags
+  const withoutScripts = result.html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, '');
+  const visibleText = withoutScripts.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  return visibleText.length < 200;
+}
+
 function prefetchDns(url: string): void {
   try {
     const hostname = new URL(url).hostname;
@@ -387,15 +406,20 @@ export async function smartFetch(
     if (raceTimer) clearTimeout(raceTimer);
 
     if (simpleOrTimeout.type === 'simple-success') {
-      const strategyResult: StrategyResult = {
-        ...simpleOrTimeout.result,
-        method: 'simple',
-      };
-      if (canUseCache) {
-        hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
+      // Check if the content is suspiciously thin — escalate to browser if so
+      if (shouldEscalateForLowContent(simpleOrTimeout.result)) {
+        shouldUseBrowser = true;
+      } else {
+        const strategyResult: StrategyResult = {
+          ...simpleOrTimeout.result,
+          method: 'simple',
+        };
+        if (canUseCache) {
+          hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
+        }
+        recordMethod('simple');
+        return strategyResult;
       }
-      recordMethod('simple');
-      return strategyResult;
     }
 
     if (simpleOrTimeout.type === 'simple-error') {
@@ -476,21 +500,26 @@ export async function smartFetch(
           .catch((error) => ({ type: 'simple-error' as const, error }));
 
         if (simpleResult.type === 'simple-success') {
-          const strategyResult: StrategyResult = {
-            ...simpleResult.result,
-            method: 'simple',
-          };
-          if (canUseCache) {
-            hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
+          // Check if the content is suspiciously thin — escalate to browser if so
+          if (shouldEscalateForLowContent(simpleResult.result)) {
+            shouldUseBrowser = true;
+          } else {
+            const strategyResult: StrategyResult = {
+              ...simpleResult.result,
+              method: 'simple',
+            };
+            if (canUseCache) {
+              hooks.setCache?.(url, strategyResult) ?? setBasicCache(url, strategyResult);
+            }
+            recordMethod('simple');
+            return strategyResult;
           }
-          recordMethod('simple');
-          return strategyResult;
+        } else {
+          if (!shouldEscalateSimpleError(simpleResult.error)) {
+            throw simpleResult.error;
+          }
+          shouldUseBrowser = true;
         }
-
-        if (!shouldEscalateSimpleError(simpleResult.error)) {
-          throw simpleResult.error;
-        }
-        shouldUseBrowser = true;
       }
     }
   }

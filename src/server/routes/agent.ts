@@ -164,7 +164,7 @@ export function createAgentRouter(): Router {
       console.error('Agent error:', error);
       res.status(500).json({
         error: 'internal_error',
-        message: error.message || 'Failed to run agent',
+        message: 'An unexpected error occurred. Please try again.',
       });
     }
   });
@@ -207,8 +207,9 @@ export function createAgentRouter(): Router {
         return;
       }
 
-      // Create job (use 'extract' type since agent extracts data)
-      const job = jobQueue.createJob('extract', webhook);
+      // Create job (use 'extract' type since agent extracts data, with owner for authorization)
+      const ownerId = req.auth?.keyInfo?.accountId;
+      const job = jobQueue.createJob('extract', webhook, ownerId);
 
       // Start agent in background
       setImmediate(async () => {
@@ -344,6 +345,16 @@ export function createAgentRouter(): Router {
         return;
       }
 
+      // SECURITY: Verify the requester owns this job
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
+        res.status(404).json({
+          error: 'not_found',
+          message: 'Job not found',
+        });
+        return;
+      }
+
       // Return JSON response
       res.json({
         success: true,
@@ -369,6 +380,18 @@ export function createAgentRouter(): Router {
   router.delete('/v1/agent/:id', (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
+
+      // SECURITY: Verify the requester owns this job before cancelling
+      const job = jobQueue.getJob(id);
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job?.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
+        res.status(404).json({
+          error: 'not_found',
+          message: 'Job not found or cannot be cancelled',
+        });
+        return;
+      }
+
       const cancelled = jobQueue.cancelJob(id);
 
       if (!cancelled) {

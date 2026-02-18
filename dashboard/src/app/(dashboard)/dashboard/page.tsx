@@ -12,7 +12,7 @@ import { StatCard } from '@/components/stat-card';
 import { ActivityTable } from '@/components/activity-table';
 import { CopyButton } from '@/components/copy-button';
 import { OnboardingModal } from '@/components/onboarding-modal';
-import { RefreshCw, ExternalLink, Activity, Clock, CheckCircle2, Zap, Copy } from 'lucide-react';
+import { RefreshCw, ExternalLink, Activity, Clock, CheckCircle2, Zap, Copy, AlertCircle } from 'lucide-react';
 import { apiClient, Usage, ApiKey } from '@/lib/api';
 import { ApiErrorBanner } from '@/components/api-error-banner';
 
@@ -40,7 +40,7 @@ interface ActivityData {
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const token = (session as any)?.apiToken as string | undefined;
-  const [copied, setCopied] = useState(false);
+  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
   const [storedApiKey, setStoredApiKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function DashboardPage() {
     if (key) setStoredApiKey(key);
   }, []);
 
-  const { data: usage, isLoading: usageLoading, mutate: refreshUsage } = useSWR<Usage>(
+  const { data: usage, isLoading: usageLoading, error: usageError, mutate: refreshUsage } = useSWR<Usage>(
     token ? ['/v1/usage', token] : null,
     ([url, token]: [string, string]) => fetcher<Usage>(url, token),
     { refreshInterval: 30000 }
@@ -59,17 +59,20 @@ export default function DashboardPage() {
     ([url, token]: [string, string]) => fetcher<{ keys: ApiKey[] }>(url, token)
   );
 
-  const { data: stats, isLoading: statsLoading } = useSWR<StatsData>(
+  const { data: stats, isLoading: statsLoading, error: statsError, mutate: refreshStats } = useSWR<StatsData>(
     token ? ['/v1/stats', token] : null,
     ([url, token]: [string, string]) => fetcher<StatsData>(url, token),
     { refreshInterval: 60000 }
   );
 
-  const { data: activity, isLoading: activityLoading } = useSWR<ActivityData>(
+  const { data: activity, isLoading: activityLoading, error: activityError, mutate: refreshActivity } = useSWR<ActivityData>(
     token ? ['/v1/activity', token] : null,
     ([url, token]: [string, string]) => fetcher<ActivityData>(url, token),
     { refreshInterval: 30000 }
   );
+
+  const dashboardError = usageError || statsError || activityError;
+  const dashboardMutate = () => { refreshUsage(); refreshStats(); refreshActivity(); };
 
   // Show a clear error state when the session is loaded but no API token was
   // issued (typically because the OAuth backend call failed during sign-in).
@@ -83,6 +86,14 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  if (dashboardError) return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <AlertCircle className="h-8 w-8 text-red-500 mb-3" />
+      <p className="text-sm text-muted-foreground mb-3">Failed to load data. Please try again.</p>
+      <Button variant="outline" size="sm" onClick={() => dashboardMutate()}>Retry</Button>
+    </div>
+  );
 
   const primaryKey = keys?.keys?.[0];
   // Use session.apiKey (OAuth) or localStorage (email signup) — the real key is only available once at creation
@@ -98,10 +109,10 @@ export default function DashboardPage() {
   const avgResponseTime = stats?.avgResponseTime || 0;
   const weeklyPercentage = usage?.weekly ? (usage.weekly.totalUsed / usage.weekly.totalAvailable) * 100 : 0;
 
-  const handleCopy = (text: string) => {
+  const handleCopy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedStates(prev => ({ ...prev, [key]: true }));
+    setTimeout(() => setCopiedStates(prev => ({ ...prev, [key]: false })), 2000);
   };
 
   // Code examples for different languages
@@ -316,10 +327,10 @@ print(result.markdown)`
             <div className="flex items-center gap-2 p-3 bg-zinc-50 border border-zinc-200 rounded-lg font-mono text-sm">
               <code className="flex-1 truncate text-zinc-700">{displayApiKey}</code>
               <button
-                onClick={() => handleCopy(displayApiKey)}
+                onClick={() => handleCopy('apiKey', displayApiKey)}
                 className="p-2 hover:bg-zinc-200 rounded-md transition-colors"
               >
-                {copied ? (
+                {copiedStates['apiKey'] ? (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 ) : (
                   <Copy className="h-4 w-4 text-zinc-500" />
@@ -329,7 +340,7 @@ print(result.markdown)`
             {!realApiKey && (
               <p className="text-xs text-zinc-500">
                 Replace <code className="font-mono bg-zinc-100 px-1 rounded">YOUR_API_KEY</code> with your key from the{' '}
-                <a href="/dashboard/keys" className="text-violet-600 hover:underline">
+                <a href="/keys" className="text-violet-600 hover:underline">
                   Keys page
                 </a>.
               </p>
@@ -352,10 +363,10 @@ print(result.markdown)`
                       <code>{code}</code>
                     </pre>
                     <button
-                      onClick={() => handleCopy(code)}
+                      onClick={() => handleCopy(`code-${lang}`, code)}
                       className="absolute top-3 right-3 p-2 hover:bg-zinc-800 rounded-md transition-colors"
                     >
-                      {copied ? (
+                      {copiedStates[`code-${lang}`] ? (
                         <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                       ) : (
                         <Copy className="h-4 w-4 text-zinc-400" />

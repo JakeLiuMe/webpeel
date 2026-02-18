@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LogOut, Settings, ChevronDown, Menu } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { checkApiHealth } from '@/lib/api';
 
 interface TopbarProps {
   user?: {
@@ -16,7 +17,17 @@ interface TopbarProps {
 
 export function Topbar({ user, tier = 'free', onMenuClick }: TopbarProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  
+  const [apiOnline, setApiOnline] = useState(true);
+
+  useEffect(() => {
+    const check = () => {
+      checkApiHealth().then(({ healthy }) => setApiOnline(healthy));
+    };
+    check();
+    const interval = setInterval(check, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase()
     : user?.email?.substring(0, 2).toUpperCase() || 'U';
@@ -35,9 +46,11 @@ export function Topbar({ user, tier = 'free', onMenuClick }: TopbarProps) {
         </button>
 
         {/* API status */}
-        <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span className="text-[11px] font-medium text-emerald-700">API Online</span>
+        <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 ${apiOnline ? 'bg-emerald-50' : 'bg-red-50'}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${apiOnline ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          <span className={`text-[11px] font-medium ${apiOnline ? 'text-emerald-700' : 'text-red-700'}`}>
+            {apiOnline ? 'API Online' : 'API Offline'}
+          </span>
         </div>
 
         {/* Plan badge - clickable */}

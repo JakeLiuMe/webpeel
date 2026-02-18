@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, ExternalLink, Sparkles, Zap, Crown } from 'lucide-react';
+import { Check, ExternalLink, Sparkles, Zap, Crown, AlertCircle } from 'lucide-react';
 import { apiClient, Usage } from '@/lib/api';
 
 const fetcher = async <T,>(url: string, token: string): Promise<T> => {
@@ -89,10 +89,18 @@ export default function BillingPage() {
   const userId = (session as any)?.user?.id;
   const [isAnnual, setIsAnnual] = useState(false);
 
-  const { data: usage } = useSWR<Usage>(
+  const { data: usage, error, mutate } = useSWR<Usage>(
     token ? ['/v1/usage', token] : null,
     ([url, token]: [string, string]) => fetcher<Usage>(url, token),
     { refreshInterval: 30000 }
+  );
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <AlertCircle className="h-8 w-8 text-red-500 mb-3" />
+      <p className="text-sm text-muted-foreground mb-3">Failed to load data. Please try again.</p>
+      <Button variant="outline" size="sm" onClick={() => mutate()}>Retry</Button>
+    </div>
   );
 
   return (

@@ -95,10 +95,10 @@ export function createOAuthRouter(): Router {
    */
   router.post('/v1/auth/oauth', async (req: Request, res: Response) => {
     try {
-      const { provider, providerId, email, name, avatar } = req.body;
+      const { provider, accessToken, name, avatar } = req.body;
 
-      // Rate limiting - use email as identifier
-      if (!rateLimiter.check(email || 'unknown')) {
+      // Rate limiting - use provider as identifier (email not yet verified)
+      if (!rateLimiter.check(provider || 'unknown')) {
         res.status(429).json({
           error: 'rate_limit_exceeded',
           message: 'Too many OAuth attempts. Please try again in a minute.',
@@ -107,10 +107,10 @@ export function createOAuthRouter(): Router {
       }
 
       // Input validation
-      if (!provider || !providerId || !email) {
+      if (!provider || !accessToken) {
         res.status(400).json({
           error: 'missing_fields',
-          message: 'provider, providerId, and email are required',
+          message: 'provider and accessToken are required',
         });
         return;
       }
@@ -124,11 +124,66 @@ export function createOAuthRouter(): Router {
         return;
       }
 
-      // Validate email
-      if (!isValidEmail(email)) {
+      // SECURITY: Verify the OAuth token server-side and extract trusted identity
+      let providerId: string;
+      let email: string;
+
+      if (provider === 'github') {
+        // Verify GitHub access token
+        const ghRes = await fetch('https://api.github.com/user', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/vnd.github+json',
+          },
+        });
+        if (!ghRes.ok) {
+          res.status(401).json({
+            error: 'invalid_token',
+            message: 'Invalid GitHub access token',
+          });
+          return;
+        }
+        const ghUser = await ghRes.json() as { id: number; email?: string | null };
+        providerId = String(ghUser.id);
+
+        // GitHub may not return email on /user; fetch from /user/emails
+        if (ghUser.email) {
+          email = ghUser.email;
+        } else {
+          const emailRes = await fetch('https://api.github.com/user/emails', {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: 'application/vnd.github+json',
+            },
+          });
+          if (emailRes.ok) {
+            const emails = await emailRes.json() as Array<{ email: string; primary: boolean; verified: boolean }>;
+            const primary = emails.find(e => e.primary && e.verified);
+            email = primary?.email || emails[0]?.email || '';
+          } else {
+            email = '';
+          }
+        }
+      } else {
+        // Verify Google ID token
+        const gRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(accessToken)}`);
+        if (!gRes.ok) {
+          res.status(401).json({
+            error: 'invalid_token',
+            message: 'Invalid Google token',
+          });
+          return;
+        }
+        const gUser = await gRes.json() as { sub: string; email?: string };
+        providerId = gUser.sub;
+        email = gUser.email || '';
+      }
+
+      // Validate email from verified token
+      if (!email || !isValidEmail(email)) {
         res.status(400).json({
           error: 'invalid_email',
-          message: 'Invalid email format',
+          message: 'Could not retrieve a valid email from OAuth provider',
         });
         return;
       }

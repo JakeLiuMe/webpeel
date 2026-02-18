@@ -103,9 +103,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.userId = user.id;
       }
 
+      // Track the auth provider so the dashboard can detect OAuth users
+      token.provider = account?.provider || token.provider || 'credentials';
+
       // For OAuth providers, auto-register / login with our backend
       if (account && (account.provider === 'github' || account.provider === 'google')) {
         try {
+          // Send the OAuth token for server-side verification
+          // GitHub: access_token, Google: id_token
+          const accessToken = account.provider === 'github'
+            ? account.access_token
+            : account.id_token;
+
           const res = await retryFetch(
             `${process.env.NEXT_PUBLIC_API_URL}/v1/auth/oauth`,
             {
@@ -113,8 +122,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 provider: account.provider,
-                providerId: account.providerAccountId,
-                email: token.email,
+                accessToken,
                 name: token.name,
                 avatar: token.picture,
               }),
@@ -147,6 +155,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       (session as any).tier = token.tier;
       (session as any).userId = token.userId;
       (session as any).apiKey = token.apiKey;
+      (session as any).provider = token.provider;
       // Surface the error flag so the dashboard can show recovery UI
       (session as any).apiError = token.apiError ?? false;
       return session;
