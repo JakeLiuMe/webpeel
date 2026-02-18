@@ -2,7 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { WebAnimation } from '@/components/web-animation';
 
@@ -11,6 +11,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'oauth' | 'email'>('oauth');
+
+  // Pre-warm the API while the user is looking at the login page.
+  // By the time they finish OAuth, the connection will already be established.
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.webpeel.dev';
+    fetch(`${apiUrl}/health`).catch(() => { /* fire-and-forget, never surface errors */ });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

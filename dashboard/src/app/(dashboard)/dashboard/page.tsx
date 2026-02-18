@@ -14,6 +14,7 @@ import { CopyButton } from '@/components/copy-button';
 import { OnboardingModal } from '@/components/onboarding-modal';
 import { RefreshCw, ExternalLink, Activity, Clock, CheckCircle2, Zap, Copy } from 'lucide-react';
 import { apiClient, Usage, ApiKey } from '@/lib/api';
+import { ApiErrorBanner } from '@/components/api-error-banner';
 
 const fetcher = async <T,>(url: string, token: string): Promise<T> => {
   return apiClient<T>(url, { token });
@@ -37,8 +38,8 @@ interface ActivityData {
 }
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
-  const token = (session as any)?.apiToken;
+  const { data: session, status } = useSession();
+  const token = (session as any)?.apiToken as string | undefined;
   const [copied, setCopied] = useState(false);
   const [storedApiKey, setStoredApiKey] = useState<string | null>(null);
 
@@ -69,6 +70,19 @@ export default function DashboardPage() {
     ([url, token]: [string, string]) => fetcher<ActivityData>(url, token),
     { refreshInterval: 30000 }
   );
+
+  // Show a clear error state when the session is loaded but no API token was
+  // issued (typically because the OAuth backend call failed during sign-in).
+  if (status === 'authenticated' && !token) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <ApiErrorBanner
+          title="API Connection Issue"
+          message="We couldn't connect your account to the WebPeel API. This can happen if the API was temporarily unavailable during sign-in. Please sign out and try again."
+        />
+      </div>
+    );
+  }
 
   const primaryKey = keys?.keys?.[0];
   // Use session.apiKey (OAuth) or localStorage (email signup) — the real key is only available once at creation
