@@ -25,6 +25,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+  <!-- Markdown renderer (for inline playground) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
@@ -376,6 +379,94 @@
       .steps { grid-template-columns: repeat(2, 1fr); }
       .pricing-grid { grid-template-columns: repeat(2, 1fr); }
     }
+
+    /* INLINE PLAYGROUND */
+    .pg-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .pg-input-area { padding: 24px 28px; }
+    .pg-input-row { display: flex; gap: 12px; }
+    .pg-input-row input { flex: 1; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 15px; font-family: inherit; transition: all 0.2s; }
+    .pg-input-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+    .pg-input-row input::placeholder { color: var(--text-4); }
+    .pg-options { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 16px; }
+    .pg-opt-group { display: flex; align-items: center; gap: 6px; }
+    .pg-opt-group label { font-size: 13px; font-weight: 500; color: var(--text-2); }
+    .pg-opt-group select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; background: white; }
+    .pg-opt-group select:focus { outline: none; border-color: var(--accent); }
+    .pg-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-2); user-select: none; }
+    .pg-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+    .pg-results { padding: 0 28px 28px; display: none; }
+    .pg-results.active { display: block; }
+    .pg-loading { text-align: center; padding: 40px 0; }
+    .pg-spinner { border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+    .pg-loading-text { font-size: 14px; color: var(--text-3); }
+    .pg-error { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 16px; color: #991B1B; margin-bottom: 16px; }
+    .pg-error strong { display: block; margin-bottom: 4px; font-weight: 600; }
+    .pg-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+    .pg-metric { background: var(--border-light); border-radius: 10px; padding: 14px 16px; }
+    .pg-metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); font-weight: 600; margin-bottom: 4px; }
+    .pg-metric-value { font-size: 18px; font-weight: 700; color: var(--text); }
+    .pg-metric-value.success { color: var(--green); }
+    .pg-content { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; max-height: 400px; overflow-y: auto; }
+    .pg-content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .pg-content-header h3 { font-size: 15px; font-weight: 600; }
+    .pg-content-header a { font-size: 13px; color: var(--accent); font-weight: 500; }
+    .pg-content-header a:hover { text-decoration: underline; }
+    /* Reuse markdown-body from playground.html */
+    .pg-content .markdown-body { font-size: 14px; line-height: 1.7; color: var(--text-2); word-wrap: break-word; }
+    .pg-content .markdown-body h1, .pg-content .markdown-body h2, .pg-content .markdown-body h3 { margin-top: 20px; margin-bottom: 10px; font-weight: 600; color: var(--text); }
+    .pg-content .markdown-body h1 { font-size: 22px; border-bottom: 1px solid var(--border-light); padding-bottom: 6px; }
+    .pg-content .markdown-body h2 { font-size: 18px; }
+    .pg-content .markdown-body h3 { font-size: 15px; }
+    .pg-content .markdown-body h1:first-child, .pg-content .markdown-body h2:first-child { margin-top: 0; }
+    .pg-content .markdown-body p { margin-bottom: 14px; }
+    .pg-content .markdown-body a { color: var(--accent); }
+    .pg-content .markdown-body a:hover { text-decoration: underline; }
+    .pg-content .markdown-body strong { font-weight: 600; color: var(--text); }
+    .pg-content .markdown-body code { background: rgba(139,92,246,0.08); padding: 2px 5px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
+    .pg-content .markdown-body pre { background: #18181B; color: #D4D4D8; padding: 14px; border-radius: 8px; overflow-x: auto; margin: 14px 0; }
+    .pg-content .markdown-body pre code { background: none; padding: 0; color: #D4D4D8; }
+    .pg-content .markdown-body ul, .pg-content .markdown-body ol { margin-left: 20px; margin-bottom: 14px; }
+    .pg-content .markdown-body li { margin-bottom: 4px; }
+    .pg-content .markdown-body blockquote { border-left: 3px solid var(--accent); padding-left: 14px; color: var(--text-3); margin: 14px 0; font-style: italic; }
+    .pg-content .markdown-body hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .pg-content .markdown-body img { max-width: 100%; height: auto; border-radius: 6px; }
+    .pg-content .markdown-body table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+    .pg-content .markdown-body th { text-align: left; padding: 6px 10px; background: var(--border-light); font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--border); }
+    .pg-content .markdown-body td { padding: 6px 10px; border-bottom: 1px solid var(--border-light); }
+    .pg-content .markdown-body [style] { background: none !important; color: inherit !important; font: inherit !important; }
+
+    /* Code gen (collapsible) */
+    .pg-codegen { margin-top: 20px; }
+    .pg-codegen-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-2); padding: 10px 0; border: none; background: none; font-family: inherit; }
+    .pg-codegen-toggle:hover { color: var(--text); }
+    .pg-codegen-toggle .pg-arrow { transition: transform 0.2s; font-size: 12px; }
+    .pg-codegen-toggle.open .pg-arrow { transform: rotate(90deg); }
+    .pg-codegen-body { display: none; background: var(--border-light); border-radius: var(--radius); padding: 16px; margin-top: 8px; }
+    .pg-codegen-body.open { display: block; }
+    .pg-code-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+    .pg-code-tab { padding: 5px 10px; font-size: 12px; font-weight: 500; color: var(--text-3); cursor: pointer; border-radius: 6px; background: none; border: none; font-family: inherit; transition: all 0.15s; }
+    .pg-code-tab:hover { background: rgba(139,92,246,0.1); color: var(--text); }
+    .pg-code-tab.active { background: var(--accent); color: white; }
+    .pg-code-block { background: #18181B; color: #D4D4D8; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; padding: 14px; border-radius: 8px; overflow-x: auto; position: relative; }
+    .pg-code-copy { position: absolute; top: 8px; right: 8px; padding: 4px 10px; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+    .pg-code-copy:hover { background: rgba(255,255,255,0.2); }
+    .pg-code-copy.copied { background: var(--green); }
+
+    /* CTA row */
+    .pg-cta { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light); }
+    .pg-cta a { font-size: 14px; font-weight: 500; }
+    .pg-cta .pg-cta-link { color: var(--accent); }
+    .pg-cta .pg-cta-link:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      .pg-input-row { flex-direction: column; }
+      .pg-options { flex-direction: column; align-items: flex-start; }
+      .pg-metrics { grid-template-columns: repeat(2, 1fr); }
+      .pg-input-area { padding: 16px; }
+      .pg-results { padding: 0 16px 16px; }
+      .pg-content { padding: 16px; max-height: 320px; }
+      .pg-cta { flex-direction: column; text-align: center; }
+    }
   </style>
 </head>
 <body>
@@ -389,7 +480,7 @@
       </a>
       <div class="nav-links">
         <a href="/#how">How It Works</a>
-        <a href="/playground">Playground</a>
+        <a href="/#playground">Playground</a>
         <a href="/#compare">Compare</a>
         <a href="/#pricing">Pricing</a>
         <a href="/blog/">Blog</a>
@@ -407,7 +498,7 @@
   <!-- MOBILE MENU -->
   <div id="mobile-menu" class="mobile-menu">
     <a href="/#how" onclick="toggleMobileMenu()">How It Works</a>
-    <a href="/playground">Playground</a>
+    <a href="/#playground" onclick="toggleMobileMenu()">Playground</a>
     <a href="/#compare" onclick="toggleMobileMenu()">Compare</a>
     <a href="/#pricing" onclick="toggleMobileMenu()">Pricing</a>
     <a href="/blog/">Blog</a>
@@ -444,6 +535,46 @@
             <!-- Animated content injected by JS -->
           </div>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INLINE PLAYGROUND -->
+  <section id="playground" style="padding: 60px 0 80px;" class="reveal" data-reveal>
+    <div class="container">
+      <div class="section-header">
+        <h2>Try it <em class="serif" style="font-style:italic">now</em></h2>
+        <p>Paste any URL. No signup required.</p>
+      </div>
+      <div class="pg-card">
+        <div class="pg-input-area">
+          <div class="pg-input-row">
+            <input type="text" id="pg-url" placeholder="https://example.com" value="https://news.ycombinator.com" />
+            <button class="btn btn-primary" id="pg-fetch-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Fetch
+            </button>
+          </div>
+          <div class="pg-options">
+            <div class="pg-opt-group">
+              <label for="pg-format">Format</label>
+              <select id="pg-format">
+                <option value="markdown">Markdown</option>
+                <option value="text">Plain Text</option>
+                <option value="html">HTML</option>
+              </select>
+            </div>
+            <label class="pg-toggle">
+              <input type="checkbox" id="pg-render" />
+              Browser rendering
+            </label>
+            <label class="pg-toggle">
+              <input type="checkbox" id="pg-stealth" />
+              Stealth mode
+            </label>
+          </div>
+        </div>
+        <div class="pg-results" id="pg-results"></div>
       </div>
     </div>
   </section>
@@ -1549,6 +1680,163 @@ console.<span class="hl-fn">log</span>(result.markdown);`
         faqItem.classList.add('open');
       }
     }
+
+    // ─── INLINE PLAYGROUND ─────────────────────────────────────────────
+    (function() {
+      const pgUrl = document.getElementById('pg-url');
+      const pgBtn = document.getElementById('pg-fetch-btn');
+      const pgFormat = document.getElementById('pg-format');
+      const pgRender = document.getElementById('pg-render');
+      const pgStealth = document.getElementById('pg-stealth');
+      const pgResults = document.getElementById('pg-results');
+
+      let pgLastData = null;
+      let pgLastMarkdown = '';
+      let pgCodeLang = 'curl';
+
+      function pgEscapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+      }
+
+      pgBtn.addEventListener('click', pgRun);
+      pgUrl.addEventListener('keypress', function(e) { if (e.key === 'Enter') pgRun(); });
+
+      async function pgRun() {
+        const url = pgUrl.value.trim();
+        if (!url) return;
+
+        pgBtn.disabled = true;
+        pgBtn.innerHTML = '<div class="pg-spinner" style="width:16px;height:16px;margin:0;border-width:2px;"></div> Fetching…';
+        pgResults.classList.add('active');
+        pgResults.innerHTML = '<div class="pg-loading"><div class="pg-spinner"></div><div class="pg-loading-text">Fetching and extracting content…</div></div>';
+
+        const controller = new AbortController();
+        const timeout = setTimeout(function() { controller.abort(); }, 30000);
+
+        try {
+          const apiUrl = new URL('https://api.webpeel.dev/v1/fetch');
+          apiUrl.searchParams.set('url', url);
+          apiUrl.searchParams.set('format', pgFormat.value);
+          if (pgRender.checked) apiUrl.searchParams.set('render', 'true');
+          if (pgStealth.checked) apiUrl.searchParams.set('stealth', 'true');
+
+          const startTime = Date.now();
+          const resp = await fetch(apiUrl, { signal: controller.signal });
+          const elapsed = Date.now() - startTime;
+          clearTimeout(timeout);
+
+          if (!resp.ok) throw new Error('HTTP ' + resp.status + ': ' + resp.statusText);
+
+          const data = await resp.json();
+          pgLastData = data;
+          pgLastMarkdown = data.content || data.markdown || '';
+
+          pgRender_results(data, elapsed, url);
+        } catch (err) {
+          clearTimeout(timeout);
+          const msg = err.name === 'AbortError' ? 'Request timed out after 30 seconds.' : err.message;
+          pgResults.innerHTML = '<div class="pg-error"><strong>Error</strong>' + pgEscapeHtml(msg) + '</div>';
+        } finally {
+          pgBtn.disabled = false;
+          pgBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Fetch';
+        }
+      }
+
+      function pgRender_results(data, elapsed, url) {
+        const tokens = data.tokens || 0;
+        const quality = data.quality || 0;
+        const method = data.method || data.mode || 'HTTP';
+        const qualityPct = (quality * 100).toFixed(0);
+
+        const playgroundUrl = '/playground';
+
+        let html = '';
+
+        // Metrics
+        html += '<div class="pg-metrics">';
+        html += '<div class="pg-metric"><div class="pg-metric-label">Elapsed</div><div class="pg-metric-value success">' + elapsed + 'ms</div></div>';
+        html += '<div class="pg-metric"><div class="pg-metric-label">Tokens</div><div class="pg-metric-value">' + tokens.toLocaleString() + '</div></div>';
+        html += '<div class="pg-metric"><div class="pg-metric-label">Method</div><div class="pg-metric-value">' + pgEscapeHtml(method) + '</div></div>';
+        html += '<div class="pg-metric"><div class="pg-metric-label">Quality</div><div class="pg-metric-value' + (quality > 0.7 ? ' success' : '') + '">' + qualityPct + '%</div></div>';
+        html += '</div>';
+
+        // Content
+        html += '<div class="pg-content-header"><h3>' + pgEscapeHtml(data.title || 'Result') + '</h3><a href="' + playgroundUrl + '" target="_blank">Full Playground →</a></div>';
+        html += '<div class="pg-content"><div class="markdown-body">' + marked.parse(pgLastMarkdown) + '</div></div>';
+
+        // Code gen (collapsible)
+        html += '<div class="pg-codegen">';
+        html += '<button class="pg-codegen-toggle" onclick="pgToggleCode(this)"><span class="pg-arrow">▶</span> Use this in your code</button>';
+        html += '<div class="pg-codegen-body" id="pg-codegen-body">';
+        html += '<div class="pg-code-tabs">';
+        html += '<button class="pg-code-tab active" onclick="pgSwitchCode(\'curl\', this)">cURL</button>';
+        html += '<button class="pg-code-tab" onclick="pgSwitchCode(\'node\', this)">Node.js</button>';
+        html += '<button class="pg-code-tab" onclick="pgSwitchCode(\'python\', this)">Python</button>';
+        html += '</div>';
+        html += '<div class="pg-code-block" id="pg-code-content"><button class="pg-code-copy" onclick="pgCopyCode(this)">Copy</button><pre>' + pgEscapeHtml(pgGenCurl()) + '</pre></div>';
+        html += '</div></div>';
+
+        // CTA
+        html += '<div class="pg-cta">';
+        html += '<a href="' + playgroundUrl + '" class="pg-cta-link">Want search, crawl, and more? → Full Playground</a>';
+        html += '<a href="https://app.webpeel.dev/signup" class="btn btn-primary" style="padding:10px 20px;font-size:14px;">Get your API key → Sign up free</a>';
+        html += '</div>';
+
+        pgResults.innerHTML = html;
+      }
+
+      // Code generators
+      function pgGenCurl() {
+        const apiUrl = new URL('https://api.webpeel.dev/v1/fetch');
+        apiUrl.searchParams.set('url', pgUrl.value.trim());
+        apiUrl.searchParams.set('format', pgFormat.value);
+        if (pgRender.checked) apiUrl.searchParams.set('render', 'true');
+        if (pgStealth.checked) apiUrl.searchParams.set('stealth', 'true');
+        return "curl '" + apiUrl.toString() + "'";
+      }
+      function pgGenNode() {
+        var url = pgUrl.value.trim();
+        var opts = [];
+        if (pgRender.checked) opts.push('render: true');
+        if (pgStealth.checked) opts.push('stealth: true');
+        if (pgFormat.value !== 'markdown') opts.push("format: '" + pgFormat.value + "'");
+        var optStr = opts.length ? ', {\n  ' + opts.join(',\n  ') + '\n}' : '';
+        return "import { peel } from 'webpeel';\n\nconst result = await peel('" + url + "'" + optStr + ");\nconsole.log(result.content);";
+      }
+      function pgGenPython() {
+        var url = pgUrl.value.trim();
+        var opts = [];
+        if (pgRender.checked) opts.push('render=True');
+        if (pgStealth.checked) opts.push('stealth=True');
+        if (pgFormat.value !== 'markdown') opts.push("format='" + pgFormat.value + "'");
+        var optStr = opts.length ? ', ' + opts.join(', ') : '';
+        return "from webpeel import WebPeel\n\nclient = WebPeel()\nresult = client.scrape('" + url + "'" + optStr + ")\nprint(result.content)";
+      }
+
+      // Expose helpers globally (called from onclick in generated HTML)
+      window.pgToggleCode = function(btn) {
+        btn.classList.toggle('open');
+        var body = document.getElementById('pg-codegen-body');
+        body.classList.toggle('open');
+      };
+      window.pgSwitchCode = function(lang, btn) {
+        pgCodeLang = lang;
+        document.querySelectorAll('.pg-code-tab').forEach(function(t) { t.classList.remove('active'); });
+        btn.classList.add('active');
+        var code = lang === 'curl' ? pgGenCurl() : lang === 'node' ? pgGenNode() : pgGenPython();
+        document.getElementById('pg-code-content').innerHTML = '<button class="pg-code-copy" onclick="pgCopyCode(this)">Copy</button><pre>' + pgEscapeHtml(code) + '</pre>';
+      };
+      window.pgCopyCode = function(btn) {
+        var pre = btn.parentElement.querySelector('pre');
+        navigator.clipboard.writeText(pre.textContent).then(function() {
+          btn.textContent = '✓ Copied!';
+          btn.classList.add('copied');
+          setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+    })();
   </script>
 
 </body>
