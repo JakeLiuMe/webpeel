@@ -57,8 +57,9 @@ export function createBatchRouter(jobQueue: IJobQueue): Router {
         }
       }
 
-      // Create job
-      const job = await jobQueue.createJob('batch', webhook);
+      // Create job (with owner for authorization)
+      const ownerId = req.auth?.keyInfo?.accountId;
+      const job = await jobQueue.createJob('batch', webhook, ownerId);
       await jobQueue.updateJob(job.id, {
         total: urls.length,
       });
@@ -219,6 +220,16 @@ export function createBatchRouter(jobQueue: IJobQueue): Router {
         return;
       }
 
+      // SECURITY: Verify the requester owns this job
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
+        res.status(404).json({
+          error: 'not_found',
+          message: 'Job not found',
+        });
+        return;
+      }
+
       if (job.type !== 'batch') {
         res.status(400).json({
           error: 'invalid_request',
@@ -256,6 +267,16 @@ export function createBatchRouter(jobQueue: IJobQueue): Router {
       const job = await jobQueue.getJob(id);
 
       if (!job) {
+        res.status(404).json({
+          error: 'not_found',
+          message: 'Job not found',
+        });
+        return;
+      }
+
+      // SECURITY: Verify the requester owns this job
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
         res.status(404).json({
           error: 'not_found',
           message: 'Job not found',

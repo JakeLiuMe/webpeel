@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.8.1] - 2026-02-17
+
+### Fixed
+- npm publish fix — corrected package entry points and exports
+- All MIT references updated to AGPL-3.0 across site, README, and docs
+- Homepage version badge updated to v0.8.1
+- API docs OpenAPI version updated
+
+## [0.8.0] - 2026-02-17
+
+### Changed
+- **License changed from MIT to AGPL-3.0** — protects the project while staying open source. Commercial licensing available.
+- Premium server architecture — SWR cache, domain intelligence, and parallel race strategy now server-only (not shipped in npm package)
+
+### Added
+- Hook-based strategy pattern for extensible fetch pipeline
+- Stale-while-revalidate caching with 30s revalidation timeout guard
+- Domain intelligence learns which sites need browser/stealth from traffic history
+- Chrome 131 impersonation headers for better anti-detection
+- GFM table conversion, enhanced content cleaning (paywall gates, chat widgets)
+- Benchmark v7: 100% success rate, 373ms median, 92.3% quality
+- Dashboard security headers hardened (HSTS, X-XSS-Protection, Permissions-Policy)
+
 ## [0.7.0] - 2026-02-14
 
 ### Added — "Launch & Polish" Release
@@ -361,5 +384,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stealth mode with playwright-extra
 - Zero-config setup
 
+[0.8.1]: https://github.com/webpeel/webpeel/releases/tag/v0.8.1
+[0.8.0]: https://github.com/webpeel/webpeel/releases/tag/v0.8.0
+[0.7.0]: https://github.com/webpeel/webpeel/releases/tag/v0.7.0
+[0.6.0]: https://github.com/webpeel/webpeel/releases/tag/v0.6.0
+[0.5.0]: https://github.com/webpeel/webpeel/releases/tag/v0.5.0
+[0.4.0]: https://github.com/webpeel/webpeel/releases/tag/v0.4.0
+[0.3.4]: https://github.com/webpeel/webpeel/releases/tag/v0.3.4
+[0.3.3]: https://github.com/webpeel/webpeel/releases/tag/v0.3.3
+[0.3.2]: https://github.com/webpeel/webpeel/releases/tag/v0.3.2
+[0.3.0]: https://github.com/webpeel/webpeel/releases/tag/v0.3.0
+[0.1.2]: https://github.com/webpeel/webpeel/releases/tag/v0.1.2
 [0.1.1]: https://github.com/webpeel/webpeel/releases/tag/v0.1.1
 [0.1.0]: https://github.com/webpeel/webpeel/releases/tag/v0.1.0

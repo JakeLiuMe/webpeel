@@ -57,6 +57,7 @@ export class PostgresJobQueue {
           total INTEGER DEFAULT 0,
           completed INTEGER DEFAULT 0,
           credits_used INTEGER DEFAULT 0,
+          owner_id TEXT,
           webhook_url TEXT,
           webhook_events JSONB,
           webhook_metadata JSONB,
@@ -65,6 +66,14 @@ export class PostgresJobQueue {
           updated_at TIMESTAMPTZ DEFAULT NOW(),
           expires_at TIMESTAMPTZ
         )
+      `);
+
+      // Add owner_id column if it doesn't exist (migration for existing tables)
+      await this.pool.query(`
+        DO $$ BEGIN
+          ALTER TABLE jobs ADD COLUMN IF NOT EXISTS owner_id TEXT;
+        EXCEPTION WHEN others THEN NULL;
+        END $$;
       `);
 
       // Add index on status and created_at for faster queries
@@ -84,6 +93,12 @@ export class PostgresJobQueue {
         CREATE INDEX IF NOT EXISTS idx_jobs_expires 
         ON jobs(expires_at)
       `);
+
+      // Add index on owner_id for per-user job filtering
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_jobs_owner 
+        ON jobs(owner_id)
+      `);
     } catch (error) {
       console.error('Failed to create jobs table:', error);
       throw error;
@@ -93,7 +108,7 @@ export class PostgresJobQueue {
   /**
    * Create a new job
    */
-  async createJob(type: Job['type'], webhook?: WebhookConfig): Promise<Job> {
+  async createJob(type: Job['type'], webhook?: WebhookConfig, ownerId?: string): Promise<Job> {
     const id = randomUUID();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 25 * 60 * 60 * 1000); // 25h from now
@@ -102,9 +117,9 @@ export class PostgresJobQueue {
       await this.pool.query(
         `INSERT INTO jobs (
           id, type, status, progress, data, total, completed, credits_used,
-          webhook_url, webhook_events, webhook_metadata, webhook_secret,
+          owner_id, webhook_url, webhook_events, webhook_metadata, webhook_secret,
           created_at, updated_at, expires_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           id,
           type,
@@ -114,6 +129,7 @@ export class PostgresJobQueue {
           0,
           0,
           0,
+          ownerId || null,
           webhook?.url || null,
           webhook?.events ? JSON.stringify(webhook.events) : null,
           webhook?.metadata ? JSON.stringify(webhook.metadata) : null,
@@ -134,6 +150,7 @@ export class PostgresJobQueue {
         creditsUsed: 0,
         data: [],
         webhook,
+        ownerId,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
         expiresAt: expiresAt.toISOString(),
@@ -279,11 +296,17 @@ export class PostgresJobQueue {
     type?: string;
     status?: string;
     limit?: number;
+    ownerId?: string;
   }): Promise<Job[]> {
     try {
       const conditions: string[] = [];
       const values: any[] = [];
       let paramIndex = 1;
+
+      if (options?.ownerId) {
+        conditions.push(`owner_id = $${paramIndex++}`);
+        values.push(options.ownerId);
+      }
 
       if (options?.type) {
         conditions.push(`type = $${paramIndex++}`);
@@ -371,6 +394,7 @@ export class PostgresJobQueue {
       data: row.data || [],
       error: row.error || undefined,
       webhook,
+      ownerId: row.owner_id || undefined,
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       expiresAt: row.expires_at.toISOString(),

@@ -41,8 +41,9 @@ export function createJobsRouter(jobQueue: IJobQueue, authStore: AuthStore): Rou
         return;
       }
 
-      // Create job
-      const job = await jobQueue.createJob('crawl', webhook);
+      // Create job (with owner for authorization)
+      const ownerId = req.auth?.keyInfo?.accountId;
+      const job = await jobQueue.createJob('crawl', webhook, ownerId);
 
       // Start crawl in background
       setImmediate(async () => {
@@ -157,6 +158,16 @@ export function createJobsRouter(jobQueue: IJobQueue, authStore: AuthStore): Rou
         return;
       }
 
+      // SECURITY: Verify the requester owns this job
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
+        res.status(404).json({
+          error: 'not_found',
+          message: 'Job not found',
+        });
+        return;
+      }
+
       // Check for SSE request
       const acceptHeader = req.get('Accept');
       const isSSE = acceptHeader?.includes('text/event-stream');
@@ -231,6 +242,18 @@ export function createJobsRouter(jobQueue: IJobQueue, authStore: AuthStore): Rou
   router.delete('/v1/crawl/:id', async (req: Request, res: Response) => {
     try {
       const id = req.params.id as string;
+
+      // SECURITY: Verify the requester owns this job before cancelling
+      const job = await jobQueue.getJob(id);
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job?.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
+        res.status(404).json({
+          error: 'not_found',
+          message: 'Job not found or cannot be cancelled',
+        });
+        return;
+      }
+
       const cancelled = await jobQueue.cancelJob(id);
 
       if (!cancelled) {
@@ -261,10 +284,14 @@ export function createJobsRouter(jobQueue: IJobQueue, authStore: AuthStore): Rou
     try {
       const { type, status, limit } = req.query;
 
+      // SECURITY: Filter jobs by the authenticated user's ownership
+      const ownerId = req.auth?.keyInfo?.accountId;
+
       const jobs = await jobQueue.listJobs({
         type: type as string | undefined,
         status: status as string | undefined,
         limit: limit ? parseInt(limit as string, 10) : 50,
+        ownerId,
       });
 
       res.json({

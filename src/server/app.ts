@@ -68,8 +68,8 @@ export function createApp(config: ServerConfig = {}): Express {
   const defaultOrigins = [
     'https://app.webpeel.dev',
     'https://webpeel.dev',
-    'http://localhost:3000',
-    'http://localhost:3001',
+    // Only allow localhost in development (security: prevents credentialed cross-origin from local pages)
+    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000', 'http://localhost:3001'] : []),
   ];
   const corsOrigins = config.corsOrigins || [...new Set([...defaultOrigins, ...envOrigins])];
   

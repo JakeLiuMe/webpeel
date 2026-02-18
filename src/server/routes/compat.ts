@@ -22,6 +22,7 @@ import type { IJobQueue } from '../job-queue.js';
 import type { PeelOptions, PageAction, InlineLLMProvider } from '../../types.js';
 import { normalizeActions } from '../../core/actions.js';
 import { extractInlineJson } from '../../core/extract-inline.js';
+import { validateUrlForSSRF, SSRFError } from '../middleware/url-validator.js';
 
 const VALID_LLM_PROVIDERS: InlineLLMProvider[] = ['openai', 'anthropic', 'google'];
 
@@ -71,6 +72,21 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
           error: 'Missing or invalid "url" parameter',
         });
         return;
+      }
+
+      // SECURITY: Validate URL to prevent SSRF attacks
+      try {
+        validateUrlForSSRF(url);
+      } catch (error) {
+        if (error instanceof SSRFError) {
+          res.status(400).json({
+            success: false,
+            error: 'blocked_url',
+            message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+          });
+          return;
+        }
+        throw error;
       }
 
       // Determine if we need to render based on Firecrawl params
@@ -197,7 +213,7 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       console.error('Firecrawl /v1/scrape error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to scrape URL',
+        error: 'An unexpected error occurred. Please try again.',
       });
     }
   });
@@ -238,8 +254,24 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
         return;
       }
 
-      // Create job
-      const job = await jobQueue.createJob('crawl', webhook);
+      // SECURITY: Validate URL to prevent SSRF attacks
+      try {
+        validateUrlForSSRF(url);
+      } catch (error) {
+        if (error instanceof SSRFError) {
+          res.status(400).json({
+            success: false,
+            error: 'blocked_url',
+            message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+          });
+          return;
+        }
+        throw error;
+      }
+
+      // Create job (with owner for authorization)
+      const ownerId = req.auth?.keyInfo?.accountId;
+      const job = await jobQueue.createJob('crawl', webhook, ownerId);
 
       // Start crawl in background
       setImmediate(async () => {
@@ -311,7 +343,7 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       console.error('Firecrawl /v1/crawl error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to create crawl job',
+        error: 'An unexpected error occurred. Please try again.',
       });
     }
   });
@@ -325,6 +357,16 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       const job = await jobQueue.getJob(id);
 
       if (!job) {
+        res.status(404).json({
+          success: false,
+          error: 'Job not found',
+        });
+        return;
+      }
+
+      // SECURITY: Verify the requester owns this job
+      const requestOwnerId = req.auth?.keyInfo?.accountId;
+      if (job.ownerId && requestOwnerId && job.ownerId !== requestOwnerId) {
         res.status(404).json({
           success: false,
           error: 'Job not found',
@@ -348,7 +390,7 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       console.error('Firecrawl GET /v1/crawl/:id error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to retrieve job',
+        error: 'An unexpected error occurred. Please try again.',
       });
     }
   });
@@ -476,7 +518,7 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       console.error('Firecrawl /v1/search error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Search failed',
+        error: 'An unexpected error occurred. Please try again.',
       });
     }
   });
@@ -513,6 +555,21 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
         return;
       }
 
+      // SECURITY: Validate URL to prevent SSRF attacks
+      try {
+        validateUrlForSSRF(url);
+      } catch (error) {
+        if (error instanceof SSRFError) {
+          res.status(400).json({
+            success: false,
+            error: 'blocked_url',
+            message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+          });
+          return;
+        }
+        throw error;
+      }
+
       // Run mapDomain
       const result = await mapDomain(url, {
         maxUrls: limit,
@@ -527,7 +584,7 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       console.error('Firecrawl /v1/map error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to map domain',
+        error: 'An unexpected error occurred. Please try again.',
       });
     }
   });
@@ -568,6 +625,21 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
           error: 'Missing or invalid "url" parameter',
         });
         return;
+      }
+
+      // SECURITY: Validate URL to prevent SSRF attacks
+      try {
+        validateUrlForSSRF(url);
+      } catch (error) {
+        if (error instanceof SSRFError) {
+          res.status(400).json({
+            success: false,
+            error: 'blocked_url',
+            message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+          });
+          return;
+        }
+        throw error;
       }
 
       const wantsScreenshot = formats.includes('screenshot') || formats.includes('screenshot@fullPage');
@@ -677,7 +749,7 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
       console.error('Firecrawl /v2/scrape error:', error);
       res.status(500).json({
         success: false,
-        error: error.message || 'Failed to scrape URL',
+        error: 'An unexpected error occurred. Please try again.',
       });
     }
   });

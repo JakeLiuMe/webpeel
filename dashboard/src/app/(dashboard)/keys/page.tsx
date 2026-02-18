@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { apiClient, ApiKey } from '@/lib/api';
 import { toast } from 'sonner';
 import { CopyButton } from '@/components/copy-button';
@@ -39,7 +39,7 @@ export default function ApiKeysPage() {
   const { data: session, status } = useSession();
   const token = (session as any)?.apiToken as string | undefined;
 
-  const { data, isLoading, mutate } = useSWR<{ keys: ApiKey[] }>(
+  const { data, isLoading, error, mutate } = useSWR<{ keys: ApiKey[] }>(
     token ? ['/v1/keys', token] : null,
     ([url, token]: [string, string]) => fetcher<{ keys: ApiKey[] }>(url, token)
   );
@@ -54,6 +54,14 @@ export default function ApiKeysPage() {
 
   // Show recovery UI when session is loaded but no API token was issued.
   // Must appear after all hooks to satisfy the Rules of Hooks.
+  if (error) return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <AlertCircle className="h-8 w-8 text-red-500 mb-3" />
+      <p className="text-sm text-muted-foreground mb-3">Failed to load data. Please try again.</p>
+      <Button variant="outline" size="sm" onClick={() => mutate()}>Retry</Button>
+    </div>
+  );
+
   if (status === 'authenticated' && !token) {
     return (
       <div className="mx-auto max-w-6xl">

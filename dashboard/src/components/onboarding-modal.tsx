@@ -113,7 +113,7 @@ console.log(data.content);`;
           </div>
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <p className="text-xs text-amber-800">
-              <strong>Tip:</strong> Store this in a password manager or environment variable. You can create additional keys on the <a href="/dashboard/keys" className="underline font-medium">Keys page</a>.
+              <strong>Tip:</strong> Store this in a password manager or environment variable. You can create additional keys on the <a href="/keys" className="underline font-medium">Keys page</a>.
             </p>
           </div>
         </div>
@@ -127,7 +127,7 @@ console.log(data.content);`;
             <div>
               <p className="text-sm font-semibold text-violet-900">Create your first API key</p>
               <p className="text-xs text-violet-700 mt-1">
-                Head to the <a href="/dashboard/keys" className="underline font-medium">Keys page</a> to generate your API key. Keep it safe — we only show it once!
+                Head to the <a href="/keys" className="underline font-medium">Keys page</a> to generate your API key. Keep it safe — we only show it once!
               </p>
             </div>
           </div>

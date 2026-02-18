@@ -14,6 +14,47 @@ const { Pool } = pg;
 const BCRYPT_ROUNDS = 12;
 
 /**
+ * Per-email rate limiter for login attempts (brute-force protection)
+ */
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+
+// Clean up expired entries every 15 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, attempt] of loginAttempts.entries()) {
+    if (now >= attempt.resetAt) {
+      loginAttempts.delete(key);
+    }
+  }
+}, 15 * 60 * 1000);
+
+function loginRateLimiter(req: Request, res: Response, next: NextFunction): void {
+  const email = req.body?.email?.toLowerCase();
+  if (!email) {
+    next();
+    return;
+  }
+
+  const now = Date.now();
+  const attempt = loginAttempts.get(email);
+
+  if (attempt && now < attempt.resetAt) {
+    if (attempt.count >= 5) {
+      res.status(429).json({
+        error: 'too_many_attempts',
+        message: 'Too many login attempts. Please try again in 15 minutes.',
+        retryAfter: Math.ceil((attempt.resetAt - now) / 1000),
+      });
+      return;
+    }
+    attempt.count++;
+  } else {
+    loginAttempts.set(email, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  }
+  next();
+}
+
+/**
  * JWT payload interface
  */
 interface JwtPayload {
@@ -216,7 +257,7 @@ export function createUserRouter(): Router {
    * POST /v1/auth/login
    * Login with email/password and get JWT token
    */
-  router.post('/v1/auth/login', async (req: Request, res: Response) => {
+  router.post('/v1/auth/login', loginRateLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = req.body;
 

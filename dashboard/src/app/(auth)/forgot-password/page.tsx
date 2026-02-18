@@ -32,22 +32,27 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <Link href="/" className="mb-4 inline-block text-2xl font-bold">
-            🍊 WebPeel
-          </Link>
-          <h1 className="text-xl font-semibold text-zinc-900">
+    <div className="flex min-h-screen items-center justify-center px-4 sm:px-6 py-8" style={{ backgroundColor: '#FAFAF8' }}>
+      <div className="w-full max-w-[380px]">
+        {/* Logo */}
+        <div className="mb-8 sm:mb-12">
+          <svg width="36" height="36" viewBox="0 0 32 32" className="mb-4 sm:mb-6">
+            <rect width="32" height="32" fill="#8B5CF6" rx="8"/>
+            <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95"/>
+            <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/>
+            <path d="M8 16h10" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round"/>
+            <path d="M8 21h14" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round"/>
+          </svg>
+          <h1 className="font-serif text-[28px] sm:text-[32px] leading-tight text-zinc-900">
             Reset your password
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-3 text-[14px] sm:text-[15px] text-zinc-500">
             Enter your email and we&apos;ll send you a reset link.
           </p>
         </div>
 
         {submitted ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
             <p className="text-sm font-medium text-emerald-800">
               If an account exists with that email, you&apos;ll receive a
               password reset link shortly.
@@ -72,23 +77,23 @@ export default function ForgotPasswordPage() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 placeholder-zinc-400 shadow-sm outline-none transition-all focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
+              className="w-full rounded-xl bg-zinc-900 px-4 py-3 text-[15px] font-medium text-white shadow-sm transition-all hover:bg-zinc-800 active:scale-[0.99] disabled:opacity-50"
             >
               {loading ? "Sending..." : "Send reset link"}
             </button>
 
-            <p className="text-center text-sm text-zinc-500">
+            <p className="text-center text-[13px] text-zinc-400">
               Remember your password?{" "}
               <Link
                 href="/login"
-                className="font-medium text-violet-600 hover:text-violet-700"
+                className="text-zinc-900 font-medium hover:underline"
               >
                 Sign in
               </Link>

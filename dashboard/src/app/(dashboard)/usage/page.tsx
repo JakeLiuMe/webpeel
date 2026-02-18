@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UsageBar } from '@/components/usage-bar';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, TrendingUp, Clock } from 'lucide-react';
+import { BarChart3, TrendingUp, Clock, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { apiClient, Usage } from '@/lib/api';
 
 const fetcher = async <T,>(url: string, token: string): Promise<T> => {
@@ -24,19 +25,30 @@ export default function UsagePage() {
   const { data: session } = useSession();
   const token = (session as any)?.apiToken;
 
-  const { data: usage, isLoading } = useSWR<Usage>(
+  const { data: usage, isLoading, error: usageError, mutate: mutateUsage } = useSWR<Usage>(
     token ? ['/v1/usage', token] : null,
     ([url, token]: [string, string]) => fetcher<Usage>(url, token),
     { refreshInterval: 30000 }
   );
 
-  const { data: history } = useSWR<{ history: DailyUsage[] }>(
+  const { data: history, error: historyError, mutate: mutateHistory } = useSWR<{ history: DailyUsage[] }>(
     token ? ['/v1/usage/history?days=7', token] : null,
     ([url, token]: [string, string]) => fetcher<{ history: DailyUsage[] }>(url, token),
     { refreshInterval: 60000 }
   );
 
+  const pageError = usageError || historyError;
+  const pageMutate = () => { mutateUsage(); mutateHistory(); };
+
   const dailyHistory = history?.history || [];
+
+  if (pageError) return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <AlertCircle className="h-8 w-8 text-red-500 mb-3" />
+      <p className="text-sm text-muted-foreground mb-3">Failed to load data. Please try again.</p>
+      <Button variant="outline" size="sm" onClick={() => pageMutate()}>Retry</Button>
+    </div>
+  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 md:space-y-8">
