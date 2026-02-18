@@ -12,7 +12,7 @@
   <meta property="og:url" content="https://webpeel.dev/blog/webpeel-vs-competitors">
   <meta property="og:title" content="WebPeel vs Every Alternative: The Complete Web Scraping API Comparison (2026)">
   <meta property="og:description" content="One page. Seven tools. Benchmarks, pricing, features, and honest recommendations. Find the best web scraping API for your use case.">
-  <meta property="og:image" content="https://webpeel.dev/og-image.png">
+  <meta property="og:image" content="https://webpeel.dev/assets/video/og-poster.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:creator" content="@webpeel_dev">
 
@@ -182,6 +182,17 @@
     article li { font-size: 16px; line-height: 1.7; color: var(--text-2); margin-bottom: 8px; }
     article strong { color: var(--text); }
     hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+    /* ── Video ───────────────────────────────────── */
+    .video-container {
+      margin: 32px 0;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .video-container video {
+      display: block;
+    }
 
     /* ── Table of Contents ────────────────────────── */
     .toc {
@@ -528,12 +539,51 @@
     </div>
   </div>
 
+  <!-- ── Demo Video ─────────────────────────── -->
+  <div class="container" style="padding-top: 32px; padding-bottom: 0;">
+    <div style="max-width: 900px; margin: 0 auto;">
+      <video
+        controls
+        autoplay
+        muted
+        loop
+        playsinline
+        poster="/assets/video/poster.png"
+        style="width: 100%; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 40px rgba(0,0,0,0.5);"
+        aria-label="WebPeel vs 7 Alternatives — 2026 Benchmark Showcase"
+      >
+        <source src="/assets/video/benchmark-showcase.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <p style="text-align: center; font-size: 13px; color: var(--text-3, #888); margin-top: 8px;">
+        30-second benchmark highlight reel — rendered with <a href="https://www.remotion.dev" style="color: var(--accent);">Remotion</a>
+      </p>
+    </div>
+  </div>
+
   <div class="container">
     <article>
 
       <p>You're building an AI agent that needs to read the web. You search "best web scraping API" and find seven different tools, each claiming to be the best. Some are fast but fail on hard pages. Some are reliable but expensive. Some are free but limited. <strong>This is the page that saves you 40 hours of testing them all.</strong></p>
 
       <p>We ran all seven tools against the same 30 URLs — static pages, SPAs, anti-bot sites, PDFs, international content — and measured everything: success rate, speed, content quality, and cost per page. Then we wrote up honest recommendations, including cases where a competitor genuinely beats WebPeel.</p>
+
+      <!-- ── Demo Video ────────────────────────── -->
+      <div class="video-container">
+        <video
+          autoplay
+          muted
+          loop
+          playsinline
+          poster="/assets/video/poster.png"
+          preload="metadata"
+          style="width: 100%; border-radius: var(--radius); border: 1px solid var(--border);"
+        >
+          <source src="/assets/video/benchmark-showcase.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        <p style="font-size: 13px; color: var(--text-3); text-align: center; margin-top: 8px;">30-second benchmark overview — animated with <a href="https://remotion.dev">Remotion</a></p>
+      </div>
 
       <!-- ── Table of Contents ──────────────────── -->
       <nav class="toc" aria-label="Table of contents">

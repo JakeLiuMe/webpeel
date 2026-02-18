@@ -54,3 +54,13 @@ screenshot.png
 __pycache__/
 *.pyc
 .vercel
+
+# Remotion video project
+site/video/webpeel-demo/node_modules/
+site/video/webpeel-demo/out/
+site/video/webpeel-demo/.cache/
+
+# Remotion build artifacts
+site/video/webpeel-demo/node_modules/
+site/video/webpeel-demo/out/
+site/video/webpeel-demo/.remotion/
