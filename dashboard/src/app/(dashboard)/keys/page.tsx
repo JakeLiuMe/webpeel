@@ -29,14 +29,15 @@ import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { apiClient, ApiKey } from '@/lib/api';
 import { toast } from 'sonner';
 import { CopyButton } from '@/components/copy-button';
+import { ApiErrorBanner } from '@/components/api-error-banner';
 
 const fetcher = async <T,>(url: string, token: string): Promise<T> => {
   return apiClient<T>(url, { token });
 };
 
 export default function ApiKeysPage() {
-  const { data: session } = useSession();
-  const token = (session as any)?.apiToken;
+  const { data: session, status } = useSession();
+  const token = (session as any)?.apiToken as string | undefined;
 
   const { data, isLoading, mutate } = useSWR<{ keys: ApiKey[] }>(
     token ? ['/v1/keys', token] : null,
@@ -50,6 +51,19 @@ export default function ApiKeysPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Show recovery UI when session is loaded but no API token was issued.
+  // Must appear after all hooks to satisfy the Rules of Hooks.
+  if (status === 'authenticated' && !token) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <ApiErrorBanner
+          title="API Connection Issue"
+          message="We couldn't connect your account to the WebPeel API. This can happen if the API was temporarily unavailable during sign-in. Please sign out and try again."
+        />
+      </div>
+    );
+  }
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) {
