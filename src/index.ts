@@ -7,8 +7,9 @@
 import { createHash } from 'crypto';
 import { smartFetch } from './core/strategies.js';
 import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget, filterByTags } from './core/markdown.js';
+import { distillToBudget } from './core/budget.js';
 import { extractMetadata, extractLinks, extractImages } from './core/metadata.js';
-import { cleanup, warmup, closePool } from './core/fetcher.js';
+import { cleanup, warmup, closePool, scrollAndWait } from './core/fetcher.js';
 import { extractStructured } from './core/extract.js';
 import { isPdfContentType, isDocxContentType, extractDocumentToFormat } from './core/documents.js';
 import type { PeelOptions, PeelResult, ImageInfo } from './types.js';
@@ -43,6 +44,25 @@ export {
 } from './core/answer.js';
 
 export { searchJobs, type JobCard, type JobDetail, type JobSearchOptions, type JobSearchResult } from './core/jobs.js';
+export { extractListings, type ListingItem } from './core/extract-listings.js';
+export { formatTable } from './core/table-format.js';
+export { findNextPageUrl } from './core/paginate.js';
+export { distillToBudget, budgetListings, TOKENS_PER_LISTING_ITEM } from './core/budget.js';
+export {
+  watch,
+  parseDuration,
+  parseAssertion,
+  type WatchOptions,
+  type Assertion,
+  type WatchCheckResult,
+  type AssertionResult,
+} from './core/watch.js';
+export {
+  diffUrl,
+  type DiffOptions,
+  type DiffResult,
+  type DiffChange,
+} from './core/diff.js';
 
 /**
  * Fetch and extract content from a URL
@@ -173,6 +193,12 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       
       if (selector) {
         html = selectContent(html, selector, exclude);
+      } else if (exclude?.length) {
+        // Apply exclude selectors even without a specific selector
+        const cheerio = await import('cheerio');
+        const $doc = cheerio.load(html);
+        exclude.forEach(sel => $doc(sel).remove());
+        html = $doc.html() || html;
       }
 
       // Smart main content detection (unless raw or selector specified)
@@ -286,9 +312,19 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       }
     }
 
-    // Truncate to token budget if requested
+    // Truncate to token budget if requested (simple truncation)
     if (maxTokens && maxTokens > 0) {
       content = truncateToTokenBudget(content, maxTokens);
+    }
+
+    // Smart budget distillation — applied AFTER maxTokens truncation
+    // This intelligently compresses content (strips boilerplate, compresses
+    // tables, removes weak paragraphs) rather than blindly cutting.
+    if (options.budget && options.budget > 0) {
+      const budgetFormat: 'markdown' | 'text' | 'json' =
+        detectedType === 'json' ? 'json' :
+        format === 'text' ? 'text' : 'markdown';
+      content = distillToBudget(content, options.budget, budgetFormat);
     }
 
     // Calculate elapsed time, tokens, and fingerprint
@@ -423,5 +459,5 @@ export async function peelBatch(
  * Clean up any browser resources
  * Call this when you're done using WebPeel
  */
-export { cleanup, warmup, closePool };
+export { cleanup, warmup, closePool, scrollAndWait };
 export { getCached, setCached, clearCache, setCacheTTL } from './core/cache.js';

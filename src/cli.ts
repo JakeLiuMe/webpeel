@@ -18,9 +18,11 @@ import { Command } from 'commander';
 import ora from 'ora';
 import { writeFileSync, readFileSync } from 'fs';
 import { peel, peelBatch, cleanup } from './index.js';
-import type { PeelOptions, PeelResult, PageAction } from './types.js';
+import type { PeelOptions, PeelResult, PeelEnvelope, PageAction } from './types.js';
 import { checkUsage, showUsageFooter, handleLogin, handleLogout, handleUsage, loadConfig, saveConfig } from './cli-auth.js';
 import { getCache, setCache, parseTTL, clearCache, cacheStats } from './cache.js';
+import { estimateTokens } from './core/markdown.js';
+import { distillToBudget, budgetListings } from './core/budget.js';
 
 const program = new Command();
 
@@ -122,6 +124,8 @@ function parseActions(actionStrings: string[]): PageAction[] {
         return { type: 'hover' as const, selector: value };
       case 'waitFor': 
         return { type: 'waitForSelector' as const, selector: value };
+      case 'wait-for': 
+        return { type: 'waitForSelector' as const, selector: value, timeout: 10000 };
       case 'screenshot': 
         return { type: 'screenshot' as const };
       default: 
@@ -138,7 +142,7 @@ program
   .option('--html', 'Output raw HTML instead of markdown')
   .option('--text', 'Output plain text instead of markdown')
   .option('--json', 'Output as JSON')
-  .option('-t, --timeout <ms>', 'Request timeout (ms)', parseInt, 30000)
+  .option('-t, --timeout <ms>', 'Request timeout (ms)', (v: string) => parseInt(v, 10), 30000)
   .option('--ua <agent>', 'Custom user agent')
   .option('-s, --silent', 'Silent mode (no spinner)')
   .option('--screenshot [path]', 'Take a screenshot (optionally save to file path)')
@@ -150,7 +154,8 @@ program
   .option('--only-main-content', 'Shortcut for --include-tags main,article')
   .option('-H, --header <header...>', 'Custom headers (e.g., "Authorization: Bearer token")')
   .option('--cookie <cookie...>', 'Cookies to set (e.g., "session=abc123")')
-  .option('--cache <ttl>', 'Cache results locally (e.g., "5m", "1h", "1d")')
+  .option('--cache <ttl>', 'Cache results locally (e.g., "5m", "1h", "1d") — default: 5m')
+  .option('--no-cache', 'Disable automatic caching for this request')
   .option('--links', 'Output only the links found on the page')
   .option('--images', 'Output image URLs from the page')
   .option('--meta', 'Output only the page metadata (title, description, author, etc.)')
@@ -163,35 +168,55 @@ program
   .option('--location <country>', 'ISO country code for geo-targeting (e.g., "US", "DE", "JP")')
   .option('--language <lang>', 'Language preference (e.g., "en", "de", "ja")')
   .option('--max-tokens <n>', 'Maximum token count for output (truncate if exceeded)', parseInt)
+  .option('--budget <n>', 'Smart token budget — distill content to fit within N tokens (heuristic, no LLM key needed)', parseInt)
+  .option('--extract-all', 'Auto-detect and extract repeated listing items (e.g., search results)')
+  .option('--scroll-extract [count]', 'Scroll page N times to load lazy content, then extract (implies --render)', (v: string) => parseInt(v, 10))
+  .option('--csv', 'Output extraction results as CSV')
+  .option('--table', 'Output extraction results as a formatted table')
+  .option('--pages <n>', 'Follow pagination "Next" links for N pages (max 10)', (v: string) => parseInt(v, 10))
   .action(async (url: string | undefined, options) => {
-    if (!url) {
-      console.error('Error: URL is required\n');
-      program.help();
+    const isJson = options.json;
+
+    // --- #5: Concise error for missing URL (no help dump) ---
+    if (!url || url.trim() === '') {
+      if (isJson) {
+        await writeStdout(JSON.stringify({ error: 'URL is required', code: 'URL_REQUIRED' }) + '\n');
+      } else {
+        console.error('Error: URL is required');
+        console.error('Usage: webpeel <url> [options]');
+        console.error('Run "webpeel --help" for full usage.');
+      }
+      process.exit(1);
+    }
+
+    // --- #6: Helper to output JSON errors and exit ---
+    function exitWithJsonError(message: string, code: string): never {
+      if (isJson) {
+        process.stdout.write(JSON.stringify({ error: message, code }) + '\n');
+      } else {
+        console.error(`Error: ${message}`);
+      }
       process.exit(1);
     }
 
     // SECURITY: Enhanced URL validation
     if (url.length > 2048) {
-      console.error('Error: URL too long (max 2048 characters)');
-      process.exit(1);
+      exitWithJsonError('URL too long (max 2048 characters)', 'INVALID_URL');
     }
 
     // Check for control characters
     if (/[\x00-\x1F\x7F]/.test(url)) {
-      console.error('Error: URL contains invalid control characters');
-      process.exit(1);
+      exitWithJsonError('URL contains invalid control characters', 'INVALID_URL');
     }
 
     // Validate URL format
     try {
       const parsed = new URL(url);
       if (!['http:', 'https:'].includes(parsed.protocol)) {
-        console.error('Error: Only HTTP and HTTPS protocols are allowed');
-        process.exit(1);
+        exitWithJsonError('Only HTTP and HTTPS protocols are allowed', 'INVALID_URL');
       }
     } catch {
-      console.error(`Error: Invalid URL format: ${url}`);
-      process.exit(1);
+      exitWithJsonError(`Invalid URL format: ${url}`, 'INVALID_URL');
     }
 
     const useStealth = options.stealth || false;
@@ -199,26 +224,50 @@ program
     // Check usage quota
     const usageCheck = await checkUsage();
     if (!usageCheck.allowed) {
+      if (isJson) {
+        await writeStdout(JSON.stringify({ error: usageCheck.message, code: 'BLOCKED' }) + '\n');
+        process.exit(1);
+      }
       console.error(usageCheck.message);
       process.exit(1);
     }
 
     // Check cache first (before spinner/network)
+    // Default: 5m TTL for all CLI fetches unless --no-cache is set
     let cacheTtlMs: number | undefined;
-    if (options.cache) {
+    const cacheDisabled = options.cache === false; // --no-cache sets options.cache to false
+    const explicitTtl: string | undefined = typeof options.cache === 'string' ? options.cache : undefined;
+
+    if (!cacheDisabled) {
+      const ttlStr = explicitTtl || '5m';
       try {
-        cacheTtlMs = parseTTL(options.cache);
+        cacheTtlMs = parseTTL(ttlStr);
       } catch (e) {
-        console.error(`Error: ${(e as Error).message}`);
-        process.exit(1);
+        exitWithJsonError((e as Error).message, 'FETCH_FAILED');
       }
-      
-      const cached = getCache(url, { render: options.render, stealth: options.stealth, selector: options.selector, format: options.html ? 'html' : options.text ? 'text' : 'markdown' });
-      if (cached) {
+
+      const cacheOptions = {
+        render: options.render,
+        stealth: options.stealth,
+        selector: options.selector,
+        format: options.html ? 'html' : options.text ? 'text' : 'markdown',
+        budget: null,  // Budget excluded from cache key — cache stores full content
+      };
+
+      const cachedResult = getCache(url, cacheOptions);
+      if (cachedResult) {
         if (!options.silent) {
-          console.error(`\x1b[36m⚡ Cache hit\x1b[0m (TTL: ${options.cache})`);
+          console.error(`\x1b[36m⚡ Cache hit\x1b[0m (TTL: ${ttlStr})`);
         }
-        outputResult(cached, options);
+        // Apply budget to cached content (cache stores full, budget is post-process)
+        if (options.budget && options.budget > 0 && cachedResult.content) {
+          const { distillToBudget } = await import('./core/budget.js');
+          const fmt: 'markdown' | 'text' | 'json' =
+            options.text ? 'text' : 'markdown';
+          (cachedResult as any).content = distillToBudget(cachedResult.content, options.budget, fmt);
+          (cachedResult as any).tokens = Math.ceil(cachedResult.content.length / 4);
+        }
+        await outputResult(cachedResult as PeelResult, options, { cached: true });
         process.exit(0);
       }
     }
@@ -228,8 +277,7 @@ program
     try {
       // Validate options
       if (options.wait && (options.wait < 0 || options.wait > 60000)) {
-        console.error('Error: Wait time must be between 0 and 60000ms');
-        process.exit(1);
+        throw Object.assign(new Error('Wait time must be between 0 and 60000ms'), { _code: 'FETCH_FAILED' });
       }
 
       // Parse custom headers
@@ -239,9 +287,7 @@ program
         for (const header of options.header) {
           const colonIndex = header.indexOf(':');
           if (colonIndex === -1) {
-            console.error(`Error: Invalid header format: ${header}`);
-            console.error('Expected format: "Key: Value"');
-            process.exit(1);
+            throw Object.assign(new Error(`Invalid header format: ${header}. Expected "Key: Value"`), { _code: 'FETCH_FAILED' });
           }
           const key = header.slice(0, colonIndex).trim();
           const value = header.slice(colonIndex + 1).trim();
@@ -255,8 +301,7 @@ program
         try {
           actions = parseActions(options.action);
         } catch (e) {
-          console.error(`Error: ${(e as Error).message}`);
-          process.exit(1);
+          throw Object.assign(new Error((e as Error).message), { _code: 'FETCH_FAILED' });
         }
       }
 
@@ -271,24 +316,21 @@ program
           llmBaseUrl: process.env.WEBPEEL_LLM_BASE_URL || 'https://api.openai.com/v1',
         };
         if (!extract.llmApiKey) {
-          console.error('Error: --llm-extract requires OPENAI_API_KEY environment variable');
-          process.exit(1);
+          throw Object.assign(new Error('--llm-extract requires OPENAI_API_KEY environment variable'), { _code: 'FETCH_FAILED' });
         }
       } else if (options.extract) {
         // CSS-based extraction
         try {
           extract = { selectors: JSON.parse(options.extract) };
         } catch {
-          console.error('Error: --extract must be valid JSON (e.g., \'{"title": "h1", "price": ".price"}\')');
-          process.exit(1);
+          throw Object.assign(new Error('--extract must be valid JSON (e.g., \'{"title": "h1", "price": ".price"}\')'), { _code: 'FETCH_FAILED' });
         }
       }
 
       // Validate maxTokens
       if (options.maxTokens !== undefined) {
         if (isNaN(options.maxTokens) || options.maxTokens < 100) {
-          console.error('Error: --max-tokens must be at least 100');
-          process.exit(1);
+          throw Object.assign(new Error('--max-tokens must be at least 100'), { _code: 'FETCH_FAILED' });
         }
       }
 
@@ -321,7 +363,21 @@ program
       // Build peel options
       // --stealth auto-enables --render (stealth requires browser)
       // --action auto-enables --render (actions require browser)
-      const useRender = options.render || options.stealth || (actions && actions.length > 0) || false;
+      // --scroll-extract implies --render (needs browser)
+      const scrollExtractCount = options.scrollExtract !== undefined
+        ? (typeof options.scrollExtract === 'number' ? options.scrollExtract : 3)
+        : 0;
+      const useRender = options.render || options.stealth || (actions && actions.length > 0) || scrollExtractCount > 0 || false;
+      // Inject scroll actions when --scroll-extract is used
+      if (scrollExtractCount > 0) {
+        const scrollActions: PageAction[] = [];
+        for (let i = 0; i < scrollExtractCount; i++) {
+          scrollActions.push({ type: 'scroll', to: 'bottom' });
+          scrollActions.push({ type: 'wait', ms: 1500 });
+        }
+        actions = actions ? [...actions, ...scrollActions] : scrollActions;
+      }
+
       const peelOptions: PeelOptions = {
         render: useRender,
         stealth: options.stealth || false,
@@ -339,6 +395,9 @@ program
         raw: options.raw || false,
         actions,
         maxTokens: options.maxTokens,
+        // Note: budget is applied AFTER caching (so cache stores full content)
+        // We pass it to peel() for programmatic API compatibility, but the CLI
+        // also applies it post-fetch (see below) to ensure cache stores full result.
         extract,
         images: options.images || false,
         location: locationOptions,
@@ -348,8 +407,7 @@ program
       if (options.summary) {
         const llmApiKey = options.llmKey || process.env.OPENAI_API_KEY;
         if (!llmApiKey) {
-          console.error('Error: --summary requires --llm-key or OPENAI_API_KEY environment variable');
-          process.exit(1);
+          throw Object.assign(new Error('--summary requires --llm-key or OPENAI_API_KEY environment variable'), { _code: 'FETCH_FAILED' });
         }
         peelOptions.summary = true;
         peelOptions.llm = {
@@ -399,13 +457,158 @@ program
         }
       }
 
-      // Store in cache if caching is enabled
-      if (cacheTtlMs) {
-        setCache(url, result, cacheTtlMs, { render: options.render, stealth: useStealth, selector: options.selector, format: peelOptions.format });
+      // Store full result in cache (before budget distillation so cache is reusable)
+      if (cacheTtlMs && !cacheDisabled) {
+        setCache(url, result, cacheTtlMs, {
+          render: options.render,
+          stealth: useStealth,
+          selector: options.selector,
+          format: peelOptions.format,
+          budget: null,  // Budget excluded — cache stores full content, budget applied post-cache
+        });
       }
 
-      // Output results
-      await outputResult(result, options);
+      // Apply smart budget distillation AFTER caching (cache always stores full content)
+      let contentTruncated = false;
+      if (options.budget && options.budget > 0 && !options.extractAll && options.scrollExtract === undefined) {
+        const budgetFormat: 'markdown' | 'text' | 'json' =
+          peelOptions.format === 'text' ? 'text' : 'markdown';
+        const distilled = distillToBudget(result.content, options.budget, budgetFormat);
+        if (distilled !== result.content) {
+          contentTruncated = true;
+          (result as any).content = distilled;
+          (result as any).tokens = estimateTokens(distilled);
+        }
+      }
+
+      // --- #4: Content quality warning ---
+      const isHtmlContent = result.contentType ? result.contentType.toLowerCase().includes('html') : true;
+      const isRedirect = false; // peel() follows redirects — final result is always 200
+      if (result.tokens < 20 && !useRender && isHtmlContent && !isRedirect) {
+        const warningMsg = `Low content detected (${result.tokens} tokens). Try: webpeel ${url} --render`;
+        if (isJson) {
+          (result as any).warning = warningMsg;
+        } else {
+          console.error(`⚠ ${warningMsg}`);
+        }
+      }
+
+      // --- Extract-all / pagination / output formatting ---
+      const wantsExtractAll = options.extractAll || options.scrollExtract !== undefined;
+      const pagesCount = Math.min(Math.max(options.pages || 1, 1), 10);
+
+      if (wantsExtractAll) {
+        const { extractListings } = await import('./core/extract-listings.js');
+        const { findNextPageUrl } = await import('./core/paginate.js');
+
+        // We need the raw HTML for extraction. Re-fetch with format=html if needed.
+        let allListings: import('./core/extract-listings.js').ListingItem[] = [];
+
+        // Fetch HTML for extraction
+        const htmlResult = peelOptions.format === 'html'
+          ? result
+          : await peel(url, { ...peelOptions, format: 'html', maxTokens: undefined });
+
+        allListings.push(...extractListings(htmlResult.content, result.url));
+
+        // Pagination: follow "Next" links
+        if (pagesCount > 1) {
+          let currentHtml = htmlResult.content;
+          let currentUrl = result.url;
+          for (let page = 1; page < pagesCount; page++) {
+            const nextUrl = findNextPageUrl(currentHtml, currentUrl);
+            if (!nextUrl) break;
+            try {
+              const nextResult = await peel(nextUrl, { ...peelOptions, format: 'html', maxTokens: undefined });
+              const pageListings = extractListings(nextResult.content, nextResult.url);
+              allListings.push(...pageListings);
+              currentHtml = nextResult.content;
+              currentUrl = nextResult.url;
+            } catch {
+              break; // Stop paginating on error
+            }
+          }
+        }
+
+        // Apply budget to listings if requested
+        let listingsTruncated = false;
+        let totalAvailableListings: number | undefined;
+        if (options.budget && options.budget > 0 && allListings.length > 0) {
+          const { maxItems, truncated, totalAvailable } = budgetListings(allListings.length, options.budget);
+          if (truncated) {
+            listingsTruncated = true;
+            totalAvailableListings = totalAvailable;
+            allListings = allListings.slice(0, maxItems);
+          }
+        }
+
+        // Output based on format flags
+        if (options.csv) {
+          const csvOutput = formatListingsCsv(allListings);
+          await writeStdout(csvOutput);
+        } else if (options.table) {
+          const { formatTable } = await import('./core/table-format.js');
+          const tableRows = allListings.map(item => {
+            const row: Record<string, string | undefined> = {};
+            for (const [k, v] of Object.entries(item)) {
+              if (v !== undefined) row[k] = v;
+            }
+            return row;
+          });
+          await writeStdout(formatTable(tableRows) + '\n');
+        } else if (isJson) {
+          // Use unified envelope for JSON output
+          const structured = allListings as unknown as Record<string, unknown>[];
+          const envelope = buildEnvelope(result, {
+            cached: false,
+            structured,
+            truncated: listingsTruncated || undefined,
+            totalAvailable: totalAvailableListings,
+          });
+          // Also include legacy fields for backward compat
+          (envelope as any).listings = allListings;
+          (envelope as any).count = allListings.length;
+          await writeStdout(JSON.stringify(envelope, null, 2) + '\n');
+        } else {
+          // Formatted text output
+          if (allListings.length === 0) {
+            await writeStdout('No listings found.\n');
+          } else {
+            const truncNote = listingsTruncated && totalAvailableListings
+              ? ` (${totalAvailableListings} total — budget limited to ${allListings.length})`
+              : '';
+            await writeStdout(`Found ${allListings.length} listings${truncNote}:\n\n`);
+            allListings.forEach((item, i) => {
+              const pricePart = item.price ? ` — ${item.price}` : '';
+              const line = `${i + 1}. ${item.title}${pricePart}\n`;
+              process.stdout.write(line);
+              if (item.link) {
+                process.stdout.write(`   ${item.link}\n`);
+              }
+              process.stdout.write('\n');
+            });
+          }
+        }
+      } else if (options.csv || options.table) {
+        // CSV / table output for --extract (CSS selector extraction)
+        if (result.extracted) {
+          const rows = normaliseExtractedToRows(result.extracted);
+          if (options.csv) {
+            await writeStdout(formatListingsCsv(rows));
+          } else {
+            const { formatTable } = await import('./core/table-format.js');
+            await writeStdout(formatTable(rows) + '\n');
+          }
+        } else {
+          console.error('--csv / --table require --extract-all or --extract to produce structured data.');
+        }
+      } else {
+        // Output results (default path)
+        await outputResult(result, options, {
+          cached: false,
+          truncated: contentTruncated || undefined,
+        });
+      }
 
       // Clean up and exit
       await cleanup();
@@ -413,6 +616,15 @@ program
     } catch (error) {
       if (spinner) {
         spinner.fail('Failed to fetch');
+      }
+
+      // --- #6: Consistent JSON error output ---
+      if (isJson) {
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        const errCode = classifyErrorCode(error);
+        await writeStdout(JSON.stringify({ error: errMsg, code: errCode }) + '\n');
+        await cleanup();
+        process.exit(1);
       }
 
       if (error instanceof Error) {
@@ -447,14 +659,17 @@ program
   .command('search <query>')
   .description('Search the web (DuckDuckGo by default, or Brave with --provider brave)')
   .option('-n, --count <n>', 'Number of results (1-10)', '5')
+  .option('--top <n>', 'Limit results (alias for --count)')
   .option('--provider <provider>', 'Search provider: duckduckgo (default) or brave')
   .option('--search-api-key <key>', 'API key for the search provider (or env WEBPEEL_BRAVE_API_KEY)')
   .option('--json', 'Output as JSON')
+  .option('--urls-only', 'Output only URLs, one per line (pipe-friendly)')
   .option('-s, --silent', 'Silent mode')
   .action(async (query: string, options) => {
     const isJson = options.json;
     const isSilent = options.silent;
-    const count = parseInt(options.count) || 5;
+    // --top overrides --count when both are provided
+    const count = parseInt(options.top ?? options.count) || 5;
     
     // Check usage quota
     const usageCheck = await checkUsage();
@@ -493,14 +708,14 @@ program
         showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, false);
       }
 
-      if (isJson) {
+      if (options.urlsOnly) {
+        // Pipe-friendly: one URL per line
+        for (const result of results) {
+          await writeStdout(result.url + '\n');
+        }
+      } else if (isJson) {
         const jsonStr = JSON.stringify(results, null, 2);
-        await new Promise<void>((resolve, reject) => {
-          process.stdout.write(jsonStr + '\n', (err) => {
-            if (err) reject(err);
-            else resolve();
-          });
-        });
+        await writeStdout(jsonStr + '\n');
       } else {
         for (const result of results) {
           console.log(`\n${result.title}`);
@@ -674,12 +889,12 @@ program
 program
   .command('crawl <url>')
   .description('Crawl a website starting from a URL')
-  .option('--max-pages <number>', 'Maximum number of pages to crawl (default: 10, max: 100)', parseInt, 10)
-  .option('--max-depth <number>', 'Maximum depth to crawl (default: 2, max: 5)', parseInt, 2)
+  .option('--max-pages <number>', 'Maximum number of pages to crawl (default: 10, max: 100)', (v: string) => parseInt(v, 10), 10)
+  .option('--max-depth <number>', 'Maximum depth to crawl (default: 2, max: 5)', (v: string) => parseInt(v, 10), 2)
   .option('--allowed-domains <domains...>', 'Only crawl these domains (default: same as starting URL)')
   .option('--exclude <patterns...>', 'Exclude URLs matching these regex patterns')
   .option('--ignore-robots', 'Ignore robots.txt (default: respect robots.txt)')
-  .option('--rate-limit <ms>', 'Rate limit between requests in ms (default: 1000)', parseInt, 1000)
+  .option('--rate-limit <ms>', 'Rate limit between requests in ms (default: 1000)', (v: string) => parseInt(v, 10), 1000)
   .option('-r, --render', 'Use headless browser for all pages')
   .option('--stealth', 'Use stealth mode for all pages')
   .option('-s, --silent', 'Silent mode (no spinner)')
@@ -759,7 +974,7 @@ program
   .description('Discover all URLs on a domain (sitemap + crawl)')
   .option('--no-sitemap', 'Skip sitemap.xml discovery')
   .option('--no-crawl', 'Skip homepage crawl')
-  .option('--max <n>', 'Maximum URLs to discover (default: 5000)', parseInt, 5000)
+  .option('--max <n>', 'Maximum URLs to discover (default: 5000)', (v: string) => parseInt(v, 10), 5000)
   .option('--include <patterns...>', 'Include only URLs matching these regex patterns')
   .option('--exclude <patterns...>', 'Exclude URLs matching these regex patterns')
   .option('--json', 'Output as JSON')
@@ -796,6 +1011,185 @@ program
     } catch (error) {
       if (spinner) spinner.fail('URL discovery failed');
       console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+  });
+
+// Watch command - monitor a URL for changes / assertion failures
+program
+  .command('watch <url>')
+  .description('Monitor a URL for changes and assertion failures')
+  .option('--interval <duration>', 'Check interval (e.g. 30s, 5m, 1h)', '5m')
+  .option('--assert <condition...>', 'Assertion(s) to check (e.g. "status=200" "body.health=ok")')
+  .option('--webhook <url>', 'POST this URL on assertion failure or content change')
+  .option('-t, --timeout <ms>', 'Per-request timeout in ms', (v: string) => parseInt(v, 10), 10000)
+  .option('--max-checks <n>', 'Stop after N checks (default: unlimited)', (v: string) => parseInt(v, 10))
+  .option('--json', 'Output each check as NDJSON to stdout')
+  .option('-s, --silent', 'Only output on failures/changes')
+  .option('-r, --render', 'Use browser rendering for checks')
+  .action(async (url: string, options) => {
+    const { watch: runWatch, parseDuration, parseAssertion } = await import('./core/watch.js');
+    type WatchOptions = import('./core/watch.js').WatchOptions;
+
+    // Validate URL
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        console.error('Error: Only HTTP and HTTPS protocols are allowed');
+        process.exit(1);
+      }
+    } catch {
+      console.error(`Error: Invalid URL format: ${url}`);
+      process.exit(1);
+    }
+
+    // Parse interval
+    let intervalMs: number;
+    try {
+      intervalMs = parseDuration(options.interval);
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exit(1);
+    }
+
+    // Parse assertions
+    const assertions: import('./core/watch.js').Assertion[] = [];
+    if (options.assert && Array.isArray(options.assert)) {
+      for (const expr of options.assert as string[]) {
+        try {
+          assertions.push(parseAssertion(expr));
+        } catch (e) {
+          console.error(`Error: ${(e as Error).message}`);
+          process.exit(1);
+        }
+      }
+    }
+
+    if (!options.json && !options.silent) {
+      const intervalLabel = options.interval;
+      const assertLabel = assertions.length > 0
+        ? ` with ${assertions.length} assertion(s)`
+        : '';
+      process.stderr.write(
+        `Watching ${url} every ${intervalLabel}${assertLabel}. Press Ctrl+C to stop.\n`,
+      );
+    }
+
+    const watchOptions: WatchOptions = {
+      url,
+      intervalMs,
+      assertions,
+      webhookUrl: options.webhook,
+      timeout: options.timeout,
+      maxChecks: options.maxChecks,
+      render: options.render || false,
+      json: options.json || false,
+      silent: options.silent || false,
+    };
+
+    try {
+      await runWatch(watchOptions);
+    } catch (error) {
+      console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+
+    process.exit(0);
+  });
+
+// Diff command - semantic diff against last snapshot
+program
+  .command('diff <url>')
+  .description('Show semantic diff between current content and the last tracked snapshot')
+  .option('--last', 'Compare against last tracked snapshot (default)')
+  .option('--against <snapshot-url>', 'Compare against the snapshot stored for a different URL')
+  .option('--fields <fields>', 'For JSON responses: only diff these fields (comma-separated dot-notation)')
+  .option('--json', 'Output diff as JSON')
+  .option('-r, --render', 'Use browser rendering')
+  .option('-t, --timeout <ms>', 'Request timeout in ms', (v: string) => parseInt(v, 10), 30000)
+  .option('-s, --silent', 'Silent mode (no spinner)')
+  .action(async (url: string, options) => {
+    const isJson = options.json;
+
+    // Validate URL
+    try {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        if (isJson) {
+          await writeStdout(JSON.stringify({ error: 'Only HTTP and HTTPS protocols are allowed', code: 'INVALID_URL' }) + '\n');
+        } else {
+          console.error('Error: Only HTTP and HTTPS protocols are allowed');
+        }
+        process.exit(1);
+      }
+    } catch {
+      if (isJson) {
+        await writeStdout(JSON.stringify({ error: `Invalid URL format: ${url}`, code: 'INVALID_URL' }) + '\n');
+      } else {
+        console.error(`Error: Invalid URL format: ${url}`);
+      }
+      process.exit(1);
+    }
+
+    const spinner = options.silent ? null : ora('Fetching and diffing...').start();
+
+    try {
+      const { diffUrl } = await import('./core/diff.js');
+
+      const fields = options.fields
+        ? (options.fields as string).split(',').map((f: string) => f.trim()).filter(Boolean)
+        : undefined;
+
+      const result = await diffUrl(url, {
+        render: options.render || false,
+        timeout: options.timeout,
+        fields,
+      });
+
+      if (spinner) {
+        spinner.succeed(`Diff completed in ${result.changed ? 'CHANGED' : 'no change'}`);
+      }
+
+      if (isJson) {
+        await writeStdout(JSON.stringify(result, null, 2) + '\n');
+      } else {
+        // Human-readable output
+        const ago = result.previousTimestamp
+          ? formatRelativeTime(new Date(result.previousTimestamp))
+          : 'unknown';
+        console.log(`\nComparing ${result.url} (now vs ${ago})\n`);
+
+        if (!result.changed) {
+          console.log('  No changes detected.');
+        } else {
+          for (const change of result.changes) {
+            const label = change.field ?? change.path ?? '(unknown)';
+            if (change.type === 'modified') {
+              console.log(`  Modified: ${label}  ${change.before} → ${change.after}`);
+            } else if (change.type === 'added') {
+              console.log(`  Added:    ${label}  ${change.after}`);
+            } else if (change.type === 'removed') {
+              console.log(`  Removed:  ${label}  ${change.before}`);
+            }
+          }
+        }
+
+        console.log(`\nSummary: ${result.summary}`);
+      }
+
+      await cleanup();
+      process.exit(0);
+    } catch (error) {
+      if (spinner) spinner.fail('Diff failed');
+      if (isJson) {
+        await writeStdout(JSON.stringify({
+          error: error instanceof Error ? error.message : 'Unknown error',
+          code: 'FETCH_FAILED',
+        }) + '\n');
+      } else {
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      await cleanup();
       process.exit(1);
     }
   });
@@ -1047,35 +1441,48 @@ program
 // Track command - track changes on a URL
 program
   .command('track <url>')
-  .description('Track changes on a URL (returns fingerprint for change detection)')
+  .description('Track changes on a URL (saves snapshot for use with `webpeel diff`)')
   .option('-s, --silent', 'Silent mode (no spinner)')
   .option('--json', 'Output as JSON')
+  .option('-r, --render', 'Use browser rendering')
   .action(async (url: string, options) => {
     const spinner = options.silent ? null : ora('Fetching and tracking...').start();
     
     try {
-      const result = await peel(url);
+      // changeTracking: true saves the snapshot to ~/.webpeel/snapshots/ so that
+      // `webpeel diff` can compare against it later.
+      const result = await peel(url, {
+        render: options.render || false,
+        changeTracking: true,
+      });
       
       if (spinner) {
         spinner.succeed(`Tracked in ${result.elapsed}ms`);
       }
       
+      const changeStatus = result.changeTracking?.changeStatus ?? 'new';
+      const previousScrapeAt = result.changeTracking?.previousScrapeAt ?? null;
+
       if (options.json) {
-        console.log(JSON.stringify({
+        await writeStdout(JSON.stringify({
           url: result.url,
           title: result.title,
           fingerprint: result.fingerprint,
           tokens: result.tokens,
           contentType: result.contentType,
+          changeStatus,
+          previousScrapeAt,
           lastChecked: new Date().toISOString(),
-        }, null, 2));
+        }, null, 2) + '\n');
       } else {
         console.log(`URL: ${result.url}`);
         console.log(`Title: ${result.title}`);
         console.log(`Fingerprint: ${result.fingerprint}`);
         console.log(`Tokens: ${result.tokens}`);
+        console.log(`Status: ${changeStatus}`);
+        if (previousScrapeAt) console.log(`Previous check: ${previousScrapeAt}`);
         console.log(`Last checked: ${new Date().toISOString()}`);
-        console.log('\nSave this fingerprint to detect future changes.');
+        console.log('\nSnapshot saved. Run `webpeel diff <url> --last` to compare future changes.');
       }
       
       await cleanup();
@@ -1559,7 +1966,7 @@ program
   .option('--format <fmt>', 'Image format: png (default) or jpeg', 'png')
   .option('--quality <n>', 'JPEG quality 1-100 (ignored for PNG)', parseInt)
   .option('-w, --wait <ms>', 'Wait time after page load (ms)', parseInt)
-  .option('-t, --timeout <ms>', 'Request timeout (ms)', parseInt, 30000)
+  .option('-t, --timeout <ms>', 'Request timeout (ms)', (v: string) => parseInt(v, 10), 30000)
   .option('--stealth', 'Use stealth mode to bypass bot detection')
   .option('--action <actions...>', 'Page actions before screenshot (e.g., "click:.btn" "wait:2000")')
   .option('-o, --output <path>', 'Output file path (default: screenshot.png)')
@@ -1676,10 +2083,104 @@ program
 program.parse();
 
 // ============================================================
+// Time formatting helper
+// ============================================================
+
+/**
+ * Format a past Date relative to now (e.g. "2h ago", "5m ago").
+ */
+function formatRelativeTime(past: Date): string {
+  const diffMs = Date.now() - past.getTime();
+  const diffSec = Math.round(diffMs / 1000);
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.round(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.round(diffHr / 24);
+  return `${diffDay}d ago`;
+}
+
+// ============================================================
+// Error classification for JSON error output (#6)
+// ============================================================
+
+function classifyErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) return 'FETCH_FAILED';
+
+  // Check for our custom _code first (set in pre-fetch validation)
+  if ((error as any)._code) return (error as any)._code;
+
+  const msg = error.message.toLowerCase();
+  const name = error.name || '';
+
+  if (name === 'TimeoutError' || msg.includes('timeout') || msg.includes('timed out')) {
+    return 'TIMEOUT';
+  }
+  if (name === 'BlockedError' || msg.includes('blocked') || msg.includes('403') || msg.includes('cloudflare')) {
+    return 'BLOCKED';
+  }
+  if (msg.includes('enotfound') || msg.includes('getaddrinfo') || msg.includes('dns resolution failed') || msg.includes('not found')) {
+    return 'DNS_FAILED';
+  }
+  if (msg.includes('invalid url') || msg.includes('invalid hostname') || msg.includes('only http')) {
+    return 'INVALID_URL';
+  }
+
+  return 'FETCH_FAILED';
+}
+
+// ============================================================
+// Envelope builder — unified JSON output schema
+// ============================================================
+
+interface OutputExtra {
+  /** Was this result served from the local cache? */
+  cached?: boolean;
+  /** Structured listings data (from --extract-all) */
+  structured?: Record<string, unknown>[];
+  /** Was content distilled/truncated to fit a budget? */
+  truncated?: boolean;
+  /** Total items available before budget limiting (listings only) */
+  totalAvailable?: number;
+}
+
+/**
+ * Build a unified PeelEnvelope from a PeelResult.
+ *
+ * All existing PeelResult fields are spread first (backward compatibility),
+ * then canonical envelope fields override/extend them.
+ */
+function buildEnvelope(result: PeelResult, extra: OutputExtra): PeelEnvelope & Record<string, unknown> {
+  const envelope: PeelEnvelope & Record<string, unknown> = {
+    // Spread all PeelResult fields for backward compatibility
+    ...(result as unknown as Record<string, unknown>),
+    // Required envelope fields (override PeelResult where they overlap)
+    url: result.url,
+    status: 200,
+    content: result.content,
+    metadata: {
+      title: result.title,
+      ...(result.metadata as Record<string, unknown>),
+    },
+    tokens: result.tokens,
+    cached: extra.cached ?? false,
+    elapsed: result.elapsed,
+  };
+
+  // Optional envelope fields — only include when meaningful
+  if (extra.structured !== undefined) envelope.structured = extra.structured;
+  if (extra.truncated) envelope.truncated = true;
+  if (extra.totalAvailable !== undefined) envelope.totalAvailable = extra.totalAvailable;
+
+  return envelope;
+}
+
+// ============================================================
 // Shared output helper
 // ============================================================
 
-async function outputResult(result: PeelResult, options: any): Promise<void> {
+async function outputResult(result: PeelResult, options: any, extra: OutputExtra = {}): Promise<void> {
   // --links: output only links
   if (options.links) {
     if (options.json) {
@@ -1721,6 +2222,7 @@ async function outputResult(result: PeelResult, options: any): Promise<void> {
       method: result.method,
       elapsed: result.elapsed,
       tokens: result.tokens,
+      cached: extra.cached ?? false,
       ...result.metadata,
     };
     if (options.json) {
@@ -1736,13 +2238,15 @@ async function outputResult(result: PeelResult, options: any): Promise<void> {
       console.log(`Method:      ${meta.method}`);
       console.log(`Elapsed:     ${meta.elapsed}ms`);
       console.log(`Tokens:      ${meta.tokens}`);
+      console.log(`Cached:      ${meta.cached}`);
     }
     return;
   }
 
   // Default: full output
   if (options.json) {
-    await writeStdout(JSON.stringify(result, null, 2) + '\n');
+    const envelope = buildEnvelope(result, extra);
+    await writeStdout(JSON.stringify(envelope, null, 2) + '\n');
   } else {
     await writeStdout(result.content + '\n');
   }
@@ -1755,6 +2259,67 @@ function writeStdout(data: string): Promise<void> {
       else resolve();
     });
   });
+}
+
+/**
+ * Convert an array of listing items to CSV.
+ */
+function formatListingsCsv(items: Array<Record<string, string | undefined>>): string {
+  if (items.length === 0) return '';
+
+  // Collect all keys
+  const keySet = new Set<string>();
+  for (const item of items) {
+    for (const key of Object.keys(item)) {
+      if (item[key] !== undefined) keySet.add(key);
+    }
+  }
+  const keys = Array.from(keySet);
+
+  const escapeCsv = (s: string | undefined): string => {
+    if (s === undefined || s === null) return '""';
+    const str = String(s);
+    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return '"' + str + '"';
+  };
+
+  const lines: string[] = [keys.join(',')];
+  for (const item of items) {
+    lines.push(keys.map(k => escapeCsv(item[k])).join(','));
+  }
+  return lines.join('\n') + '\n';
+}
+
+/**
+ * Normalise the result of --extract (which may be a flat object or contain
+ * arrays) into an array of row objects suitable for CSV / table rendering.
+ */
+function normaliseExtractedToRows(extracted: Record<string, any>): Array<Record<string, string | undefined>> {
+  // If every value is an array of the same length, zip them into rows
+  const values = Object.values(extracted);
+  const allArrays = values.length > 0 && values.every(v => Array.isArray(v));
+  if (allArrays) {
+    const length = (values[0] as any[]).length;
+    const rows: Array<Record<string, string | undefined>> = [];
+    for (let i = 0; i < length; i++) {
+      const row: Record<string, string | undefined> = {};
+      for (const key of Object.keys(extracted)) {
+        const val = (extracted[key] as any[])[i];
+        row[key] = val != null ? String(val) : undefined;
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  // Otherwise treat as a single row
+  const row: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(extracted)) {
+    row[k] = v != null ? String(v) : undefined;
+  }
+  return [row];
 }
 
 // Helper function to extract colors from content
