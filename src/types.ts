@@ -127,6 +127,13 @@ export interface PeelOptions {
     /** Language preferences (e.g., ['en-US', 'de']) */
     languages?: string[];
   };
+  /**
+   * Smart token budget — intelligently distill content to fit within N tokens.
+   * Uses heuristic compression (not LLM): strips boilerplate, compresses tables,
+   * removes low-density paragraphs. No API key required.
+   * Different from maxTokens (simple truncation) — this is smart compression.
+   */
+  budget?: number;
 }
 
 export interface ImageInfo {
@@ -200,6 +207,51 @@ export interface PageMetadata {
   pages?: number;
   /** Allow additional document-specific metadata */
   [key: string]: any;
+}
+
+/**
+ * Unified response envelope for JSON CLI output (--json flag).
+ *
+ * All JSON output paths use this schema regardless of which flags are
+ * combined (--extract-all, --extract, --meta, etc.).  Existing PeelResult
+ * fields are always preserved for backward compatibility — the envelope
+ * adds a consistent set of required fields on top.
+ */
+export interface PeelEnvelope {
+  /** Final URL (after redirects) */
+  url: string;
+  /** HTTP status code — always 200 for successful fetches */
+  status: number;
+  /** Page content in markdown/text format */
+  content: string;
+  /**
+   * Structured data extracted by --extract-all or --extract.
+   * Present only when extraction was requested.
+   */
+  structured?: Record<string, unknown>[];
+  /** Page metadata (title, description, author, OG tags, etc.) */
+  metadata: {
+    title?: string;
+    description?: string;
+    author?: string;
+    [key: string]: unknown;
+  };
+  /** Estimated token count of content (rough: content.length / 4) */
+  tokens: number;
+  /** Whether this result was served from the local cache */
+  cached: boolean;
+  /** Total time elapsed in milliseconds */
+  elapsed: number;
+  /**
+   * True when --budget was applied and content was distilled to fit.
+   * For listings: true when fewer items are returned than available.
+   */
+  truncated?: boolean;
+  /**
+   * Total items available before budget limiting (for listings only).
+   * Present only when truncated=true and using --extract-all.
+   */
+  totalAvailable?: number;
 }
 
 export class WebPeelError extends Error {
