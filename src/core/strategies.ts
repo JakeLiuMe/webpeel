@@ -186,6 +186,11 @@ export interface StrategyOptions {
   profileDir?: string;
   /** Launch browser in headed (visible) mode — useful for debugging and profile setup. */
   headed?: boolean;
+  /**
+   * Playwright storage state (cookies + localStorage) to inject into the browser context.
+   * Loaded from a named profile by the CLI profile system.
+   */
+  storageState?: any;
 }
 
 /* ---------- browser-level fetch helper ---------------------------------- */
@@ -204,6 +209,7 @@ interface BrowserStrategyOptions {
   signal?: AbortSignal;
   profileDir?: string;
   headed?: boolean;
+  storageState?: any;
 }
 
 async function fetchWithBrowserStrategy(
@@ -224,6 +230,7 @@ async function fetchWithBrowserStrategy(
     signal,
     profileDir,
     headed,
+    storageState,
   } = options;
 
   try {
@@ -241,6 +248,7 @@ async function fetchWithBrowserStrategy(
       signal,
       profileDir,
       headed,
+      storageState,
     });
 
     return {
@@ -266,6 +274,7 @@ async function fetchWithBrowserStrategy(
         signal,
         profileDir,
         headed,
+        storageState,
       });
       return { ...result, method: 'stealth' };
     }
@@ -325,6 +334,7 @@ export async function smartFetch(
     raceTimeoutMs = 2000,
     profileDir,
     headed = false,
+    storageState,
   } = options;
 
   const hooks = getStrategyHooks();
@@ -407,6 +417,11 @@ export async function smartFetch(
     effectiveForceBrowser = true;
   }
 
+  // storageState injection requires a browser context
+  if (storageState) {
+    effectiveForceBrowser = true;
+  }
+
   const browserOptions: BrowserStrategyOptions = {
     userAgent,
     waitMs,
@@ -420,6 +435,7 @@ export async function smartFetch(
     effectiveStealth,
     profileDir,
     headed,
+    storageState,
   };
 
   /* ---- Strategy: simple fetch (with optional race) --------------------- */

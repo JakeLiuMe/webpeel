@@ -1,0 +1,15 @@
+{
+  "name": "Walmart Product Search",
+  "version": "1.0",
+  "domains": ["walmart.com", "www.walmart.com"],
+  "urlPatterns": ["/search"],
+  "baseSelector": "[data-testid='list-view'] > div, [data-item-id]",
+  "fields": [
+    {"name": "title", "selector": "a[link-identifier] span, [data-automation-id='product-title']", "type": "text"},
+    {"name": "price", "selector": "[data-automation-id='product-price'] .f2, [itemprop='price']", "type": "text"},
+    {"name": "rating", "selector": "[data-testid='product-ratings'] .w_iUH7, .stars-reviews-count", "type": "text"},
+    {"name": "link", "selector": "a[link-identifier], a[href*='/ip/']", "type": "attribute", "attribute": "href"},
+    {"name": "image", "selector": "img[data-testid='productTileImage'], img[loading]", "type": "attribute", "attribute": "src"},
+    {"name": "seller", "selector": "[data-automation-id='fulfillment-badge']", "type": "text"}
+  ]
+}

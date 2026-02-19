@@ -1,0 +1,16 @@
+{
+  "name": "eBay Search Results",
+  "version": "1.0",
+  "domains": ["ebay.com", "www.ebay.com"],
+  "urlPatterns": ["/sch/"],
+  "baseSelector": ".s-item, [data-viewport]",
+  "fields": [
+    {"name": "title", "selector": ".s-item__title span, .s-item__title", "type": "text"},
+    {"name": "price", "selector": ".s-item__price", "type": "text"},
+    {"name": "link", "selector": ".s-item__link, a.s-item__link", "type": "attribute", "attribute": "href"},
+    {"name": "image", "selector": ".s-item__image-wrapper img, .s-item__image img", "type": "attribute", "attribute": "src"},
+    {"name": "condition", "selector": ".SECONDARY_INFO", "type": "text"},
+    {"name": "shipping", "selector": ".s-item__shipping, .s-item__freeXDays", "type": "text"},
+    {"name": "seller", "selector": ".s-item__seller-info-text", "type": "text"}
+  ]
+}

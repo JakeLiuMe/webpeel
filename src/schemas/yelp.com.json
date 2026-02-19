@@ -1,0 +1,16 @@
+{
+  "name": "Yelp Business Search",
+  "version": "1.0",
+  "domains": ["yelp.com", "www.yelp.com"],
+  "urlPatterns": ["/search"],
+  "baseSelector": "[data-testid='serp-ia-card'], li.border-color--default",
+  "fields": [
+    {"name": "title", "selector": "a[href*='/biz/'] span, h3 a span", "type": "text"},
+    {"name": "rating", "selector": "[aria-label*='star rating'], .i-stars", "type": "attribute", "attribute": "aria-label"},
+    {"name": "reviewCount", "selector": ".reviewCount, span[class*='css-']", "type": "text"},
+    {"name": "price", "selector": ".priceRange, span.priceRange", "type": "text"},
+    {"name": "category", "selector": ".priceCategory span, p[class*='css-'] a", "type": "text"},
+    {"name": "link", "selector": "a[href*='/biz/']", "type": "attribute", "attribute": "href"},
+    {"name": "address", "selector": "address, span[class*='css-']", "type": "text"}
+  ]
+}

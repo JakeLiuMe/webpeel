@@ -149,6 +149,12 @@ export interface PeelOptions {
    */
   headed?: boolean;
   /**
+   * Playwright storage state (cookies + localStorage) to inject into the browser context.
+   * Loaded from a named profile's `storage-state.json` by the CLI profile system.
+   * More reliable than `--user-data-dir` for session injection.
+   */
+  storageState?: any;
+  /**
    * Enable agent-friendly defaults:
    * - budget: 4000 tokens (unless already set)
    * - format: 'markdown' (unless already set)

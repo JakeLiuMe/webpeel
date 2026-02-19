@@ -16,7 +16,8 @@
 
 import { Command } from 'commander';
 import ora from 'ora';
-import { writeFileSync, readFileSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { getProfilePath, loadStorageState, touchProfile, listProfiles, deleteProfile, createProfile } from './core/profiles.js';
 import { peel, peelBatch, cleanup } from './index.js';
 import type { PeelOptions, PeelResult, PeelEnvelope, PageAction } from './types.js';
 import { checkUsage, showUsageFooter, handleLogin, handleLogout, handleUsage, loadConfig, saveConfig } from './cli-auth.js';
@@ -162,14 +163,18 @@ program
   .option('--raw', 'Return full page without smart content extraction')
   .option('--action <actions...>', 'Page actions before scraping (e.g., "click:.btn" "wait:2000" "scroll:bottom")')
   .option('--extract <json>', 'Extract structured data using CSS selectors (JSON object of field:selector pairs)')
-  .option('--llm-extract <prompt>', 'AI-powered extraction using LLM (requires OPENAI_API_KEY env var)')
+  .option('--llm-extract [instruction]', 'Extract structured data using LLM (optional instruction, e.g. "extract hotel names and prices")')
   .option('--llm-key <key>', 'LLM API key for AI features (or use OPENAI_API_KEY env var)')
+  .option('--llm-model <model>', 'LLM model to use (default: gpt-4o-mini)')
+  .option('--llm-base-url <url>', 'LLM API base URL (default: https://api.openai.com/v1)')
   .option('--summary', 'Generate AI summary of content (requires --llm-key or OPENAI_API_KEY)')
   .option('--location <country>', 'ISO country code for geo-targeting (e.g., "US", "DE", "JP")')
   .option('--language <lang>', 'Language preference (e.g., "en", "de", "ja")')
   .option('--max-tokens <n>', 'Maximum token count for output (truncate if exceeded)', parseInt)
   .option('--budget <n>', 'Smart token budget — distill content to fit within N tokens (heuristic, no LLM key needed)', parseInt)
   .option('--extract-all', 'Auto-detect and extract repeated listing items (e.g., search results)')
+  .option('--schema <name>', 'Force a specific extraction schema by name or domain (e.g., "booking.com", "amazon")')
+  .option('--list-schemas', 'List all available extraction schemas and their supported domains')
   .option('--scroll-extract [count]', 'Scroll page N times to load lazy content, then extract (implies --render)', (v: string) => parseInt(v, 10))
   .option('--csv', 'Output extraction results as CSV')
   .option('--table', 'Output extraction results as a formatted table')
@@ -187,6 +192,31 @@ program
     }
 
     const isJson = options.json;
+
+    // --- --list-schemas: print all available schemas and exit ---
+    if (options.listSchemas) {
+      const { loadBundledSchemas } = await import('./core/schema-extraction.js');
+      const schemas = loadBundledSchemas();
+      if (isJson) {
+        await writeStdout(JSON.stringify(schemas.map(s => ({
+          name: s.name,
+          version: s.version,
+          domains: s.domains,
+          urlPatterns: s.urlPatterns,
+        })), null, 2) + '\n');
+      } else {
+        console.log(`\nAvailable extraction schemas (${schemas.length}):\n`);
+        for (const s of schemas) {
+          console.log(`  ${s.name} (v${s.version})`);
+          console.log(`    Domains: ${s.domains.join(', ')}`);
+          if (s.urlPatterns && s.urlPatterns.length > 0) {
+            console.log(`    URL patterns: ${s.urlPatterns.join(', ')}`);
+          }
+          console.log('');
+        }
+      }
+      process.exit(0);
+    }
 
     // --- #5: Concise error for missing URL (no help dump) ---
     if (!url || url.trim() === '') {
@@ -278,6 +308,33 @@ program
           (cachedResult as any).content = distillToBudget(cachedResult.content, options.budget, fmt);
           (cachedResult as any).tokens = Math.ceil(cachedResult.content.length / 4);
         }
+        // LLM extraction from cached content
+        if (options.llmExtract) {
+          const { extractWithLLM } = await import('./core/llm-extract.js');
+          const llmCfgCached = loadConfig();
+          const llmApiKeyCached = options.llmKey || llmCfgCached.llm?.apiKey || process.env.OPENAI_API_KEY;
+          if (!llmApiKeyCached) {
+            console.error('Error: LLM extraction requires an API key.\nSet OPENAI_API_KEY environment variable or use --llm-key <key>');
+            process.exit(1);
+          }
+          const llmModelCached = options.llmModel || llmCfgCached.llm?.model || process.env.WEBPEEL_LLM_MODEL || 'gpt-4o-mini';
+          const llmBaseUrlCached = options.llmBaseUrl || llmCfgCached.llm?.baseUrl || process.env.WEBPEEL_LLM_BASE_URL || 'https://api.openai.com/v1';
+          const llmInstructionCached = typeof options.llmExtract === 'string' ? options.llmExtract : undefined;
+          const llmResultCached = await extractWithLLM({
+            content: cachedResult.content,
+            instruction: llmInstructionCached,
+            apiKey: llmApiKeyCached,
+            model: llmModelCached,
+            baseUrl: llmBaseUrlCached,
+          });
+          await writeStdout(JSON.stringify(llmResultCached.items, null, 2) + '\n');
+          if (!options.silent) {
+            const { input, output } = llmResultCached.tokensUsed;
+            const costStr = llmResultCached.cost !== undefined ? ` | Est. cost: $${llmResultCached.cost.toFixed(6)}` : '';
+            console.error(`\n🤖 LLM extraction: ${llmResultCached.items.length} items | ${input} input + ${output} output tokens${costStr} | model: ${llmResultCached.model}`);
+          }
+          process.exit(0);
+        }
         await outputResult(cachedResult as PeelResult, options, { cached: true });
         process.exit(0);
       }
@@ -319,16 +376,17 @@ program
       // Parse extract
       let extract: any;
       if (options.llmExtract) {
-        // LLM-based extraction
-        extract = {
-          prompt: options.llmExtract,
-          llmApiKey: process.env.OPENAI_API_KEY,
-          llmModel: process.env.WEBPEEL_LLM_MODEL || 'gpt-4o-mini',
-          llmBaseUrl: process.env.WEBPEEL_LLM_BASE_URL || 'https://api.openai.com/v1',
-        };
-        if (!extract.llmApiKey) {
-          throw Object.assign(new Error('--llm-extract requires OPENAI_API_KEY environment variable'), { _code: 'FETCH_FAILED' });
+        // LLM-based extraction is handled post-fetch (after peel returns markdown).
+        // Early-validate that an API key is available so we fail fast.
+        const llmCfg = loadConfig();
+        const llmApiKey = options.llmKey || llmCfg.llm?.apiKey || process.env.OPENAI_API_KEY;
+        if (!llmApiKey) {
+          throw Object.assign(new Error(
+            'LLM extraction requires an API key.\n' +
+            'Set OPENAI_API_KEY environment variable or use --llm-key <key>'
+          ), { _code: 'FETCH_FAILED' });
         }
+        // Do NOT set extract here — peel runs normally, LLM extraction happens below.
       } else if (options.extract) {
         // CSS-based extraction
         try {
@@ -368,6 +426,29 @@ program
         }
         if (options.language) {
           locationOptions.languages = [options.language];
+        }
+      }
+
+      // ── Resolve --profile: name → path + storage state ─────────────────
+      let resolvedProfileDir: string | undefined;
+      let resolvedStorageState: any | undefined;
+      let resolvedProfileName: string | undefined;
+
+      if (options.profile) {
+        const profilePath = getProfilePath(options.profile);
+        if (profilePath) {
+          // It's a named profile in ~/.webpeel/profiles/
+          resolvedProfileDir = profilePath;
+          resolvedStorageState = loadStorageState(options.profile) ?? undefined;
+          resolvedProfileName = options.profile;
+        } else if (existsSync(options.profile)) {
+          // It's a raw directory path (backward compat)
+          resolvedProfileDir = options.profile;
+        } else {
+          exitWithJsonError(
+            `Profile "${options.profile}" not found. Run "webpeel profile list" to see available profiles.`,
+            'PROFILE_NOT_FOUND',
+          );
         }
       }
 
@@ -412,8 +493,9 @@ program
         extract,
         images: options.images || false,
         location: locationOptions,
-        profileDir: options.profile || undefined,
+        profileDir: resolvedProfileDir,
         headed: options.headed || false,
+        storageState: resolvedStorageState,
       };
 
       // Add summary option if requested
@@ -441,6 +523,11 @@ program
 
       // Fetch the page
       const result = await peel(url, peelOptions);
+
+      // Update lastUsed timestamp for named profiles
+      if (resolvedProfileName) {
+        touchProfile(resolvedProfileName);
+      }
 
       if (spinner) {
         spinner.succeed(`Fetched in ${result.elapsed}ms using ${result.method} method`);
@@ -509,6 +596,40 @@ program
         }
       }
 
+      // --- LLM-based extraction (post-peel) ---
+      if (options.llmExtract) {
+        const { extractWithLLM } = await import('./core/llm-extract.js');
+        const llmCfg = loadConfig();
+        const llmApiKey = options.llmKey || llmCfg.llm?.apiKey || process.env.OPENAI_API_KEY;
+        const llmModel = options.llmModel || llmCfg.llm?.model || process.env.WEBPEEL_LLM_MODEL || 'gpt-4o-mini';
+        const llmBaseUrl = options.llmBaseUrl || llmCfg.llm?.baseUrl || process.env.WEBPEEL_LLM_BASE_URL || 'https://api.openai.com/v1';
+
+        const llmInstruction = typeof options.llmExtract === 'string' ? options.llmExtract : undefined;
+
+        const llmResult = await extractWithLLM({
+          content: result.content,
+          instruction: llmInstruction,
+          apiKey: llmApiKey,
+          model: llmModel,
+          baseUrl: llmBaseUrl,
+        });
+
+        // Output structured items as JSON
+        await writeStdout(JSON.stringify(llmResult.items, null, 2) + '\n');
+
+        // Show token usage and estimated cost
+        if (!options.silent) {
+          const { input, output } = llmResult.tokensUsed;
+          const costStr = llmResult.cost !== undefined
+            ? ` | Est. cost: $${llmResult.cost.toFixed(6)}`
+            : '';
+          console.error(`\n🤖 LLM extraction: ${llmResult.items.length} items | ${input} input + ${output} output tokens${costStr} | model: ${llmResult.model}`);
+        }
+
+        await cleanup();
+        process.exit(0);
+      }
+
       // --- Extract-all / pagination / output formatting ---
       const wantsExtractAll = options.extractAll || options.scrollExtract !== undefined;
       const pagesCount = Math.min(Math.max(options.pages || 1, 1), 10);
@@ -516,6 +637,25 @@ program
       if (wantsExtractAll) {
         const { extractListings } = await import('./core/extract-listings.js');
         const { findNextPageUrl } = await import('./core/paginate.js');
+        const { findSchemaForUrl, extractWithSchema, loadBundledSchemas } = await import('./core/schema-extraction.js');
+
+        // Resolve which schema to use (explicit --schema flag or auto-detect)
+        let activeSchema = null;
+        if (options.schema) {
+          // Find schema by name or domain match
+          const schemaQuery = options.schema.toLowerCase();
+          const allSchemas = loadBundledSchemas();
+          activeSchema = allSchemas.find(s =>
+            s.name.toLowerCase().includes(schemaQuery) ||
+            s.domains.some(d => d.toLowerCase().includes(schemaQuery))
+          ) ?? null;
+          if (!activeSchema && !options.silent) {
+            console.error(`Warning: No schema found for "${options.schema}", falling back to auto-detection`);
+          }
+        } else {
+          // Auto-detect from URL
+          activeSchema = findSchemaForUrl(result.url || url);
+        }
 
         // We need the raw HTML for extraction. Re-fetch with format=html if needed.
         let allListings: import('./core/extract-listings.js').ListingItem[] = [];
@@ -525,7 +665,18 @@ program
           ? result
           : await peel(url, { ...peelOptions, format: 'html', maxTokens: undefined });
 
-        allListings.push(...extractListings(htmlResult.content, result.url));
+        // Try schema extraction first, fall back to generic
+        if (activeSchema) {
+          const schemaListings = extractWithSchema(htmlResult.content, activeSchema, result.url);
+          if (schemaListings.length > 0) {
+            allListings.push(...(schemaListings as import('./core/extract-listings.js').ListingItem[]));
+          } else {
+            // Schema returned nothing — fall back to generic
+            allListings.push(...extractListings(htmlResult.content, result.url));
+          }
+        } else {
+          allListings.push(...extractListings(htmlResult.content, result.url));
+        }
 
         // Pagination: follow "Next" links
         if (pagesCount > 1) {
@@ -536,7 +687,15 @@ program
             if (!nextUrl) break;
             try {
               const nextResult = await peel(nextUrl, { ...peelOptions, format: 'html', maxTokens: undefined });
-              const pageListings = extractListings(nextResult.content, nextResult.url);
+              let pageListings: import('./core/extract-listings.js').ListingItem[];
+              if (activeSchema) {
+                const schemaPage = extractWithSchema(nextResult.content, activeSchema, nextResult.url);
+                pageListings = schemaPage.length > 0
+                  ? (schemaPage as import('./core/extract-listings.js').ListingItem[])
+                  : extractListings(nextResult.content, nextResult.url);
+              } else {
+                pageListings = extractListings(nextResult.content, nextResult.url);
+              }
               allListings.push(...pageListings);
               currentHtml = nextResult.content;
               currentUrl = nextResult.url;
@@ -1465,16 +1624,45 @@ program
     const config = loadConfig();
 
     // Settable config keys (safe for user modification)
+    // Supports dot-notation for nested keys (e.g., llm.apiKey)
     const SETTABLE_KEYS: Record<string, string> = {
       braveApiKey: 'Brave Search API key',
+      'llm.apiKey': 'LLM API key for AI-powered extraction (OpenAI-compatible)',
+      'llm.model': 'LLM model name (default: gpt-4o-mini)',
+      'llm.baseUrl': 'LLM API base URL (default: https://api.openai.com/v1)',
     };
 
     const maskSecret = (k: string, v: string | undefined): string => {
       if (!v) return '(not set)';
-      if (k === 'apiKey' || k === 'braveApiKey') return v.slice(0, 4) + '...' + v.slice(-4);
+      if (k === 'apiKey' || k === 'braveApiKey' || k === 'llm.apiKey') {
+        return v.slice(0, 4) + '...' + v.slice(-4);
+      }
       return String(v);
     };
-    
+
+    /** Get a potentially nested value using dot-notation (e.g., "llm.apiKey") */
+    function getNestedValue(obj: any, path: string): any {
+      const parts = path.split('.');
+      let cur = obj;
+      for (const part of parts) {
+        if (cur == null || typeof cur !== 'object') return undefined;
+        cur = cur[part];
+      }
+      return cur;
+    }
+
+    /** Set a potentially nested value using dot-notation (e.g., "llm.apiKey") */
+    function setNestedValue(obj: any, path: string, val: string): void {
+      const parts = path.split('.');
+      let cur = obj;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i]!;
+        if (cur[part] == null || typeof cur[part] !== 'object') cur[part] = {};
+        cur = cur[part];
+      }
+      cur[parts[parts.length - 1]!] = val;
+    }
+
     if (!action || action === 'list') {
       // Show all config (also triggered by `webpeel config list`)
       console.log('WebPeel CLI Configuration');
@@ -1484,6 +1672,11 @@ program
       console.log(`  braveApiKey:    ${maskSecret('braveApiKey', config.braveApiKey)}`);
       console.log(`  planTier:       ${config.planTier || 'free'}`);
       console.log(`  anonymousUsage: ${config.anonymousUsage}`);
+      console.log('');
+      console.log('  LLM:');
+      console.log(`    llm.apiKey:   ${maskSecret('llm.apiKey', config.llm?.apiKey)}`);
+      console.log(`    llm.model:    ${config.llm?.model || '(not set, default: gpt-4o-mini)'}`);
+      console.log(`    llm.baseUrl:  ${config.llm?.baseUrl || '(not set, default: https://api.openai.com/v1)'}`);
       const stats = cacheStats();
       console.log('');
       console.log('  Cache:');
@@ -1513,7 +1706,7 @@ program
         process.exit(1);
       }
 
-      (config as any)[key] = value;
+      setNestedValue(config, key, value);
       saveConfig(config);
       console.log(`✓ ${key} saved`);
       process.exit(0);
@@ -1521,7 +1714,7 @@ program
 
     if (action === 'get') {
       const lookupKey = key || '';
-      const val = (config as any)[lookupKey];
+      const val = getNestedValue(config, lookupKey) ?? (config as any)[lookupKey];
       if (val !== undefined) {
         console.log(maskSecret(lookupKey, String(val)));
       } else {
@@ -1532,7 +1725,7 @@ program
     }
 
     // Legacy: `webpeel config <key>` — treat action as the key name
-    const val = (config as any)[action];
+    const val = getNestedValue(config, action) ?? (config as any)[action];
     if (val !== undefined) {
       console.log(maskSecret(action, String(val)));
     } else {
@@ -2866,6 +3059,118 @@ applyCmd
       process.exit(0);
     } catch (error) {
       console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      process.exit(1);
+    }
+  });
+
+// ============================================================
+// Profile management commands
+// ============================================================
+
+const profileCmd = program
+  .command('profile')
+  .description('Manage named browser profiles (saved login sessions)');
+
+profileCmd
+  .command('create <name>')
+  .description('Create a new profile interactively (launches browser, log in, press Ctrl+C when done)')
+  .option('--description <text>', 'Optional description for this profile')
+  .action(async (name: string, opts) => {
+    try {
+      await createProfile(name, opts.description);
+      process.exit(0);
+    } catch (error) {
+      console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command('list')
+  .description('List all saved browser profiles')
+  .action(() => {
+    const profiles = listProfiles();
+    if (profiles.length === 0) {
+      console.log('No profiles found.');
+      console.log('');
+      console.log('Create one with:');
+      console.log('  webpeel profile create <name>');
+      console.log('');
+      console.log('Then use it with:');
+      console.log('  webpeel <url> --profile <name>');
+      process.exit(0);
+    }
+
+    console.log('');
+    console.log('Saved profiles:');
+    console.log('');
+
+    // Column widths
+    const nameW = Math.max(8, ...profiles.map((p) => p.name.length));
+    const domainsW = Math.max(10, ...profiles.map((p) => (p.domains.join(', ') || '(none)').length));
+
+    const header =
+      'Name'.padEnd(nameW) + '  ' +
+      'Domains'.padEnd(domainsW) + '  ' +
+      'Last Used'.padEnd(12) + '  ' +
+      'Created';
+    console.log(header);
+    console.log('─'.repeat(header.length + 4));
+
+    for (const p of profiles) {
+      const domainsStr = p.domains.length > 0 ? p.domains.join(', ') : '(none)';
+      const lastUsed = formatRelativeTime(new Date(p.lastUsed));
+      const created = new Date(p.created).toISOString().split('T')[0];
+      console.log(
+        p.name.padEnd(nameW) + '  ' +
+        domainsStr.padEnd(domainsW) + '  ' +
+        lastUsed.padEnd(12) + '  ' +
+        created,
+      );
+    }
+    console.log('');
+    process.exit(0);
+  });
+
+profileCmd
+  .command('show <name>')
+  .description('Show details for a profile')
+  .action((name: string) => {
+    const profilePath = getProfilePath(name);
+    if (!profilePath) {
+      console.error(`Error: Profile "${name}" not found.`);
+      console.error('Run "webpeel profile list" to see available profiles.');
+      process.exit(1);
+    }
+
+    try {
+      const meta = JSON.parse(readFileSync(`${profilePath}/metadata.json`, 'utf-8'));
+      console.log('');
+      console.log(`Profile: ${meta.name}`);
+      if (meta.description) console.log(`Description: ${meta.description}`);
+      console.log(`Created:     ${new Date(meta.created).toLocaleString()}`);
+      console.log(`Last used:   ${new Date(meta.lastUsed).toLocaleString()}`);
+      console.log(`Domains:     ${meta.domains.length > 0 ? meta.domains.join(', ') : '(none)'}`);
+      console.log(`Directory:   ${profilePath}`);
+      console.log('');
+      process.exit(0);
+    } catch (e) {
+      console.error(`Error reading profile: ${e instanceof Error ? e.message : String(e)}`);
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command('delete <name>')
+  .description('Delete a saved profile')
+  .action((name: string) => {
+    const deleted = deleteProfile(name);
+    if (deleted) {
+      console.log(`Profile "${name}" deleted.`);
+      process.exit(0);
+    } else {
+      console.error(`Error: Profile "${name}" not found.`);
+      console.error('Run "webpeel profile list" to see available profiles.');
       process.exit(1);
     }
   });

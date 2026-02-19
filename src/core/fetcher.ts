@@ -951,6 +951,12 @@ export async function browserFetch(
     profileDir?: string;
     /** Launch browser in headed (visible) mode. Only meaningful with profileDir or for debugging. */
     headed?: boolean;
+    /**
+     * Playwright storage state (cookies + localStorage) to inject into the browser context.
+     * When provided, a new BrowserContext is created with this state, which is more reliable
+     * than --user-data-dir for session injection.
+     */
+    storageState?: any;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -970,6 +976,7 @@ export async function browserFetch(
     signal,
     profileDir,
     headed = false,
+    storageState,
   } = options;
 
   // Validate user agent if provided
@@ -1017,6 +1024,8 @@ export async function browserFetch(
   let abortHandler: (() => void) | undefined;
   // Declared here (outside try) so the finally block can reference it
   const usingProfileBrowser = !!profileDir;
+  // Owned context created when storageState injection is requested
+  let ownedContext: import('playwright').BrowserContext | undefined;
 
   try {
     const browser = usingProfileBrowser
@@ -1025,8 +1034,8 @@ export async function browserFetch(
         ? await getStealthBrowser()
         : await getBrowser();
 
-    // Only use the shared page pool for non-stealth, non-profile, non-keepOpen fetches
-    const shouldUsePagePool = !stealth && !userAgent && !keepPageOpen && !usingProfileBrowser;
+    // Only use the shared page pool for non-stealth, non-profile, non-keepOpen, non-storageState fetches
+    const shouldUsePagePool = !stealth && !userAgent && !keepPageOpen && !usingProfileBrowser && !storageState;
     if (shouldUsePagePool) {
       page = takePooledPage();
       usingPooledPage = !!page;
@@ -1050,7 +1059,13 @@ export async function browserFetch(
           : {}),
       };
 
-      page = await browser.newPage(pageOptions);
+      if (storageState) {
+        // Create an isolated context with the injected storage state (cookies + localStorage)
+        ownedContext = await browser.newContext({ ...pageOptions, storageState });
+        page = await ownedContext.newPage();
+      } else {
+        page = await browser.newPage(pageOptions);
+      }
       usingPooledPage = false;
     } else {
       await page.setViewportSize({ width: 1280, height: 720 }).catch(() => {});
@@ -1320,6 +1335,9 @@ export async function browserFetch(
     if (page && !keepPageOpen) {
       if (usingPooledPage) {
         await recyclePooledPage(page);
+      } else if (ownedContext) {
+        // Close the owned context (also closes the page)
+        await ownedContext.close().catch(() => {});
       } else if (!usingProfileBrowser) {
         // Profile browser pages are NOT closed — the profile browser stays alive
         // so that the next fetch in the same process reuses the session.
