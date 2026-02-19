@@ -7,6 +7,7 @@
 import { createHash } from 'crypto';
 import { smartFetch } from './core/strategies.js';
 import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget, filterByTags } from './core/markdown.js';
+import { pruneContent } from './core/content-pruner.js';
 import { distillToBudget } from './core/budget.js';
 import { extractMetadata, extractLinks, extractImages } from './core/metadata.js';
 import { cleanup, warmup, closePool, scrollAndWait, closeProfileBrowser } from './core/fetcher.js';
@@ -143,6 +144,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     headed = false,
     storageState,
     proxy,
+    fullPage = false,
   } = options;
   void _stream;
 
@@ -211,6 +213,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     let metadata: any = {};
     let links: string[] = [];
     let quality = 0;
+    let prunedPercent: number | undefined;
     
     if (isDocument && hasBuffer) {
       // Document parsing pipeline (PDF/DOCX)
@@ -261,6 +264,17 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
         };
       });
 
+      // Content density pruning — runs on HTML before markdown conversion.
+      // Removes low-value blocks (sidebars, footers, ads) CSS selectors miss.
+      // OFF when fullPage=true or format !== markdown.
+      if (format === 'markdown' && !fullPage) {
+        const pruned = pruneContent(contentHtml, { dynamic: true });
+        contentHtml = pruned.html;
+        if (pruned.nodesRemoved > 0) {
+          prunedPercent = pruned.reductionPercent;
+        }
+      }
+
       const contentTask = Promise.resolve().then(() => {
         switch (format) {
           case 'html':
@@ -269,7 +283,8 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
             return htmlToText(contentHtml);
           case 'markdown':
           default:
-            return htmlToMarkdown(contentHtml, { raw });
+            // prune:false — already pruned above; avoid double-pruning in htmlToMarkdown
+            return htmlToMarkdown(contentHtml, { raw, prune: false });
         }
       });
 
@@ -445,6 +460,7 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       changeTracking: changeResult,
       summary: summaryText,
       images: imagesList,
+      ...(prunedPercent !== undefined ? { prunedPercent } : {}),
     };
   } catch (error) {
     // Clean up browser resources on error

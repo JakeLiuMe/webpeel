@@ -154,6 +154,11 @@ program
   .option('--include-tags <tags>', 'Comma-separated HTML tags/selectors to include (e.g., "main,article,.content")')
   .option('--exclude-tags <tags>', 'Comma-separated HTML tags/selectors to exclude (e.g., "nav,footer,aside")')
   .option('--only-main-content', 'Shortcut for --include-tags main,article')
+  .option('--full-content', 'Return full page content (disable automatic content density pruning)')
+  .option('--focus <query>', 'Query-focused filtering — only return content relevant to this query (BM25 ranking)')
+  .option('--chunk <size>', 'Split content into N-token chunks for LLM processing (default strategy: semantic)', parseInt)
+  .option('--chunk-overlap <tokens>', 'Overlap tokens between chunks (default: 200)', parseInt)
+  .option('--chunk-strategy <strategy>', 'Chunking strategy: fixed, semantic (default), paragraph')
   .option('-H, --header <header...>', 'Custom headers (e.g., "Authorization: Bearer token")')
   .option('--cookie <cookie...>', 'Cookies to set (e.g., "session=abc123")')
   .option('--cache <ttl>', 'Cache results locally (e.g., "5m", "1h", "1d") — default: 5m')
@@ -519,6 +524,7 @@ program
         headed: options.headed || false,
         storageState: resolvedStorageState,
         proxy: options.proxy as string | undefined,
+        fullPage: options.fullContent || false,
       };
 
       // Add summary option if requested
@@ -604,6 +610,44 @@ program
           contentTruncated = true;
           (result as any).content = distilled;
           (result as any).tokens = estimateTokens(distilled);
+        }
+      }
+
+      // --- BM25 Query-Focused Filtering ---
+      if (options.focus && result.content) {
+        const { filterByRelevance } = await import('./core/bm25-filter.js');
+        const focusResult = filterByRelevance(result.content, { query: options.focus as string });
+        (result as any).content = focusResult.content;
+        (result as any).tokens = estimateTokens(focusResult.content);
+        if (isJson) {
+          (result as any).focusQuery = options.focus;
+          (result as any).focusReduction = focusResult.reductionPercent;
+        }
+      }
+
+      // --- Smart Chunking ---
+      if (options.chunk && options.chunk > 0 && result.content) {
+        const { chunkContent } = await import('./core/chunking.js');
+        const chunkResult = chunkContent(result.content, {
+          chunkSize: options.chunk,
+          overlap: options.chunkOverlap || 200,
+          strategy: (options.chunkStrategy as 'fixed' | 'semantic' | 'paragraph') || 'semantic',
+        });
+        // Replace content with chunked output
+        if (isJson) {
+          (result as any).chunks = chunkResult.chunks;
+          (result as any).totalChunks = chunkResult.totalChunks;
+          (result as any).originalTokens = chunkResult.originalTokens;
+          // Keep content as first chunk for non-JSON fallback
+          (result as any).content = chunkResult.chunks[0]?.content || '';
+          (result as any).tokens = chunkResult.chunks[0]?.tokens || 0;
+        } else {
+          // Plain text mode: output chunks separated by markers
+          const chunkOutput = chunkResult.chunks.map((c, i) =>
+            `--- Chunk ${i + 1}/${chunkResult.totalChunks} (${c.tokens} tokens) ---\n${c.content}`
+          ).join('\n\n');
+          (result as any).content = chunkOutput;
+          (result as any).tokens = chunkResult.totalTokens;
         }
       }
 

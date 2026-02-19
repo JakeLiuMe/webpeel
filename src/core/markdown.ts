@@ -5,6 +5,7 @@
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import * as cheerio from 'cheerio';
+import { pruneContent } from './content-pruner.js';
 
 const JUNK_SELECTORS = [
   // Scripts, styles, metadata
@@ -337,9 +338,18 @@ const turndownSingleton = (() => {
 /**
  * Convert HTML to clean, readable Markdown
  * @param html - HTML to convert
+ * @param options.raw - Skip main-content heuristics (return full page)
+ * @param options.prune - Apply content density pruning (default: true)
  */
-export function htmlToMarkdown(html: string, _options?: { raw?: boolean }): string {
-  const cleanedHTML = cleanHTML(html);
+export function htmlToMarkdown(html: string, options?: { raw?: boolean; prune?: boolean }): string {
+  let cleanedHTML = cleanHTML(html);
+
+  // Content density pruning — runs AFTER junk selector removal, BEFORE Turndown conversion
+  // Default ON; callers pass prune:false to skip (e.g. --full-content flag)
+  if (options?.prune !== false) {
+    const pruned = pruneContent(cleanedHTML, { dynamic: true });
+    cleanedHTML = pruned.html;
+  }
 
   let markdown = turndownSingleton.turndown(cleanedHTML);
 
