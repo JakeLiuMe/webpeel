@@ -21,6 +21,14 @@ interface JwtPayload {
 }
 
 /**
+ * Refresh token JWT payload
+ */
+interface RefreshTokenPayload {
+  userId: string;
+  jti: string;
+}
+
+/**
  * Validate email format
  */
 function isValidEmail(email: string): boolean {
@@ -85,8 +93,32 @@ export function createOAuthRouter(): Router {
 
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
+    // TLS: enabled when DATABASE_URL contains sslmode=require.
+    // Secure by default (rejectUnauthorized: true); set PG_REJECT_UNAUTHORIZED=false
+    // only for managed DBs (Render/Neon/Supabase) that use self-signed certs.
+    ssl: process.env.DATABASE_URL?.includes('sslmode=require')
+      ? { rejectUnauthorized: process.env.PG_REJECT_UNAUTHORIZED !== 'false' }
+      : undefined,
   });
+
+  /**
+   * Helper: generate a refresh token and store its jti in the database
+   */
+  async function createRefreshToken(userId: string, jwtSecret: string): Promise<string> {
+    const jti = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+    await pool.query(
+      `INSERT INTO refresh_tokens (id, user_id, expires_at) VALUES ($1, $2, $3)`,
+      [jti, userId, expiresAt]
+    );
+
+    return jwt.sign(
+      { userId, jti } as RefreshTokenPayload,
+      jwtSecret,
+      { expiresIn: '30d' }
+    );
+  }
 
   /**
    * POST /v1/auth/oauth
@@ -97,7 +129,9 @@ export function createOAuthRouter(): Router {
     try {
       const { provider, accessToken, name, avatar } = req.body;
 
-      // Rate limiting - use IP + provider to prevent global DoS
+      // Rate limiting — scoped per-IP per-provider (not global) to prevent DoS.
+      // IP extracted from cf-connecting-ip (Cloudflare) > x-forwarded-for (reverse proxy) > req.ip.
+      // Limit: 10 attempts per minute per IP+provider combination.
       const clientIp = (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
       if (!rateLimiter.check(`${clientIp}:${provider || 'unknown'}`)) {
         res.status(429).json({
@@ -299,10 +333,13 @@ export function createOAuthRouter(): Router {
             tier: user.tier,
           } as JwtPayload,
           jwtSecret,
-          { expiresIn: '30d' }
+          { expiresIn: '1h' }
         );
 
         await client.query('COMMIT');
+
+        // Generate refresh token (after commit, uses pool not client)
+        const refreshToken = await createRefreshToken(user.id, jwtSecret);
 
         // Response
         const response: any = {
@@ -314,6 +351,8 @@ export function createOAuthRouter(): Router {
             avatar: user.avatar_url,
           },
           token,
+          refreshToken,
+          expiresIn: 3600,
           isNew,
         };
 

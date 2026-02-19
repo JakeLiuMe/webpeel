@@ -18,6 +18,7 @@ import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types
 import type { PageAction } from '../types.js';
 import { getCached } from './cache.js';
 import { cachedLookup, resolveAndCache, startDnsWarmup } from './dns-cache.js';
+import { detectChallenge } from './challenge-detection.js';
 
 // Add stealth plugin to playwright-extra
 stealthChromium.use(StealthPlugin());
@@ -664,6 +665,19 @@ export async function simpleFetch(
         throw new BlockedError('Cloudflare challenge detected. Try --render for browser mode.');
       }
 
+      // Run full challenge detection for HTML content
+      // Note: skip empty-shell type — in simple HTTP mode, SPA shells are expected and
+      // the caller's escalation logic upgrades to browser/stealth rendering.
+      if (isHtmlContent) {
+        const challengeResult = detectChallenge(html, response.status);
+        if (challengeResult.isChallenge && challengeResult.type !== 'empty-shell') {
+          throw new BlockedError(
+            `Challenge page detected (${challengeResult.type || 'unknown'}, confidence: ${challengeResult.confidence.toFixed(2)}). ` +
+            `Site requires human verification. Try a different approach or use a CAPTCHA solving service.`
+          );
+        }
+      }
+
       return {
         html,
         buffer: isBinaryDoc ? buffer : undefined,
@@ -1237,6 +1251,17 @@ export async function browserFetch(
 
       if (!html || html.length < 100) {
         throw new BlockedError('Empty or suspiciously small response from browser.');
+      }
+
+      // Run challenge detection on browser-fetched HTML (covers both regular and stealth modes)
+      // Note: skip empty-shell type — that's a rendering quality issue (SPA needs more JS time),
+      // not a bot challenge. The caller's escalation logic handles empty-shell separately.
+      const browserChallengeResult = detectChallenge(html, fetchStatusCode);
+      if (browserChallengeResult.isChallenge && browserChallengeResult.type !== 'empty-shell') {
+        throw new BlockedError(
+          `Challenge page detected (${browserChallengeResult.type || 'unknown'}, confidence: ${browserChallengeResult.confidence.toFixed(2)}). ` +
+          `Site requires human verification. Try a different approach or use a CAPTCHA solving service.`
+        );
       }
     }
 

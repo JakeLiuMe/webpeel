@@ -137,40 +137,44 @@ function findListingContainer($: CheerioAPI): Candidate | null {
         continue;
       }
 
-      // Find the dominant signature (most common structure among children)
-      const sigCounts = new Map<string, number>();
-      for (const { sig } of withSig) {
-        sigCounts.set(sig, (sigCounts.get(sig) || 0) + 1);
-      }
-
-      let dominantSig = '';
-      let dominantCount = 0;
-      for (const [sig, count] of sigCounts) {
-        if (count > dominantCount) {
-          dominantSig = sig;
-          dominantCount = count;
+      // Build signature clusters: each distinct (incompatible) signature group
+      // becomes its own candidate. This is critical for table-based layouts like
+      // Hacker News where story rows (td:3) and subtext rows (td:2) are siblings
+      // in the same tbody — we need BOTH as candidates so content scoring can
+      // choose the right one (article titles beat usernames).
+      const sigGroups: Array<{ repr: string; children: AnyNode[] }> = [];
+      for (const { child, sig } of withSig) {
+        let placed = false;
+        for (const group of sigGroups) {
+          if (signaturesAreSimilar(sig, group.repr)) {
+            group.children.push(child);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          sigGroups.push({ repr: sig, children: [child] });
         }
       }
 
-      // Use *similarity* matching: include children whose signature is
-      // "similar enough" to the dominant one (handles optional sub-elements).
-      const matching = withSig
-        .filter(c => signaturesAreSimilar(c.sig, dominantSig))
-        .map(c => c.child);
-
-      // Also include text-only children that have meaningful content
+      // Text-only (no-sig) children with meaningful content go into the largest group
+      const largestGroup = sigGroups.reduce<typeof sigGroups[0] | null>(
+        (best, g) => (!best || g.children.length > best.children.length) ? g : best,
+        null
+      );
       for (const { child } of withoutSig) {
-        if ($(child).text().trim().length > 3) {
-          matching.push(child);
+        if (largestGroup && $(child).text().trim().length > 3) {
+          largestGroup.children.push(child);
         }
       }
 
-      if (matching.length < 3) continue;
-
-      const consistency = matching.length / tagChildren.length;
-      const score = matching.length * consistency;
-
-      candidates.push({ parent: el, tag, children: matching, score });
+      // Generate a candidate for each significant cluster (count >= 3)
+      for (const group of sigGroups) {
+        if (group.children.length < 3) continue;
+        const consistency = group.children.length / tagChildren.length;
+        const score = group.children.length * consistency;
+        candidates.push({ parent: el, tag, children: group.children, score });
+      }
     }
   });
 
@@ -217,6 +221,90 @@ function findListingContainer($: CheerioAPI): Candidate | null {
 const PRICE_RE = /(?:[\$£€¥₹])\s*[\d,]+(?:\.\d{1,2})?|[\d,]+(?:\.\d{1,2})?\s*(?:USD|EUR|GBP|JPY|INR)/i;
 
 /**
+ * Common title prefixes injected by marketplaces (e.g. eBay's "New Listing")
+ * that should be stripped from extracted titles.
+ */
+const TITLE_STRIP_PREFIXES = [
+  /^New\s+Listing\s*/i,
+  /^Sponsored\s*/i,
+  /^Opens\s+in\s+(?:a\s+)?new\s+(?:window|tab)(?:\s+or\s+(?:window|tab))?\s*/i,
+  /^Advertisement\s*/i,
+  /^Ad\s*[-–—:·]\s*/i,
+  /^Promoted\s*[-–—:·]?\s*/i,
+];
+
+/**
+ * Common section-header / junk words that appear as single-word titles in
+ * listing pages (e.g. Amazon's "Results" header, eBay's "Sponsored" label).
+ */
+const HEADER_WORDS = new Set([
+  'results', 'sponsored', 'related', 'advertisement', 'shop', 'browse',
+  'featured', 'popular', 'trending', 'new', 'sale', 'deals', 'more',
+  'filters', 'sort', 'categories', 'departments', 'navigation',
+]);
+
+/**
+ * Return true if a title string looks like a section header or junk rather
+ * than a real listing title.
+ */
+function isHeaderOrJunk(title: string): boolean {
+  if (!title) return true;
+  if (title.length <= 3) return true;
+  // Pure numbers or rank numbers like "10." "21." "100"
+  if (/^\d+\.?$/.test(title)) return true;
+  // Single word that matches a known header term
+  if (!/\s/.test(title) && HEADER_WORDS.has(title.toLowerCase())) return true;
+  return false;
+}
+
+/**
+ * Common title suffixes that appear at the end of listing titles due to
+ * accessibility text embedded in links (e.g. eBay's "Opens in a new window or tab").
+ */
+const TITLE_STRIP_SUFFIXES: RegExp[] = [
+  // "Opens in new window" / "Opens in a new tab" / "Opens in new window or tab" etc.
+  /\s*Opens\s+in\s+(?:a\s+)?new\s+(?:window|tab)(?:\s+or\s+(?:window|tab))?$/i,
+  // Parenthesized variant: "(opens in a new window)"
+  /\s*\(opens\s+(?:in\s+)?(?:a\s+)?new\s+(?:window|tab)\)$/i,
+  // Dash variant: "- New window"
+  /\s*[-–—]\s*New\s+window$/i,
+  /\s*Sponsored$/i,
+];
+
+/**
+ * Clean concatenated title artifacts that appear on travel/hotel aggregators
+ * (e.g. Google Travel where price, source and rating get concatenated into the title).
+ */
+function cleanConcatenatedTitle(title: string): string {
+  let cleaned = title;
+  // Strip price suffixes: "$149 Booking.com...", "$179Hyatt Place...", "£99 Hotels.com...", "$149" at end
+  // Handles both spaced ("$179 Hyatt") and concatenated ("$179Hyatt") from Google Travel etc.
+  cleaned = cleaned.replace(/[\$£€]\d[\d,.]*(?:\s+[A-Z].*|\S+.*)?$/i, '').trim();
+  // Strip rating suffixes: "4.2/5 (1.4K)" or "4.5 out of 5"
+  cleaned = cleaned.replace(/\d+\.?\d*\/5\s*\(.*$/i, '').trim();
+  // Strip star ratings: "· 3-star hotel" or "- 4 star"
+  cleaned = cleaned.replace(/\s*[·\-–]\s*\d+-?star\s.*$/i, '').trim();
+  // Strip source labels that got concatenated: "Expedia.com" at end
+  cleaned = cleaned.replace(/(?:Booking|Expedia|Hotels|Kayak|Trivago|Priceline|Agoda)\.com.*$/i, '').trim();
+  return cleaned || title; // fallback to original if over-stripped
+}
+
+/**
+ * Strip known marketplace prefixes and suffixes from a title string,
+ * then clean up any concatenated artifacts.
+ */
+function stripTitlePrefixes(title: string): string {
+  let t = title;
+  for (const prefix of TITLE_STRIP_PREFIXES) {
+    t = t.replace(prefix, '');
+  }
+  for (const suffix of TITLE_STRIP_SUFFIXES) {
+    t = t.replace(suffix, '');
+  }
+  return cleanConcatenatedTitle(t.trim());
+}
+
+/**
  * Resolve a potentially relative URL against a base URL.
  * Returns the original string if resolution fails.
  */
@@ -238,32 +326,56 @@ function extractItem($: CheerioAPI, el: AnyNode, baseUrl?: string): ListingItem 
   const $el = $(el);
   const item: ListingItem = {};
 
-  // --- Title ---
+  // --- Title + Title-source element (used later for preferred link) ---
   // Priority: heading > [class*="title"]/[class*="name"] text or inner link text > first <a> text
+  let titleSourceEl: ReturnType<typeof $el.find> | null = null;
   const heading = $el.find('h1, h2, h3, h4, h5, h6').first();
   if (heading.length && heading.text().trim().length >= 3) {
-    item.title = heading.text().trim();
+    item.title = stripTitlePrefixes(heading.text().trim());
+    titleSourceEl = heading;
   } else {
     // Iterate ALL title/name class matches (not just .first()) — some sites
     // have multiple elements with "title" in their class (e.g. HN has a rank
     // cell and a title cell both with class="title").
+    // Two-pass approach: first prefer candidates that have an inner link
+    // (avoids picking rank numbers like "10." which appear before the real
+    // title cell in Hacker News rows), then fall back to linkless candidates.
     const titleCandidates = $el.find('[class*="title"], [class*="name"], [class*="Title"], [class*="Name"]');
+    // Pass 1: title-class elements with inner <a> links
     titleCandidates.each((_, tc) => {
-      if (item.title) return; // already found
+      if (item.title) return;
       const $tc = $(tc);
       const innerLink = $tc.find('a').first();
-      const candidateText = (innerLink.length ? innerLink.text() : $tc.text()).trim();
+      if (!innerLink.length) return; // no link — skip in pass 1
+      const candidateText = innerLink.text().trim();
       if (candidateText.length >= 3) {
-        item.title = candidateText;
+        item.title = stripTitlePrefixes(candidateText);
+        titleSourceEl = $tc;
       }
     });
+    // Pass 2: title-class elements without inner links (requires longer text
+    // to avoid picking up rank numbers like "10.")
+    if (!item.title) {
+      titleCandidates.each((_, tc) => {
+        if (item.title) return;
+        const $tc = $(tc);
+        const innerLink = $tc.find('a').first();
+        if (innerLink.length) return; // has link — already handled in pass 1
+        const candidateText = $tc.text().trim();
+        if (candidateText.length >= 8) { // higher threshold for linkless elements
+          item.title = stripTitlePrefixes(candidateText);
+          titleSourceEl = $tc;
+        }
+      });
+    }
     if (!item.title) {
       // Fall back to first <a> with meaningful text
       $el.find('a').each((_, a) => {
         if (item.title) return;
         const text = $(a).text().trim();
         if (text.length >= 3) {
-          item.title = text;
+          item.title = stripTitlePrefixes(text);
+          titleSourceEl = $(a);
         }
       });
     }
@@ -292,11 +404,24 @@ function extractItem($: CheerioAPI, el: AnyNode, baseUrl?: string): ListingItem 
   }
 
   // --- Link ---
-  // Prefer the link associated with the title (inside a title-class element
-  // or heading), falling back to the first <a> in the listing.
-  const titleContainer = $el.find('[class*="title"], [class*="Title"], h1, h2, h3, h4, h5, h6').first();
-  const titleLink = titleContainer.length ? titleContainer.find('a[href]').first() : null;
-  const primaryLink = (titleLink && titleLink.length) ? titleLink : $el.find('a[href]').first();
+  // Prefer the link associated with the title element we found, falling back
+  // to any <a[href]> in the listing. Using titleSourceEl avoids accidentally
+  // picking up vote / action links that appear before the article link in the DOM
+  // (e.g. Hacker News vote arrows before the story title link).
+  let primaryLink: ReturnType<typeof $el.find> | null = null;
+  if (titleSourceEl) {
+    const titleElTag = (titleSourceEl.prop('tagName') as string)?.toLowerCase();
+    if (titleElTag === 'a') {
+      // The title source IS the link itself
+      primaryLink = titleSourceEl;
+    } else {
+      const innerLink = titleSourceEl.find('a[href]').first();
+      if (innerLink.length) primaryLink = innerLink;
+    }
+  }
+  if (!primaryLink || !primaryLink.length) {
+    primaryLink = $el.find('a[href]').first();
+  }
   if (primaryLink && primaryLink.length) {
     item.link = resolveUrl(primaryLink.attr('href'), baseUrl);
   }
@@ -365,8 +490,9 @@ export function extractListings(html: string, url?: string): ListingItem[] {
   const items: ListingItem[] = [];
   for (const child of container.children) {
     const item = extractItem($, child, url);
-    // Filter out empty / too-short titles
+    // Filter out empty / too-short titles and known header/junk words
     if (!item.title || item.title.length < 3) continue;
+    if (isHeaderOrJunk(item.title)) continue;
     items.push(item);
   }
 

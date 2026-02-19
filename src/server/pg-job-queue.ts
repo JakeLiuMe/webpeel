@@ -22,7 +22,12 @@ export class PostgresJobQueue {
 
     this.pool = new Pool({
       connectionString: dbUrl,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
+      // TLS: enabled when DATABASE_URL contains sslmode=require.
+      // Secure by default (rejectUnauthorized: true); set PG_REJECT_UNAUTHORIZED=false
+      // only for managed DBs (Render/Neon/Supabase) that use self-signed certs.
+      ssl: process.env.DATABASE_URL?.includes('sslmode=require')
+        ? { rejectUnauthorized: process.env.PG_REJECT_UNAUTHORIZED !== 'false' }
+        : undefined,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,

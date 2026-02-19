@@ -351,6 +351,61 @@ describe('challenge-detection — Empty shell (SPA)', () => {
   });
 });
 
+// ── Expedia / PerimeterX "Bot or Not?" ───────────────────────────────────────
+
+describe('challenge-detection — Expedia PerimeterX "Bot or Not?"', () => {
+  it('detects Expedia "Bot or Not?" PerimeterX challenge page', () => {
+    const html = `<!DOCTYPE html>
+<html>
+<head><title>Bot or Not?</title></head>
+<body>
+  <h2>Show us your human side...</h2>
+  <p>We can't tell if you're a human or a bot.</p>
+  <p>Please complete the verification below to continue.</p>
+</body>
+</html>`;
+    const result = detectChallenge(html, 200);
+    expect(result.isChallenge).toBe(true);
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('detects PerimeterX "Pardon Our Interruption" page', () => {
+    const html = `<!DOCTYPE html>
+<html>
+<head><title>Pardon Our Interruption</title></head>
+<body>
+  <h1>Pardon Our Interruption</h1>
+  <p>As you were browsing, something about your browser made us think you were a bot.</p>
+  <p>There are a few reasons this might happen:</p>
+  <ul>
+    <li>You're a power user moving through this website with super-human speed.</li>
+    <li>You've disabled JavaScript in your web browser.</li>
+  </ul>
+  <p>Reference ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890</p>
+  <script>
+    window._pxAppId = 'PXabcdef12';
+    window._pxUuid = 'uuid-1234-5678';
+  </script>
+</body>
+</html>`;
+    const result = detectChallenge(html, 403);
+    expect(result.isChallenge).toBe(true);
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+
+  it('detects generic "access denied" block page', () => {
+    const html = makeHtml(
+      'Access Denied',
+      `<h1>Access Denied</h1>
+       <p>Your request has been blocked due to automated traffic detected from your IP.</p>
+       <p>Please verify your identity to continue.</p>`,
+    );
+    const result = detectChallenge(html, 403);
+    expect(result.isChallenge).toBe(true);
+    expect(result.confidence).toBeGreaterThanOrEqual(0.7);
+  });
+});
+
 // ── False positive prevention ─────────────────────────────────────────────────
 
 describe('challenge-detection — False positive prevention', () => {
