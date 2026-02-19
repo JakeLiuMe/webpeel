@@ -3,7 +3,7 @@
  * Extracts colors, fonts, typography, spacing, components, and CSS variables
  */
 
-import type { Page } from 'playwright-core';
+import type { Page } from 'playwright';
 
 // Suppress DOM type errors - evaluate() runs in browser context
 declare const document: any;
