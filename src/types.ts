@@ -172,6 +172,13 @@ export interface PeelOptions {
    * Mirrors the CLI `--agent` flag for programmatic use.
    */
   agentMode?: boolean;
+  /**
+   * Disable content pruning and return the full page content.
+   * By default, WebPeel automatically removes low-value blocks (sidebars,
+   * footers, navigation, ads) using content density scoring.
+   * Set to true to opt out and receive the complete page.
+   */
+  fullPage?: boolean;
 }
 
 export interface ImageInfo {
@@ -224,6 +231,8 @@ export interface PeelResult {
   summary?: string;
   /** Extracted images (when images option is set) */
   images?: ImageInfo[];
+  /** Percentage of HTML pruned by content density scoring (0-100). Only present when pruning was applied. */
+  prunedPercent?: number;
 }
 
 export interface PageMetadata {

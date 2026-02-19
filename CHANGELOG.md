@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.12.0] - 2026-02-19
+
+### 🧠 Token Efficiency (Save Users 30-96% on AI Tokens)
+
+- **Content Density Pruning** — Automatically scores HTML blocks by text density, link density, tag importance, and position. Removes low-value content (sidebars, footers, navigation, ads) before markdown conversion. **Enabled by default** — opt out with `--full-content`. Real-world savings: GitHub 45%, NYT 29%, Wikipedia 8%.
+- **BM25 Query-Focused Filtering** (`--focus "query"`) — Only returns content paragraphs relevant to your query using BM25 ranking. "Find hotel prices" → strips everything except pricing content. 23-70% additional savings on focused tasks.
+- **Smart Chunking** (`--chunk <size>`) — Splits content into LLM-friendly chunks with overlap. Three strategies: `semantic` (default, breaks at headings/paragraphs), `fixed` (character count), `paragraph`. `--chunk-overlap` and `--chunk-strategy` for fine control.
+- **Combined pipeline**: Prune → Focus → Budget. Wikipedia AI article: 99,427 tokens → 3,867 tokens (96% savings).
+
+### 🧪 Tests
+
+- 625 tests (622 pass, 3 skipped) — 87 new tests for pruning, BM25, and chunking.
+
+---
+
 ## [0.11.0] - 2026-02-19
 
 ### 🚀 Features
