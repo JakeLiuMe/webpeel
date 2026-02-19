@@ -141,6 +141,14 @@ export interface StrategyOptions {
     country?: string;
     languages?: string[];
   };
+  /**
+   * Path to a persistent Chrome user-data-dir.
+   * When set, bypasses the shared browser pool so cookies/sessions survive
+   * between fetch calls in the same process.
+   */
+  profileDir?: string;
+  /** Launch browser in headed (visible) mode — useful for debugging and profile setup. */
+  headed?: boolean;
 }
 
 /* ---------- browser-level fetch helper ---------------------------------- */
@@ -157,6 +165,8 @@ interface BrowserStrategyOptions {
   keepPageOpen: boolean;
   effectiveStealth: boolean;
   signal?: AbortSignal;
+  profileDir?: string;
+  headed?: boolean;
 }
 
 async function fetchWithBrowserStrategy(
@@ -175,6 +185,8 @@ async function fetchWithBrowserStrategy(
     keepPageOpen,
     effectiveStealth,
     signal,
+    profileDir,
+    headed,
   } = options;
 
   try {
@@ -190,6 +202,8 @@ async function fetchWithBrowserStrategy(
       actions,
       keepPageOpen,
       signal,
+      profileDir,
+      headed,
     });
 
     return {
@@ -213,6 +227,8 @@ async function fetchWithBrowserStrategy(
         actions,
         keepPageOpen,
         signal,
+        profileDir,
+        headed,
       });
       return { ...result, method: 'stealth' };
     }
@@ -234,6 +250,8 @@ async function fetchWithBrowserStrategy(
         actions,
         keepPageOpen,
         signal,
+        profileDir,
+        headed,
       });
       return { ...result, method: effectiveStealth ? 'stealth' : 'browser' };
     }
@@ -268,6 +286,8 @@ export async function smartFetch(
     keepPageOpen = false,
     noCache = false,
     raceTimeoutMs = 2000,
+    profileDir,
+    headed = false,
   } = options;
 
   const hooks = getStrategyHooks();
@@ -345,6 +365,11 @@ export async function smartFetch(
   let shouldUseBrowser =
     effectiveForceBrowser || screenshot || effectiveStealth;
 
+  // A profileDir always forces browser mode (profile sessions need a real browser)
+  if (profileDir) {
+    effectiveForceBrowser = true;
+  }
+
   const browserOptions: BrowserStrategyOptions = {
     userAgent,
     waitMs,
@@ -356,6 +381,8 @@ export async function smartFetch(
     actions,
     keepPageOpen,
     effectiveStealth,
+    profileDir,
+    headed,
   };
 
   /* ---- Strategy: simple fetch (with optional race) --------------------- */

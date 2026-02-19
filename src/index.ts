@@ -9,7 +9,7 @@ import { smartFetch } from './core/strategies.js';
 import { htmlToMarkdown, htmlToText, estimateTokens, selectContent, detectMainContent, calculateQuality, truncateToTokenBudget, filterByTags } from './core/markdown.js';
 import { distillToBudget } from './core/budget.js';
 import { extractMetadata, extractLinks, extractImages } from './core/metadata.js';
-import { cleanup, warmup, closePool, scrollAndWait } from './core/fetcher.js';
+import { cleanup, warmup, closePool, scrollAndWait, closeProfileBrowser } from './core/fetcher.js';
 import { extractStructured } from './core/extract.js';
 import { isPdfContentType, isDocxContentType, extractDocumentToFormat } from './core/documents.js';
 import type { PeelOptions, PeelResult, ImageInfo } from './types.js';
@@ -44,6 +44,34 @@ export {
 } from './core/answer.js';
 
 export { searchJobs, type JobCard, type JobDetail, type JobSearchOptions, type JobSearchResult } from './core/jobs.js';
+export {
+  RateGovernor,
+  formatDuration,
+  type RateConfig,
+  type RateState,
+  type CanApplyResult,
+} from './core/rate-governor.js';
+export {
+  ApplicationTracker,
+  type ApplicationRecord,
+  type ApplicationFilter,
+  type ApplicationStats,
+  type ApplicationStatus,
+} from './core/application-tracker.js';
+export {
+  applyToJob,
+  loadApplications,
+  saveApplication,
+  getApplicationsToday,
+  updateApplicationStatus,
+  type ApplyProfile,
+  type ApplyOptions,
+  type ApplyProgressEvent,
+  type DetectedField,
+  type ApplyResult,
+  type ApplicationRecord as ApplyApplicationRecord,
+} from './core/apply.js';
+// Human behavior exports — see bottom of file for full export
 export { extractListings, type ListingItem } from './core/extract-listings.js';
 export { formatTable } from './core/table-format.js';
 export { findNextPageUrl } from './core/paginate.js';
@@ -105,6 +133,8 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     images: extractImagesFlag = false,
     location: _location,
     stream: _stream,
+    profileDir,
+    headed = false,
   } = options;
   void _stream;
 
@@ -146,6 +176,8 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
       cookies,
       actions,
       keepPageOpen: needsBranding,
+      profileDir,
+      headed,
     });
 
     // Detect content type from the response
@@ -459,5 +491,26 @@ export async function peelBatch(
  * Clean up any browser resources
  * Call this when you're done using WebPeel
  */
-export { cleanup, warmup, closePool, scrollAndWait };
+export { cleanup, warmup, closePool, scrollAndWait, closeProfileBrowser };
 export { getCached, setCached, clearCache, setCacheTTL } from './core/cache.js';
+export {
+  getRealisticUserAgent,
+  getRandomUA,
+  REALISTIC_USER_AGENTS,
+} from './core/user-agents.js';
+export {
+  humanDelay,
+  humanMouseMove,
+  humanRead,
+  warmupBrowse,
+  humanType,
+  humanClearAndType,
+  humanClick,
+  humanScroll,
+  humanScrollToElement,
+  warmupSession,
+  humanSelect,
+  humanUploadFile,
+  humanToggle,
+  type HumanConfig,
+} from './core/human.js';

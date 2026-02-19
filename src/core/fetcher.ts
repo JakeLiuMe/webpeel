@@ -12,6 +12,7 @@ dns.setDefaultResultOrder('ipv4first');
 import { chromium, type Browser, type Page } from 'playwright';
 import { chromium as stealthChromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { getRealisticUserAgent } from './user-agents.js';
 import { fetch as undiciFetch, Agent, type Response } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
 import type { PageAction } from '../types.js';
@@ -21,17 +22,29 @@ import { cachedLookup, resolveAndCache, startDnsWarmup } from './dns-cache.js';
 // Add stealth plugin to playwright-extra
 stealthChromium.use(StealthPlugin());
 
-const USER_AGENTS = [
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-];
-
+/**
+ * Returns a realistic Chrome user agent.
+ * Delegates to the curated user-agents module so stealth mode never exposes
+ * the default "Chrome for Testing" UA which is a reliable bot-detection signal.
+ */
 function getRandomUserAgent(): string {
-  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+  return getRealisticUserAgent();
 }
+
+/**
+ * Common Chromium launch arguments for anti-bot-detection.
+ * Applied to BOTH regular and stealth browser instances.
+ */
+const ANTI_DETECTION_ARGS: readonly string[] = [
+  '--disable-blink-features=AutomationControlled',
+  '--disable-infobars',
+  '--disable-dev-shm-usage',
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-gpu',
+  '--window-size=1920,1080',
+  '--start-maximized',
+];
 
 function createHttpPool(): Agent {
   return new Agent({
@@ -399,9 +412,9 @@ export interface FetchResult {
   /** Raw Content-Type header from the response (may include charset). */
   contentType?: string;
   /** Playwright page object (only available in browser/stealth mode, must be closed by caller) */
-  page?: import('playwright-core').Page;
+  page?: import('playwright').Page;
   /** Playwright browser object (only available in browser/stealth mode, must be closed by caller) */
-  browser?: import('playwright-core').Browser;
+  browser?: import('playwright').Browser;
 }
 
 /**
@@ -822,7 +835,10 @@ async function getBrowser(): Promise<Browser> {
   idlePagePool.length = 0;
   pagePoolFillPromise = null;
 
-  sharedBrowser = await chromium.launch({ headless: true });
+  sharedBrowser = await chromium.launch({
+    headless: true,
+    args: [...ANTI_DETECTION_ARGS],
+  });
   void ensurePagePool(sharedBrowser).catch(() => {});
   return sharedBrowser;
 }
@@ -840,8 +856,57 @@ async function getStealthBrowser(): Promise<Browser> {
     }
   }
 
-  sharedStealthBrowser = await stealthChromium.launch({ headless: true });
-  return sharedStealthBrowser;
+  const stealthBrowser = await stealthChromium.launch({
+    headless: true,
+    args: [...ANTI_DETECTION_ARGS],
+  });
+  if (!stealthBrowser) throw new Error('Failed to launch stealth browser');
+  sharedStealthBrowser = stealthBrowser;
+  return stealthBrowser;
+}
+
+// ── Persistent profile browser instances ─────────────────────────────────────
+// Profile browsers are NOT shared — each profileDir gets its own instance.
+// These are keyed by profile path and kept alive between fetches in the same process.
+const profileBrowsers = new Map<string, Browser>();
+
+/**
+ * Get or create a browser instance with a persistent user data directory.
+ * Profile browsers bypass the shared browser pool so cookies/sessions survive
+ * between fetch calls.
+ *
+ * @param profileDir Absolute path to the Chrome user-data-dir directory
+ * @param headed     Whether to launch in headed (visible) mode
+ * @param stealth    Whether to use playwright-extra stealth instead of plain chromium
+ */
+async function getProfileBrowser(
+  profileDir: string,
+  headed: boolean = false,
+  stealth: boolean = false,
+): Promise<Browser> {
+  const existing = profileBrowsers.get(profileDir);
+  if (existing) {
+    try {
+      if (existing.isConnected()) return existing;
+    } catch { /* dead, recreate */ }
+    profileBrowsers.delete(profileDir);
+  }
+
+  const launchOptions = {
+    headless: !headed,
+    args: [
+      ...ANTI_DETECTION_ARGS,
+      `--user-data-dir=${profileDir}`,
+    ],
+  };
+
+  const launched = stealth
+    ? await stealthChromium.launch(launchOptions)
+    : await chromium.launch(launchOptions);
+  if (!launched) throw new Error('Failed to launch profile browser');
+
+  profileBrowsers.set(profileDir, launched);
+  return launched;
 }
 
 /**
@@ -864,6 +929,14 @@ export async function browserFetch(
     keepPageOpen?: boolean;
     /** Abort signal for internal races/cancellation */
     signal?: AbortSignal;
+    /**
+     * Path to a persistent Chrome user-data-dir.
+     * When set, bypasses the shared browser pool and keeps the browser alive
+     * between fetches so cookies / session data persist.
+     */
+    profileDir?: string;
+    /** Launch browser in headed (visible) mode. Only meaningful with profileDir or for debugging. */
+    headed?: boolean;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -881,10 +954,15 @@ export async function browserFetch(
     actions,
     keepPageOpen = false,
     signal,
+    profileDir,
+    headed = false,
   } = options;
 
   // Validate user agent if provided
-  const validatedUserAgent = userAgent ? validateUserAgent(userAgent) : getRandomUserAgent();
+  // In stealth mode with no custom UA, always use a realistic Chrome UA
+  const validatedUserAgent = userAgent
+    ? validateUserAgent(userAgent)
+    : (stealth ? getRealisticUserAgent() : getRandomUserAgent());
 
   // Validate wait time
   if (waitMs < 0 || waitMs > 60000) {
@@ -923,11 +1001,18 @@ export async function browserFetch(
   let page: Page | null = null;
   let usingPooledPage = false;
   let abortHandler: (() => void) | undefined;
+  // Declared here (outside try) so the finally block can reference it
+  const usingProfileBrowser = !!profileDir;
 
   try {
-    const browser = stealth ? await getStealthBrowser() : await getBrowser();
+    const browser = usingProfileBrowser
+      ? await getProfileBrowser(profileDir!, headed, stealth)
+      : stealth
+        ? await getStealthBrowser()
+        : await getBrowser();
 
-    const shouldUsePagePool = !stealth && !userAgent && !keepPageOpen;
+    // Only use the shared page pool for non-stealth, non-profile, non-keepOpen fetches
+    const shouldUsePagePool = !stealth && !userAgent && !keepPageOpen && !usingProfileBrowser;
     if (shouldUsePagePool) {
       page = takePooledPage();
       usingPooledPage = !!page;
@@ -941,7 +1026,9 @@ export async function browserFetch(
         userAgent: validatedUserAgent,
         ...(stealth
           ? {
-              viewport: { width: 1920, height: 1080 },
+              // viewport: null lets the browser use its natural (system) viewport,
+              // avoiding the telltale Playwright default of 1280×720.
+              viewport: null as null,
               locale: 'en-US',
               timezoneId: 'America/New_York',
               javaScriptEnabled: true,
@@ -1208,7 +1295,9 @@ export async function browserFetch(
     if (page && !keepPageOpen) {
       if (usingPooledPage) {
         await recyclePooledPage(page);
-      } else {
+      } else if (!usingProfileBrowser) {
+        // Profile browser pages are NOT closed — the profile browser stays alive
+        // so that the next fetch in the same process reuses the session.
         await page.close().catch(() => {});
       }
     }
@@ -1503,7 +1592,7 @@ export async function scrollAndWait(page: Page, times = 3): Promise<string> {
 }
 
 /**
- * Clean up browser resources
+ * Clean up browser resources (shared pool, stealth browser, and all profile browsers).
  */
 export async function cleanup(): Promise<void> {
   const pagesToClose = Array.from(pooledPages);
@@ -1522,5 +1611,24 @@ export async function cleanup(): Promise<void> {
     sharedStealthBrowser = null;
   }
 
+  // Close all persistent profile browsers
+  const profileBrowserList = Array.from(profileBrowsers.values());
+  profileBrowsers.clear();
+  await Promise.all(profileBrowserList.map(b => b.close().catch(() => {})));
+
   await closePool().catch(() => {});
+}
+
+/**
+ * Close a specific persistent profile browser (e.g. when done with a session).
+ * Safe to call even if the browser has already been closed.
+ *
+ * @param profileDir Path to the profile directory used when launching
+ */
+export async function closeProfileBrowser(profileDir: string): Promise<void> {
+  const browser = profileBrowsers.get(profileDir);
+  if (browser) {
+    profileBrowsers.delete(profileDir);
+    await browser.close().catch(() => {});
+  }
 }

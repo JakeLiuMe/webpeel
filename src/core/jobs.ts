@@ -24,7 +24,17 @@ export interface JobCard {
   snippet?: string;
   skills?: string[];
   rating?: number;
-  source: 'glassdoor' | 'indeed' | 'linkedin' | 'generic';
+  source: 'glassdoor' | 'indeed' | 'linkedin' | 'upwork' | 'generic';
+  /** Upwork-specific: budget or hourly rate string */
+  budget?: string;
+  /** Upwork-specific: job type (hourly / fixed-price) */
+  jobType?: string;
+  /** Upwork-specific: required experience level */
+  experienceLevel?: string;
+  /** Upwork-specific: client rating (0–5) */
+  clientRating?: number;
+  /** Upwork-specific: total amount client has spent on Upwork */
+  clientSpend?: string;
 }
 
 export interface JobDetail extends JobCard {
@@ -45,7 +55,7 @@ export interface JobSearchOptions {
   /** Location (e.g. "New York") */
   location?: string;
   /** Which job board to search. Default: 'linkedin' */
-  source?: 'glassdoor' | 'indeed' | 'linkedin';
+  source?: 'glassdoor' | 'indeed' | 'linkedin' | 'upwork';
   /** Max job cards to return from search. Default: 25 */
   limit?: number;
   /** Fetch detail pages for top N jobs. 0 = skip details. Default: 0 */
@@ -65,18 +75,19 @@ export interface JobSearchResult {
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
-type Source = 'glassdoor' | 'indeed' | 'linkedin' | 'generic';
+type Source = 'glassdoor' | 'indeed' | 'linkedin' | 'upwork' | 'generic';
 
 function detectSource(url: string): Source {
   const h = url.toLowerCase();
   if (h.includes('linkedin.com')) return 'linkedin';
   if (h.includes('glassdoor.com')) return 'glassdoor';
   if (h.includes('indeed.com')) return 'indeed';
+  if (h.includes('upwork.com')) return 'upwork';
   return 'generic';
 }
 
 function stealthNeeded(src: Source): boolean {
-  return src === 'indeed' || src === 'glassdoor';
+  return src === 'indeed' || src === 'glassdoor' || src === 'upwork';
 }
 
 function buildSearchUrl(src: Source, kw: string, loc: string): string {
@@ -87,6 +98,8 @@ function buildSearchUrl(src: Source, kw: string, loc: string): string {
       return `https://www.glassdoor.com/Job/jobs.htm?sc.keyword=${enc(kw)}&locT=C&locId=1132348&sc.location=${enc(loc)}`;
     case 'indeed':
       return `https://www.indeed.com/jobs?q=${enc(kw)}&l=${enc(loc)}`;
+    case 'upwork':
+      return `https://www.upwork.com/nx/search/jobs/?q=${enc(kw)}&sort=recency`;
     default:
       throw new Error('Cannot build URL for generic source — provide a url');
   }
@@ -361,6 +374,126 @@ function parseIndeed(content: string, _searchUrl: string, limit: number): { jobs
   return { jobs, totalFound };
 }
 
+// ── Upwork Parser ──────────────────────────────────────────────────────
+
+/**
+ * Parse Upwork job search results from converted markdown.
+ *
+ * Upwork search URL pattern:
+ *   https://www.upwork.com/nx/search/jobs/?q=AI+engineer&sort=recency
+ *
+ * The markdown representation varies; we handle both list-item blocks and
+ * heading-separated blocks.
+ */
+function parseUpwork(content: string, searchUrl: string, limit: number): { jobs: JobCard[]; totalFound: number } {
+  const jobs: JobCard[] = [];
+
+  // Total count — Upwork often shows "X+ jobs found"
+  const totalMatch = content.match(/(\d[\d,]*)\+?\s+(?:jobs?|results?)\s+(?:found|available|match)/i);
+  const totalFound = totalMatch ? parseInt(totalMatch[1].replace(/,/g, ''), 10) : 0;
+
+  // Split into job blocks — each job typically starts with a link to /jobs/
+  // Pattern: [Job Title](https://www.upwork.com/jobs/...)
+  const jobLinkRe = /\[([^\]]+)\]\((https:\/\/www\.upwork\.com\/jobs\/[^)]+)\)/g;
+  const titleMatches = [...content.matchAll(jobLinkRe)];
+
+  if (titleMatches.length === 0) {
+    // Fallback: try /nx/jobs/ links (search page variant)
+    const altLinkRe = /\[([^\]]+)\]\((https:\/\/www\.upwork\.com\/(?:nx\/)?(?:jobs?|freelance-jobs?)[^)]*)\)/g;
+    const altMatches = [...content.matchAll(altLinkRe)];
+    if (altMatches.length === 0) {
+      return { jobs, totalFound };
+    }
+    titleMatches.push(...altMatches);
+  }
+
+  for (let i = 0; i < titleMatches.length && jobs.length < limit; i++) {
+    const match = titleMatches[i];
+    const title = clean(match[1]);
+    const detailUrl = absUrl(match[2], searchUrl);
+
+    // Extract the block of text between this match and the next
+    const blockStart = match.index ?? 0;
+    const blockEnd = (titleMatches[i + 1]?.index) ?? content.length;
+    const block = content.slice(blockStart, blockEnd);
+
+    // Budget / hourly rate — look for $ amounts near keywords
+    let budget: string | undefined;
+    const budgetMatch =
+      block.match(/\$[\d,]+(?:\.\d+)?(?:\s*[-–]\s*\$[\d,]+(?:\.\d+)?)?\s*(?:\/\s*hr|per\s+hour|hourly)?/i) ||
+      block.match(/(?:budget|fixed[\s-]?price|hourly\s+rate)[:\s]+\$[\d,]+(?:\s*[-–]\s*\$[\d,]+)?/i);
+    if (budgetMatch) budget = budgetMatch[0].trim();
+
+    // Job type
+    let jobType: string | undefined;
+    if (/\bhourly\b/i.test(block)) jobType = 'hourly';
+    else if (/\bfixed[\s-]?price\b/i.test(block)) jobType = 'fixed-price';
+
+    // Experience level
+    let experienceLevel: string | undefined;
+    const expMatch = block.match(/\b(entry[- ]?level|intermediate|expert|beginner)\b/i);
+    if (expMatch) experienceLevel = expMatch[1];
+
+    // Client rating
+    let clientRating: number | undefined;
+    const ratingMatch = block.match(/(\d+(?:\.\d+)?)\s*(?:of\s+5\s+)?(?:stars?|★)/i);
+    if (ratingMatch) {
+      const r = parseFloat(ratingMatch[1]);
+      if (r >= 0 && r <= 5) clientRating = r;
+    }
+
+    // Client spend
+    let clientSpend: string | undefined;
+    const spendMatch = block.match(/\$[\d,.]+[KkMm]?\+?\s*(?:spent|total\s+spent)/i);
+    if (spendMatch) clientSpend = spendMatch[0].replace(/\s*(?:spent|total\s+spent)/i, '').trim();
+
+    // Skills (look for "Skills:" or comma-separated tech terms)
+    let skills: string[] | undefined;
+    const skillsMatch = block.match(/(?:skills?|tags?)[:\s]+([^\n]+)/i);
+    if (skillsMatch) {
+      skills = skillsMatch[1].split(/[,;]/).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 40);
+    }
+
+    // Posted time
+    const postedAt = findDate(block);
+
+    // Description snippet — first substantial non-metadata line after the title
+    let snippet: string | undefined;
+    const lines = block.split('\n').map((l) => l.trim()).filter(Boolean);
+    for (const line of lines) {
+      if (line === title) continue;
+      if (line.startsWith('[') || line.startsWith('http')) continue;
+      if (/^\$/.test(line) || /^\d+\s*(?:star|hour|day|week|month|review)/i.test(line)) continue;
+      if (line.length > 60) {
+        snippet = clean(line).slice(0, 200);
+        break;
+      }
+    }
+
+    if (!title) continue;
+
+    jobs.push({
+      title,
+      company: '',          // Upwork jobs don't surface a company on the search page
+      location: 'Remote',   // Upwork is inherently remote
+      remote: true,
+      salary: budget,       // Reuse salary field for budget display
+      budget,
+      jobType,
+      experienceLevel,
+      clientRating,
+      clientSpend,
+      skills,
+      snippet,
+      postedAt,
+      detailUrl,
+      source: 'upwork',
+    });
+  }
+
+  return { jobs, totalFound: totalFound || jobs.length };
+}
+
 // ── Generic Detail Parser ──────────────────────────────────────────────
 
 interface ParsedSections {
@@ -502,8 +635,10 @@ export async function searchJobs(options: JobSearchOptions): Promise<JobSearchRe
   }
 
   // 2. Fetch search page
+  const needsStealth = stealthNeeded(source);
   const result = await peel(searchUrl, {
-    stealth: stealthNeeded(source),
+    stealth: needsStealth,
+    render: needsStealth, // Stealth sites are usually SPAs requiring browser rendering
     timeout,
     format: 'markdown',
   });
@@ -521,11 +656,15 @@ export async function searchJobs(options: JobSearchOptions): Promise<JobSearchRe
     case 'indeed':
       parsed = parseIndeed(result.content, searchUrl, limit);
       break;
+    case 'upwork':
+      parsed = parseUpwork(result.content, searchUrl, limit);
+      break;
     default: {
       // Try each parser for unknown URLs
       parsed = parseLinkedIn(result.content, searchUrl, limit);
       if (!parsed.jobs.length) parsed = parseGlassdoor(result.content, searchUrl, limit);
       if (!parsed.jobs.length) parsed = parseIndeed(result.content, searchUrl, limit);
+      if (!parsed.jobs.length) parsed = parseUpwork(result.content, searchUrl, limit);
       break;
     }
   }

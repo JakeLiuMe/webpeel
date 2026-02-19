@@ -134,6 +134,20 @@ export interface PeelOptions {
    * Different from maxTokens (simple truncation) — this is smart compression.
    */
   budget?: number;
+  /**
+   * Path to a persistent Chrome user-data-dir directory.
+   * When set, cookies, history, and login sessions survive between fetch calls
+   * in the same process. Each unique profileDir gets its own browser instance.
+   *
+   * Tip: use `--headed` first to log in, then run headless for automation.
+   */
+  profileDir?: string;
+  /**
+   * Launch the browser in headed (visible) mode.
+   * Useful for setting up a profile (logging in) before running headless automation.
+   * Only meaningful when `render` or `stealth` is true.
+   */
+  headed?: boolean;
 }
 
 export interface ImageInfo {
