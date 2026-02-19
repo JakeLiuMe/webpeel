@@ -154,7 +154,18 @@ npx webpeel https://example.com --screenshot
 npx webpeel https://example.com --screenshot screenshot.png
 npx webpeel https://example.com --full-page
 npx webpeel https://example.com --max-tokens 5000
-npx webpeel https://example.com --cache 1h</code></pre>
+npx webpeel https://example.com --cache 1h
+
+# v0.9.0: Agent mode (JSON + budget + extraction + silent)
+npx webpeel https://example.com --agent
+
+# v0.9.0: Auto-extract listings (product cards, search results)
+npx webpeel https://example.com --extract-all
+npx webpeel https://example.com --extract-all --table
+npx webpeel https://example.com --extract-all --csv
+
+# v0.9.0: Token budget
+npx webpeel https://example.com --budget 4000</code></pre>
 
       <h4>Options</h4>
       <table>
@@ -261,11 +272,46 @@ npx webpeel https://example.com --cache 1h</code></pre>
             <td>string</td>
             <td>Language preference</td>
           </tr>
+          <tr>
+            <td><code>--agent</code></td>
+            <td>boolean</td>
+            <td>Agent mode: sets --json, --silent, --extract-all, --budget 4000 <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--extract-all</code></td>
+            <td>boolean</td>
+            <td>Auto-detect and extract repeated listings (product cards, search results) <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--budget &lt;n&gt;</code></td>
+            <td>number</td>
+            <td>Smart token budget — distill content to fit within N tokens <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--table</code></td>
+            <td>boolean</td>
+            <td>Output extracted listings as a formatted table <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--csv</code></td>
+            <td>boolean</td>
+            <td>Output extracted listings as CSV <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--pages &lt;n&gt;</code></td>
+            <td>number</td>
+            <td>Multi-page pagination (1-10) <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--scroll-extract [n]</code></td>
+            <td>number</td>
+            <td>Infinite scroll extraction <span class="badge">v0.9.0</span></td>
+          </tr>
         </tbody>
       </table>
 
       <h3><code>webpeel search &lt;query&gt;</code></h3>
-      <p>Search the web using DuckDuckGo (default, free) or Brave Search (BYOK).</p>
+      <p>Search the web using DuckDuckGo (default, free) or Brave Search (BYOK). New in v0.9.0: use <code>--site</code> to search specific sites with auto-extraction.</p>
 
       <pre><code class="language-bash"># Basic search (DuckDuckGo)
 npx webpeel search "AI news"
@@ -281,7 +327,16 @@ npx webpeel search "AI news" --provider brave
 npx webpeel search "python tutorials" -n 10
 
 # JSON output
-npx webpeel search "web scraping" --json</code></pre>
+npx webpeel search "web scraping" --json
+
+# v0.9.0: Site-specific search (no URL knowledge needed!)
+npx webpeel search --site ebay "charizard card"
+npx webpeel search --site amazon "mechanical keyboard" --json
+npx webpeel search --site walmart "ps5" --table
+npx webpeel search --site github "web scraper typescript"
+
+# List all supported sites
+npx webpeel sites</code></pre>
 
       <h4>Options</h4>
       <table>
@@ -305,8 +360,20 @@ npx webpeel search "web scraping" --json</code></pre>
             <td>Brave Search API key (or env <code>WEBPEEL_BRAVE_API_KEY</code>)</td>
           </tr>
           <tr>
+            <td><code>--site &lt;site&gt;</code></td>
+            <td>Search a specific site (e.g. <code>ebay</code>, <code>amazon</code>, <code>github</code>). Run <code>webpeel sites</code> for full list. <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
             <td><code>--json</code></td>
             <td>Output as JSON</td>
+          </tr>
+          <tr>
+            <td><code>--table</code></td>
+            <td>Output site-search results as a formatted table <span class="badge">v0.9.0</span></td>
+          </tr>
+          <tr>
+            <td><code>--csv</code></td>
+            <td>Output site-search results as CSV <span class="badge">v0.9.0</span></td>
           </tr>
           <tr>
             <td><code>-s, --silent</code></td>
@@ -314,6 +381,17 @@ npx webpeel search "web scraping" --json</code></pre>
           </tr>
         </tbody>
       </table>
+
+      <h3><code>webpeel sites</code> <span class="badge">v0.9.0</span></h3>
+      <p>List all supported sites for site-aware search. 27 sites across 7 categories: shopping, general, social, tech, jobs, real-estate, food.</p>
+      <pre><code class="language-bash"># List all sites
+npx webpeel sites
+
+# Filter by category
+npx webpeel sites --category shopping
+
+# JSON output
+npx webpeel sites --json</code></pre>
 
       <h3><code>webpeel answer &lt;question&gt;</code></h3>
       <p>Ask a question, search the web, fetch sources, and get an AI-generated answer with citations. BYOK — bring your own LLM API key.</p>

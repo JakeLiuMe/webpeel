@@ -134,8 +134,29 @@
         <div class="release">
           <div class="release-header">
             <div class="release-title">
-              <div class="release-version mono">v0.8.1</div>
+              <div class="release-version mono">v0.9.0</div>
               <span class="badge">Latest</span>
+            </div>
+            <div class="release-meta">February 18, 2026</div>
+          </div>
+          <ul>
+            <li><strong>Stealth 10/10:</strong> Dynamic challenge detection (Cloudflare, PerimeterX, Akamai, DataDome, Incapsula) with confidence scoring and auto-escalation</li>
+            <li><strong>Site-aware search:</strong> <code>webpeel search --site ebay "query"</code> — 27 sites across 7 categories, no URL knowledge needed</li>
+            <li><strong>Agent mode:</strong> <code>--agent</code> flag sets JSON output, token budget, extraction, and silent mode in one shot</li>
+            <li><strong>Listing extraction:</strong> <code>--extract-all</code> auto-detects product cards, search results, and repeated patterns</li>
+            <li>Full escalation cascade: simple → browser → stealth → stealth+wait → return with warning</li>
+            <li>28 stealth domains (Amazon, eBay, Walmart, Nike, LinkedIn, and more) with auto-detection</li>
+            <li>Updated user agents (Chrome 132-136) with dynamic Sec-CH-UA header generation</li>
+            <li><code>webpeel sites</code> command to list all supported site templates</li>
+            <li><code>agentMode</code> option in library API + MCP default 4,000 token budget</li>
+            <li>368 tests passing</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.8.1</div>
             </div>
             <div class="release-meta">February 17, 2026</div>
           </div>

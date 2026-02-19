@@ -36,7 +36,14 @@ npx webpeel https://news.ycombinator.com
 ```
 
 ```bash
-# Stealth mode (bypass bot detection)
+# Agent mode — JSON + budget + extraction in one flag
+npx webpeel https://example.com --agent
+
+# Site search — no URL knowledge needed (27 supported sites)
+npx webpeel search --site ebay "charizard card"
+npx webpeel search --site amazon "laptop stand" --table
+
+# Stealth mode (auto-detects & bypasses bot protection)
 npx webpeel https://protected-site.com --stealth
 
 # Crawl a website
@@ -45,8 +52,8 @@ npx webpeel crawl https://example.com --max-pages 20
 # Search the web
 npx webpeel search "best AI frameworks 2026"
 
-# Autonomous agent (BYOK LLM)
-npx webpeel agent "Find the founders of Stripe" --llm-key sk-...
+# Extract product listings automatically
+npx webpeel https://store.com/search --extract-all --json
 ```
 
 First 25 fetches work instantly, no signup. After that, [sign up free](https://app.webpeel.dev/signup) for 125/week.
@@ -57,6 +64,8 @@ First 25 fetches work instantly, no signup. After that, [sign up free](https://a
 |---------|:-----------:|:---------:|:-----------:|:---------:|
 | **Free tier** | ✅ 125/wk recurring | 500 one-time | ❌ Cloud only | ✅ Unlimited |
 | **Smart escalation** | ✅ HTTP→Browser→Stealth | Manual | ❌ | ❌ |
+| **Challenge detection** | ✅ 7 vendors auto-detected | ❌ | ❌ | ❌ |
+| **Site search** | ✅ 27 sites built-in | ❌ | ❌ | ❌ |
 | **Stealth mode** | ✅ All plans | ✅ | ⚠️ Limited | ❌ |
 | **Firecrawl-compatible** | ✅ Drop-in replacement | ✅ Native | ❌ | ❌ |
 | **Self-hosting** | ✅ Docker compose | ⚠️ Complex | ❌ | N/A |
