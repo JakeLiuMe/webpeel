@@ -685,7 +685,15 @@ program
   .option('--csv', 'Output site-search results as CSV (requires --site)')
   .option('--budget <n>', 'Token budget for site-search result content', parseInt)
   .option('-s, --silent', 'Silent mode')
+  .option('--agent', 'Agent mode: sets --json, --silent, and --budget 4000 (override with --budget N)')
   .action(async (query: string, options) => {
+    // --agent sets sensible defaults for AI agents; explicit flags override
+    if (options.agent) {
+      if (!options.json) options.json = true;
+      if (!options.silent) options.silent = true;
+      if (options.budget === undefined) options.budget = 4000;
+    }
+
     const isJson = options.json;
     const isSilent = options.silent;
     // --top overrides --count when both are provided
@@ -805,10 +813,26 @@ program
 
       const provider = getSearchProvider(providerId);
 
-      const results = await provider.searchWeb(query, {
+      let results = await provider.searchWeb(query, {
         count: Math.min(Math.max(count, 1), 10),
         apiKey,
       });
+
+      // Apply budget to search results if requested (trim results to fit token budget)
+      if (options.budget && options.budget > 0 && results.length > 0) {
+        let totalTokens = 0;
+        let maxResults = 0;
+        for (const r of results) {
+          // Estimate ~4 chars per token for title + url + snippet
+          const resultTokens = Math.ceil(
+            (`${r.title || ''}\n${r.url || ''}\n${r.snippet || ''}`).length / 4
+          );
+          if (totalTokens + resultTokens > options.budget) break;
+          totalTokens += resultTokens;
+          maxResults++;
+        }
+        results = results.slice(0, Math.max(maxResults, 1));
+      }
 
       if (spinner) {
         spinner.succeed(`Found ${results.length} results (${providerId})`);
@@ -1434,7 +1458,7 @@ program
 program
   .command('config')
   .description('View or update CLI configuration')
-  .argument('[action]', '"get <key>", "set <key> <value>", or omit for overview')
+  .argument('[action]', '"list", "get <key>", "set <key> <value>", or omit for overview')
   .argument('[key]', 'Config key')
   .argument('[value]', 'Value to set')
   .action(async (action?: string, key?: string, value?: string) => {
@@ -1451,8 +1475,8 @@ program
       return String(v);
     };
     
-    if (!action) {
-      // Show all config
+    if (!action || action === 'list') {
+      // Show all config (also triggered by `webpeel config list`)
       console.log('WebPeel CLI Configuration');
       console.log(`  Config file: ~/.webpeel/config.json`);
       console.log('');

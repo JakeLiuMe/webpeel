@@ -118,6 +118,9 @@ function detectCloudflare(html: string, statusCode?: number): number {
 function detectPerimeterX(html: string, statusCode?: number): number {
   let score = 0;
 
+  // Use lowercase for case-insensitive matching of new Expedia-style signals
+  const htmlLower = html.toLowerCase();
+
   const signals = [
     'perimeterx',
     '_pxhd',
@@ -134,29 +137,40 @@ function detectPerimeterX(html: string, statusCode?: number): number {
   const count = countMatches(html, signals);
   score += Math.min(count * 0.3, 0.8);
 
-  const title = extractTitle(html);
+  // Case-insensitive Expedia/PerimeterX-specific signals
+  const expediaSignals = [
+    'human or a bot',
+    'show us your human side',
+    'human-side',
+    'bot or not',
+  ];
+  const expediaCount = countMatches(htmlLower, expediaSignals);
+  score += Math.min(expediaCount * 0.25, 0.6);
+
+  const title = extractTitle(htmlLower);
   if (
     title.includes('access denied') ||
     title.includes('has been denied') ||
     title.includes('access to this page') ||
     title.includes('please verify') ||
     title.includes('bot detection') ||
-    title.includes('pardon our interruption')
+    title.includes('pardon our interruption') ||
+    title.includes('bot or not')
   ) {
     score += 0.15;
   }
 
   // PerimeterX "Press & Hold" challenge page (used by Zillow, etc.)
-  const hasPresssHold = has(html, 'Press & Hold') || has(html, 'Press &amp; Hold') || has(html, 'press and hold');
-  const hasHumanCheck = has(html, 'confirm you are human') || has(html, 'confirm you area human') || has(html, 'not a bot');
+  const hasPresssHold = has(html, 'Press & Hold') || has(html, 'Press &amp; Hold') || has(htmlLower, 'press and hold');
+  const hasHumanCheck = has(htmlLower, 'confirm you are human') || has(htmlLower, 'confirm you area human') || has(htmlLower, 'not a bot') || has(htmlLower, 'human or a bot') || has(htmlLower, 'show us your human side') || has(htmlLower, 'bot or not');
   if (hasPresssHold && hasHumanCheck) {
     score += 0.5;
   } else if (hasPresssHold || hasHumanCheck) {
     score += 0.2;
   }
 
-  // Reference ID pattern is common in PerimeterX block pages
-  if (/reference\s+id\s+[0-9a-f-]{20,}/i.test(html)) {
+  // Reference ID pattern is common in PerimeterX block pages (supports "Reference ID:" and "Reference ID " formats)
+  if (/reference\s+id[:\s]+[0-9a-f-]{20,}/i.test(html)) {
     score += 0.2;
   }
 
@@ -288,6 +302,10 @@ function detectGenericBlock(html: string, statusCode?: number): number {
     'human verification',
     'blocked by',
     'pardon our interruption',
+    'bot or not',
+    'blocked',
+    'verification required',
+    'are you a robot',
   ];
   for (const t of blockTitles) {
     if (title.includes(t)) {
@@ -324,6 +342,23 @@ function detectGenericBlock(html: string, statusCode?: number): number {
     'why have i been blocked',
     'your access has been blocked',
     'detected unusual activity',
+    // New patterns for additional challenge pages
+    'human or a bot',
+    'show us your human side',
+    'bot or not',
+    'complete a captcha',
+    'solve this puzzle',
+    'verify your identity',
+    'unusual traffic',
+    'too many requests',
+    'access denied',
+    'automated traffic',
+    'we need to verify',
+    'human verification',
+    'browser verification',
+    'checking your browser',
+    'please wait while we verify',
+    'blocked by',
   ];
   const bodyCount = countMatches(html, bodySignals);
   // Require at least 2 body signals to avoid flagging a blog post mentioning one

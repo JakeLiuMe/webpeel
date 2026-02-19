@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.9.0] - 2026-02-18
+
+### Added
+- **Dynamic challenge detection** — automatically detects Cloudflare, PerimeterX, Akamai, DataDome, Incapsula, and generic block pages with confidence scoring (0-1)
+- **Site-aware search** — `webpeel search --site ebay "query"` with 27 built-in sites across 7 categories (shopping, general, social, tech, jobs, real-estate, food)
+- **Agent mode** — `--agent` flag sets JSON output, silent mode, extraction, and 4,000 token budget in one shot
+- **Listing extraction** — `--extract-all` auto-detects repeated DOM patterns (product cards, search results)
+- **Table/CSV output** — `--table` for Unicode box-drawing tables, `--csv` for CSV export
+- **Multi-page pagination** — `--pages <n>` follows next-page links automatically
+- **Infinite scroll extraction** — `--scroll-extract [count]` for lazy-loaded content
+- `webpeel sites` command to list all supported site templates
+- `agentMode` option in library API and MCP server defaults (4,000 token budget)
+- `challengeDetected` flag on responses when a site can't be bypassed
+
+### Changed
+- Full escalation cascade: simple → browser → stealth → stealth+wait → return with warning
+- **28 stealth domains** with auto-detection (Amazon, eBay, Walmart, Nike, LinkedIn, Etsy, and more)
+- **15 browser domains** for SPA rendering (Reddit, Medium, Notion, Figma, Substack, etc.)
+- Updated user agents to Chrome 132-136 (was 120-130)
+- Dynamic `Sec-CH-UA` header generation matching actual user agent string
+- Challenge pages are never cached (prevents cache poisoning)
+
+### Security
+- PostgreSQL TLS: configurable `rejectUnauthorized` via `DB_SSL_REJECT_UNAUTHORIZED` env var
+- Login timing oracle fixed: constant-time auth with dummy bcrypt hash
+- OAuth rate limiter: per-IP instead of per-provider (prevents global DoS)
+- Content accuracy: fixed misleading claims (benchmark, migration savings)
+- SDK docs: removed non-existent LangChain/LlamaIndex integrations
+
 ## [0.8.1] - 2026-02-17
 
 ### Fixed

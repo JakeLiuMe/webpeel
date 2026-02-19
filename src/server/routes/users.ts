@@ -55,12 +55,60 @@ function loginRateLimiter(req: Request, res: Response, next: NextFunction): void
 }
 
 /**
+ * Per-IP rate limiter for refresh endpoint (brute-force protection)
+ */
+const refreshAttempts = new Map<string, { count: number; resetAt: number }>();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, attempt] of refreshAttempts.entries()) {
+    if (now >= attempt.resetAt) {
+      refreshAttempts.delete(key);
+    }
+  }
+}, 15 * 60 * 1000);
+
+function refreshRateLimiter(req: Request, res: Response, next: NextFunction): void {
+  const ip =
+    (req.headers['cf-connecting-ip'] as string) ||
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.ip ||
+    'unknown';
+
+  const now = Date.now();
+  const attempt = refreshAttempts.get(ip);
+
+  if (attempt && now < attempt.resetAt) {
+    if (attempt.count >= 10) {
+      res.status(429).json({
+        error: 'too_many_attempts',
+        message: 'Too many refresh attempts. Please try again in 15 minutes.',
+        retryAfter: Math.ceil((attempt.resetAt - now) / 1000),
+      });
+      return;
+    }
+    attempt.count++;
+  } else {
+    refreshAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 });
+  }
+  next();
+}
+
+/**
  * JWT payload interface
  */
 interface JwtPayload {
   userId: string;
   email: string;
   tier: string;
+}
+
+/**
+ * Refresh token JWT payload
+ */
+interface RefreshTokenPayload {
+  userId: string;
+  jti: string;
 }
 
 /**
@@ -75,7 +123,8 @@ function isValidEmail(email: string): boolean {
  * Validate password strength
  */
 function isValidPassword(password: string): boolean {
-  return password.length >= 8;
+  // bcrypt silently truncates at 72 bytes — enforce a max to prevent confusion
+  return password.length >= 8 && password.length <= 128;
 }
 
 /**
@@ -135,8 +184,47 @@ export function createUserRouter(): Router {
 
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
+    // TLS: enabled when DATABASE_URL contains sslmode=require.
+    // Secure by default (rejectUnauthorized: true); set PG_REJECT_UNAUTHORIZED=false
+    // only for managed DBs (Render/Neon/Supabase) that use self-signed certs.
+    ssl: process.env.DATABASE_URL?.includes('sslmode=require')
+      ? { rejectUnauthorized: process.env.PG_REJECT_UNAUTHORIZED !== 'false' }
+      : undefined,
   });
+
+  // Initialize refresh_tokens table on startup
+  pool.query(`
+    CREATE TABLE IF NOT EXISTS refresh_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).then(() => pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)`
+  )).catch((err: Error) => {
+    console.error('Failed to initialize refresh_tokens table:', err);
+  });
+
+  /**
+   * Helper: generate a refresh token and store its jti in the database
+   */
+  async function createRefreshToken(userId: string, jwtSecret: string): Promise<string> {
+    const jti = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+    await pool.query(
+      `INSERT INTO refresh_tokens (id, user_id, expires_at) VALUES ($1, $2, $3)`,
+      [jti, userId, expiresAt]
+    );
+
+    return jwt.sign(
+      { userId, jti } as RefreshTokenPayload,
+      jwtSecret,
+      { expiresIn: '30d' }
+    );
+  }
 
   /**
    * POST /v1/auth/register
@@ -303,11 +391,15 @@ export function createUserRouter(): Router {
           tier: user.tier,
         } as JwtPayload,
         jwtSecret,
-        { expiresIn: '30d' }
+        { expiresIn: '1h' }
       );
+
+      const refreshToken = await createRefreshToken(user.id, jwtSecret);
 
       res.json({
         token,
+        refreshToken,
+        expiresIn: 3600,
         user: {
           id: user.id,
           email: user.email,
@@ -319,6 +411,125 @@ export function createUserRouter(): Router {
       res.status(500).json({
         error: 'login_failed',
         message: 'Failed to login',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/refresh
+   * Exchange a valid refresh token for a new access token + refresh token
+   */
+  router.post('/v1/auth/refresh', refreshRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        res.status(400).json({
+          error: 'missing_token',
+          message: 'refreshToken is required',
+        });
+        return;
+      }
+
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error('JWT_SECRET not configured');
+      }
+
+      // Verify JWT signature + expiry
+      let payload: RefreshTokenPayload;
+      try {
+        payload = jwt.verify(refreshToken, jwtSecret) as RefreshTokenPayload;
+      } catch {
+        res.status(401).json({
+          error: 'invalid_token',
+          message: 'Invalid or expired refresh token',
+        });
+        return;
+      }
+
+      // Check token is not revoked and still exists
+      const tokenResult = await pool.query(
+        `SELECT id, user_id, revoked_at FROM refresh_tokens WHERE id = $1`,
+        [payload.jti]
+      );
+
+      if (tokenResult.rows.length === 0 || tokenResult.rows[0].revoked_at !== null) {
+        res.status(401).json({
+          error: 'token_revoked',
+          message: 'Refresh token has been revoked',
+        });
+        return;
+      }
+
+      // Get current user info (tier may have changed)
+      const userResult = await pool.query(
+        'SELECT id, email, tier FROM users WHERE id = $1',
+        [payload.userId]
+      );
+
+      if (userResult.rows.length === 0) {
+        res.status(401).json({
+          error: 'user_not_found',
+          message: 'User no longer exists',
+        });
+        return;
+      }
+
+      const user = userResult.rows[0];
+
+      // Revoke old refresh token (rotate tokens)
+      await pool.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`,
+        [payload.jti]
+      );
+
+      // Issue new access token (1h) + new refresh token (30d)
+      const newToken = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+          tier: user.tier,
+        } as JwtPayload,
+        jwtSecret,
+        { expiresIn: '1h' }
+      );
+
+      const newRefreshToken = await createRefreshToken(user.id, jwtSecret);
+
+      res.json({
+        token: newToken,
+        refreshToken: newRefreshToken,
+        expiresIn: 3600,
+      });
+    } catch (error) {
+      console.error('Refresh token error:', error);
+      res.status(500).json({
+        error: 'refresh_failed',
+        message: 'Failed to refresh token',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/revoke
+   * Revoke all refresh tokens for the current user (logout all devices)
+   */
+  router.post('/v1/auth/revoke', jwtAuth, async (req: Request, res: Response) => {
+    try {
+      const { userId } = (req as any).user as JwtPayload;
+
+      await pool.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`,
+        [userId]
+      );
+
+      res.json({ success: true, message: 'All refresh tokens revoked' });
+    } catch (error) {
+      console.error('Revoke tokens error:', error);
+      res.status(500).json({
+        error: 'revoke_failed',
+        message: 'Failed to revoke tokens',
       });
     }
   });
