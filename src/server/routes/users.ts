@@ -135,7 +135,7 @@ export function createUserRouter(): Router {
 
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
   });
 
   /**
@@ -275,20 +275,14 @@ export function createUserRouter(): Router {
         [email]
       );
 
-      if (result.rows.length === 0) {
-        res.status(401).json({
-          error: 'invalid_credentials',
-          message: 'Invalid email or password',
-        });
-        return;
-      }
-
+      // Constant-time auth: always run bcrypt.compare to prevent timing oracle
+      // (prevents user enumeration via response time differences)
+      const DUMMY_HASH = '$2b$12$LJ7F3mGTqKmEqFv5GsNXxeIkYwJwgJkOqSvKqGqKqGqKqGqKqGqKq';
       const user = result.rows[0];
+      const hashToCompare = user?.password_hash ?? DUMMY_HASH;
+      const passwordValid = await bcrypt.compare(password, hashToCompare);
 
-      // Verify password
-      const passwordValid = await bcrypt.compare(password, user.password_hash);
-      
-      if (!passwordValid) {
+      if (!user || !passwordValid) {
         res.status(401).json({
           error: 'invalid_credentials',
           message: 'Invalid email or password',
