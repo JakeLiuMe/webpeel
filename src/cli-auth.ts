@@ -28,6 +28,12 @@ interface CLIConfig {
   lastReset: string;       // ISO date of last anonymous counter reset
   planTier?: string;       // cached plan tier (free/pro/max)
   planCachedAt?: string;   // ISO date when plan was last verified
+  /** LLM settings for AI-powered features (extract, summarize, agent) */
+  llm?: {
+    apiKey?: string;
+    model?: string;
+    baseUrl?: string;
+  };
 }
 
 interface UsageCheckResult {

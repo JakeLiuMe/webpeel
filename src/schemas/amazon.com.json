@@ -1,0 +1,18 @@
+{
+  "name": "Amazon Product Search",
+  "version": "1.0",
+  "domains": ["amazon.com", "www.amazon.com", "amazon.co.uk", "amazon.de", "amazon.fr", "amazon.ca"],
+  "urlPatterns": ["/s\\?", "/s/"],
+  "baseSelector": "[data-component-type='s-search-result']",
+  "fields": [
+    {"name": "title", "selector": "h2 a span, h2 span a span", "type": "text"},
+    {"name": "price", "selector": ".a-price .a-offscreen", "type": "text"},
+    {"name": "originalPrice", "selector": ".a-price.a-text-price .a-offscreen", "type": "text"},
+    {"name": "rating", "selector": ".a-icon-star-small .a-icon-alt, .a-icon-star-mini .a-icon-alt", "type": "text"},
+    {"name": "reviewCount", "selector": "[data-csa-c-func-deps='aui-da-a-popover'] ~ span span, .a-size-base.s-underline-text", "type": "text"},
+    {"name": "link", "selector": "h2 a", "type": "attribute", "attribute": "href"},
+    {"name": "image", "selector": ".s-image", "type": "attribute", "attribute": "src"},
+    {"name": "sponsored", "selector": ".puis-sponsored-label-text", "type": "exists"},
+    {"name": "asin", "selector": "", "type": "attribute", "attribute": "data-asin"}
+  ]
+}

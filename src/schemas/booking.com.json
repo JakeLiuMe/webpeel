@@ -1,0 +1,17 @@
+{
+  "name": "Booking.com Hotel Search",
+  "version": "1.0",
+  "domains": ["booking.com", "www.booking.com"],
+  "urlPatterns": ["searchresults"],
+  "baseSelector": "[data-testid='property-card'], .sr_property_block, [data-testid='property-card-container']",
+  "fields": [
+    {"name": "title", "selector": "[data-testid='title'], .sr-hotel__name, h3 a", "type": "text"},
+    {"name": "price", "selector": "[data-testid='price-and-discounted-price'], .bui-price-display__value, [data-testid='price-for-x-nights']", "type": "text", "transform": "trim"},
+    {"name": "rating", "selector": "[data-testid='review-score'] div:first-child, .bui-review-score__badge", "type": "text"},
+    {"name": "reviewCount", "selector": "[data-testid='review-score'] div:nth-child(2) div:nth-child(2), .bui-review-score__text", "type": "text"},
+    {"name": "location", "selector": "[data-testid='address'], .sr_card_address_line", "type": "text"},
+    {"name": "link", "selector": "a[data-testid='title-link'], h3 a, a.hotel_name_link", "type": "attribute", "attribute": "href"},
+    {"name": "image", "selector": "img[data-testid='image'], img.hotel_image", "type": "attribute", "attribute": "src"},
+    {"name": "stars", "selector": "[data-testid='rating-stars'] span, .bui-star-rating .bui-star-rating__star", "type": "text"}
+  ]
+}

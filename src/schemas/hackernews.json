@@ -1,0 +1,12 @@
+{
+  "name": "Hacker News",
+  "version": "1.0",
+  "domains": ["news.ycombinator.com"],
+  "baseSelector": "tr.athing",
+  "fields": [
+    {"name": "title", "selector": ".titleline a", "type": "text"},
+    {"name": "link", "selector": ".titleline a", "type": "attribute", "attribute": "href"},
+    {"name": "rank", "selector": ".rank", "type": "text"},
+    {"name": "site", "selector": ".sitestr", "type": "text"}
+  ]
+}
