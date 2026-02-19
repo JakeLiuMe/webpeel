@@ -85,7 +85,7 @@ export function createOAuthRouter(): Router {
 
   const pool = new Pool({
     connectionString: dbUrl,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } : undefined,
   });
 
   /**
@@ -97,8 +97,9 @@ export function createOAuthRouter(): Router {
     try {
       const { provider, accessToken, name, avatar } = req.body;
 
-      // Rate limiting - use provider as identifier (email not yet verified)
-      if (!rateLimiter.check(provider || 'unknown')) {
+      // Rate limiting - use IP + provider to prevent global DoS
+      const clientIp = (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown';
+      if (!rateLimiter.check(`${clientIp}:${provider || 'unknown'}`)) {
         res.status(429).json({
           error: 'rate_limit_exceeded',
           message: 'Too many OAuth attempts. Please try again in a minute.',
