@@ -2,6 +2,7 @@ services:
   - type: web
     name: webpeel-api
     runtime: docker
+    dockerfilePath: Dockerfile.api
     plan: starter
     envVars:
       - key: DATABASE_URL
