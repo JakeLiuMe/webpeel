@@ -186,15 +186,11 @@ export async function autoScroll(page: Page, options: AutoScrollOptions = {}): P
       await sleep(waitMs);
     }
 
-    // Optionally wait for a specific selector
+    // Optionally wait for a specific selector (use remaining total time, not scrollDelay)
     if (waitForSelector) {
-      try {
-        const selectorTimeout = Math.min(scrollDelay, timeout - (Date.now() - startTime));
-        if (selectorTimeout > 0) {
-          await page.waitForSelector(waitForSelector, { timeout: selectorTimeout }).catch(() => {});
-        }
-      } catch {
-        // Selector not found — continue anyway
+      const selectorTimeout = Math.max(0, timeout - (Date.now() - startTime));
+      if (selectorTimeout > 0) {
+        await page.waitForSelector(waitForSelector, { timeout: selectorTimeout }).catch(() => {});
       }
     }
 
