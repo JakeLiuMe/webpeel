@@ -74,8 +74,8 @@ function extractPublished($: cheerio.CheerioAPI): string | undefined {
   if (published) {
     try {
       return new Date(published).toISOString();
-    } catch {
-      // Invalid date, continue
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'date parse failed:', e instanceof Error ? e.message : e);
     }
   }
 
@@ -84,8 +84,8 @@ function extractPublished($: cheerio.CheerioAPI): string | undefined {
   if (published) {
     try {
       return new Date(published).toISOString();
-    } catch {
-      // Invalid date, continue
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'date parse failed:', e instanceof Error ? e.message : e);
     }
   }
 
@@ -151,8 +151,8 @@ export function extractLinks(html: string, baseUrl: string): string[] {
       }
 
       links.add(absoluteUrl.href);
-    } catch {
-      // Invalid URL, skip
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'url parse failed:', e instanceof Error ? e.message : e);
     }
   });
 
@@ -203,8 +203,8 @@ export function extractImages(html: string, baseUrl: string): import('../types.j
 
       // Deduplicate by src
       images.set(absoluteUrl.href, imageInfo);
-    } catch {
-      // Invalid URL, skip
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'url parse failed:', e instanceof Error ? e.message : e);
     }
   });
 
@@ -237,8 +237,8 @@ export function extractImages(html: string, baseUrl: string): import('../types.j
         };
 
         images.set(absoluteUrl.href, imageInfo);
-      } catch {
-        // Invalid URL, skip
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'url parse failed:', e instanceof Error ? e.message : e);
       }
     });
   });
@@ -270,8 +270,8 @@ export function extractImages(html: string, baseUrl: string): import('../types.j
         };
 
         images.set(absoluteUrl.href, imageInfo);
-      } catch {
-        // Invalid URL, skip
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'url parse failed:', e instanceof Error ? e.message : e);
       }
     });
   });

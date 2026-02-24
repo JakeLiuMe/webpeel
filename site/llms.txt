@@ -1,18 +1,20 @@
 # WebPeel Documentation
 
-WebPeel is an open-source web intelligence tool for AI agents. It converts any webpage into clean, AI-ready Markdown with automatic content pruning (15-33% token savings), supports browser rendering for JavaScript-heavy sites, and offers web search, crawling, batch fetching, deep research, YouTube transcripts, domain-aware extractors, LLM-free Q&A, and an MCP server with 18 tools for AI assistants.
+WebPeel is an open-source web intelligence tool for AI agents. It converts any webpage into clean, AI-ready Markdown with smart token budgeting (use budget=4000 to get ~4K tokens from any page), automatic content pruning (83% size reduction), and browser rendering for JavaScript-heavy sites. Includes web search, crawling, batch fetching, deep research, YouTube transcripts, domain-aware extractors, LLM-free Q&A, and an MCP server with 18 tools for AI assistants.
 
 ## Key Features
+- **Smart token budget** — `budget=4000` distills any page to ~4K tokens (strips boilerplate, compresses tables)
 - Web scraping with smart escalation (HTTP → browser → stealth)
-- Content density pruning (automatic chrome removal)
+- Content density pruning (83% size reduction on typical pages)
 - BM25 query-focused filtering
 - Deep research agent (multi-source, synthesized reports)
 - Page actions (click, scroll, type, fill, wait)
 - JSON Schema extraction (LLM-powered)
 - Browser profiles (persistent login sessions)
-- 7 CSS schemas for structured extraction
+- Domain-aware extractors (Twitter/X, Reddit, GitHub, Hacker News)
+- YouTube transcript extraction (no API key needed)
+- LLM-free quick answer with confidence scoring
 - Proxy support (HTTP/HTTPS/SOCKS5)
-- Smart chunking (semantic/fixed/paragraph)
 
 ## Getting Started
 https://webpeel.dev/docs/getting-started

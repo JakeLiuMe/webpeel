@@ -74,8 +74,8 @@ function parseJsonResponse(text: string): Record<string, any> {
     if (fenceMatch) {
       try {
         return JSON.parse(fenceMatch[1].trim());
-      } catch {
-        // fall through
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'fence json parse failed:', e instanceof Error ? e.message : e);
       }
     }
 
@@ -85,8 +85,8 @@ function parseJsonResponse(text: string): Record<string, any> {
     if (braceStart !== -1 && braceEnd > braceStart) {
       try {
         return JSON.parse(text.slice(braceStart, braceEnd + 1));
-      } catch {
-        // fall through
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'brace json parse failed:', e instanceof Error ? e.message : e);
       }
     }
 

@@ -342,8 +342,8 @@ export async function diffUrl(url: string, options: DiffOptions = {}): Promise<D
     prevJson = JSON.parse(previousContent);
     currJson = JSON.parse(currentContent);
     mode = 'json';
-  } catch {
-    /* Not JSON — fall through to text diffing */
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'json parse failed:', e instanceof Error ? e.message : e);
   }
 
   if (mode === 'json' && prevJson !== null && currJson !== null) {

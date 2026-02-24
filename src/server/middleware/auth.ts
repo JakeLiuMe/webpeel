@@ -112,8 +112,8 @@ export function createAuthMiddleware(authStore: AuthStore) {
                 (req as any).user = payload;
                 return next();
               }
-            } catch {
-              // Not a valid JWT either — fall through to 401
+            } catch (e) {
+              if (process.env.DEBUG) console.debug('[webpeel]', 'jwt verify failed:', e instanceof Error ? e.message : e);
             }
           }
 

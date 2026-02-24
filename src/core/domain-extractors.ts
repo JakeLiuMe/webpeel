@@ -58,8 +58,8 @@ export function getDomainExtractor(url: string): DomainExtractor | null {
     for (const entry of REGISTRY) {
       if (entry.match(host)) return entry.extractor;
     }
-  } catch {
-    // Invalid URL — no extractor
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'url parse failed:', e instanceof Error ? e.message : e);
   }
   return null;
 }

@@ -85,8 +85,8 @@ export function touchProfile(name: string): void {
     const meta: ProfileMetadata = JSON.parse(readFileSync(metaPath, 'utf-8'));
     meta.lastUsed = new Date().toISOString();
     writeFileSync(metaPath, JSON.stringify(meta, null, 2));
-  } catch {
-    /* ignore */
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'profile touch failed:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -105,12 +105,12 @@ export function listProfiles(): ProfileMetadata[] {
       try {
         const meta: ProfileMetadata = JSON.parse(readFileSync(metaPath, 'utf-8'));
         profiles.push(meta);
-      } catch {
-        /* skip corrupt profile */
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'profile metadata parse failed:', e instanceof Error ? e.message : e);
       }
     }
-  } catch {
-    /* ignore read errors */
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'profiles dir read failed:', e instanceof Error ? e.message : e);
   }
   // Sort: most recently used first
   profiles.sort((a, b) => b.lastUsed.localeCompare(a.lastUsed));
@@ -225,15 +225,15 @@ export async function createProfile(name: string, description?: string): Promise
       // Clean up partial directory
       try {
         rmSync(profileDir, { recursive: true, force: true });
-      } catch {
-        /* ignore */
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'cleanup dir failed:', e instanceof Error ? e.message : e);
       }
     }
 
     try {
       await browser.close();
-    } catch {
-      /* ignore — browser may already be closed */
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'browser close failed:', e instanceof Error ? e.message : e);
     }
   };
 

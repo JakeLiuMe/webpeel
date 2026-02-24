@@ -69,7 +69,9 @@ export function getCache(url: string, options?: Record<string, any>): any | null
     
     if (age > entry.ttlMs) {
       // Expired — delete and return null
-      try { unlinkSync(filePath); } catch {}
+      try { unlinkSync(filePath); } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'file unlink failed:', e instanceof Error ? e.message : e);
+      }
       return null;
     }
 
@@ -121,8 +123,8 @@ export function clearCache(all = false): number {
           cleared++;
         }
       }
-    } catch {
-      // Skip corrupt files
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'cache file parse failed:', e instanceof Error ? e.message : e);
     }
   }
 
@@ -142,7 +144,9 @@ export function cacheStats(): { entries: number; sizeBytes: number; dir: string 
     try {
       const stat = statSync(join(CACHE_DIR, file));
       sizeBytes += stat.size;
-    } catch {}
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'stat file failed:', e instanceof Error ? e.message : e);
+    }
   }
 
   return { entries: files.length, sizeBytes, dir: CACHE_DIR };

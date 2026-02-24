@@ -90,7 +90,7 @@ function getTools(): Tool[] {
   return [
     {
       name: 'webpeel_fetch',
-      description: 'Fetch any URL and return clean markdown content. Handles JavaScript rendering, bot detection, and content extraction automatically. Set readable=true for article-only content.',
+      description: 'Fetch any URL and return clean markdown content. Use budget=4000 to get token-efficient output (strips boilerplate, compresses tables). Handles JavaScript rendering and bot detection automatically. Use readable=true for article-only content, question="..." for instant Q&A.',
       annotations: { title: 'Fetch Web Page', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       inputSchema: {
         type: 'object',

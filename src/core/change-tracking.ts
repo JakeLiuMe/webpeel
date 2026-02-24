@@ -301,8 +301,8 @@ export async function clearSnapshots(urlPattern?: string): Promise<number> {
             await fs.unlink(path);
             cleared++;
           }
-        } catch {
-          // Skip malformed snapshots
+        } catch (e) {
+          if (process.env.DEBUG) console.debug('[webpeel]', 'snapshot parse failed:', e instanceof Error ? e.message : e);
         }
       } else {
         // Clear all

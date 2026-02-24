@@ -205,8 +205,8 @@ export class ApplicationTracker {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) return parsed as ApplicationRecord[];
       }
-    } catch {
-      // Corrupt / missing data — start fresh
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'records load failed:', e instanceof Error ? e.message : e);
     }
     return [];
   }

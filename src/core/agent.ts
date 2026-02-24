@@ -127,8 +127,8 @@ async function searchWeb(query: string, limit = 10): Promise<SearchResult[]> {
               : rawUrl;
 
           results.push({ url: actualUrl, title, snippet: desc });
-        } catch {
-          // Skip malformed URLs
+        } catch (e) {
+          if (process.env.DEBUG) console.debug('[webpeel]', 'url decode failed:', e instanceof Error ? e.message : e);
         }
       }
     });
@@ -326,8 +326,8 @@ async function callLLMStreaming(
             output: parsed.usage.completion_tokens ?? 0,
           };
         }
-      } catch {
-        // Skip unparseable lines
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'stream chunk parse failed:', e instanceof Error ? e.message : e);
       }
     }
   }
@@ -585,13 +585,13 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
               collectedData.push({ url: result.url, title: result.title, content: truncated });
               sources.push(result.url);
               sourcesDetailed.push({ url: result.url, title: result.title });
-            } catch {
-              // skip
+            } catch (e) {
+              if (process.env.DEBUG) console.debug('[webpeel]', 'page fetch failed:', e instanceof Error ? e.message : e);
             }
           }
         }
-      } catch {
-        // Non-critical — continue with what we have
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'research batch failed:', e instanceof Error ? e.message : e);
       }
     }
 
