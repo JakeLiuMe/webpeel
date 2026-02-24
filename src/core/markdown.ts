@@ -187,6 +187,95 @@ function cleanHTML(html: string): string {
     $table.replaceWith(replacement);
   });
 
+  // Convert complex data tables to clean markdown-ready format.
+  // Turndown's GFM plugin fails on tables with colspan/rowspan, missing <thead>,
+  // or too many columns. Detect these and convert to readable text pre-Turndown.
+  $('table').each((_, tableEl) => {
+    const $table = $(tableEl);
+
+    // Detect complexity: colspan, rowspan, no <thead>, or >8 columns
+    const hasColspan = $table.find('[colspan]').length > 0;
+    const hasRowspan = $table.find('[rowspan]').length > 0;
+    const hasThead = $table.find('thead').length > 0;
+    const firstRow = $table.find('tr').first();
+    const colCount = firstRow.children('th, td').length;
+    const isComplex = hasColspan || hasRowspan || !hasThead || colCount > 8;
+
+    if (!isComplex) {
+      // Simple table: just strip attributes so GFM plugin handles it
+      const tableTags = ['table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption'];
+      tableTags.forEach(tag => {
+        $table.find(tag).addBack(tag).each((_i, el) => {
+          const attrs = (el as any).attribs || {};
+          for (const attr of Object.keys(attrs)) {
+            $(el).removeAttr(attr);
+          }
+        });
+      });
+      return;
+    }
+
+    // Complex table: convert to structured text that reads well in markdown/chat
+    // Extract headers from first row of <th> elements
+    const headers: string[] = [];
+    $table.find('tr').first().children('th').each((_i, th) => {
+      headers.push($(th).text().trim());
+    });
+
+    // If first row had <th>, treat it as header row; otherwise no headers
+    const dataRows = $table.find('tr').toArray();
+    const startIdx = headers.length > 0 ? 1 : 0;
+
+    // For tables with ≤6 useful columns and headers, rebuild as a clean bare HTML table
+    // so Turndown's GFM plugin can convert it to a proper pipe table
+    if (headers.length >= 2 && headers.length <= 6) {
+      const theadRow = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+      const tbodyRows: string[] = [];
+
+      for (let r = startIdx; r < dataRows.length; r++) {
+        const cells: string[] = [];
+        $(dataRows[r]).children('td, th').each((_j, td) => {
+          const span = parseInt($(td).attr('colspan') || '1', 10);
+          const text = $(td).text().trim();
+          for (let s = 0; s < Math.min(span, 6); s++) cells.push(text);
+        });
+        // Pad or trim to match header count
+        while (cells.length < headers.length) cells.push('');
+        tbodyRows.push(`<tr>${cells.slice(0, headers.length).map(c => `<td>${c}</td>`).join('')}</tr>`);
+      }
+
+      $table.replaceWith(`<table><thead>${theadRow}</thead><tbody>${tbodyRows.join('')}</tbody></table>`);
+      return;
+    }
+
+    // Wide tables or no headers: convert to HTML list so Turndown handles it properly
+    // (never put pre-formatted markdown inside a div — Turndown will escape it)
+    const liItems: string[] = [];
+    for (let r = startIdx; r < dataRows.length; r++) {
+      const cells: string[] = [];
+      $(dataRows[r]).children('td, th').each((_j, td) => {
+        const span = parseInt($(td).attr('colspan') || '1', 10);
+        const text = $(td).text().trim();
+        for (let s = 0; s < Math.min(span, 3); s++) cells.push(text);
+      });
+      if (cells.some(c => c)) {
+        if (headers.length > 0) {
+          const parts = cells
+            .map((c, j) => (headers[j] && c) ? `<strong>${headers[j]}:</strong> ${c}` : c)
+            .filter(Boolean)
+            .join(' &middot; ');
+          liItems.push(`<li>${parts}</li>`);
+        } else {
+          liItems.push(`<li>${cells.filter(Boolean).join(' &middot; ')}</li>`);
+        }
+      }
+    }
+
+    if (liItems.length > 0) {
+      $table.replaceWith(`<ul>${liItems.join('')}</ul>`);
+    }
+  });
+
   // Remove empty paragraphs and divs
   $('p:empty, div:empty').remove();
 

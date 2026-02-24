@@ -85,6 +85,9 @@ const DENSITY_SAFE_TAGS = new Set([
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
   'p', 'pre', 'code', 'blockquote', 'figcaption',
   'main', 'article', 'body',
+  // Table structural elements — pruner must not remove these or Turndown GFM
+  // can't convert tables and falls back to raw HTML output.
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
 ]);
 
 /**

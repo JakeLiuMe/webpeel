@@ -10,6 +10,7 @@ import { AuthStore } from '../auth-store.js';
 import { peel } from '../../index.js';
 import {
   getSearchProvider,
+  getBestSearchProvider,
   type SearchProviderId,
   type WebSearchResult,
 } from '../../core/search-provider.js';
@@ -63,11 +64,11 @@ export function createSearchRouter(authStore: AuthStore): Router {
       const { q, count, scrapeResults, sources, categories, tbs, country, location } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---
-      const providerParam = (req.query.provider as string || '').toLowerCase() || 'duckduckgo';
-      const validProviders: SearchProviderId[] = ['duckduckgo', 'brave'];
-      const providerId: SearchProviderId = validProviders.includes(providerParam as SearchProviderId)
+      const providerParam = (req.query.provider as string || '').toLowerCase() || 'auto';
+      const validProviders: SearchProviderId[] = ['duckduckgo', 'brave', 'serper'];
+      const providerId: SearchProviderId | 'auto' = validProviders.includes(providerParam as SearchProviderId)
         ? (providerParam as SearchProviderId)
-        : 'duckduckgo';
+        : providerParam === 'auto' ? 'auto' : 'duckduckgo';
 
       // API key: query param, header, or empty
       const searchApiKey =
@@ -131,28 +132,28 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
       // Fetch web results via the search-provider abstraction
       if (sourcesArray.includes('web')) {
-        const provider = getSearchProvider(providerId);
-        let providerResults: WebSearchResult[] = await provider.searchWeb(q, {
+        // When provider=auto (default), use getBestSearchProvider which picks
+        // the best available provider based on configured API keys.
+        // When a specific provider is requested, use that directly.
+        let searchProvider;
+        let effectiveApiKey: string | undefined;
+
+        if (providerId === 'auto') {
+          const best = getBestSearchProvider();
+          searchProvider = best.provider;
+          effectiveApiKey = searchApiKey || best.apiKey;
+        } else {
+          searchProvider = getSearchProvider(providerId);
+          effectiveApiKey = searchApiKey || undefined;
+        }
+
+        let providerResults: WebSearchResult[] = await searchProvider.searchWeb(q, {
           count: resultCount,
-          apiKey: searchApiKey || undefined,
+          apiKey: effectiveApiKey,
           tbs: tbsStr || undefined,
           country: countryStr || undefined,
           location: locationStr || undefined,
         });
-
-        // Server-side fallback: if DDG returned 0 results and we have a Brave key,
-        // automatically fall back to Brave Search. This handles datacenter IP blocking.
-        const braveKey = process.env.BRAVE_SEARCH_KEY || process.env.BRAVE_API_KEY;
-        if (providerResults.length === 0 && providerId !== 'brave' && braveKey) {
-          const braveProvider = getSearchProvider('brave');
-          providerResults = await braveProvider.searchWeb(q, {
-            count: resultCount,
-            apiKey: braveKey,
-            tbs: tbsStr || undefined,
-            country: countryStr || undefined,
-            location: locationStr || undefined,
-          });
-        }
 
         // Map to SearchResult (with optional content field)
         let results: SearchResult[] = providerResults.map(r => ({

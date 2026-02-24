@@ -376,23 +376,13 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
       const query = args.query as string;
       if (!query || typeof query !== 'string') throw new Error('Invalid query');
 
-      const { getSearchProvider } = await import('../../core/search-provider.js');
-      const provider = getSearchProvider('duckduckgo');
+      const { getBestSearchProvider } = await import('../../core/search-provider.js');
+      const { provider, apiKey } = getBestSearchProvider();
       const count = Math.min(Math.max((args.count as number) || 5, 1), 10);
-      let results = await Promise.race([
-        provider.searchWeb(query, { count }),
+      const results = await Promise.race([
+        provider.searchWeb(query, { count, apiKey }),
         timeout(30000, 'Search timed out'),
       ]) as any[];
-
-      // Fallback: if DDG returned 0 results (datacenter IP blocked) and Brave key exists
-      const braveKey = process.env.BRAVE_SEARCH_KEY || process.env.BRAVE_API_KEY;
-      if (results.length === 0 && braveKey) {
-        const braveProvider = getSearchProvider('brave');
-        results = await Promise.race([
-          braveProvider.searchWeb(query, { count, apiKey: braveKey }),
-          timeout(15000, 'Brave search timed out'),
-        ]) as any[];
-      }
 
       return ok(safeStringify(results));
     }
@@ -679,11 +669,11 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
       const count = Math.min(Math.max((args.count as number) || 5, 1), 10);
       const format = (args.format as 'markdown' | 'text') || 'markdown';
 
-      // Step 1: Search for the query
-      const { getSearchProvider } = await import('../../core/search-provider.js');
-      const provider = getSearchProvider('duckduckgo');
+      // Step 1: Search for the query using best available provider
+      const { getBestSearchProvider } = await import('../../core/search-provider.js');
+      const { provider, apiKey } = getBestSearchProvider();
       const searchResults = await Promise.race([
-        provider.searchWeb(query, { count }),
+        provider.searchWeb(query, { count, apiKey }),
         timeout(30000, 'Search timed out'),
       ]) as any;
 

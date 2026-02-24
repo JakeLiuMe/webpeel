@@ -142,14 +142,28 @@ export async function research(options: ResearchOptions): Promise<ResearchResult
   let searchUrls: Array<{ title: string; url: string }> = [];
 
   try {
-    const searchResult = await peel(
-      `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-      {
-        format: 'markdown',
-        timeout: 10000,
-      },
-    );
-    searchUrls = extractLinks(searchResult.content, visitedUrls);
+    // Use the search provider abstraction instead of directly scraping DDG.
+    // This picks the best available provider (Serper > Brave > DDG with fallbacks).
+    const { getBestSearchProvider } = await import('./search-provider.js');
+    const { provider, apiKey } = getBestSearchProvider();
+    const searchResults = await provider.searchWeb(query, {
+      count: Math.min(maxSources * 2, 10), // Fetch extra for filtering
+      apiKey,
+    });
+
+    if (searchResults.length > 0) {
+      searchUrls = searchResults.map(r => ({ title: r.title, url: r.url }));
+    } else {
+      // Fallback: scrape DDG directly via peel (works locally)
+      const searchResult = await peel(
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+        {
+          format: 'markdown',
+          timeout: 10000,
+        },
+      );
+      searchUrls = extractLinks(searchResult.content, visitedUrls);
+    }
   } catch {
     // Search failed — proceed with empty list; will produce sources-only report
   }
