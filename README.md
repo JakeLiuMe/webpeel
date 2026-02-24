@@ -92,7 +92,7 @@ curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
 
 | Feature | Description |
 |---------|-------------|
-| **MCP Server** | 12 tools for Claude Desktop, Cursor, VS Code, and Windsurf |
+| **MCP Server** | 13 tools for Claude Desktop, Cursor, VS Code, and Windsurf |
 | **Deep Research** | Multi-hop agent: search → fetch → analyze → follow leads → synthesize |
 | **Search** | Web search across 27+ structured sources |
 | **Hotel Search** | Kayak, Booking.com, Google Travel, Expedia — in parallel |
@@ -155,6 +155,7 @@ WebPeel exposes **13 tools** to your AI coding assistant:
 | `webpeel_answer` | Ask a question about a URL's content |
 | `webpeel_change_track` | Detect changes between two fetches |
 | `webpeel_brand` | Extract branding assets from a site |
+| `webpeel_deep_fetch` | Search + batch fetch + merge — comprehensive research in one call, no LLM key needed |
 
 <details>
 <summary>Setup for each editor</summary>
@@ -331,7 +332,7 @@ WebPeel is the only tool that extracted content from all 30 test URLs. [Full met
 | **Smart escalation** | ✅ auto HTTP→browser→stealth | ❌ manual | ❌ | ❌ | ❌ |
 | **Stealth mode** | ✅ all plans | ✅ | ❌ | ✅ paid | ❌ |
 | **Challenge detection** | ✅ 7 vendors | ❌ | ❌ | ❌ | ❌ |
-| **MCP tools** | ✅ 12 tools | ⚠️ ~6 | ❌ | ❌ | ✅ |
+| **MCP tools** | ✅ 13 tools | ⚠️ ~6 | ❌ | ❌ | ✅ |
 | **Deep research** | ✅ multi-hop + BM25 | ⚠️ cloud only | ❌ | ❌ | ✅ |
 | **CSS schema extraction** | ✅ 7 bundled | ❌ | ❌ | ❌ | ❌ |
 | **LLM extraction (BYOK)** | ✅ | ⚠️ cloud only | ❌ | ❌ | ❌ |

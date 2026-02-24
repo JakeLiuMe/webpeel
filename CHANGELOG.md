@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.13.1] - 2026-02-24
+
+### 🐛 Fixes
+- **Markdown quality** — Layout tables (HN, email HTML, legacy sites) now render as clean markdown links instead of raw HTML. Detected by `border`, `cellpadding`, `bgcolor` attributes or nested tables.
+- **Search resilience** — DDG HTTP → DDG Lite → browser-rendered DDG (works from datacenter IPs) → Brave fallback chain. Both `/v1/search` and MCP `webpeel_search` now handle server-side IP blocks automatically.
+
+## [0.13.0] - 2026-02-24
+
+### 🆕 MCP: 7 → 13 Tools
+Full tool parity between hosted and local MCP. New tools on `api.webpeel.dev/mcp`:
+- **`webpeel_screenshot`** — Capture full-page or viewport screenshots
+- **`webpeel_summarize`** — Fetch and return condensed content summary
+- **`webpeel_answer`** — Answer a question about any URL without BYOK
+- **`webpeel_brand`** — Extract brand info (name, logo, colors, social links)
+- **`webpeel_change_track`** — Detect content changes (hash-based monitoring)
+
+### 🌟 New: `webpeel_deep_fetch`
+The killer feature for AI agents — search + batch fetch + merge in one call. No LLM API key needed:
+- Takes a `query` and optional `count` (default 5)
+- Searches for the query, fetches top N result URLs in parallel
+- Returns merged markdown document with source attribution
+- Perfect for: "research X and give me all the content"
+
+### 🔄 Renamed
+- `webpeel_agent` → `webpeel_research` (consistent with local MCP). Old name kept as alias.
+
 ## [0.12.3] - 2026-02-23
 
 ### 🎉 Free Tier 4x Increase
