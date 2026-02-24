@@ -195,24 +195,39 @@ function extractMeta($: cheerio.CheerioAPI): PageMeta {
   let author: string | null =
     $('meta[name="author"]').attr('content') ||
     $('meta[property="article:author"]').attr('content') ||
-    $('[rel="author"]').first().text() ||
-    $('[itemprop="author"]').first().text() ||
     null;
+
+  // Structured author data (rel="author", itemprop="author")
+  // Only accept if the text looks like a person's name (short, no junk)
+  if (!author) {
+    for (const sel of ['[rel="author"]', '[itemprop="author"]']) {
+      const text = $(sel).first().text().trim().replace(/\s+/g, ' ');
+      if (text && text.length > 1 && text.length < 60 && !text.includes('\n')) {
+        author = text;
+        break;
+      }
+    }
+  }
 
   // Byline patterns — look for common class names
   if (!author) {
     const bylineSelectors = [
-      '.byline', '.author', '.post-author', '.article-author',
-      '.entry-author', '[class*="byline"]', '[class*="author"]',
+      '.byline', '.author:not([class*="authority"])', '.post-author',
+      '.article-author', '.entry-author', '[class*="byline"]',
     ];
     for (const sel of bylineSelectors) {
-      const text = $(sel).first().text().trim();
-      if (text && text.length < 100) {
+      const text = $(sel).first().text().trim().replace(/\s+/g, ' ');
+      if (text && text.length > 1 && text.length < 80 && !text.includes('\n')) {
         // Strip "By " prefix common in bylines
         author = text.replace(/^by\s+/i, '').trim();
         break;
       }
     }
+  }
+
+  // Sanity check: author shouldn't look like junk (too many words, has "database", etc.)
+  if (author && (author.split(/\s+/).length > 8 || /database|control|footer|sidebar/i.test(author))) {
+    author = null;
   }
 
   if (author) author = author.trim().replace(/\s+/g, ' ') || null;
