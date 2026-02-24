@@ -66,8 +66,8 @@ check "Search endpoint" \
   "ok"
 
 check "MCP endpoint" \
-  "curl -sf -o /dev/null -w '%{http_code}' 'https://api.webpeel.dev/mcp' || echo '200'" \
-  "200"
+  "curl -sf -X POST 'https://api.webpeel.dev/mcp' -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}' | grep -o '\"name\"' | wc -l | tr -d ' '" \
+  "13"
 
 check "CORS headers" \
   "curl -sf -H 'Origin: https://app.webpeel.dev' -I 'https://api.webpeel.dev/health' | grep -i 'access-control-allow-origin' | head -1 || echo 'access-control'" \
