@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.12.3] - 2026-02-23
+
+### 🎉 Free Tier 4x Increase
+- **500 fetches/week** (up from 125). Burst limit also increased to 50/hr.
+- Removes friction during evaluation — developers can properly test before committing.
+
+### 🔐 Dual Authentication
+- **API server now accepts both API keys AND JWT session tokens.** Dashboard sessions work seamlessly with all endpoints (`/v1/stats`, `/v1/activity`, etc.) — previously only API keys were accepted on some routes.
+- Auto-recovery for sessions created during API downtime: JWT callback retries automatically.
+
+### 🐛 Fixes
+- Fixed CSP blocking client-side API calls on dashboard (NEXT_PUBLIC_API_URL pointed to wrong domain).
+- Fixed Render deploy using wrong Dockerfile (Dockerfile vs Dockerfile.api).
+- Fixed `dist/server/` missing from npm package.
+
 ## [0.12.0] - 2026-02-20
 
 ### 🔬 Deep Research Agent

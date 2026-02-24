@@ -8,11 +8,11 @@ info:
     **Base URL:** `https://api.webpeel.dev`
     
     **Authentication:** Optional. Pass API key via `Authorization: Bearer wp_...` header.
-    Free tier available without authentication (125 requests/week).
+    Free tier available without authentication (500 requests/week).
     
     **Firecrawl Compatible:** WebPeel supports Firecrawl-compatible endpoints at the same paths.
     Switch from Firecrawl by changing your base URL.
-  version: "0.12.0"
+  version: "0.12.3"
   contact:
     name: WebPeel Support
     email: support@webpeel.dev
