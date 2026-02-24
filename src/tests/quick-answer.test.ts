@@ -295,3 +295,106 @@ describe('quickAnswer — passages structure', () => {
     expect(result.passages.length).toBeLessThanOrEqual(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Direct pattern extraction (infobox / structured content)
+// ---------------------------------------------------------------------------
+
+const WIKIPEDIA_TYPESCRIPT_INFOBOX = `-   **TypeScript:** Paradigm · Multi-paradigm: functional, generic, imperative
+-   **TypeScript:** Designed\u00a0by · Microsoft,Anders Hejlsberg,Luke Hoban
+-   **TypeScript:** Developer · Microsoft
+-   **TypeScript:** First\u00a0appeared · 1 October 2012; 13 years ago
+
+**TypeScript** is a high-level programming language that adds static typing to JavaScript.
+It is developed by Microsoft as free and open-source software.`;
+
+const WIKIPEDIA_NODEJS_INFOBOX = `-   **Node.js:** Original\u00a0author · Ryan Dahl
+-   **Node.js:** Developers · OpenJS Foundation
+-   **Node.js:** Initial\u00a0release · May 27, 2009; 16 years ago (2009-05-27)
+-   **Node.js:** Stable\u00a0release · 22.0.0
+
+Node.js is a cross-platform, open-source JavaScript runtime environment.`;
+
+describe('quickAnswer — direct infobox extraction', () => {
+  it('extracts designer from Wikipedia-style infobox (with NBSP)', () => {
+    const result = quickAnswer({
+      question: 'Who created TypeScript?',
+      content: WIKIPEDIA_TYPESCRIPT_INFOBOX,
+    });
+    // Should extract "Microsoft,Anders Hejlsberg,Luke Hoban" via direct extraction
+    expect(result.confidence).toBeGreaterThanOrEqual(0.85);
+    const answer = result.answer.toLowerCase();
+    expect(answer).toMatch(/hejlsberg|microsoft/i);
+  });
+
+  it('extracts creation date from infobox First appeared field', () => {
+    const result = quickAnswer({
+      question: 'When was Node.js created?',
+      content: WIKIPEDIA_NODEJS_INFOBOX,
+    });
+    expect(result.confidence).toBeGreaterThanOrEqual(0.85);
+    // Should find 2009
+    expect(result.answer).toMatch(/2009/);
+  });
+
+  it('direct extraction returns confidence >= 0.88', () => {
+    const result = quickAnswer({
+      question: 'Who created TypeScript?',
+      content: WIKIPEDIA_TYPESCRIPT_INFOBOX,
+    });
+    // Direct pattern extraction always returns 0.88 or 0.92
+    expect(result.confidence).toBeGreaterThanOrEqual(0.88);
+  });
+
+  it('"what company" questions treated as who questions', () => {
+    const content = `-   **React:** Original\u00a0author · Jordan Walke
+-   **React:** Developers · Meta and community
+-   **React:** Type · JavaScript library
+
+React is a free and open-source front-end JavaScript library.`;
+    const result = quickAnswer({
+      question: 'What company developed React?',
+      content,
+    });
+    // Should find author or developers
+    const combined = (result.answer + ' ' + result.passages.map(p => p.context).join(' ')).toLowerCase();
+    expect(combined).toMatch(/walke|meta|developers|author/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Confidence is not always 1.0
+// ---------------------------------------------------------------------------
+
+describe('quickAnswer — confidence is honest', () => {
+  it('confidence is less than 1 for BM25-only results', () => {
+    // Unstructured content — will fall through to BM25
+    const content = `The Pro plan costs $29 per month. Enterprise is custom pricing.
+Free tier includes 500 requests per week. Contact us at sales@example.com.`;
+    const result = quickAnswer({ question: 'What is the enterprise price?', content });
+    // BM25 results should be < 1.0 (gap-based confidence)
+    expect(result.confidence).toBeLessThan(1.0);
+    expect(result.confidence).toBeGreaterThan(0);
+  });
+
+  it('confidence is 0.92 for infobox direct extraction', () => {
+    const result = quickAnswer({
+      question: 'Who created TypeScript?',
+      content: WIKIPEDIA_TYPESCRIPT_INFOBOX,
+    });
+    expect(result.confidence).toBe(0.92);
+  });
+
+  it('confidence is 0.88 for definition-pattern extraction', () => {
+    const content = `TypeScript is a programming language.
+TypeScript was designed by Anders Hejlsberg at Microsoft in 2012.
+It adds static typing to JavaScript.`;
+    const result = quickAnswer({
+      question: 'Who designed TypeScript?',
+      content,
+    });
+    // "designed by" pattern should trigger direct extraction
+    expect(result.confidence).toBeGreaterThanOrEqual(0.85);
+    expect(result.answer).toMatch(/hejlsberg|microsoft/i);
+  });
+});

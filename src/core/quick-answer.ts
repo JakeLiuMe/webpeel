@@ -283,7 +283,7 @@ function tryDirectExtraction(
   // --- Definition sentence patterns (e.g. "X is a Y developed by Z") ---
   if (questionType === 'who') {
     // "developed/designed/created by [Name]" in first 20% of content
-    const first20 = content.slice(0, Math.floor(content.length * 0.2));
+    const first20 = content.slice(0, Math.max(500, Math.floor(content.length * 0.2)));
     const byPattern = /(?:developed|designed|created|built|invented|founded|authored|introduced)\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/i;
     const byMatch = first20.match(byPattern);
     if (byMatch?.[1]) {
@@ -302,7 +302,7 @@ function tryDirectExtraction(
 
   if (questionType === 'when') {
     // Look for a date near topic terms in first 30% of content
-    const first30 = content.slice(0, Math.floor(content.length * 0.3));
+    const first30 = content.slice(0, Math.max(600, Math.floor(content.length * 0.3)));
     const datePattern = /(?:released|launched|first appeared|founded|established|created|introduced|began|started)\s+(?:in|on)?\s*(\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2},?\s+\d{4}|\d{4})/i;
     const dateMatch = first30.match(datePattern);
     if (dateMatch) {
