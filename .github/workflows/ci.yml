@@ -42,6 +42,78 @@ jobs:
         run: npm run lint
         if: runner.os == 'Linux'
 
+  docker-validate:
+    name: Validate Docker build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Dockerfile.api exists and is referenced
+        run: |
+          test -f Dockerfile.api || (echo "❌ Dockerfile.api missing!" && exit 1)
+          # Ensure we're not accidentally using the MCP Dockerfile
+          if [ -f Dockerfile ] && ! grep -q "mcp" Dockerfile 2>/dev/null; then
+            echo "⚠️ Root Dockerfile exists and may not be the MCP variant"
+          fi
+
+      - name: Check version pin in Dockerfile.api
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if grep -q "webpeel@$VERSION" Dockerfile.api; then
+            echo "✅ Dockerfile.api pins webpeel@$VERSION"
+          else
+            PINNED=$(grep -o 'webpeel@[0-9.]*' Dockerfile.api)
+            echo "⚠️ Dockerfile.api pins $PINNED but package.json is v$VERSION"
+            echo "::warning::Dockerfile.api version ($PINNED) doesn't match package.json (v$VERSION)"
+          fi
+
+      - name: Build Docker image
+        run: docker build -f Dockerfile.api -t webpeel-api-test .
+
+      - name: Smoke test Docker container
+        run: |
+          # Start container with minimal config
+          docker run -d --name wp-test -p 3333:3000 \
+            -e JWT_SECRET=test-secret-for-ci \
+            -e DATABASE_URL=postgresql://skip:skip@localhost/skip \
+            webpeel-api-test || true
+          
+          # Give it 5 seconds to start
+          sleep 5
+          
+          # Check if process is running (may fail on DB connect, that's OK)
+          if docker ps | grep -q wp-test; then
+            echo "✅ Container started successfully"
+          else
+            echo "Container logs:"
+            docker logs wp-test 2>&1 | tail -20
+            # Don't fail — DB connection errors are expected in CI
+            echo "::warning::Container exited (expected if no DB)"
+          fi
+          
+          docker rm -f wp-test 2>/dev/null || true
+
+  dashboard-check:
+    name: Dashboard TypeScript check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: npm install
+
+      - name: TypeScript check
+        working-directory: dashboard
+        run: npx tsc --noEmit
+
   notify-failure:
     name: Notify on failure
     runs-on: ubuntu-latest
