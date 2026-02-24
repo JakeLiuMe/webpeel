@@ -321,8 +321,8 @@ export function createUserRouter(): Router {
             }),
           }).catch(() => {});
         }
-      } catch {
-        // Intentionally swallow webhook failures.
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'discord webhook failed:', e instanceof Error ? e.message : e);
       }
     } catch (error: any) {
       if (error.code === '23505') { // Unique violation

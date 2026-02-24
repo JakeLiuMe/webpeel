@@ -476,8 +476,8 @@ export class DuckDuckGoProvider implements SearchProvider {
         const ddgUrl = new URL(rawUrl, 'https://duckduckgo.com');
         const uddg = ddgUrl.searchParams.get('uddg');
         if (uddg) url = decodeURIComponent(uddg);
-      } catch {
-        // Use raw URL if parsing fails
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'ddg url parse failed:', e instanceof Error ? e.message : e);
       }
 
       // SECURITY: Validate and sanitize results — only allow HTTP/HTTPS URLs
@@ -590,8 +590,8 @@ export class DuckDuckGoProvider implements SearchProvider {
     try {
       const liteResults = await this.searchLite(query, options);
       if (liteResults.length > 0) return liteResults;
-    } catch {
-      // Lite also failed — try API-based fallbacks
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'ddg lite search failed:', e instanceof Error ? e.message : e);
     }
 
     // Fallback: try Brave Search API if key is configured
@@ -601,8 +601,8 @@ export class DuckDuckGoProvider implements SearchProvider {
         const braveProvider = new BraveSearchProvider();
         const braveResults = await braveProvider.searchWeb(query, { ...options, apiKey: braveKey });
         if (braveResults.length > 0) return braveResults;
-      } catch {
-        // Brave failed — continue to next fallback
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'brave search failed:', e instanceof Error ? e.message : e);
       }
     }
 
@@ -612,8 +612,8 @@ export class DuckDuckGoProvider implements SearchProvider {
       const stealthProvider = new StealthSearchProvider();
       const stealthResults = await stealthProvider.searchWeb(query, options);
       if (stealthResults.length > 0) return stealthResults;
-    } catch {
-      // Stealth also failed
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'stealth search failed:', e instanceof Error ? e.message : e);
     }
 
     return [];

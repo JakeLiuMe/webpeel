@@ -57,6 +57,8 @@ function detectQuestionType(question: string): QuestionType {
   if (/where\b/.test(q)) return 'where';
   if (/why\b/.test(q)) return 'why';
   if (/who\b/.test(q)) return 'who';
+  // "what company/person/team/group/organization" → treat as who
+  if (/what\s+(?:company|person|people|team|group|organization|organisation|developer|author|creator|founder)\b/.test(q)) return 'who';
   if (/what\b/.test(q)) return 'what';
   if (/how\b/.test(q)) return 'how_many';
   return 'other';
@@ -184,6 +186,10 @@ function computeBoost(sentence: string, questionType: QuestionType, isTopicSente
       if (/\b(january|february|march|april|may|june|july|august|september|october|november|december|\d{4}|\d+\s*(days?|weeks?|months?|years?))\b/i.test(sentence)) {
         boost += 0.3;
       }
+      // Contains "released/launched/etc. in/on <year>"
+      if (/\b(released|launched|published|introduced|created|started|began|founded|established|invented)\s+(in|on|at|around)?\s*\d/i.test(sentence)) {
+        boost += 0.4;
+      }
       break;
     }
     case 'where': {
@@ -208,8 +214,19 @@ function computeBoost(sentence: string, questionType: QuestionType, isTopicSente
       break;
     }
     case 'who': {
-      // Contains a name or role
-      if (/\b(ceo|cto|founder|president|director|manager|team|company|organization)\b/.test(s)) {
+      // Pattern: "[topic] was created/designed/developed by [Person]"
+      // Or: "[Person] created/designed/developed [topic]"
+      if (/\b(created|designed|developed|built|invented|founded|authored|introduced|proposed|conceived)\s+by\b/i.test(s) ||
+          /\b[A-Z][a-z]+\s+(?:[A-Z][a-z]+\s+)?(?:created|designed|developed|built|invented|founded|authored|introduced)\b/.test(sentence)) {
+        boost += 0.5;
+      }
+      // Also boost if contains person names (capitalized words that aren't sentence starters)
+      const namePattern = /\b[A-Z][a-z]+\s+[A-Z][a-z]+\b/;
+      if (namePattern.test(sentence) && !/^(The|A|An|In|On|At)\b/.test(sentence)) {
+        boost += 0.2;
+      }
+      // Existing title check
+      if (/\b(ceo|cto|founder|president|director|manager|team|company|organization|engineer|professor|researcher)\b/i.test(s)) {
         boost += 0.2;
       }
       break;
@@ -217,6 +234,91 @@ function computeBoost(sentence: string, questionType: QuestionType, isTopicSente
   }
 
   return boost;
+}
+
+// ---------------------------------------------------------------------------
+// Direct pattern extraction — bypasses BM25 for structured content
+// ---------------------------------------------------------------------------
+
+interface DirectResult {
+  text: string;
+  context: string;
+  confidence: number;
+}
+
+function tryDirectExtraction(
+  content: string,
+  questionType: QuestionType,
+  topicTerms: string[],
+  _question: string,
+): DirectResult | null {
+  if (topicTerms.length === 0) return null;
+
+  // Build a regex pattern that matches any topic term (case-insensitive)
+  const topicPattern = topicTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+
+  // --- Infobox patterns (Wikipedia-style: "Topic: Field · Value") ---
+  // Note: Wikipedia uses \u00A0 (NBSP) in infobox fields, so we use \\s+ (which matches NBSP) instead of literal spaces
+  const infoboxPatterns: Array<{ type: QuestionType[]; field: RegExp }> = [
+    { type: ['who'], field: new RegExp(`(?:${topicPattern}).*?(?:Designed\\s+by|Created\\s+by|Developed\\s+by|Founded\\s+by|Original\\s+author|Developers|Developer|Maintainer|Author|Inventor|Creator)\\s*[·:]\\s*(.+)`, 'i') },
+    { type: ['when'], field: new RegExp(`(?:${topicPattern}).*?(?:First\\s+appeared|Released|Founded|Established|Created|Launch\\s+date|Initial\\s+release)\\s*[·:]\\s*(.+)`, 'i') },
+    { type: ['what'], field: new RegExp(`(?:${topicPattern}).*?(?:Type|Genre|Category|Classification)\\s*[·:]\\s*(.+)`, 'i') },
+  ];
+
+  for (const pat of infoboxPatterns) {
+    if (!pat.type.includes(questionType)) continue;
+    const match = content.match(pat.field);
+    if (match?.[1]) {
+      const value = match[1].split('\n')[0].trim().slice(0, 300);
+      if (value.length > 2) {
+        return {
+          text: value,
+          context: match[0].split('\n')[0].trim().slice(0, 500),
+          confidence: 0.92,
+        };
+      }
+    }
+  }
+
+  // --- Definition sentence patterns (e.g. "X is a Y developed by Z") ---
+  if (questionType === 'who') {
+    // "developed/designed/created by [Name]" in first 20% of content
+    const first20 = content.slice(0, Math.floor(content.length * 0.2));
+    const byPattern = /(?:developed|designed|created|built|invented|founded|authored|introduced)\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/i;
+    const byMatch = first20.match(byPattern);
+    if (byMatch?.[1]) {
+      // Find the full sentence containing this match
+      const idx = first20.indexOf(byMatch[0]);
+      const sentStart = Math.max(0, first20.lastIndexOf('.', idx) + 1);
+      const sentEnd = first20.indexOf('.', idx + byMatch[0].length);
+      const fullSentence = first20.slice(sentStart, sentEnd > 0 ? sentEnd + 1 : undefined).trim();
+      return {
+        text: fullSentence || byMatch[0],
+        context: fullSentence,
+        confidence: 0.88,
+      };
+    }
+  }
+
+  if (questionType === 'when') {
+    // Look for a date near topic terms in first 30% of content
+    const first30 = content.slice(0, Math.floor(content.length * 0.3));
+    const datePattern = /(?:released|launched|first appeared|founded|established|created|introduced|began|started)\s+(?:in|on)?\s*(\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2},?\s+\d{4}|\d{4})/i;
+    const dateMatch = first30.match(datePattern);
+    if (dateMatch) {
+      const idx = first30.indexOf(dateMatch[0]);
+      const sentStart = Math.max(0, first30.lastIndexOf('.', idx) + 1);
+      const sentEnd = first30.indexOf('.', idx + dateMatch[0].length);
+      const fullSentence = first30.slice(sentStart, sentEnd > 0 ? sentEnd + 1 : undefined).trim();
+      return {
+        text: fullSentence || dateMatch[0],
+        context: fullSentence,
+        confidence: 0.88,
+      };
+    }
+  }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +346,23 @@ export function quickAnswer(options: QuickAnswerOptions): QuickAnswerResult {
   if (!content || !content.trim()) return emptyResult;
   if (!question || !question.trim()) return emptyResult;
 
+  // Step 0: Direct pattern extraction — try to find structured answers before BM25
+  // This catches infobox patterns (e.g. "TypeScript: Designed by · Anders Hejlsberg")
+  // and definition sentences (e.g. "TypeScript is ... developed by Microsoft")
+  const questionType = detectQuestionType(question);
+  const topicTerms = tokenizeQuestion(question);
+  const directAnswer = tryDirectExtraction(content, questionType, topicTerms, question as string);
+  if (directAnswer) {
+    return {
+      question,
+      answer: directAnswer.text.length > maxChars ? directAnswer.text.slice(0, maxChars) + '…' : directAnswer.text,
+      confidence: directAnswer.confidence,
+      passages: [{ text: directAnswer.text, score: directAnswer.confidence, context: directAnswer.context }],
+      source: url,
+      method: 'bm25',
+    };
+  }
+
   // Step 1: Split into sentences
   const sentences = splitIntoSentences(content);
   if (sentences.length === 0) return emptyResult;
@@ -256,8 +375,7 @@ export function quickAnswer(options: QuickAnswerOptions): QuickAnswerResult {
   }
   if (queryTerms.length === 0) return emptyResult;
 
-  // Step 3: Score sentences with BM25
-  const questionType = detectQuestionType(question);
+  // Step 3: Score sentences with BM25 (questionType already computed in Step 0)
   const blocks = sentences.map((s, index) => ({ raw: s.text, index }));
   const bm25Scores = scoreBM25(blocks, queryTerms);
 
@@ -265,7 +383,8 @@ export function quickAnswer(options: QuickAnswerOptions): QuickAnswerResult {
   // (the sentence with the highest BM25 score against itself as a reference)
   const maxPossibleScore = Math.max(...bm25Scores, 0.001);
 
-  // Step 5: Apply boosts
+  // Step 5: Apply boosts (including position bias — intro sentences are more likely to answer factual questions)
+  const totalSentences = sentences.length;
   const sentenceScores = sentences.map((s, i) => {
     // A "topic sentence" is the first sentence in a paragraph/section
     // We detect this by checking if the previous character in the content is a newline
@@ -273,7 +392,20 @@ export function quickAnswer(options: QuickAnswerOptions): QuickAnswerResult {
 
     const base = bm25Scores[i];
     const boost = computeBoost(s.text, questionType, isTopicSentence);
-    const total = base + boost * maxPossibleScore; // scale boost relative to BM25 scores
+
+    // Position bias: early sentences get a boost (answers to factual questions
+    // are typically in the intro paragraph, especially on Wikipedia/docs).
+    // Decays linearly: first 10% of sentences get full boost (0.4), drops to 0 by 50%.
+    const positionRatio = i / totalSentences;
+    const positionBoost = positionRatio < 0.1 ? 0.4
+      : positionRatio < 0.5 ? 0.4 * (1 - (positionRatio - 0.1) / 0.4)
+      : 0;
+
+    // Definition sentences anywhere get a boost (covers "X is a Y" patterns)
+    const sl = s.text.toLowerCase();
+    const definitionBoost = /\b(is a|is an|was a|are a|refers to|is the|was the)\b/.test(sl) ? 0.3 : 0;
+
+    const total = base + (boost + positionBoost + definitionBoost) * maxPossibleScore;
 
     return { text: s.text, index: i, score: total, base };
   });
@@ -317,11 +449,13 @@ export function quickAnswer(options: QuickAnswerOptions): QuickAnswerResult {
     });
   }
 
-  // Step 8: Compute confidence from top BM25 score
+  // Step 8: Compute confidence from how much the top BM25 score stands out vs. the mean
   const topScore = sorted[0]?.score ?? 0;
   const topBase = sorted[0]?.base ?? 0;
-  // Use base BM25 score (without boost) for confidence to keep it honest
-  const confidence = Math.min(1, topBase / (maxPossibleScore || 1));
+  const meanScore = bm25Scores.reduce((a, b) => a + b, 0) / bm25Scores.length;
+  const scoreGap = maxPossibleScore > 0 ? (topBase - meanScore) / maxPossibleScore : 0;
+  // 0.3 baseline (we found something), up to 1.0 if top answer dominates
+  const confidence = Math.min(1, Math.max(0, 0.3 + scoreGap * 0.7));
 
   // Step 9: Build answer — best passage text, trimmed to maxChars
   let answerText = selectedPassages[0]?.context || selectedPassages[0]?.text || '';

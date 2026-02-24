@@ -50,6 +50,17 @@ export function createFetchRouter(authStore: AuthStore): Router {
         stream,
         noCache,
         cacheTtl,
+        budget,
+        question,
+        readable,
+        stealth,
+        screenshot,
+        maxTokens,
+        selector,
+        exclude,
+        fullPage,
+        raw,
+        timeout,
       } = req.query;
 
       // Validate URL parameter
@@ -120,7 +131,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
       // Build cache key (include new parameters)
       const actionsKey = parsedActions ? JSON.stringify(parsedActions) : '';
-      const cacheKey = `fetch:${url}:${render}:${wait}:${format}:${includeTags}:${excludeTags}:${images}:${location}:${languages}:${onlyMainContent}:${stream}:${actionsKey}`;
+      const cacheKey = `fetch:${url}:${render}:${wait}:${format}:${includeTags}:${excludeTags}:${images}:${location}:${languages}:${onlyMainContent}:${stream}:${actionsKey}:${budget}:${question}:${readable}:${stealth}:${screenshot}:${maxTokens}:${selector}:${exclude}:${fullPage}:${raw}`;
 
       // Cache bypass: ?noCache=true or Cache-Control: no-cache header
       const bypassCache = noCache === 'true' || req.headers['cache-control'] === 'no-cache';
@@ -185,11 +196,28 @@ export function createFetchRouter(authStore: AuthStore): Router {
           country: location as string | undefined,
           languages: languagesArray,
         } : undefined,
+        budget: budget ? parseInt(budget as string, 10) : undefined,
+        question: question as string | undefined,
+        readable: readable === 'true',
+        stealth: (isSoftLimited && !hasExtraUsage) ? false : stealth === 'true',
+        screenshot: (isSoftLimited && !hasExtraUsage) ? false : screenshot === 'true',
+        maxTokens: maxTokens ? parseInt(maxTokens as string, 10) : undefined,
+        selector: selector as string | undefined,
+        exclude: exclude ? (exclude as string).split(',').map(s => s.trim()).filter(Boolean) : undefined,
+        fullPage: fullPage === 'true',
+        raw: raw === 'true',
+        timeout: timeout ? parseInt(timeout as string, 10) : undefined,
       };
 
       // Inform the user if their request was degraded
       if (isSoftLimited && !hasExtraUsage && render === 'true' && !hasActions) {
         res.setHeader('X-Degraded', 'render=true downgraded to HTTP-only (quota exceeded)');
+      }
+      if (isSoftLimited && !hasExtraUsage && stealth === 'true') {
+        res.setHeader('X-Degraded', 'stealth=true downgraded (quota exceeded)');
+      }
+      if (isSoftLimited && !hasExtraUsage && screenshot === 'true') {
+        res.setHeader('X-Degraded', 'screenshot=true downgraded (quota exceeded)');
       }
 
       // Validate wait parameter
@@ -389,6 +417,18 @@ export function createFetchRouter(authStore: AuthStore): Router {
         // Firecrawl-compatible formats array
         formats,
         stream,
+        // Extended peel options
+        budget,
+        question,
+        readable,
+        stealth,
+        screenshot,
+        maxTokens,
+        selector,
+        exclude,
+        fullPage,
+        raw,
+        timeout,
       } = req.body as {
         url?: string;
         render?: boolean;
@@ -410,6 +450,17 @@ export function createFetchRouter(authStore: AuthStore): Router {
         llmModel?: string;
         formats?: any[];
         stream?: boolean;
+        budget?: number;
+        question?: string;
+        readable?: boolean;
+        stealth?: boolean;
+        screenshot?: boolean;
+        maxTokens?: number;
+        selector?: string;
+        exclude?: string | string[];
+        fullPage?: boolean;
+        raw?: boolean;
+        timeout?: number;
       };
 
       // --- Validate URL -------------------------------------------------------
@@ -472,7 +523,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
       const postBypassCache = noCacheBody === true || req.headers['cache-control'] === 'no-cache';
       const postCacheTtlMs = typeof cacheTtlBody === 'number' ? cacheTtlBody * 1000 : 5 * 60 * 1000;
       const postActionsKey = postActions ? JSON.stringify(postActions) : '';
-      const postCacheKey = `fetch:${url}:${render}:${wait}:${format}:${JSON.stringify(includeTags)}:${JSON.stringify(excludeTags)}:${images}:${location}:${JSON.stringify(languages)}:${onlyMainContent}:${stream}:${postActionsKey}`;
+      const postCacheKey = `fetch:${url}:${render}:${wait}:${format}:${JSON.stringify(includeTags)}:${JSON.stringify(excludeTags)}:${images}:${location}:${JSON.stringify(languages)}:${onlyMainContent}:${stream}:${postActionsKey}:${budget}:${question}:${readable}:${stealth}:${screenshot}:${maxTokens}:${selector}:${JSON.stringify(exclude)}:${fullPage}:${raw}`;
 
       if (!postBypassCache && !extract) {
         const cached = cache.get(postCacheKey);
@@ -555,6 +606,11 @@ export function createFetchRouter(authStore: AuthStore): Router {
       const postHasActions = postActions && postActions.length > 0;
       const postShouldRender = postHasActions || render === true;
 
+      // Normalize exclude: accept string (comma-separated) or string array
+      const excludeArray = exclude
+        ? (Array.isArray(exclude) ? exclude : (exclude as string).split(',').map(s => s.trim()).filter(Boolean))
+        : undefined;
+
       const options: PeelOptions = {
         render: (isSoftLimited && !hasExtraUsage && !postHasActions) ? false : postShouldRender,
         wait: (isSoftLimited && !hasExtraUsage) ? 0 : resolvedWait,
@@ -568,10 +624,27 @@ export function createFetchRouter(authStore: AuthStore): Router {
           country: location,
           languages: languagesArray,
         } : undefined,
+        budget: typeof budget === 'number' ? budget : undefined,
+        question: question,
+        readable: readable === true,
+        stealth: (isSoftLimited && !hasExtraUsage) ? false : stealth === true,
+        screenshot: (isSoftLimited && !hasExtraUsage) ? false : screenshot === true,
+        maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
+        selector: selector,
+        exclude: excludeArray,
+        fullPage: fullPage === true,
+        raw: raw === true,
+        timeout: typeof timeout === 'number' ? timeout : undefined,
       };
 
       if (isSoftLimited && !hasExtraUsage && render === true && !postHasActions) {
         res.setHeader('X-Degraded', 'render=true downgraded to HTTP-only (quota exceeded)');
+      }
+      if (isSoftLimited && !hasExtraUsage && stealth === true) {
+        res.setHeader('X-Degraded', 'stealth=true downgraded (quota exceeded)');
+      }
+      if (isSoftLimited && !hasExtraUsage && screenshot === true) {
+        res.setHeader('X-Degraded', 'screenshot=true downgraded (quota exceeded)');
       }
 
       const shouldStream = options.stream === true;

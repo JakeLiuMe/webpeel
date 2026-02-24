@@ -252,8 +252,8 @@ export function createSearchRouter(authStore: AuthStore): Router {
               if (uddg) {
                 url = decodeURIComponent(uddg);
               }
-            } catch {
-              // Use raw URL if parsing fails
+            } catch (e) {
+              if (process.env.DEBUG) console.debug('[webpeel]', 'ddg url parse failed:', e instanceof Error ? e.message : e);
             }
 
             try {
@@ -313,8 +313,8 @@ export function createSearchRouter(authStore: AuthStore): Router {
               if (uddg) {
                 url = decodeURIComponent(uddg);
               }
-            } catch {
-              // Use raw URL if parsing fails
+            } catch (e) {
+              if (process.env.DEBUG) console.debug('[webpeel]', 'ddg url parse failed:', e instanceof Error ? e.message : e);
             }
 
             results.push({

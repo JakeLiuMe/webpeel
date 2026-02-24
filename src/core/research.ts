@@ -164,8 +164,8 @@ export async function research(options: ResearchOptions): Promise<ResearchResult
       );
       searchUrls = extractLinks(searchResult.content, visitedUrls);
     }
-  } catch {
-    // Search failed — proceed with empty list; will produce sources-only report
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'search failed:', e instanceof Error ? e.message : e);
   }
 
   // -------------------------------------------------------------------------
@@ -252,8 +252,8 @@ export async function research(options: ResearchOptions): Promise<ResearchResult
             // Slightly lower weight for follow-up links
             relevance: followRelevance * 0.8,
           });
-        } catch {
-          // skip failed follow-ups
+        } catch (e) {
+          if (process.env.DEBUG) console.debug('[webpeel]', 'followup fetch failed:', e instanceof Error ? e.message : e);
         }
       }
     }
@@ -337,8 +337,8 @@ Instructions:
         const { estimateCost } = await import('./llm-extract.js');
         cost = estimateCost(model, tokensUsed.input, tokensUsed.output);
       }
-    } catch {
-      // LLM call failed — fall back to sources format
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'llm synthesis failed:', e instanceof Error ? e.message : e);
     }
   }
 

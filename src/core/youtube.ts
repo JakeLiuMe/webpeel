@@ -284,8 +284,8 @@ export function extractPlayerResponse(html: string): Record<string, any> | null 
         if (jsonStr) {
           try {
             return JSON.parse(jsonStr);
-          } catch {
-            /* fall through to next pattern */
+          } catch (e) {
+            if (process.env.DEBUG) console.debug('[webpeel]', 'player response parse failed:', e instanceof Error ? e.message : e);
           }
         }
       }

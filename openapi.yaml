@@ -12,7 +12,7 @@ info:
     
     **Firecrawl Compatible:** WebPeel supports Firecrawl-compatible endpoints at the same paths.
     Switch from Firecrawl by changing your base URL.
-  version: "0.14.3"
+  version: "0.14.4"
   contact:
     name: WebPeel Support
     email: support@webpeel.dev
@@ -127,6 +127,50 @@ paths:
             type: string
           description: Preferred language
           example: en
+        - name: budget
+          in: query
+          schema:
+            type: integer
+            minimum: 100
+          description: Smart token budget — distill content to approximately N tokens (removes boilerplate, compresses tables)
+          example: 4000
+        - name: question
+          in: query
+          schema:
+            type: string
+          description: Ask a question about the page content (LLM-free, returns quick answer with confidence score)
+          example: Who founded this company?
+        - name: readable
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Extract article-only content using readability engine (strips navigation, sidebars, ads)
+        - name: fullPage
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Return full page without content pruning (disables noise removal)
+        - name: raw
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Raw output without any content processing
+        - name: wait
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 60000
+          description: Milliseconds to wait for dynamic content after page load (only with render=true)
+        - name: timeout
+          in: query
+          schema:
+            type: integer
+            default: 30000
+          description: Request timeout in milliseconds
         - name: maxAge
           in: query
           schema:

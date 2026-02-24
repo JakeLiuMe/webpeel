@@ -258,8 +258,8 @@ export class RateGovernor {
         const raw = readFileSync(RATE_STATE_PATH, 'utf-8');
         return JSON.parse(raw) as RateState;
       }
-    } catch {
-      // Corrupt / missing state — start fresh
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'rate state load failed:', e instanceof Error ? e.message : e);
     }
     return this.freshState();
   }

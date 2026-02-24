@@ -284,8 +284,8 @@ function extractPricingPlans($: CheerioAPI): PricingPlan[] {
       if (name || price) {
         plans.push({ name, price, period, features, cta });
       }
-    } catch {
-      // Silently skip malformed containers
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'pricing plan parse failed:', e instanceof Error ? e.message : e);
     }
   });
 
@@ -395,8 +395,8 @@ function extractProducts($: CheerioAPI, baseUrl: string): ProductItem[] {
       const rating = ratingMatch ? `${ratingMatch[1]}/5` : undefined;
 
       items.push({ name, price, image, url, rating });
-    } catch {
-      // Skip malformed
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'product item parse failed:', e instanceof Error ? e.message : e);
     }
   });
 

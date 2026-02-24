@@ -134,8 +134,27 @@
         <div class="release">
           <div class="release-header">
             <div class="release-title">
-              <div class="release-version mono">v0.14.0</div>
+              <div class="release-version mono">v0.14.4</div>
               <span class="badge">Latest</span>
+            </div>
+            <div class="release-meta">February 24, 2026</div>
+          </div>
+          <ul>
+            <li><strong>Architecture refactor:</strong> <code>peel()</code> is now a 19-line pipeline orchestrator backed by 8 discrete testable stages in <code>pipeline.ts</code>.</li>
+            <li><strong>Fetcher split:</strong> 1,857-line <code>fetcher.ts</code> split into <code>http-fetch.ts</code>, <code>browser-pool.ts</code>, and <code>browser-fetch.ts</code> — each with a single responsibility.</li>
+            <li><strong>Quick answer: pattern extraction:</strong> Direct infobox extraction before BM25 — factual queries (who/when/what) now return precise answers. 6/6 Wikipedia factual tests pass.</li>
+            <li><strong>Quick answer: fixed confidence:</strong> Confidence score now reflects real certainty (0.7–0.95) instead of always returning 1.0.</li>
+            <li><strong>REST API parity:</strong> <code>/v1/fetch</code> now supports all <code>peel()</code> options: <code>budget</code>, <code>question</code>, <code>readable</code>, <code>stealth</code>, <code>screenshot</code>, <code>maxTokens</code>, <code>selector</code>, <code>fullPage</code>, <code>raw</code>.</li>
+            <li><strong>Better error messages:</strong> HTTP errors now include meaningful status text (HTTP/2 strips reason phrases — we add them back).</li>
+            <li><strong>Debug logging:</strong> 41 previously silent <code>catch {}</code> blocks now emit <code>DEBUG=1</code> diagnostics.</li>
+            <li><strong>OpenAPI spec:</strong> Added <code>budget</code>, <code>question</code>, <code>readable</code>, <code>fullPage</code>, <code>raw</code>, <code>wait</code>, <code>timeout</code> parameters.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.14.0</div>
             </div>
             <div class="release-meta">February 24, 2026</div>
           </div>

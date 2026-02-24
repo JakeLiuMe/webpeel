@@ -460,8 +460,8 @@ export function createCompatRouter(jobQueue: IJobQueue): Router {
           if (uddg) {
             url = decodeURIComponent(uddg);
           }
-        } catch {
-          // Use raw URL if parsing fails
+        } catch (e) {
+          if (process.env.DEBUG) console.debug('[webpeel]', 'ddg url parse failed:', e instanceof Error ? e.message : e);
         }
 
         // Validate URL
