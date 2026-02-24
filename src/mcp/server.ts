@@ -18,7 +18,7 @@ import { normalizeActions } from '../core/actions.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { getSearchProvider, type SearchProviderId } from '../core/search-provider.js';
+import { getSearchProvider, getBestSearchProvider, type SearchProviderId } from '../core/search-provider.js';
 import { answerQuestion, type LLMProviderId } from '../core/answer.js';
 import { extractInlineJson, type LLMProvider as InlineLLMProvider } from '../core/extract-inline.js';
 
@@ -772,6 +772,107 @@ const tools: Tool[] = [
         },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'webpeel_deep_fetch',
+    description: 'Search + fetch + analyze in one call. Fetches multiple sources for a query, scores by relevance, deduplicates facts, and merges into structured intelligence. No LLM key needed. Supports \'comparison\' format for vs-queries.',
+    annotations: {
+      title: 'Deep Fetch Research',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query to research' },
+        count: { type: 'number', description: 'Number of top results to fetch (default: 5, max: 10)', default: 5, minimum: 1, maximum: 10 },
+        format: { type: 'string', enum: ['markdown', 'text', 'comparison'], description: 'Content format (default: markdown). Use "comparison" for vs-queries to get a side-by-side structure.', default: 'markdown' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'webpeel_youtube',
+    description: 'Extract the full transcript from a YouTube video. Returns timestamped segments and video metadata. No API key needed. Supports all YouTube URL formats.',
+    annotations: {
+      title: 'Extract YouTube Transcript',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'YouTube video URL (supports youtube.com/watch, youtu.be, embed, shorts, and mobile URLs)' },
+        language: { type: 'string', description: 'Preferred transcript language code (default: en). Falls back to any available language if not found.' },
+      },
+      required: ['url'],
+    },
+  },
+  {
+    name: 'webpeel_auto_extract',
+    description: 'Detect page type and extract structured JSON automatically. Supports pricing pages, product listings, contact info, articles, and API documentation. No LLM needed.',
+    annotations: {
+      title: 'Auto Extract Structured Data',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL to fetch and auto-extract structured data from' },
+      },
+      required: ['url'],
+    },
+  },
+  {
+    name: 'webpeel_quick_answer',
+    description: 'Ask a question about a URL\'s content — no LLM key needed. Uses BM25 relevance scoring to find and return the most relevant passages. Returns answer text with confidence score.',
+    annotations: {
+      title: 'Quick Answer (No LLM)',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL to fetch and search' },
+        question: { type: 'string', description: 'Question to answer from the page content' },
+        maxPassages: { type: 'number', description: 'Maximum number of relevant passages to return (default: 3)', default: 3, minimum: 1, maximum: 10 },
+        render: { type: 'boolean', description: 'Use browser rendering', default: false },
+      },
+      required: ['url', 'question'],
+    },
+  },
+  {
+    name: 'webpeel_watch',
+    description: 'Monitor a URL for changes with webhook notifications. Create persistent watchers that check on a schedule and alert when content changes.',
+    annotations: {
+      title: 'Watch URL for Changes',
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['create', 'list', 'check', 'delete'], description: 'Watch action to perform' },
+        url: { type: 'string', description: 'URL to monitor (for create)' },
+        id: { type: 'string', description: 'Watch ID (for check/delete)' },
+        webhookUrl: { type: 'string', description: 'Webhook URL to notify on changes (for create)' },
+        intervalMinutes: { type: 'number', description: 'Check interval in minutes (default: 60)' },
+        selector: { type: 'string', description: 'CSS selector to monitor specific content (optional)' },
+      },
+      required: ['action'],
     },
   },
 ];
@@ -1861,6 +1962,165 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             }, null, 2),
           },
         ],
+      };
+    }
+
+    if (name === 'webpeel_deep_fetch') {
+      const { query, count: countArg, format: formatArg } = args as {
+        query: string;
+        count?: number;
+        format?: string;
+      };
+
+      if (!query || typeof query !== 'string') throw new Error('Invalid query parameter');
+
+      const count = Math.min(Math.max((countArg as number) || 5, 1), 10);
+      const rawFormat = formatArg || 'markdown';
+      const isComparison = rawFormat === 'comparison';
+      const format = (isComparison ? 'markdown' : rawFormat) as 'markdown' | 'text';
+
+      // Step 1: Search
+      const { provider, apiKey } = getBestSearchProvider();
+      const searchResults = await Promise.race([
+        provider.searchWeb(query, { count, apiKey }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Search timed out')), 30000)),
+      ]) as any;
+
+      const results = searchResults?.results ?? searchResults ?? [];
+      const topResults = Array.isArray(results) ? results.slice(0, count) : [];
+
+      if (topResults.length === 0) {
+        return {
+          content: [{ type: 'text', text: JSON.stringify({ query, sources: [], content: '', totalTokens: 0 }, null, 2) }],
+        };
+      }
+
+      // Step 2: Fetch all URLs in parallel
+      const urls = topResults.map((r: any) => r.url).filter(Boolean);
+      const pages = await Promise.race([
+        peelBatch(urls, { concurrency: 5, format }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Batch fetch timed out')), 120000)),
+      ]) as any[];
+
+      // Step 3: Merge content with source attribution
+      const sources: Array<{ url: string; title: string; relevanceScore: number; snippet?: string }> = [];
+      const contentParts: string[] = [];
+      let totalTokens = 0;
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i] as any;
+        const searchResult = topResults[i] as any;
+        const pageUrl = urls[i];
+        const title = page?.title || searchResult?.title || pageUrl;
+        const relevanceScore = Math.round((1 - i / Math.max(pages.length, 1)) * 100) / 100;
+
+        sources.push({ url: pageUrl, title, relevanceScore, ...(searchResult?.snippet ? { snippet: searchResult.snippet } : {}) });
+
+        if (page?.content) {
+          contentParts.push(`## Source ${i + 1}: ${title}\n**URL:** ${pageUrl}\n\n${page.content}\n\n---\n`);
+          totalTokens += page.tokens || 0;
+        } else if (page?.error) {
+          contentParts.push(`## Source ${i + 1}: ${title}\n**URL:** ${pageUrl}\n\n*(Failed to fetch: ${page.error})*\n\n---\n`);
+        }
+      }
+
+      const mergedContent = contentParts.join('\n');
+      const deepFetchOutput: Record<string, any> = { query, sources, content: mergedContent, totalTokens };
+      if (isComparison) {
+        deepFetchOutput.format = 'comparison';
+        deepFetchOutput.comparisonNote = 'Sources fetched and ranked by relevance. Review sources array and content sections for side-by-side comparison.';
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(deepFetchOutput, null, 2) }],
+      };
+    }
+
+    if (name === 'webpeel_youtube') {
+      const { url, language } = args as { url: string; language?: string };
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL parameter');
+
+      const { getYouTubeTranscript } = await import('../core/youtube.js');
+      const transcript = await Promise.race([
+        getYouTubeTranscript(url, { language: language ?? 'en' }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('YouTube transcript extraction timed out')), 60000)),
+      ]);
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(transcript, null, 2) }],
+      };
+    }
+
+    if (name === 'webpeel_auto_extract') {
+      const { url } = args as { url: string };
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL parameter');
+      if (url.length > 2048) throw new Error('URL too long (max 2048 characters)');
+
+      const { autoExtract } = await import('../core/auto-extract.js');
+      const result = await Promise.race([
+        peel(url, { format: 'html' }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Auto-extract timed out')), 60000)),
+      ]) as any;
+
+      const extracted = autoExtract(result.content || '', url);
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({ url, pageType: extracted.type, structured: extracted }, null, 2) }],
+      };
+    }
+
+    if (name === 'webpeel_quick_answer') {
+      const { url, question, maxPassages: mpArg, render } = args as {
+        url: string;
+        question: string;
+        maxPassages?: number;
+        render?: boolean;
+      };
+
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL parameter');
+      if (url.length > 2048) throw new Error('URL too long (max 2048 characters)');
+      if (!question || typeof question !== 'string') throw new Error('Invalid question parameter');
+      if (question.length > 1000) throw new Error('Question too long (max 1000 characters)');
+
+      const maxPassages = typeof mpArg === 'number' ? Math.min(Math.max(mpArg, 1), 10) : 3;
+
+      const peelResult = await Promise.race([
+        peel(url, { render: render || false, format: 'markdown', budget: 8000 }),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Quick answer fetch timed out')), 60000)),
+      ]) as any;
+
+      const { quickAnswer } = await import('../core/quick-answer.js');
+      const qa = quickAnswer({
+        question,
+        content: peelResult.content || '',
+        url: peelResult.url || url,
+        maxPassages,
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            url: peelResult.url || url,
+            title: peelResult.title,
+            question: qa.question,
+            answer: qa.answer,
+            confidence: qa.confidence,
+            passages: qa.passages,
+            method: qa.method,
+          }, null, 2),
+        }],
+      };
+    }
+
+    if (name === 'webpeel_watch') {
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            message: 'URL watching requires the hosted API (api.webpeel.dev). Use webpeel_change_track for one-time change detection.',
+          }, null, 2),
+        }],
       };
     }
 

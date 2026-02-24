@@ -61,6 +61,16 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
   router.get('/v1/search', async (req: Request, res: Response) => {
     try {
+      // Require authentication
+      if (!req.auth?.keyInfo) {
+        res.status(401).json({
+          error: 'authentication_required',
+          message: 'API key required. Get one free at https://app.webpeel.dev',
+          docs: 'https://webpeel.dev/docs/api-reference#authentication',
+        });
+        return;
+      }
+
       const { q, count, scrapeResults, sources, categories, tbs, country, location } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---

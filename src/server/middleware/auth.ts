@@ -58,24 +58,24 @@ export function createAuthMiddleware(authStore: AuthStore) {
         return next();
       }
 
+      // SECURITY: Ensure headers are strings before processing (guards against
+      // malformed multi-value headers that would cause a null reference crash → 502)
+      const rawAuth = typeof authHeader === 'string' ? authHeader : undefined;
+      const rawApiKey = typeof apiKeyHeader === 'string' ? apiKeyHeader : undefined;
+
       let apiKey: string | null = null;
 
-      if (authHeader?.startsWith('Bearer ')) {
-        apiKey = authHeader.slice(7);
-      } else if (apiKeyHeader && typeof apiKeyHeader === 'string') {
-        apiKey = apiKeyHeader;
+      if (rawAuth?.startsWith('Bearer ')) {
+        apiKey = rawAuth.slice(7);
+      } else if (rawApiKey) {
+        apiKey = rawApiKey;
       }
       
       if (!apiKey) {
-        // Allow anonymous free-tier access (500/week, 50/hr burst)
-        // This enables the playground and basic usage without signup
-        req.auth = {
-          keyInfo: null,
-          tier: 'free',
-          rateLimit: 50,  // requests per minute for anonymous
-          softLimited: false,
-          extraUsageAvailable: false,
-        };
+        // No credentials supplied — let the request through unauthenticated.
+        // Public routes (/health, /v1/auth/*) already returned above.
+        // Protected routes must check req.auth?.keyInfo and return 401 themselves.
+        req.auth = undefined;
         return next();
       }
 
