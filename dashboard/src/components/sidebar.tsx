@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Key, CreditCard, Settings, ExternalLink, BookOpen, X, Zap, Play, Activity } from 'lucide-react';
+import { LayoutDashboard, Key, CreditCard, Settings, ExternalLink, BookOpen, X, Zap, Play, Activity, BarChart2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Playground', href: '/playground', icon: Play },
   { name: 'API Keys', href: '/keys', icon: Key },
   { name: 'Activity', href: '/activity', icon: Activity },
+  { name: 'Usage', href: '/usage', icon: BarChart2 },
   { name: 'Billing', href: '/billing', icon: CreditCard },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
