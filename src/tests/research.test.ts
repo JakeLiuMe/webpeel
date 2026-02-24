@@ -57,6 +57,39 @@ vi.mock('../index.js', () => ({
   peel: (...args: any[]) => mockPeel(...args),
 }));
 
+// Mock the search provider to always return empty results so the
+// research() fallback uses peel() to scrape DDG (which is mocked above).
+vi.mock('../core/search-provider.js', () => ({
+  getBestSearchProvider: () => ({
+    provider: {
+      id: 'duckduckgo',
+      requiresApiKey: false,
+      searchWeb: async () => [],
+    },
+    apiKey: undefined,
+  }),
+  getSearchProvider: () => ({
+    id: 'duckduckgo',
+    requiresApiKey: false,
+    searchWeb: async () => [],
+  }),
+  DuckDuckGoProvider: class {
+    id = 'duckduckgo';
+    requiresApiKey = false;
+    searchWeb = async () => [];
+  },
+  BraveSearchProvider: class {
+    id = 'brave';
+    requiresApiKey = true;
+    searchWeb = async () => [];
+  },
+  SerperProvider: class {
+    id = 'serper';
+    requiresApiKey = true;
+    searchWeb = async () => [];
+  },
+}));
+
 vi.mock('../core/bm25-filter.js', () => ({
   filterByRelevance: (...args: any[]) => mockFilterByRelevance(...args),
   computeRelevanceScore: (_content: string, _query: string) => 0.65,

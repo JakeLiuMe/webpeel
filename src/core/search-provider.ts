@@ -2,13 +2,18 @@
  * Search provider abstraction
  *
  * WebPeel supports multiple web search backends. DuckDuckGo is the default
- * (no API key required). Brave Search is supported via BYOK.
+ * (no API key required). Additional providers available via API keys:
+ * - Serper.dev (SERPER_API_KEY) — 2,500 free queries, Google results
+ * - Brave Search (BRAVE_API_KEY / BRAVE_SEARCH_KEY) — independent index
+ *
+ * On hosted/production servers where DDG is blocked, the system auto-falls
+ * back through: DDG → DDG Lite → Serper → Brave → stealth browser.
  */
 
 import { fetch as undiciFetch } from 'undici';
 import { load } from 'cheerio';
 
-export type SearchProviderId = 'duckduckgo' | 'brave';
+export type SearchProviderId = 'duckduckgo' | 'brave' | 'serper';
 
 export interface WebSearchResult {
   title: string;
@@ -335,9 +340,9 @@ export class DuckDuckGoProvider implements SearchProvider {
   }
 
   /**
-   * Last-resort fallback: use headless browser to render DDG search results.
-   * This bypasses datacenter IP blocking since the browser executes JavaScript
-   * and appears as a real user. Slower (~3-5s) but reliable from any IP.
+   * Last-resort fallback: use headless browser with stealth mode to render
+   * DDG search results. Stealth mode bypasses bot detection on datacenter IPs.
+   * Slower (~5-8s) but more reliable than HTTP-only scraping from server IPs.
    */
   private async searchRendered(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
     const { count } = options;
@@ -349,8 +354,9 @@ export class DuckDuckGoProvider implements SearchProvider {
 
       const result = await peel(searchUrl, {
         render: true,
+        stealth: true,
         format: 'html',
-        wait: 2000,  // DDG needs time to render results
+        wait: 3000,  // Extra wait for stealth mode + DDG rendering
       });
 
       const html = result.content || '';
@@ -415,12 +421,36 @@ export class DuckDuckGoProvider implements SearchProvider {
       const liteResults = await this.searchLite(query, options);
       if (liteResults.length > 0) return liteResults;
     } catch {
-      // Lite also failed — try rendered fallback
+      // Lite also failed — try API-based fallbacks
     }
 
-    // Last resort: browser-rendered search (works from datacenter IPs)
+    // Fallback: try Serper API if key is configured (2,500 free queries)
+    const serperKey = process.env.SERPER_API_KEY;
+    if (serperKey) {
+      try {
+        const serperProvider = new SerperProvider();
+        const serperResults = await serperProvider.searchWeb(query, { ...options, apiKey: serperKey });
+        if (serperResults.length > 0) return serperResults;
+      } catch {
+        // Serper failed — continue to next fallback
+      }
+    }
+
+    // Fallback: try Brave Search API if key is configured
+    const braveKey = process.env.BRAVE_SEARCH_KEY || process.env.BRAVE_API_KEY;
+    if (braveKey) {
+      try {
+        const braveProvider = new BraveSearchProvider();
+        const braveResults = await braveProvider.searchWeb(query, { ...options, apiKey: braveKey });
+        if (braveResults.length > 0) return braveResults;
+      } catch {
+        // Brave failed — continue to next fallback
+      }
+    }
+
+    // Last resort: browser-rendered search with stealth mode
     // Only use this on the server (has Chromium), not in CLI (too slow for interactive)
-    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+    if (typeof process !== 'undefined' && (process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined || process.env.NODE_ENV === 'production')) {
       try {
         const renderedResults = await this.searchRendered(query, options);
         if (renderedResults.length > 0) return renderedResults;
@@ -430,6 +460,71 @@ export class DuckDuckGoProvider implements SearchProvider {
     }
 
     return [];
+  }
+}
+
+export class SerperProvider implements SearchProvider {
+  readonly id: SearchProviderId = 'serper';
+  readonly requiresApiKey = true;
+
+  async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
+    const { count, apiKey, signal } = options;
+
+    if (!apiKey || apiKey.trim().length === 0) {
+      throw new Error('Serper requires an API key (SERPER_API_KEY). Get 2,500 free queries at https://serper.dev');
+    }
+
+    const response = await undiciFetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        q: query,
+        num: Math.min(Math.max(count, 1), 10),
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(`Serper search failed: HTTP ${response.status}${text ? ` - ${text}` : ''}`);
+    }
+
+    const data = await response.json() as any;
+    const organic: any[] = data?.organic;
+
+    if (!Array.isArray(organic)) {
+      return [];
+    }
+
+    const results: WebSearchResult[] = [];
+
+    for (const r of organic) {
+      if (results.length >= count) break;
+      const title = typeof r?.title === 'string' ? r.title.trim() : '';
+      const rawUrl = typeof r?.link === 'string' ? r.link.trim() : '';
+      const snippet = typeof r?.snippet === 'string' ? r.snippet.trim() : '';
+
+      if (!title || !rawUrl) continue;
+
+      // SECURITY: Validate URL protocol
+      try {
+        const parsed = new URL(rawUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol)) continue;
+      } catch {
+        continue;
+      }
+
+      results.push({
+        title: title.slice(0, 200),
+        url: rawUrl,
+        snippet: snippet.slice(0, 500),
+      });
+    }
+
+    return results;
   }
 }
 
@@ -504,7 +599,29 @@ export class BraveSearchProvider implements SearchProvider {
 export function getSearchProvider(id: SearchProviderId | undefined): SearchProvider {
   if (!id || id === 'duckduckgo') return new DuckDuckGoProvider();
   if (id === 'brave') return new BraveSearchProvider();
+  if (id === 'serper') return new SerperProvider();
 
   // Exhaustive fallback (should be unreachable due to typing)
   return new DuckDuckGoProvider();
+}
+
+/**
+ * Get the best available search provider based on configured API keys.
+ * Returns the first provider with a configured key, falling back to DDG.
+ */
+export function getBestSearchProvider(): { provider: SearchProvider; apiKey?: string } {
+  // Check for Serper (best free tier: 2,500 queries)
+  const serperKey = process.env.SERPER_API_KEY;
+  if (serperKey) {
+    return { provider: new SerperProvider(), apiKey: serperKey };
+  }
+
+  // Check for Brave
+  const braveKey = process.env.BRAVE_SEARCH_KEY || process.env.BRAVE_API_KEY;
+  if (braveKey) {
+    return { provider: new BraveSearchProvider(), apiKey: braveKey };
+  }
+
+  // Default: DuckDuckGo (free, no key, with built-in fallback chain)
+  return { provider: new DuckDuckGoProvider() };
 }

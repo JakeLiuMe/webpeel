@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [0.13.2] - 2026-02-24
+
+### 🆕 Added
+- **Serper search provider** (`SERPER_API_KEY`) — Google results via Serper.dev (2,500 free queries). Set `SERPER_API_KEY` env var on Render to enable.
+- **`getBestSearchProvider()`** — Auto-selects best available search backend: Serper → Brave → DDG with fallbacks. All search paths (REST, MCP, Deep Research) now use this.
+
+### 🐛 Fixes
+- **Markdown tables: 0 raw HTML remnants** — Complete rewrite of table handling. Complex tables (colspan, rowspan, missing `<thead>`, >8 columns) now convert to clean pipe tables or structured lists instead of raw HTML. Protects table structural elements from content pruner stripping. Wikipedia, HN, and comparison pages tested.
+- **Deep Research search** — `research()` now uses the provider abstraction (Serper/Brave/DDG) instead of directly scraping DDG HTML, enabling server-side search.
+- **Search fallback chain hardened** — DDG HTML → DDG Lite → Serper → Brave → stealth browser. Stealth mode enabled in the browser fallback (was non-stealth before).
+
 ## [0.13.1] - 2026-02-24
 
 ### 🐛 Fixes
