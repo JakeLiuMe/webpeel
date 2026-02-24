@@ -132,13 +132,27 @@ export function createSearchRouter(authStore: AuthStore): Router {
       // Fetch web results via the search-provider abstraction
       if (sourcesArray.includes('web')) {
         const provider = getSearchProvider(providerId);
-        const providerResults: WebSearchResult[] = await provider.searchWeb(q, {
+        let providerResults: WebSearchResult[] = await provider.searchWeb(q, {
           count: resultCount,
           apiKey: searchApiKey || undefined,
           tbs: tbsStr || undefined,
           country: countryStr || undefined,
           location: locationStr || undefined,
         });
+
+        // Server-side fallback: if DDG returned 0 results and we have a Brave key,
+        // automatically fall back to Brave Search. This handles datacenter IP blocking.
+        const braveKey = process.env.BRAVE_SEARCH_KEY || process.env.BRAVE_API_KEY;
+        if (providerResults.length === 0 && providerId !== 'brave' && braveKey) {
+          const braveProvider = getSearchProvider('brave');
+          providerResults = await braveProvider.searchWeb(q, {
+            count: resultCount,
+            apiKey: braveKey,
+            tbs: tbsStr || undefined,
+            country: countryStr || undefined,
+            location: locationStr || undefined,
+          });
+        }
 
         // Map to SearchResult (with optional content field)
         let results: SearchResult[] = providerResults.map(r => ({

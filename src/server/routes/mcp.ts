@@ -27,6 +27,7 @@ import { normalizeActions } from '../../core/actions.js';
 import { runAgent } from '../../core/agent.js';
 import type { AgentDepth, AgentTopic } from '../../core/agent.js';
 import { extractInlineJson, type LLMProvider as InlineLLMProvider } from '../../core/extract-inline.js';
+import { answerQuestion, type LLMProviderId } from '../../core/answer.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -38,6 +39,30 @@ try {
   const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', '..', 'package.json'), 'utf-8'));
   pkgVersion = pkg.version;
 } catch { /* fallback */ }
+
+// ---------------------------------------------------------------------------
+// Helper functions for brand extraction
+// ---------------------------------------------------------------------------
+
+function extractColorsFromContent(content: string): string[] {
+  const colors: string[] = [];
+  const hexRegex = /#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{3}/g;
+  const matches = content.match(hexRegex);
+  if (matches) {
+    colors.push(...[...new Set(matches)].slice(0, 10));
+  }
+  return colors;
+}
+
+function extractFontsFromContent(content: string): string[] {
+  const fonts: string[] = [];
+  const fontRegex = /font-family:\s*([^;}"'\n]+)/gi;
+  let match;
+  while ((match = fontRegex.exec(content)) !== null) {
+    fonts.push(match[1].trim());
+  }
+  return [...new Set(fonts)].slice(0, 5);
+}
 
 // ---------------------------------------------------------------------------
 // Tool definitions (subset of the full MCP server tools, used for hosted mode)
@@ -166,21 +191,117 @@ function getTools(): Tool[] {
       },
     },
     {
-      name: 'webpeel_agent',
-      description: 'Run autonomous web research: searches, fetches, and synthesises an answer using an LLM (BYOK). Supports basic/thorough depth, topic filters, and structured output.',
-      annotations: { title: 'Web Research Agent', readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      name: 'webpeel_research',
+      description: 'Conduct autonomous multi-step web research on a topic. Searches the web, fetches top sources, extracts relevant content, and synthesizes a comprehensive report with citations. Returns a markdown report and structured source list. Requires LLM API key for synthesis; without one it returns raw extracted source content.',
+      annotations: { title: 'Deep Research Agent', readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
       inputSchema: {
         type: 'object',
         properties: {
-          prompt: { type: 'string', description: 'Research question / prompt' },
-          llmApiKey: { type: 'string', description: 'Your OpenAI-compatible API key (BYOK)' },
-          llmModel: { type: 'string', description: 'LLM model (default: gpt-4o-mini)' },
-          depth: { type: 'string', enum: ['basic', 'thorough'], default: 'basic' },
-          topic: { type: 'string', enum: ['general', 'news', 'technical', 'academic'], default: 'general' },
-          maxSources: { type: 'number', description: 'Max sources (1-20)', default: 5 },
-          outputSchema: { type: 'object', description: 'JSON Schema for structured output' },
+          query: { type: 'string', description: 'Research question or topic to investigate' },
+          maxSources: { type: 'number', description: 'Maximum number of sources to consult (default: 5)', default: 5, minimum: 1, maximum: 20 },
+          maxDepth: { type: 'number', description: 'Link-following depth: 1 = search results only, 2+ = follow links within top sources (default: 1)', default: 1, minimum: 1, maximum: 3 },
+          llmApiKey: { type: 'string', description: 'LLM API key for synthesis (falls back to OPENAI_API_KEY env var)' },
+          llmModel: { type: 'string', description: 'LLM model to use for synthesis (default: gpt-4o-mini)' },
+          llmBaseUrl: { type: 'string', description: 'LLM API base URL (default: https://api.openai.com/v1)' },
+          outputFormat: { type: 'string', enum: ['report', 'sources'], description: 'Output format: "report" = synthesized markdown report (needs LLM key), "sources" = raw extracted source content', default: 'report' },
+          timeout: { type: 'number', description: 'Maximum research time in milliseconds (default: 60000)', default: 60000 },
         },
-        required: ['prompt', 'llmApiKey'],
+        required: ['query'],
+      },
+    },
+    {
+      name: 'webpeel_screenshot',
+      description: 'Take a screenshot of a URL and return a base64-encoded image. Supports full page or viewport capture, custom dimensions, PNG/JPEG format, and page actions before capture.',
+      annotations: { title: 'Take Screenshot', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'The URL to screenshot' },
+          fullPage: { type: 'boolean', description: 'Capture the full scrollable page (default: viewport only)', default: false },
+          width: { type: 'number', description: 'Viewport width in pixels (default: 1280)', default: 1280, minimum: 100, maximum: 5000 },
+          height: { type: 'number', description: 'Viewport height in pixels (default: 720)', default: 720, minimum: 100, maximum: 5000 },
+          format: { type: 'string', enum: ['png', 'jpeg'], description: 'Image format (default: png)', default: 'png' },
+          quality: { type: 'number', description: 'JPEG quality 1-100 (ignored for PNG)', minimum: 1, maximum: 100 },
+          waitFor: { type: 'number', description: 'Milliseconds to wait after page load before screenshot', default: 0 },
+          stealth: { type: 'boolean', description: 'Use stealth mode to bypass bot detection', default: false },
+          actions: { type: 'array', items: { type: 'object' }, description: 'Page actions to execute before screenshot' },
+        },
+        required: ['url'],
+      },
+    },
+    {
+      name: 'webpeel_summarize',
+      description: 'Generate an AI-powered summary of a webpage using an LLM. Requires an OpenAI-compatible API key.',
+      annotations: { title: 'Summarize Page', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to summarize' },
+          llmApiKey: { type: 'string', description: 'API key for LLM (OpenAI-compatible)' },
+          prompt: { type: 'string', description: 'Custom summary prompt (default: "Summarize this webpage in 2-3 sentences.")', default: 'Summarize this webpage in 2-3 sentences.' },
+          llmModel: { type: 'string', description: 'LLM model to use (default: gpt-4o-mini)', default: 'gpt-4o-mini' },
+          llmBaseUrl: { type: 'string', description: 'LLM API base URL (default: https://api.openai.com/v1)', default: 'https://api.openai.com/v1' },
+          render: { type: 'boolean', description: 'Use browser rendering', default: false },
+        },
+        required: ['url', 'llmApiKey'],
+      },
+    },
+    {
+      name: 'webpeel_answer',
+      description: 'Ask a question, search the web, fetch top results, and generate a cited answer using an LLM (BYOK). Returns an answer with [1], [2] source citations. Supports OpenAI, Anthropic, and Google LLMs.',
+      annotations: { title: 'Answer a Question', readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          question: { type: 'string', description: 'The question to answer' },
+          searchProvider: { type: 'string', enum: ['duckduckgo', 'brave'], description: 'Search provider (default: duckduckgo)', default: 'duckduckgo' },
+          searchApiKey: { type: 'string', description: 'API key for Brave Search (required when searchProvider is "brave")' },
+          llmProvider: { type: 'string', enum: ['openai', 'anthropic', 'google'], description: 'LLM provider to use for answer generation' },
+          llmApiKey: { type: 'string', description: 'API key for the LLM provider (BYOK)' },
+          llmModel: { type: 'string', description: 'LLM model name (optional, uses provider default)' },
+          maxSources: { type: 'number', description: 'Maximum number of sources to fetch (1-10, default 5)', default: 5, minimum: 1, maximum: 10 },
+        },
+        required: ['question', 'llmProvider', 'llmApiKey'],
+      },
+    },
+    {
+      name: 'webpeel_brand',
+      description: 'Extract branding and design system from a URL. Returns colors, fonts, typography, and visual identity elements.',
+      annotations: { title: 'Extract Branding', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to extract branding from' },
+          render: { type: 'boolean', description: 'Use browser rendering', default: false },
+        },
+        required: ['url'],
+      },
+    },
+    {
+      name: 'webpeel_change_track',
+      description: 'Track changes on a URL by generating a content fingerprint. Use this to detect when a page has been updated.',
+      annotations: { title: 'Track Page Changes', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'URL to track for changes' },
+          render: { type: 'boolean', description: 'Use browser rendering', default: false },
+        },
+        required: ['url'],
+      },
+    },
+    {
+      name: 'webpeel_deep_fetch',
+      description: 'Search for a query and fetch the top N results in parallel, merging all content into one combined document with source attribution. No LLM API key required — pure web fetching + merging. Ideal for AI agents that need comprehensive research content on a topic.',
+      annotations: { title: 'Deep Fetch Research', readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search query to research' },
+          count: { type: 'number', description: 'Number of top results to fetch (default: 5, max: 10)', default: 5, minimum: 1, maximum: 10 },
+          format: { type: 'string', enum: ['markdown', 'text'], description: 'Content format for fetched pages (default: markdown)', default: 'markdown' },
+        },
+        required: ['query'],
       },
     },
   ];
@@ -258,10 +379,21 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
       const { getSearchProvider } = await import('../../core/search-provider.js');
       const provider = getSearchProvider('duckduckgo');
       const count = Math.min(Math.max((args.count as number) || 5, 1), 10);
-      const results = await Promise.race([
+      let results = await Promise.race([
         provider.searchWeb(query, { count }),
         timeout(30000, 'Search timed out'),
-      ]);
+      ]) as any[];
+
+      // Fallback: if DDG returned 0 results (datacenter IP blocked) and Brave key exists
+      const braveKey = process.env.BRAVE_SEARCH_KEY || process.env.BRAVE_API_KEY;
+      if (results.length === 0 && braveKey) {
+        const braveProvider = getSearchProvider('brave');
+        results = await Promise.race([
+          braveProvider.searchWeb(query, { count, apiKey: braveKey }),
+          timeout(15000, 'Brave search timed out'),
+        ]) as any[];
+      }
+
       return ok(safeStringify(results));
     }
 
@@ -332,7 +464,28 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
       return ok(safeStringify(results));
     }
 
-    // webpeel_agent
+    // webpeel_research (and legacy alias webpeel_agent)
+    if (name === 'webpeel_research') {
+      const query = args.query as string;
+      if (!query || typeof query !== 'string') throw new Error('Invalid query');
+
+      const { research } = await import('../../core/research.js');
+      const result = await Promise.race([
+        research({
+          query,
+          maxSources: (args.maxSources as number) ?? 5,
+          maxDepth: (args.maxDepth as number) ?? 1,
+          apiKey: args.llmApiKey as string | undefined,
+          model: args.llmModel as string | undefined,
+          baseUrl: args.llmBaseUrl as string | undefined,
+          outputFormat: (args.outputFormat as 'report' | 'sources') ?? 'report',
+          timeout: (args.timeout as number) ?? 60000,
+        }),
+        timeout(180000, 'Research timed out'),
+      ]);
+      return ok(safeStringify(result));
+    }
+
     if (name === 'webpeel_agent') {
       const prompt = args.prompt as string;
       const llmApiKey = args.llmApiKey as string;
@@ -352,6 +505,231 @@ async function handleToolCall(name: string, args: Record<string, unknown>): Prom
         timeout(180000, 'Agent timed out'),
       ]);
       return ok(safeStringify(result));
+    }
+
+    // webpeel_screenshot
+    if (name === 'webpeel_screenshot') {
+      const url = args.url as string;
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL');
+      if (url.length > 2048) throw new Error('URL too long');
+
+      const width = args.width as number | undefined;
+      const height = args.height as number | undefined;
+      const format = (args.format as 'png' | 'jpeg') || 'png';
+      const quality = args.quality as number | undefined;
+      const waitFor = (args.waitFor as number) || 0;
+      const stealth = (args.stealth as boolean) || false;
+      const fullPage = (args.fullPage as boolean) || false;
+
+      if (width !== undefined && (width < 100 || width > 5000)) throw new Error('Invalid width: must be 100–5000');
+      if (height !== undefined && (height < 100 || height > 5000)) throw new Error('Invalid height: must be 100–5000');
+      if (!['png', 'jpeg'].includes(format)) throw new Error('Invalid format');
+      if (quality !== undefined && (quality < 1 || quality > 100)) throw new Error('Invalid quality: must be 1–100');
+      if (waitFor < 0 || waitFor > 60000) throw new Error('Invalid waitFor: must be 0–60000');
+
+      const { takeScreenshot } = await import('../../core/screenshot.js');
+      const result = await Promise.race([
+        takeScreenshot(url, {
+          fullPage,
+          width,
+          height,
+          format,
+          quality,
+          waitFor,
+          stealth,
+          actions: args.actions as any[] | undefined,
+        }),
+        timeout(60000, 'Screenshot timed out'),
+      ]) as any;
+
+      return ok(safeStringify({
+        url: result.url,
+        format: result.format,
+        contentType: result.contentType,
+        screenshot: result.screenshot,
+      }));
+    }
+
+    // webpeel_summarize
+    if (name === 'webpeel_summarize') {
+      const url = args.url as string;
+      const llmApiKey = args.llmApiKey as string;
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL');
+      if (url.length > 2048) throw new Error('URL too long');
+      if (!llmApiKey || typeof llmApiKey !== 'string') throw new Error('Invalid llmApiKey');
+
+      const options: PeelOptions = {
+        render: (args.render as boolean) || false,
+        extract: {
+          prompt: (args.prompt as string) || 'Summarize this webpage in 2-3 sentences.',
+          llmApiKey,
+          llmModel: (args.llmModel as string) || 'gpt-4o-mini',
+          llmBaseUrl: (args.llmBaseUrl as string) || 'https://api.openai.com/v1',
+        },
+      };
+
+      const result = await Promise.race([
+        peel(url, options),
+        timeout(60000, 'Summarize timed out'),
+      ]) as any;
+
+      return ok(safeStringify({
+        url: result.url,
+        title: result.title,
+        summary: result.extracted,
+      }));
+    }
+
+    // webpeel_answer
+    if (name === 'webpeel_answer') {
+      const question = args.question as string;
+      const llmProvider = args.llmProvider as string;
+      const llmApiKey = args.llmApiKey as string;
+      if (!question || typeof question !== 'string') throw new Error('Invalid question');
+      if (question.length > 2000) throw new Error('Question too long (max 2000 characters)');
+
+      const validLlmProviders: LLMProviderId[] = ['openai', 'anthropic', 'google'];
+      if (!llmProvider || !validLlmProviders.includes(llmProvider as LLMProviderId)) {
+        throw new Error('Invalid llmProvider: must be openai, anthropic, or google');
+      }
+      if (!llmApiKey || typeof llmApiKey !== 'string') throw new Error('Invalid llmApiKey');
+
+      const spId = (args.searchProvider as string) === 'brave' ? 'brave' : 'duckduckgo';
+      const maxSources = typeof args.maxSources === 'number' ? Math.min(Math.max(args.maxSources, 1), 10) : 5;
+
+      const result = await Promise.race([
+        answerQuestion({
+          question,
+          searchProvider: spId as any,
+          searchApiKey: args.searchApiKey as string | undefined,
+          llmProvider: llmProvider as LLMProviderId,
+          llmApiKey,
+          llmModel: args.llmModel as string | undefined,
+          maxSources,
+          stream: false,
+        }),
+        timeout(180000, 'Answer timed out'),
+      ]);
+
+      return ok(safeStringify(result));
+    }
+
+    // webpeel_brand
+    if (name === 'webpeel_brand') {
+      const url = args.url as string;
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL');
+      if (url.length > 2048) throw new Error('URL too long');
+
+      const options: PeelOptions = {
+        render: (args.render as boolean) || false,
+        extract: {
+          selectors: {
+            primaryColor: 'meta[name="theme-color"]',
+            title: 'title',
+            logo: 'img[class*="logo"], img[alt*="logo"]',
+          },
+        },
+      };
+
+      const result = await Promise.race([
+        peel(url, options),
+        timeout(60000, 'Brand extraction timed out'),
+      ]) as any;
+
+      return ok(safeStringify({
+        url: result.url,
+        title: result.title,
+        extracted: result.extracted,
+        metadata: result.metadata,
+        colors: extractColorsFromContent(result.content || ''),
+        fonts: extractFontsFromContent(result.content || ''),
+      }));
+    }
+
+    // webpeel_change_track
+    if (name === 'webpeel_change_track') {
+      const url = args.url as string;
+      if (!url || typeof url !== 'string') throw new Error('Invalid URL');
+      if (url.length > 2048) throw new Error('URL too long');
+
+      const options: PeelOptions = {
+        render: (args.render as boolean) || false,
+      };
+
+      const result = await Promise.race([
+        peel(url, options),
+        timeout(60000, 'Change tracking timed out'),
+      ]) as any;
+
+      return ok(safeStringify({
+        url: result.url,
+        title: result.title,
+        fingerprint: result.fingerprint,
+        tokens: result.tokens,
+        contentType: result.contentType,
+        lastChecked: new Date().toISOString(),
+      }));
+    }
+
+    // webpeel_deep_fetch
+    if (name === 'webpeel_deep_fetch') {
+      const query = args.query as string;
+      if (!query || typeof query !== 'string') throw new Error('Invalid query');
+
+      const count = Math.min(Math.max((args.count as number) || 5, 1), 10);
+      const format = (args.format as 'markdown' | 'text') || 'markdown';
+
+      // Step 1: Search for the query
+      const { getSearchProvider } = await import('../../core/search-provider.js');
+      const provider = getSearchProvider('duckduckgo');
+      const searchResults = await Promise.race([
+        provider.searchWeb(query, { count }),
+        timeout(30000, 'Search timed out'),
+      ]) as any;
+
+      const results = searchResults?.results ?? searchResults ?? [];
+      const topResults = Array.isArray(results) ? results.slice(0, count) : [];
+
+      if (topResults.length === 0) {
+        return ok(safeStringify({ query, sources: [], content: '', totalTokens: 0 }));
+      }
+
+      // Step 2: Fetch all URLs in parallel
+      const urls = topResults.map((r: any) => r.url).filter(Boolean);
+      const pages = await Promise.race([
+        peelBatch(urls, { concurrency: 5, format }),
+        timeout(120000, 'Batch fetch timed out'),
+      ]) as any[];
+
+      // Step 3: Merge content with source attribution
+      const sources: Array<{ url: string; title: string }> = [];
+      const contentParts: string[] = [];
+      let totalTokens = 0;
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i] as any;
+        const searchResult = topResults[i] as any;
+        const url = urls[i];
+        const title = page?.title || searchResult?.title || url;
+
+        sources.push({ url, title });
+
+        if (page?.content) {
+          contentParts.push(`## Source ${i + 1}: ${title}\n**URL:** ${url}\n\n${page.content}\n\n---\n`);
+          totalTokens += page.tokens || 0;
+        } else if (page?.error) {
+          contentParts.push(`## Source ${i + 1}: ${title}\n**URL:** ${url}\n\n*(Failed to fetch: ${page.error})*\n\n---\n`);
+        }
+      }
+
+      const mergedContent = contentParts.join('\n');
+
+      return ok(safeStringify({
+        query,
+        sources,
+        content: mergedContent,
+        totalTokens,
+      }));
     }
 
     throw new Error(`Unknown tool: ${name}`);

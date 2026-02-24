@@ -334,6 +334,73 @@ export class DuckDuckGoProvider implements SearchProvider {
     return results;
   }
 
+  /**
+   * Last-resort fallback: use headless browser to render DDG search results.
+   * This bypasses datacenter IP blocking since the browser executes JavaScript
+   * and appears as a real user. Slower (~3-5s) but reliable from any IP.
+   */
+  private async searchRendered(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
+    const { count } = options;
+
+    try {
+      // Dynamic import to avoid loading peel in search-only contexts
+      const { peel } = await import('../index.js');
+      const searchUrl = this.buildSearchUrl(query, options);
+
+      const result = await peel(searchUrl, {
+        render: true,
+        format: 'html',
+        wait: 2000,  // DDG needs time to render results
+      });
+
+      const html = result.content || '';
+      if (!html) return [];
+
+      const { load: cheerioLoad } = await import('cheerio');
+      const $ = cheerioLoad(html);
+      const results: WebSearchResult[] = [];
+      const seen = new Set<string>();
+
+      // Same parsing as searchOnce — DDG HTML structure
+      $('.result').each((_i, elem) => {
+        if (results.length >= count) return;
+
+        const $result = $(elem);
+        const titleRaw = $result.find('.result__title').text() || $result.find('.result__a').text();
+        const rawUrl = $result.find('.result__a').attr('href') || '';
+        const snippetRaw = $result.find('.result__snippet').text();
+
+        let title = cleanText(titleRaw, { maxLen: 200 });
+        let snippet = cleanText(snippetRaw, { maxLen: 500, stripEllipsisPadding: true });
+
+        if (!title || !rawUrl) return;
+
+        let url = rawUrl;
+        try {
+          const ddgUrl = new URL(rawUrl, 'https://duckduckgo.com');
+          const uddg = ddgUrl.searchParams.get('uddg');
+          if (uddg) url = decodeURIComponent(uddg);
+        } catch { /* use raw */ }
+
+        try {
+          const parsed = new URL(url);
+          if (!['http:', 'https:'].includes(parsed.protocol)) return;
+          url = parsed.href;
+        } catch { return; }
+
+        const dedupeKey = normalizeUrlForDedupe(url);
+        if (seen.has(dedupeKey)) return;
+        seen.add(dedupeKey);
+
+        results.push({ title, url, snippet });
+      });
+
+      return results;
+    } catch {
+      return [];
+    }
+  }
+
   async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
     const attempts = this.buildQueryAttempts(query);
 
@@ -348,7 +415,18 @@ export class DuckDuckGoProvider implements SearchProvider {
       const liteResults = await this.searchLite(query, options);
       if (liteResults.length > 0) return liteResults;
     } catch {
-      // Lite also failed — return empty
+      // Lite also failed — try rendered fallback
+    }
+
+    // Last resort: browser-rendered search (works from datacenter IPs)
+    // Only use this on the server (has Chromium), not in CLI (too slow for interactive)
+    if (typeof process !== 'undefined' && process.env.NODE_ENV === 'production') {
+      try {
+        const renderedResults = await this.searchRendered(query, options);
+        if (renderedResults.length > 0) return renderedResults;
+      } catch {
+        // Rendered also failed
+      }
     }
 
     return [];
