@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Key, BarChart3, CreditCard, Settings, ExternalLink, BookOpen, X, Zap } from 'lucide-react';
+import { LayoutDashboard, Key, CreditCard, Settings, ExternalLink, BookOpen, X, Zap, Play, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navigation = [
-  { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Playground', href: '/playground', icon: Play },
   { name: 'API Keys', href: '/keys', icon: Key },
-  { name: 'Usage', href: '/usage', icon: BarChart3 },
+  { name: 'Activity', href: '/activity', icon: Activity },
   { name: 'Billing', href: '/billing', icon: CreditCard },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -23,6 +24,33 @@ interface SidebarProps {
 export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'free' }: SidebarProps) {
   const pathname = usePathname();
   const showUpgrade = tier === 'free';
+
+  const NavItem = ({ item, onClick }: { item: typeof navigation[0]; onClick?: () => void }) => {
+    const isActive = item.href === '/dashboard'
+      ? pathname === '/dashboard'
+      : pathname.startsWith(item.href);
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        onClick={onClick}
+        className={cn(
+          'relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all group',
+          isActive
+            ? 'bg-zinc-100 text-zinc-900'
+            : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 hover:translate-x-0.5',
+          collapsed && 'justify-center'
+        )}
+        title={collapsed ? item.name : undefined}
+      >
+        {isActive && (
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-600 rounded-r" />
+        )}
+        <item.icon className="h-4 w-4 flex-shrink-0" />
+        {!collapsed && item.name}
+      </Link>
+    );
+  };
 
   const sidebarContent = (
     <>
@@ -42,33 +70,9 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {navigation.map((item) => {
-          const isActive = item.href === '/dashboard' 
-            ? pathname === '/dashboard' 
-            : pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                'relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all group',
-                isActive
-                  ? 'bg-zinc-100 text-zinc-900'
-                  : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 hover:translate-x-0.5',
-                collapsed && 'justify-center'
-              )}
-              title={collapsed ? item.name : undefined}
-            >
-              {/* Vercel-style active indicator */}
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-600 rounded-r" />
-              )}
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              {!collapsed && item.name}
-            </Link>
-          );
-        })}
+        {navigation.map((item) => (
+          <NavItem key={item.name} item={item} onClick={onClose} />
+        ))}
       </nav>
 
       {/* Footer */}
@@ -83,7 +87,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
             Upgrade to Pro
           </Link>
         )}
-        
+
         <a
           href="https://webpeel.dev/docs"
           target="_blank"
@@ -112,12 +116,12 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
       <div className="md:hidden">
         {/* Backdrop */}
         {isOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 transition-opacity"
             onClick={onClose}
           />
         )}
-        
+
         {/* Sliding sidebar */}
         <div className={cn(
           "fixed top-0 left-0 bottom-0 w-[280px] bg-white border-r border-zinc-200 z-50 transform transition-transform duration-300 ease-in-out flex flex-col",
@@ -142,33 +146,12 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
               <X className="h-4 w-4" />
             </button>
           </div>
-          
+
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-0.5">
-            {navigation.map((item) => {
-              const isActive = item.href === '/dashboard' 
-                ? pathname === '/dashboard' 
-                : pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={onClose}
-                  className={cn(
-                    'relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all',
-                    isActive
-                      ? 'bg-zinc-100 text-zinc-900'
-                      : 'text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 hover:translate-x-0.5'
-                  )}
-                >
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-violet-600 rounded-r" />
-                  )}
-                  <item.icon className="h-4 w-4" />
-                  {item.name}
-                </Link>
-              );
-            })}
+            {navigation.map((item) => (
+              <NavItem key={item.name} item={item} onClick={onClose} />
+            ))}
           </nav>
 
           {/* Footer */}
@@ -183,7 +166,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
                 Upgrade to Pro
               </Link>
             )}
-            
+
             <a
               href="https://webpeel.dev/docs"
               target="_blank"
@@ -215,8 +198,8 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
         {/* Icon-only nav */}
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navigation.map((item) => {
-            const isActive = item.href === '/dashboard' 
-              ? pathname === '/dashboard' 
+            const isActive = item.href === '/dashboard'
+              ? pathname === '/dashboard'
               : pathname.startsWith(item.href);
             return (
               <Link
