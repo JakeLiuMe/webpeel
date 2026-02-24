@@ -184,15 +184,30 @@ export function createApp(config: ServerConfig = {}): Express {
     app.use(sentry.errorHandler);
   }
 
-  // Error handler - SECURITY: Do not expose internal error details
+  // Error handler - SECURITY: sanitize errors in production to prevent leaking
+  // Playwright stack traces, internal paths, or other sensitive details.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     console.error('Unhandled error:', err); // Log full error server-side
     if (res.headersSent) return; // Avoid double-send crash
-    res.status(500).json({
-      error: 'internal_error',
-      message: 'An unexpected error occurred', // Generic message only
-    });
+
+    if (process.env.NODE_ENV === 'production') {
+      // Strip Playwright/browser launch errors and stack traces from responses
+      const sanitized = (err.message || 'An unexpected error occurred')
+        .replace(/browserType\.launch:.*$/s, 'Browser rendering unavailable on this server. Use the CLI with --render for browser-rendered content.')
+        .replace(/at\s+\S.*\n?/g, '') // strip "at <location>" stack lines
+        .trim() || 'An unexpected error occurred';
+      res.status(500).json({
+        error: 'internal_error',
+        message: sanitized,
+      });
+    } else {
+      res.status(500).json({
+        error: 'internal_error',
+        message: err.message || 'An unexpected error occurred',
+        stack: err.stack,
+      });
+    }
   });
 
   return app;

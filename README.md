@@ -275,6 +275,12 @@ npx webpeel "https://hn.algolia.com" \
   --json
 ```
 
+> **Note:** WebPeel is an ESM-only package. Use `import` syntax:
+> ```js
+> import { peel } from 'webpeel';
+> ```
+> CommonJS `require()` is not supported. If your project uses CommonJS, use dynamic import: `const { peel } = await import('webpeel');`
+
 ```typescript
 import { peel } from 'webpeel';
 

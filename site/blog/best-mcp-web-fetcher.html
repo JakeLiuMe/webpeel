@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Best MCP Server for Web Scraping (2026): 11 Tools Compared | WebPeel</title>
-  <meta name="description" content="Compare the best MCP servers for web scraping in Claude, Cursor, and VS Code. WebPeel offers 13 MCP tools with fetch, search, crawl, extract, and more.">
+  <title>Best MCP Server for Web Scraping (2026): 18 Tools Compared | WebPeel</title>
+  <meta name="description" content="Compare the best MCP servers for web scraping in Claude, Cursor, and VS Code. WebPeel offers 18 MCP tools with fetch, search, crawl, extract, YouTube transcripts, and more.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://webpeel.dev/blog/best-mcp-web-fetcher">
 
@@ -185,7 +185,7 @@
         <a href="/blog/">← Back to Blog</a>
       </div>
       <h1>The Best MCP Web Fetcher for Claude Code, Cursor & Windsurf in 2026</h1>
-      <p class="article-description">How to supercharge your AI coding assistant with WebPeel's MCP server. Eleven powerful tools, zero configuration headaches.</p>
+      <p class="article-description">How to supercharge your AI coding assistant with WebPeel's MCP server. Eighteen powerful tools, zero configuration headaches.</p>
     </div>
   </div>
 
@@ -212,9 +212,9 @@
         </ul>
       </div>
 
-      <h2>WebPeel's 11 MCP Tools</h2>
+      <h2>WebPeel's 18 MCP Tools</h2>
 
-      <p>When you install WebPeel as an MCP server, your AI assistant gets <strong>eleven tools</strong>:</p>
+      <p>When you install WebPeel as an MCP server, your AI assistant gets <strong>eighteen tools</strong>:</p>
 
       <div class="tool-grid">
         <div class="tool-card">
@@ -275,7 +275,72 @@
 - Uses selectors you define
 - Faster than LLM extraction</code></pre>
         </div>
+
+        <div class="tool-card">
+          <h3>6. webpeel_youtube</h3>
+          <p><strong>What it does:</strong> Extracts YouTube transcripts — no API key needed, supports all URL formats.</p>
+          <pre><code>// Your AI can now do this:
+"Summarize this YouTube video: https://youtu.be/abc123"
+
+// WebPeel returns:
+- Full transcript with timestamps
+- Works with youtu.be, youtube.com/watch, /shorts
+- No YouTube Data API key required</code></pre>
+        </div>
+
+        <div class="tool-card">
+          <h3>7. webpeel_quick_answer</h3>
+          <p><strong>What it does:</strong> LLM-free quick answers using BM25 scoring and the <code>--question</code> flag.</p>
+          <pre><code>// Your AI can now do this:
+"What is the current Node.js LTS version?"
+
+// WebPeel returns:
+- Direct answer from top search results
+- No LLM inference cost — BM25 scoring only
+- Faster and cheaper than full LLM synthesis</code></pre>
+        </div>
+
+        <div class="tool-card">
+          <h3>8. webpeel_deep_fetch</h3>
+          <p><strong>What it does:</strong> Deep fetch intelligence with relevance scoring, deduplication, and comparison mode.</p>
+          <pre><code>// Your AI can now do this:
+"Fetch the pricing pages of these 3 competitors and compare"
+
+// WebPeel handles:
+- Multi-URL parallel fetch
+- Relevance scoring per result
+- Dedup identical content
+- Comparison-ready output</code></pre>
+        </div>
+
+        <div class="tool-card">
+          <h3>9. webpeel_auto_extract</h3>
+          <p><strong>What it does:</strong> Auto-extracts structured data — pricing, products, contacts, articles, API docs.</p>
+          <pre><code>// Your AI can now do this:
+"Extract all pricing tiers from this SaaS product page"
+
+// WebPeel auto-detects:
+- Pricing tables
+- Product listings
+- Contact info
+- Article metadata
+- API endpoints</code></pre>
+        </div>
+
+        <div class="tool-card">
+          <h3>10. webpeel_watch</h3>
+          <p><strong>What it does:</strong> URL watch/monitoring with webhook delivery when content changes.</p>
+          <pre><code>// Your AI can now do this:
+"Watch this changelog page and notify me on changes"
+
+// WebPeel handles:
+- Periodic re-fetch and diff
+- Webhook delivery on change
+- Configurable check interval</code></pre>
+        </div>
       </div>
+
+      <p>Plus 8 more tools: <code>webpeel_batch</code>, <code>webpeel_agent</code>, <code>webpeel_research</code>, <code>webpeel_screenshot</code>, <code>webpeel_brand</code>, <code>webpeel_summarize</code>, <code>webpeel_answer</code>, and <code>webpeel_hotels</code> — 18 total.</p>
 
       <h2>Setup: 3 Steps, 2 Minutes</h2>
 
@@ -354,7 +419,7 @@ Command: webpeel mcp</code></pre>
         <tbody>
           <tr>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light); font-weight: 500;">Tools Provided</td>
-            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);">11 (fetch, search, crawl, map, extract, batch, agent, screenshot, brand, summarize, answer)</td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);">18 (fetch, search, crawl, map, extract, batch, agent, research, screenshot, brand, summarize, answer, youtube, quick_answer, deep_fetch, auto_extract, watch, hotels)</td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);">1 (fetch only)</td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);">2 (fetch, screenshot)</td>
           </tr>
@@ -390,7 +455,7 @@ Command: webpeel mcp</code></pre>
       <p>Most MCP fetch tools are <strong>basic HTTP wrappers</strong>. WebPeel is a <em>complete web intelligence system</em>:</p>
 
       <ul>
-        <li><strong>13 tools in one:</strong> Fetch, search, crawl, map, extract — everything your AI needs.</li>
+        <li><strong>18 tools in one:</strong> Fetch, search, crawl, map, extract, YouTube transcripts, quick answers, deep fetch, auto-extract, URL watch, and more — everything your AI needs.</li>
         <li><strong>Smart escalation:</strong> Automatically handles JavaScript-heavy pages and bot detection.</li>
         <li><strong>Built-in search:</strong> No need for a separate search API or MCP server.</li>
         <li><strong>Token efficiency:</strong> Returns clean markdown, not bloated HTML.</li>

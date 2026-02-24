@@ -1107,7 +1107,7 @@ function mcpDeleteOk(_req: Request, res: Response): void {
 // Express router
 // ---------------------------------------------------------------------------
 
-export function createMcpRouter(authStore?: AuthStore, pool?: Pool | null): Router {
+export function createMcpRouter(_authStore?: AuthStore, pool?: Pool | null): Router {
   const router = Router();
   const boundHandler = (req: Request, res: Response) => handleMcpPost(req, res, pool);
 
@@ -1123,58 +1123,20 @@ export function createMcpRouter(authStore?: AuthStore, pool?: Pool | null): Rout
   router.get('/v2/mcp', mcpMethodNotAllowed);
   router.delete('/v2/mcp', mcpDeleteOk);
 
-  // POST /:apiKey/v2/mcp — Firecrawl-style: API key embedded in URL path
-  // e.g. https://api.webpeel.dev/wbp_abc123/v2/mcp
-  // Validate the key ourselves since the global middleware only reads headers.
-  router.post('/:apiKey/v2/mcp', async (req: Request, res: Response) => {
-    const { apiKey } = req.params;
+  // SECURITY: /:apiKey/v2/mcp — BLOCKED. API keys in URLs are insecure because
+  // they get recorded in server logs, browser history, and proxy access logs.
+  // All methods return 400 with instructions to use the Authorization header.
+  const mcpInsecureAuthHandler = (_req: Request, res: Response): void => {
+    res.status(400).json({
+      error: 'insecure_auth',
+      message: 'API keys in URLs are insecure. Use the Authorization header instead: Authorization: Bearer wp_your_key',
+      docs: 'https://webpeel.dev/docs/api-reference#authentication',
+    });
+  };
 
-    // Basic format guard — reject obviously malformed keys early
-    if (!apiKey || apiKey.length < 8) {
-      res.status(401).json({
-        jsonrpc: '2.0',
-        error: { code: -32001, message: 'Invalid API key' },
-        id: null,
-      });
-      return;
-    }
-
-    // If we have an authStore, validate the key
-    if (authStore) {
-      try {
-        const keyInfo = await authStore.validateKey(String(apiKey));
-        if (!keyInfo) {
-          res.status(401).json({
-            jsonrpc: '2.0',
-            error: { code: -32001, message: 'Invalid or expired API key' },
-            id: null,
-          });
-          return;
-        }
-        // Inject auth info so downstream tools can use it
-        req.auth = {
-          keyInfo,
-          tier: (keyInfo.tier ?? 'free') as 'free' | 'starter' | 'pro' | 'enterprise' | 'max',
-          rateLimit: 100,
-          softLimited: false,
-          extraUsageAvailable: false,
-        };
-      } catch (err) {
-        console.error('MCP auth error:', err);
-        res.status(500).json({
-          jsonrpc: '2.0',
-          error: { code: -32603, message: 'Internal error' },
-          id: null,
-        });
-        return;
-      }
-    }
-
-    return handleMcpPost(req, res, pool);
-  });
-
-  router.get('/:apiKey/v2/mcp', mcpMethodNotAllowed);
-  router.delete('/:apiKey/v2/mcp', mcpDeleteOk);
+  router.post('/:apiKey/v2/mcp', mcpInsecureAuthHandler);
+  router.get('/:apiKey/v2/mcp', mcpInsecureAuthHandler);
+  router.delete('/:apiKey/v2/mcp', mcpInsecureAuthHandler);
 
   return router;
 }
