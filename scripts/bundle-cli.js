@@ -1,5 +1,6 @@
 import * as esbuild from 'esbuild';
 import { readFile } from 'fs/promises';
+import { chmodSync } from 'fs';
 
 // Plugin: strip the shebang from cli.js so it doesn't clash with our banner
 const stripShebangPlugin = {
@@ -47,5 +48,8 @@ await esbuild.build({
   // Silence warnings about dynamic requires (e.g. from pdf-parse)
   logLevel: 'warning',
 });
+
+// Make the bundle executable (needed for direct invocation and npm bin installs)
+chmodSync('dist/cli.bundle.cjs', 0o755);
 
 console.log('✅ Bundled CLI → dist/cli.bundle.cjs');
