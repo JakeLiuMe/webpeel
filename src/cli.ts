@@ -189,7 +189,7 @@ program
   .option('-w, --wait <ms>', 'Wait time after page load (ms)', parseInt)
   .option('--html', 'Output raw HTML instead of markdown')
   .option('--text', 'Output plain text instead of markdown')
-  .option('--clean', 'Output clean text optimized for AI (strips URLs, keeps structure)')
+  .option('--clean', 'Clean output — article content only, no links or metadata (alias for --readable with URL-stripped markdown)')
   .option('--json', 'Output as JSON')
   .option('-t, --timeout <ms>', 'Request timeout (ms)', (v: string) => parseInt(v, 10), 30000)
   .option('--ua <agent>', 'Custom user agent')
@@ -203,6 +203,7 @@ program
   .option('--only-main-content', 'Shortcut for --include-tags main,article')
   .option('--full-content', 'Return full page content (disable automatic content density pruning)')
   .option('--readable', 'Reader mode — extract only the main article content, strip all noise (like browser Reader Mode)')
+  .option('--full-nav', 'Keep full navigation/content (disable auto-readability when piped or in agent mode)')
   .option('--focus <query>', 'Query-focused filtering — only return content relevant to this query (BM25 ranking)')
   .option('--chunk', 'Split content into RAG-ready chunks')
   .option('--chunk-size <tokens>', 'Max tokens per chunk (default: 512)', parseInt)
@@ -250,12 +251,72 @@ program
   .option('--wait-selector <css>', 'Wait for CSS selector before extracting (auto-enables --render)')
   .option('--block-resources <types>', 'Block resource types, comma-separated: image,stylesheet,font,media,script (auto-enables --render)')
 
-program.configureHelp({
-  sortSubcommands: true,
-  showGlobalOptions: false,
-});
+// ─── Help System ─────────────────────────────────────────────────────────────
 
-program.addHelpText('afterAll', `
+// Detect --help-all early, before Commander parses argv.
+const isHelpAll = process.argv.slice(2).some(a => a === '--help-all');
+if (isHelpAll) {
+  // Translate --help-all → --help so Commander generates its standard output.
+  const idx = process.argv.indexOf('--help-all');
+  if (idx !== -1) process.argv[idx] = '--help';
+}
+
+// ANSI helpers (fall back gracefully when colors are disabled).
+const NO_COLOR = process.env.NO_COLOR !== undefined || !process.stdout.isTTY;
+const bold = (s: string) => NO_COLOR ? s : `\x1b[1m${s}\x1b[0m`;
+const dim  = (s: string) => NO_COLOR ? s : `\x1b[2m${s}\x1b[0m`;
+const cyan = (s: string) => NO_COLOR ? s : `\x1b[36m${s}\x1b[0m`;
+
+/**
+ * Reconstruct the standard Commander help layout for --help-all and subcommands.
+ * This mirrors Commander's own default formatHelp() so subcommand help keeps working.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildCommanderHelp(cmd: any, helper: any): string {
+  const termWidth = helper.padWidth(cmd, helper);
+  const helpWidth = (helper.helpWidth as number | undefined) ?? 80;
+  const pad = '  ';
+
+  const formatItem = (term: string, description: string): string => {
+    if (description) {
+      const full = `${term.padEnd(termWidth + 2)}${description}`;
+      return helper.wrap(full, helpWidth - pad.length, termWidth + 2) as string;
+    }
+    return term;
+  };
+  const formatList = (items: string[]) => items.join('\n').replace(/^/gm, pad);
+
+  let out: string[] = [`Usage: ${helper.commandUsage(cmd) as string}`, ''];
+
+  const desc = helper.commandDescription(cmd) as string;
+  if (desc.length > 0) {
+    out = out.concat([helper.wrap(desc, helpWidth, 0) as string, '']);
+  }
+
+  // Arguments
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const args = (helper.visibleArguments(cmd) as any[]).map(a =>
+    formatItem(helper.argumentTerm(a) as string, helper.argumentDescription(a) as string)
+  );
+  if (args.length > 0) out = out.concat(['Arguments:', formatList(args), '']);
+
+  // Options
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const opts = (helper.visibleOptions(cmd) as any[]).map(o =>
+    formatItem(helper.optionTerm(o) as string, helper.optionDescription(o) as string)
+  );
+  if (opts.length > 0) out = out.concat(['Options:', formatList(opts), '']);
+
+  // Subcommands
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cmds = (helper.visibleCommands(cmd) as any[]).map(c =>
+    formatItem(helper.subcommandTerm(c) as string, helper.subcommandDescription(c) as string)
+  );
+  if (cmds.length > 0) out = out.concat(['Commands:', formatList(cmds), '']);
+
+  // Append grouped option sections only on root command (--help-all)
+  if (cmd.parent === null) {
+    out = out.concat([`
 Output Formats:
   --json                  JSON output with full metadata
   --html                  Raw HTML output
@@ -299,7 +360,70 @@ Agent Integration:
   $ webpeel pipe "https://example.com" | jq .content           Pipe-friendly JSON
   $ webpeel "https://site.com" --json --silent                 Same as pipe
   $ curl https://webpeel.dev/llms.txt                          AI-readable docs
-`);
+`]);
+  }
+
+  return out.join('\n');
+}
+
+/**
+ * Condensed, Anthropic-style help for the root command (default --help).
+ */
+function buildCondensedHelp(): string {
+  const v = cliVersion;
+  return [
+    '',
+    `  ${bold('◆ WebPeel')} ${dim(`v${v}`)}`,
+    `  ${dim('The web data platform for AI agents')}`,
+    '',
+    `  ${bold('Usage:')}  webpeel [url] [options]`,
+    `          webpeel <command> [options]`,
+    '',
+    `  ${bold('Quick Start:')}`,
+    `    webpeel "https://example.com"              Fetch any URL`,
+    `    webpeel search "AI news"                   Web search`,
+    `    webpeel mcp                                Start MCP server`,
+    '',
+    `  ${bold('Commands:')}`,
+    `    fetch (default)       Fetch a URL as clean markdown`,
+    `    search <query>        Search the web (DuckDuckGo + sources)`,
+    `    crawl <url>           Crawl a website`,
+    `    research <query>      Multi-hop research agent`,
+    `    mcp                   Start MCP server for AI tools`,
+    `    login / logout        Authenticate with your API key`,
+    `    ${dim('... (use --help-all for all 25+ commands)')}`,
+    '',
+    `  ${bold('Common Options:')}`,
+    `    -r, --render          Browser rendering (JS-heavy sites)`,
+    `    --stealth             Stealth mode (anti-bot bypass)`,
+    `    --readable            Reader mode (article content only)`,
+    `    --json                JSON output with metadata`,
+    `    --budget <n>          Smart token budget`,
+    `    -q, --question <q>    Ask about the content`,
+    `    -s, --silent          No spinner output`,
+    '',
+    `  Use ${cyan("'webpeel <command> --help'")} for command-specific options.`,
+    `  Use ${cyan("'webpeel --help-all'")} for the full option reference.`,
+    '',
+    `  Docs: ${cyan('https://webpeel.dev/docs')}`,
+    '',
+  ].join('\n');
+}
+
+program.configureHelp({
+  sortSubcommands: true,
+  showGlobalOptions: false,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  formatHelp: (cmd: any, helper: any): string => {
+    // Subcommands always get standard Commander help.
+    // Root command with --help-all also gets standard full help.
+    if (cmd.parent !== null || isHelpAll) {
+      return buildCommanderHelp(cmd, helper);
+    }
+    // Root command default: beautiful condensed help.
+    return buildCondensedHelp();
+  },
+});
 
 // Main fetch handler — shared with the `pipe` subcommand
 async function runFetch(url: string | undefined, options: any): Promise<void> {
@@ -308,6 +432,11 @@ async function runFetch(url: string | undefined, options: any): Promise<void> {
     if (isPiped && !options.html && !options.text) {
       if (!options.json) options.json = true;
       if (!options.silent) options.silent = true;
+      // Auto-enable readability for AI consumers — clean content by default
+      // Use --full-nav to opt out (keeps navigation links and full page content)
+      if (!options.readable && !options.fullNav) {
+        options.readable = true;
+      }
     }
 
     // --agent sets sensible defaults for AI agents; explicit flags override
@@ -316,6 +445,10 @@ async function runFetch(url: string | undefined, options: any): Promise<void> {
       if (!options.silent) options.silent = true;
       if (!options.extractAll) options.extractAll = true;
       if (options.budget === undefined) options.budget = 4000;
+      // Agent mode = clean content by default
+      if (!options.readable && !options.fullNav) {
+        options.readable = true;
+      }
     }
 
     const isJson = options.json;
@@ -421,8 +554,9 @@ async function runFetch(url: string | undefined, options: any): Promise<void> {
         render: options.render,
         stealth: options.stealth,
         selector: options.selector,
-        format: options.html ? 'html' : options.text ? 'text' : 'markdown',
+        format: options.html ? 'html' : options.text ? 'text' : options.clean ? 'clean' : 'markdown',
         budget: null,  // Budget excluded from cache key — cache stores full content
+        readable: options.readable || false,
       };
 
       const cachedResult = getCache(url, cacheOptions);
@@ -672,6 +806,7 @@ async function runFetch(url: string | undefined, options: any): Promise<void> {
         || !!options.waitUntil
         || !!options.waitSelector
         || !!options.blockResources
+        || !!options.screenshot  // Auto-enable render for screenshot (needs browser)
         || false;
 
       // Inject scroll actions when --scroll-extract N (fixed count) is used
@@ -764,6 +899,8 @@ async function runFetch(url: string | undefined, options: any): Promise<void> {
         peelOptions.format = 'text';
       } else if (options.clean) {
         peelOptions.format = 'clean';
+        // --clean implies readable mode (article content only, no navs/footers)
+        peelOptions.readable = true;
       } else {
         peelOptions.format = 'markdown';
       }
@@ -826,6 +963,7 @@ async function runFetch(url: string | undefined, options: any): Promise<void> {
           selector: options.selector,
           format: peelOptions.format,
           budget: null,  // Budget excluded — cache stores full content, budget applied post-cache
+          readable: options.readable || false,
         });
       }
 
@@ -1351,7 +1489,7 @@ program
           await writeStdout(result.url + '\n');
         }
       } else if (isJson) {
-        const jsonStr = JSON.stringify(results, null, 2);
+        const jsonStr = JSON.stringify({ query, results, count: results.length }, null, 2);
         await writeStdout(jsonStr + '\n');
       } else {
         for (const result of results) {
@@ -1617,7 +1755,7 @@ program
       }
 
       if (options.json) {
-        console.log(JSON.stringify(results, null, 2));
+        console.log(JSON.stringify({ pages: results, count: results.length }, null, 2));
       } else {
         results.forEach((result, i) => {
           console.log(`\n${'='.repeat(60)}`);
@@ -1969,6 +2107,7 @@ program
   .option('-q, --question <q>', 'Quick answer')
   .option('--proxy <url>', 'Proxy URL')
   .option('--timeout <ms>', 'Timeout in ms', parseInt)
+  .option('-s, --silent', 'Silent mode (always on for pipe, accepted for compatibility)')
   .action(async (url: string, opts) => {
     // Force JSON + silent — always, unconditionally
     opts.json = true;
@@ -4132,11 +4271,17 @@ async function outputResult(result: PeelResult, options: any, extra: OutputExtra
     if (extra.truncated) output.truncated = true;
     if (extra.totalAvailable !== undefined) output.totalAvailable = extra.totalAvailable;
 
-    output._meta = { version: cliVersion, method: result.method || 'simple', timing: result.timing };
+    output._meta = { version: cliVersion, method: result.method || 'simple', timing: result.timing, serverMarkdown: (result as any).serverMarkdown || false };
 
     await writeStdout(JSON.stringify(output, null, 2) + '\n');
   } else {
+    // Stream content immediately to stdout — consumer gets it without waiting
     await writeStdout(result.content + '\n');
+    // Append timing summary to stderr so it doesn't pollute piped content
+    if (!options.silent) {
+      const totalMs = result.timing?.total ?? result.elapsed;
+      process.stderr.write(`\n--- ${result.tokens} tokens · ${totalMs}ms ---\n`);
+    }
   }
 }
 

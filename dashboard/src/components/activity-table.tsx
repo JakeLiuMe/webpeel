@@ -20,13 +20,13 @@ export function ActivityTable({ requests = [] }: ActivityTableProps) {
   if (requests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
-        <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center mb-4">
-          <Activity className="h-8 w-8 text-violet-600" />
+        <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+          <Activity className="h-8 w-8 text-zinc-800" />
         </div>
         <h3 className="text-lg font-semibold text-zinc-900 mb-2">No requests yet</h3>
         <p className="text-sm text-zinc-500 text-center max-w-md">
           Make your first API call to see activity here. Check out the{' '}
-          <a href="https://webpeel.dev/docs" className="text-violet-600 hover:underline">
+          <a href="https://webpeel.dev/docs" className="text-zinc-800 hover:underline">
             documentation
           </a>{' '}
           to get started.
@@ -62,7 +62,7 @@ export function ActivityTable({ requests = [] }: ActivityTableProps) {
                   href={request.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-zinc-900 hover:text-violet-600 transition-colors max-w-xs truncate block"
+                  className="text-sm text-zinc-900 hover:text-zinc-800 transition-colors max-w-xs truncate block"
                 >
                   {request.url}
                 </a>

@@ -11,6 +11,9 @@ dns.setDefaultResultOrder('ipv4first');
 import express, { Express, Request, Response, NextFunction } from 'express';
 import './types.js'; // Augments Express.Request with requestId
 import cors from 'cors';
+import { createLogger } from './logger.js';
+
+const log = createLogger('server');
 import { InMemoryAuthStore } from './auth-store.js';
 import { PostgresAuthStore } from './pg-auth-store.js';
 import { createAuthMiddleware } from './middleware/auth.js';
@@ -190,7 +193,7 @@ export function createApp(config: ServerConfig = {}): Express {
     ? new PostgresAuthStore()
     : new InMemoryAuthStore();
 
-  console.log(`Using ${usePostgres ? 'PostgreSQL' : 'in-memory'} auth store`);
+  log.info(`Using ${usePostgres ? 'PostgreSQL' : 'in-memory'} auth store`);
 
   // PostgreSQL pool for features that need direct DB access (watch, etc.)
   const pool = process.env.DATABASE_URL
@@ -271,7 +274,7 @@ export function createApp(config: ServerConfig = {}): Express {
   // Playwright stack traces, internal paths, or other sensitive details.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-    console.error('Unhandled error:', err); // Log full error server-side
+    log.error('Unhandled error', { message: err.message, stack: err.stack }); // Log full error server-side
     if (res.headersSent) return; // Avoid double-send crash
 
     if (process.env.NODE_ENV === 'production') {
@@ -315,21 +318,19 @@ export function startServer(config: ServerConfig = {}): void {
 
   // Pre-warm browser resources in the background to reduce first-request latency.
   void warmup().catch((error) => {
-    console.warn('Browser warmup failed:', error instanceof Error ? error.message : String(error));
+    log.warn('Browser warmup failed', { error: error instanceof Error ? error.message : String(error) });
   });
 
   const server = app.listen(port, () => {
-    console.log(`WebPeel API server listening on port ${port}`);
-    console.log(`Health check: http://localhost:${port}/health`);
-    console.log(`Fetch: http://localhost:${port}/v1/fetch?url=<url>`);
-    console.log(`Search: http://localhost:${port}/v1/search?q=<query>`);
+    log.info(`WebPeel API server listening on port ${port}`);
+    log.info(`Health: http://localhost:${port}/health  Fetch: /v1/fetch  Search: /v1/search`);
   });
 
   // Graceful shutdown
   const shutdown = () => {
-    console.log('\nShutting down gracefully...');
+    log.info('Shutting down gracefully...');
     server.close(() => {
-      console.log('Server closed');
+      log.info('Server closed');
       void cleanupFetcher().finally(() => {
         process.exit(0);
       });
@@ -337,7 +338,7 @@ export function startServer(config: ServerConfig = {}): void {
 
     // Force shutdown after 10 seconds
     setTimeout(() => {
-      console.error('Forced shutdown after timeout');
+      log.error('Forced shutdown after timeout');
       process.exit(1);
     }, 10000);
   };

@@ -46,8 +46,8 @@ const plans = {
     ],
     popular: true,
     icon: Zap,
-    iconColor: 'text-violet-600',
-    iconBg: 'bg-violet-100',
+    iconColor: 'text-zinc-800',
+    iconBg: 'bg-zinc-100',
   },
   max: {
     name: 'Max',
@@ -113,8 +113,8 @@ export default function BillingPage() {
 
       {/* Current Plan - Visual Card */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-violet-500 to-violet-600 opacity-5 rounded-xl" />
-        <Card className="border-2 border-violet-200 relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-zinc-900 to-zinc-800 opacity-5 rounded-xl" />
+        <Card className="border-2 border-zinc-200 relative">
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-start gap-4">
@@ -133,7 +133,7 @@ export default function BillingPage() {
                   </CardDescription>
                 </div>
               </div>
-              <Badge className="bg-violet-600 text-white text-base px-4 py-2 w-fit">
+              <Badge className="bg-zinc-800 text-white text-base px-4 py-2 w-fit">
                 {plans[currentTier].name}
               </Badge>
             </div>
@@ -180,7 +180,7 @@ export default function BillingPage() {
             <CardDescription>What happens when you exceed your plan limits</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 bg-violet-50 rounded-lg border border-violet-100">
+            <div className="p-4 bg-zinc-50 rounded-lg border border-zinc-100">
               <p className="font-medium text-zinc-900 mb-2">Pay-as-you-go rates</p>
               <p className="text-sm text-zinc-600 mb-3">
                 When you hit your weekly limit, you can keep fetching at these rates:
@@ -203,7 +203,7 @@ export default function BillingPage() {
             <p className="text-xs text-zinc-500">
               Extra usage billing is coming soon. For now, soft limits apply — your requests slow down but never stop completely.
               Questions? Contact{' '}
-              <a href="mailto:support@webpeel.dev" className="text-violet-600 hover:underline">
+              <a href="mailto:support@webpeel.dev" className="text-zinc-800 hover:underline">
                 support@webpeel.dev
               </a>
             </p>
@@ -266,7 +266,7 @@ export default function BillingPage() {
                   {/* Most Popular Ribbon */}
                   {plan.popular && (
                     <div className="absolute -top-3 left-0 right-0 flex justify-center z-10">
-                      <Badge className="bg-violet-600 text-white px-4 py-1 shadow-md">
+                      <Badge className="bg-zinc-800 text-white px-4 py-1 shadow-md">
                         Most Popular
                       </Badge>
                     </div>
@@ -275,14 +275,14 @@ export default function BillingPage() {
                   <Card 
                     className={`relative h-full transition-all ${
                       isCurrent 
-                        ? 'border-2 border-violet-600 shadow-lg' 
+                        ? 'border-2 border-zinc-800 shadow-lg' 
                         : plan.popular 
-                        ? 'border-2 border-violet-200 shadow-md hover:shadow-lg hover:border-violet-300' 
+                        ? 'border-2 border-zinc-200 shadow-md hover:shadow-lg hover:border-zinc-500' 
                         : 'border border-zinc-200 hover:border-zinc-300 hover:shadow-md'
                     }`}
                   >
                     {plan.popular && !isCurrent && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-violet-600/5 rounded-xl pointer-events-none" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/5 to-zinc-800/5 rounded-xl pointer-events-none" />
                     )}
                     
                     <CardHeader className="relative">
@@ -331,7 +331,7 @@ export default function BillingPage() {
                         <Button 
                           className={`w-full ${
                             plan.popular 
-                              ? 'bg-violet-600 hover:bg-violet-700 shadow-md' 
+                              ? 'bg-zinc-800 hover:bg-zinc-800 shadow-md' 
                               : 'bg-zinc-900 hover:bg-zinc-800'
                           }`}
                           asChild

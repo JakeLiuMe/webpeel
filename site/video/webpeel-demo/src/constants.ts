@@ -2,10 +2,10 @@ export const COLORS = {
   bg: "#09090B",
   text: "#FAFAF8",
   textMuted: "rgba(250, 250, 248, 0.6)",
-  accent: "#8B5CF6",
+  accent: "#18181B",
   gridLine: "rgba(255, 255, 255, 0.1)",
   tools: {
-    WebPeel: "#8B5CF6",
+    WebPeel: "#18181B",
     Firecrawl: "#F97316",
     Exa: "#2563EB",
     Tavily: "#06B6D4",

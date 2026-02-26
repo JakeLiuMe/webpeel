@@ -165,7 +165,7 @@ export default function ApiKeysPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-            <Key className="h-7 w-7 text-violet-600" />
+            <Key className="h-7 w-7 text-zinc-800" />
             API Keys
           </h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1">
@@ -174,7 +174,7 @@ export default function ApiKeysPage() {
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2 bg-violet-600 hover:bg-violet-700 w-full sm:w-auto">
+            <Button className="gap-2 bg-zinc-800 hover:bg-zinc-800 w-full sm:w-auto">
               <Plus className="h-4 w-4" />
               Create New Key
             </Button>
@@ -200,14 +200,14 @@ export default function ApiKeysPage() {
               <div className="space-y-4">
                 {/* Key display */}
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-3 bg-zinc-50 border-2 border-violet-200 rounded-lg">
+                  <div className="flex items-center gap-2 p-3 bg-zinc-50 border-2 border-zinc-200 rounded-lg">
                     <code className="flex-1 text-xs sm:text-sm font-mono break-all text-zinc-800">{newKey}</code>
                     <button
                       onClick={handleCopyNewKey}
                       className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${
                         newKeyKeyCopied
                           ? 'bg-emerald-600 text-white'
-                          : 'bg-violet-600 hover:bg-violet-700 text-white'
+                          : 'bg-zinc-800 hover:bg-zinc-800 text-white'
                       }`}
                     >
                       {newKeyKeyCopied ? (
@@ -274,7 +274,7 @@ export default function ApiKeysPage() {
               {newKey ? (
                 <Button
                   onClick={closeCreateDialog}
-                  className={`w-full sm:w-auto ${newKeyKeyCopied ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-violet-600 hover:bg-violet-700'}`}
+                  className={`w-full sm:w-auto ${newKeyKeyCopied ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-zinc-800 hover:bg-zinc-800'}`}
                 >
                   {newKeyKeyCopied ? '✓ Done' : "I've saved my key"}
                 </Button>
@@ -286,7 +286,7 @@ export default function ApiKeysPage() {
                   <Button
                     onClick={handleCreate}
                     disabled={creating || !newKeyName.trim()}
-                    className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white"
+                    className="w-full sm:w-auto bg-zinc-800 hover:bg-zinc-800 text-white"
                   >
                     {creating ? 'Creating...' : 'Create Key'}
                   </Button>
@@ -332,7 +332,7 @@ export default function ApiKeysPage() {
                 {keys.map((key) => (
                   <div
                     key={key.id}
-                    className={`border rounded-lg p-4 space-y-3 ${key.isActive ? 'border-l-4 border-l-violet-500' : 'opacity-60'}`}
+                    className={`border rounded-lg p-4 space-y-3 ${key.isActive ? 'border-l-4 border-l-zinc-900' : 'opacity-60'}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -466,14 +466,14 @@ export default function ApiKeysPage() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 px-4">
-              <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center mb-4">
-                <Key className="h-8 w-8 text-violet-600" />
+              <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                <Key className="h-8 w-8 text-zinc-800" />
               </div>
               <h3 className="text-lg font-semibold text-zinc-900 mb-2">No API keys yet</h3>
               <p className="text-sm text-zinc-500 text-center mb-4 max-w-md">
                 Create your first API key to start making requests to the WebPeel API.
               </p>
-              <Button onClick={() => setCreateOpen(true)} className="bg-violet-600 hover:bg-violet-700 gap-2">
+              <Button onClick={() => setCreateOpen(true)} className="bg-zinc-800 hover:bg-zinc-800 gap-2">
                 <Plus className="h-4 w-4" />
                 Create your first key
               </Button>

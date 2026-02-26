@@ -129,8 +129,8 @@
       --text-2: #52525B;
       --text-3: #71717A;
       --text-4: #A1A1AA;
-      --accent: #8B5CF6;
-      --accent-light: #EDE9FE;
+      --accent: #18181B;
+      --accent-light: #F4F4F5;
       --border: #E4E4E7;
       --border-light: #F4F4F5;
       --green: #16A34A;
@@ -144,7 +144,7 @@
     }
     html { scroll-behavior: smooth; }
     body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; -webkit-font-smoothing: antialiased; }
-    ::selection { background: rgba(139,92,246,0.15); }
+    ::selection { background: rgba(24,24,27,0.15); }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     code { font-family: 'JetBrains Mono', monospace; font-size: 0.88em; background: var(--border-light); padding: 2px 6px; border-radius: 4px; }
@@ -160,8 +160,8 @@
     .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
-    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
+    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
 
     /* ── Article Header ──────────────────────────── */
     .article-header { padding: 60px 0 40px; text-align: center; border-bottom: 1px solid var(--border-light); }
@@ -296,7 +296,7 @@
 
     /* ── CTA Section ─────────────────────────────── */
     .cta-section {
-      background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+      background: linear-gradient(135deg, #18181B 0%, #27272A 100%);
       border-radius: var(--radius);
       padding: 40px 36px;
       margin: 48px 0;
@@ -336,10 +336,10 @@
     }
     .cta-btn-white {
       background: #fff;
-      color: #6D28D9;
+      color: #27272A;
     }
     .cta-btn-white:hover {
-      background: #f5f3ff;
+      background: #F4F4F5;
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
@@ -367,14 +367,14 @@
 
     /* ── Callouts ────────────────────────────────── */
     .callout {
-      background: linear-gradient(135deg, rgba(139,92,246,0.06) 0%, #fff 100%);
+      background: linear-gradient(135deg, rgba(24,24,27,0.06) 0%, #fff 100%);
       border: 2px solid var(--accent-light);
       border-radius: var(--radius);
       padding: 22px 24px;
       margin: 30px 0;
     }
     .callout p { margin: 0; font-size: 16px; }
-    .callout-title { font-weight: 600; font-size: 15px; margin-bottom: 8px; color: #6D28D9; }
+    .callout-title { font-weight: 600; font-size: 15px; margin-bottom: 8px; color: #27272A; }
     .callout-honest {
       background: #FFF7ED;
       border-color: rgba(249,115,22,0.25);
@@ -433,7 +433,7 @@
       white-space: nowrap;
       color: var(--text);
     }
-    .compare-table .highlight-col { background: rgba(139,92,246,0.04); }
+    .compare-table .highlight-col { background: rgba(24,24,27,0.04); }
 
     /* ── Tool Dots ───────────────────────────────── */
     .tool-dot {
@@ -443,7 +443,7 @@
       flex-shrink: 0;
       display: inline-block;
     }
-    .tool-dot.webpeel   { background: #8B5CF6; }
+    .tool-dot.webpeel   { background: #18181B; }
     .tool-dot.firecrawl { background: #F97316; }
     .tool-dot.exa       { background: #2563EB; }
     .tool-dot.tavily    { background: #06B6D4; }
@@ -457,7 +457,7 @@
     .bench-label { width: 136px; flex-shrink: 0; font-size: 14px; font-weight: 600; text-align: right; color: var(--text); }
     .bench-bar-container { flex: 1; height: 36px; background: var(--border-light); border-radius: 6px; overflow: hidden; position: relative; }
     .bench-bar { height: 100%; border-radius: 6px; min-width: 2px; }
-    .bench-bar.webpeel   { background: #8B5CF6; }
+    .bench-bar.webpeel   { background: #18181B; }
     .bench-bar.firecrawl { background: #F97316; }
     .bench-bar.exa       { background: #2563EB; }
     .bench-bar.tavily    { background: #06B6D4; }
@@ -525,7 +525,7 @@
   <nav>
     <div class="nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">

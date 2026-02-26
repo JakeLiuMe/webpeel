@@ -33,7 +33,7 @@ const DEMO_SITES = [
     markdown: '# Quick Start\n\nWelcome to the React docs!\nThis page will give you an intro\nto the 80% of React concepts...',
     time: '441ms',
     mode: 'Browser',
-    modeColor: 'bg-violet-100 text-violet-700',
+    modeColor: 'bg-zinc-100 text-zinc-800',
   },
 ];
 
@@ -58,7 +58,7 @@ function TypeWriter({ text, speed = 30, onDone }: { text: string; speed?: number
   return (
     <>
       {displayed}
-      {displayed.length < text.length && <span className="animate-pulse text-violet-500">▎</span>}
+      {displayed.length < text.length && <span className="animate-pulse text-zinc-900">▎</span>}
     </>
   );
 }
@@ -127,7 +127,7 @@ export function WebAnimation() {
           {phase !== 'typing' && (
             <div className="mt-4 animate-fade-in">
               <div className="text-[12px] text-zinc-500 font-mono">
-                <span className="text-violet-400">⟳</span> Fetching...
+                <span className="text-zinc-600">⟳</span> Fetching...
               </div>
             </div>
           )}
@@ -154,9 +154,9 @@ export function WebAnimation() {
           {/* Processing dots */}
           {phase === 'fetching' && (
             <div className="flex items-center gap-1.5 mt-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 rounded-full bg-zinc-600 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           )}
         </div>

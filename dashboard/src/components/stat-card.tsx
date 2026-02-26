@@ -21,8 +21,8 @@ export function StatCard({
   label,
   value,
   trend,
-  iconColor = 'text-violet-600',
-  iconBg = 'bg-violet-100',
+  iconColor = 'text-zinc-800',
+  iconBg = 'bg-zinc-100',
   delay = 0,
 }: StatCardProps) {
   return (

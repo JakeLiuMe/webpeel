@@ -464,7 +464,7 @@ export async function simpleFetch(
   // SECURITY: Merge custom headers with defaults, block Host header override
   const defaultHeaders: Record<string, string> = {
     'User-Agent': validatedUserAgent,
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept': 'text/markdown, text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept-Encoding': 'br, gzip, deflate',
     'DNT': '1',

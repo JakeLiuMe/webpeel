@@ -116,7 +116,7 @@ export default function ActivityPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 flex items-center gap-2">
-            <Activity className="h-7 w-7 text-violet-600" />
+            <Activity className="h-7 w-7 text-zinc-800" />
             Activity
           </h1>
           <p className="text-sm md:text-base text-zinc-500 mt-1">
@@ -231,13 +231,13 @@ export default function ActivityPage() {
             <div className="flex flex-col items-center justify-center py-16 px-4">
               {requests.length === 0 ? (
                 <>
-                  <div className="w-16 h-16 rounded-full bg-violet-100 flex items-center justify-center mb-4">
-                    <Activity className="h-8 w-8 text-violet-600" />
+                  <div className="w-16 h-16 rounded-full bg-zinc-100 flex items-center justify-center mb-4">
+                    <Activity className="h-8 w-8 text-zinc-800" />
                   </div>
                   <h3 className="text-lg font-semibold text-zinc-900 mb-2">No requests yet</h3>
                   <p className="text-sm text-zinc-500 text-center max-w-sm mb-4">
                     Your API requests will appear here. Try the{' '}
-                    <a href="/playground" className="text-violet-600 hover:underline font-medium">
+                    <a href="/playground" className="text-zinc-800 hover:underline font-medium">
                       Playground
                     </a>{' '}
                     to make your first request.
@@ -280,7 +280,7 @@ export default function ActivityPage() {
                           href={req.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-zinc-900 hover:text-violet-600 transition-colors truncate block font-medium"
+                          className="text-sm text-zinc-900 hover:text-zinc-800 transition-colors truncate block font-medium"
                         >
                           {req.url}
                         </a>
@@ -332,12 +332,12 @@ export default function ActivityPage() {
                               href={req.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-sm text-zinc-900 hover:text-violet-600 transition-colors truncate block"
+                              className="text-sm text-zinc-900 hover:text-zinc-800 transition-colors truncate block"
                               title={req.url}
                             >
                               {req.url}
                             </a>
-                            <ExternalLink className="h-3 w-3 text-zinc-300 group-hover:text-violet-400 flex-shrink-0 transition-colors" />
+                            <ExternalLink className="h-3 w-3 text-zinc-300 group-hover:text-zinc-600 flex-shrink-0 transition-colors" />
                           </div>
                           <span className="text-xs text-zinc-400">{extractDomain(req.url)}</span>
                         </td>
@@ -362,7 +362,7 @@ export default function ActivityPage() {
                         <td className="py-3 px-4">
                           <Badge variant="secondary" className={`${
                             req.mode === 'stealth'
-                              ? 'bg-violet-100 text-violet-700'
+                              ? 'bg-zinc-100 text-zinc-800'
                               : 'bg-zinc-100 text-zinc-600'
                           }`}>
                             {req.mode}

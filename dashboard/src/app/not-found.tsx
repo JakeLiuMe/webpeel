@@ -6,10 +6,10 @@ export default function NotFound() {
       {/* Logo */}
       <div className="mb-8">
         <svg width="40" height="40" viewBox="0 0 32 32" aria-hidden="true">
-          <rect width="32" height="32" fill="#8B5CF6" rx="8" />
+          <rect width="32" height="32" fill="#18181B" rx="8" />
           <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95" />
           <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE" />
-          <path d="M8 16h10" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M8 16h10" stroke="#18181B" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
 
@@ -25,7 +25,7 @@ export default function NotFound() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <Link
           href="/dashboard"
-          className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 transition-colors"
+          className="inline-flex items-center justify-center rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 transition-colors"
         >
           Go to dashboard
         </Link>

@@ -127,8 +127,8 @@ export default function SettingsPage() {
           <form onSubmit={handleUpdateProfile} className="space-y-6">
             {/* Avatar Display */}
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl font-semibold text-violet-700">
+              <div className="w-20 h-20 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl font-semibold text-zinc-800">
                   {(session?.user?.name || session?.user?.email || 'U')
                     .split(' ')
                     .map(n => n[0])
@@ -167,11 +167,11 @@ export default function SettingsPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name"
-                className="focus:ring-2 focus:ring-violet-100 focus:border-violet-300"
+                className="focus:ring-2 focus:ring-zinc-100 focus:border-zinc-500"
               />
             </div>
 
-            <Button type="submit" disabled={loading} className="bg-violet-600 hover:bg-violet-700">
+            <Button type="submit" disabled={loading} className="bg-zinc-800 hover:bg-zinc-800">
               {loading ? 'Saving...' : 'Save Changes'}
             </Button>
           </form>
@@ -195,7 +195,7 @@ export default function SettingsPage() {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
-                  className="focus:ring-2 focus:ring-violet-100 focus:border-violet-300"
+                  className="focus:ring-2 focus:ring-zinc-100 focus:border-zinc-500"
                 />
               </div>
               <div className="space-y-2">
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   required
-                  className="focus:ring-2 focus:ring-violet-100 focus:border-violet-300"
+                  className="focus:ring-2 focus:ring-zinc-100 focus:border-zinc-500"
                 />
                 <p className="text-xs text-zinc-500">Must be at least 8 characters</p>
               </div>
@@ -218,10 +218,10 @@ export default function SettingsPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="focus:ring-2 focus:ring-violet-100 focus:border-violet-300"
+                  className="focus:ring-2 focus:ring-zinc-100 focus:border-zinc-500"
                 />
               </div>
-              <Button type="submit" disabled={loading} className="bg-violet-600 hover:bg-violet-700">
+              <Button type="submit" disabled={loading} className="bg-zinc-800 hover:bg-zinc-800">
                 {loading ? 'Changing...' : 'Change Password'}
               </Button>
             </form>

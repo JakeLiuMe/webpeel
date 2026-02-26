@@ -25,6 +25,9 @@ import {
   Terminal,
   ArrowRight,
   Globe,
+  Key,
+  BarChart3,
+  Circle,
 } from 'lucide-react';
 import { apiClient, Usage, ApiKey } from '@/lib/api';
 import { ApiErrorBanner } from '@/components/api-error-banner';
@@ -166,7 +169,7 @@ print(r.json()['markdown'])`,
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl md:text-4xl font-bold text-zinc-900 mb-1">
-            Welcome back, <span className="font-serif italic text-violet-600">{userName}</span>
+            Welcome back, <span className="font-serif italic text-zinc-800">{userName}</span>
           </h1>
           <p className="text-base text-zinc-500">Here's your API activity at a glance</p>
         </div>
@@ -202,53 +205,132 @@ print(r.json()['markdown'])`,
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <a
           href="/playground"
-          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-violet-300 hover:shadow-sm transition-all"
+          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-zinc-500 hover:shadow-sm transition-all"
         >
-          <div className="w-10 h-10 rounded-lg bg-violet-100 flex items-center justify-center group-hover:bg-violet-200 transition-colors flex-shrink-0">
-            <Play className="h-5 w-5 text-violet-600" />
+          <div className="w-10 h-10 rounded-lg bg-zinc-100 flex items-center justify-center group-hover:bg-zinc-200 transition-colors flex-shrink-0">
+            <Play className="h-5 w-5 text-zinc-800" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-zinc-900">Try the Playground</p>
-            <p className="text-xs text-zinc-500 truncate">Fetch any URL in your browser</p>
+            <p className="text-sm font-semibold text-zinc-900">Fetch a URL</p>
+            <p className="text-xs text-zinc-500 truncate">Try the playground</p>
           </div>
-          <ArrowRight className="h-4 w-4 text-zinc-300 group-hover:text-violet-400 transition-colors flex-shrink-0" />
+          <ArrowRight className="h-4 w-4 text-zinc-300 group-hover:text-zinc-600 transition-colors flex-shrink-0" />
         </a>
 
         <a
-          href="https://webpeel.dev/docs"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-emerald-300 hover:shadow-sm transition-all"
+          href="/keys"
+          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:shadow-sm transition-all"
         >
-          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors flex-shrink-0">
-            <BookOpen className="h-5 w-5 text-emerald-600" />
+          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors flex-shrink-0">
+            <Key className="h-5 w-5 text-amber-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-zinc-900">View Docs</p>
-            <p className="text-xs text-zinc-500 truncate">Full API reference & guides</p>
+            <p className="text-sm font-semibold text-zinc-900">Manage Keys</p>
+            <p className="text-xs text-zinc-500 truncate">Create & rotate API keys</p>
           </div>
-          <ExternalLink className="h-4 w-4 text-zinc-300 group-hover:text-emerald-400 transition-colors flex-shrink-0" />
+          <ArrowRight className="h-4 w-4 text-zinc-300 group-hover:text-amber-400 transition-colors flex-shrink-0" />
+        </a>
+
+        <a
+          href="/usage"
+          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-blue-300 hover:shadow-sm transition-all"
+        >
+          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center group-hover:bg-blue-200 transition-colors flex-shrink-0">
+            <BarChart3 className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-zinc-900">View Usage</p>
+            <p className="text-xs text-zinc-500 truncate">Charts & quota breakdown</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-zinc-300 group-hover:text-blue-400 transition-colors flex-shrink-0" />
         </a>
 
         <a
           href="https://webpeel.dev/docs/mcp"
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:shadow-sm transition-all"
+          className="group flex items-center gap-3 p-4 bg-white border border-zinc-200 rounded-xl hover:border-emerald-300 hover:shadow-sm transition-all"
         >
-          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center group-hover:bg-amber-200 transition-colors flex-shrink-0">
-            <Terminal className="h-5 w-5 text-amber-600" />
+          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors flex-shrink-0">
+            <Terminal className="h-5 w-5 text-emerald-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-zinc-900">Set up MCP</p>
-            <p className="text-xs text-zinc-500 truncate">Use WebPeel in Claude / Cursor</p>
+            <p className="text-xs text-zinc-500 truncate">Claude / Cursor / Windsurf</p>
           </div>
-          <ExternalLink className="h-4 w-4 text-zinc-300 group-hover:text-amber-400 transition-colors flex-shrink-0" />
+          <ExternalLink className="h-4 w-4 text-zinc-300 group-hover:text-emerald-400 transition-colors flex-shrink-0" />
         </a>
       </div>
+
+      {/* Getting Started Checklist */}
+      <Card className="border-zinc-200">
+        <CardHeader>
+          <CardTitle className="text-lg">Getting Started</CardTitle>
+          <CardDescription>Complete these steps to get the most out of WebPeel</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[
+              {
+                label: 'Create an API key',
+                desc: 'Generate a key from the Keys page',
+                done: !!(keys?.keys && keys.keys.length > 0),
+                href: '/keys',
+              },
+              {
+                label: 'Make your first API request',
+                desc: 'Fetch any URL via the API or playground',
+                done: !!(usage?.weekly && usage.weekly.totalUsed > 0),
+                href: '/playground',
+              },
+              {
+                label: 'Install the WebPeel CLI',
+                desc: 'Run: npm install -g webpeel',
+                done: false,
+                href: 'https://webpeel.dev/docs/cli',
+                external: true,
+              },
+              {
+                label: 'Set up MCP for AI coding',
+                desc: 'Use WebPeel in Claude, Cursor, or Windsurf',
+                done: false,
+                href: 'https://webpeel.dev/docs/mcp',
+                external: true,
+              },
+            ].map(({ label, desc, done, href, external }) => (
+              <a
+                key={label}
+                href={href}
+                target={external ? '_blank' : undefined}
+                rel={external ? 'noopener noreferrer' : undefined}
+                className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                  done
+                    ? 'border-emerald-100 bg-emerald-50 hover:bg-emerald-100'
+                    : 'border-zinc-100 bg-zinc-50 hover:border-zinc-200 hover:bg-white'
+                }`}
+              >
+                {done ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 flex-shrink-0" />
+                ) : (
+                  <Circle className="h-5 w-5 text-zinc-300 flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${done ? 'text-emerald-800 line-through opacity-70' : 'text-zinc-800'}`}>
+                    {label}
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-0.5 truncate">{desc}</p>
+                </div>
+                {!done && (
+                  <ArrowRight className="h-4 w-4 text-zinc-300 flex-shrink-0" />
+                )}
+              </a>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Usage + Activity Chart */}
       <div className="grid md:grid-cols-2 gap-6">
@@ -283,8 +365,8 @@ print(r.json()['markdown'])`,
                   />
                   <defs>
                     <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#A78BFA" />
-                      <stop offset="100%" stopColor="#8B5CF6" />
+                      <stop offset="0%" stopColor="#52525B" />
+                      <stop offset="100%" stopColor="#18181B" />
                     </linearGradient>
                     <linearGradient id="warningGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#FCD34D" />
@@ -334,7 +416,7 @@ print(r.json()['markdown'])`,
                 <CardTitle className="text-lg">Requests (7 days)</CardTitle>
                 <CardDescription>Daily API request volume</CardDescription>
               </div>
-              <Button variant="ghost" size="sm" asChild className="text-xs text-zinc-500 hover:text-violet-600">
+              <Button variant="ghost" size="sm" asChild className="text-xs text-zinc-500 hover:text-zinc-800">
                 <a href="/activity">View all <ArrowRight className="h-3 w-3 ml-1" /></a>
               </Button>
             </div>
@@ -358,8 +440,8 @@ print(r.json()['markdown'])`,
                           <div
                             className={`w-full rounded-t-md transition-all ${
                               isToday
-                                ? 'bg-gradient-to-t from-violet-600 to-violet-400'
-                                : 'bg-gradient-to-t from-violet-300 to-violet-200 group-hover:from-violet-400 group-hover:to-violet-300'
+                                ? 'bg-gradient-to-t from-zinc-800 to-zinc-600'
+                                : 'bg-gradient-to-t from-zinc-500 to-zinc-200 group-hover:from-zinc-600 group-hover:to-zinc-500'
                             }`}
                             style={{ height: heightPct > 0 ? `${Math.max(heightPct * 1.4, 6)}px` : '2px' }}
                           />
@@ -370,7 +452,7 @@ print(r.json()['markdown'])`,
                             </div>
                           </div>
                         </div>
-                        <span className={`text-[9px] font-medium ${isToday ? 'text-violet-600' : 'text-zinc-400'}`}>
+                        <span className={`text-[9px] font-medium ${isToday ? 'text-zinc-800' : 'text-zinc-400'}`}>
                           {dayName}
                         </span>
                       </div>
@@ -379,11 +461,11 @@ print(r.json()['markdown'])`,
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-xs text-zinc-400">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-sm bg-violet-500" />
+                    <div className="w-2.5 h-2.5 rounded-sm bg-zinc-900" />
                     <span>Today</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-sm bg-violet-200" />
+                    <div className="w-2.5 h-2.5 rounded-sm bg-zinc-200" />
                     <span>Previous days</span>
                   </div>
                 </div>
@@ -432,7 +514,7 @@ print(r.json()['markdown'])`,
             {!realApiKey && (
               <p className="text-xs text-zinc-500">
                 Get your key from the{' '}
-                <a href="/keys" className="text-violet-600 hover:underline">Keys page</a>.
+                <a href="/keys" className="text-zinc-800 hover:underline">Keys page</a>.
               </p>
             )}
           </div>
@@ -463,7 +545,7 @@ print(r.json()['markdown'])`,
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button asChild className="bg-violet-600 hover:bg-violet-700 flex-1 gap-2">
+            <Button asChild className="bg-zinc-800 hover:bg-zinc-800 flex-1 gap-2">
               <a href="/playground">
                 <Play className="h-4 w-4" />
                 Try in Playground

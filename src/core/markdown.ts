@@ -704,7 +704,7 @@ export function cleanForAI(markdown: string): string {
  * Removes empty links, orphaned image links, collapses excess newlines, strips trailing whitespace.
  */
 export function cleanMarkdownNoise(content: string): string {
-  return content
+  let result = content
     // Remove empty links: [](url) or [ ](url)
     .replace(/\[\s*\]\([^)]+\)/g, '')
     // Remove image-only links that are just UI elements: [![](img)](link)
@@ -714,4 +714,38 @@ export function cleanMarkdownNoise(content: string): string {
     // Remove trailing whitespace on lines
     .replace(/[ \t]+$/gm, '')
     .trim();
+
+  // Collapse repeated link text appearing 5+ times (navigation spam)
+  // e.g. "Try Claude" appearing 20+ times as standalone lines or inline
+  const linkTextCounts = new Map<string, number>();
+  const linkPattern = /\[([^\]]+)\]\([^)]+\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = linkPattern.exec(result)) !== null) {
+    const text = m[1].trim().toLowerCase();
+    linkTextCounts.set(text, (linkTextCounts.get(text) || 0) + 1);
+  }
+
+  // Remove repeated CTA links that appear 5+ times (keep first 2 occurrences)
+  for (const [text, count] of linkTextCounts) {
+    if (count >= 5) {
+      // Escape special regex characters in the link text for matching
+      const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Match the full markdown link with this text (case-insensitive)
+      const spamPattern = new RegExp(`\\[${escaped}\\]\\([^)]+\\)`, 'gi');
+      let kept = 0;
+      result = result.replace(spamPattern, (match) => {
+        kept++;
+        // Keep first 2 occurrences, remove the rest
+        return kept <= 2 ? match : '';
+      });
+    }
+  }
+
+  // Remove "Button Text" placeholders (literal text from button elements)
+  result = result.replace(/^Button Text\s*$/gm, '');
+
+  // Clean up any new excess newlines from removals
+  result = result.replace(/\n{3,}/g, '\n\n').trim();
+
+  return result;
 }

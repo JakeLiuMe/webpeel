@@ -46,7 +46,10 @@ export function OnboardingModal({ sessionApiKey }: OnboardingModalProps) {
   const [apiKey, setApiKey] = useState<string | null>(null);
 
   useEffect(() => {
-    const onboarded = localStorage.getItem('webpeel_onboarded');
+    // Support both the legacy key and the new standardized key
+    const onboarded =
+      localStorage.getItem('webpeel_onboarded') ||
+      localStorage.getItem('webpeel_onboarding_complete');
     if (!onboarded) {
       const storedKey = localStorage.getItem('webpeel_first_api_key');
       setApiKey(storedKey || sessionApiKey || null);
@@ -56,6 +59,7 @@ export function OnboardingModal({ sessionApiKey }: OnboardingModalProps) {
 
   const handleComplete = () => {
     localStorage.setItem('webpeel_onboarded', 'true');
+    localStorage.setItem('webpeel_onboarding_complete', 'true');
     localStorage.removeItem('webpeel_first_api_key');
     setOpen(false);
   };
@@ -73,8 +77,8 @@ export function OnboardingModal({ sessionApiKey }: OnboardingModalProps) {
   const steps = [
     {
       icon: Sparkles,
-      iconBg: 'bg-violet-100',
-      iconColor: 'text-violet-600',
+      iconBg: 'bg-zinc-100',
+      iconColor: 'text-zinc-800',
       title: 'Welcome to WebPeel',
       subtitle: 'Your AI-ready web scraping API',
     },
@@ -113,8 +117,8 @@ export function OnboardingModal({ sessionApiKey }: OnboardingModalProps) {
             icon: Globe,
             title: 'Fetch any URL',
             desc: 'Get clean markdown, plain text, or raw HTML from any page',
-            color: 'text-violet-600',
-            bg: 'bg-violet-50',
+            color: 'text-zinc-800',
+            bg: 'bg-zinc-50',
           },
           {
             icon: Zap,
@@ -160,7 +164,7 @@ export function OnboardingModal({ sessionApiKey }: OnboardingModalProps) {
               <code className="flex-1 text-xs font-mono text-zinc-800 break-all">{apiKey}</code>
               <button
                 onClick={handleCopyKey}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium rounded-md transition-colors"
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-800 text-white text-xs font-medium rounded-md transition-colors"
               >
                 {apiKeyCopied ? (
                   <>
@@ -188,15 +192,15 @@ export function OnboardingModal({ sessionApiKey }: OnboardingModalProps) {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-zinc-600">
-            Create your API key from the <a href="/keys" className="text-violet-600 hover:underline font-medium">Keys page</a>. Keep it safe — it's only shown once!
+            Create your API key from the <a href="/keys" className="text-zinc-800 hover:underline font-medium">Keys page</a>. Keep it safe — it's only shown once!
           </p>
-          <div className="p-4 bg-violet-50 border border-violet-200 rounded-lg">
-            <p className="text-sm font-semibold text-violet-900 mb-1">How to get your key:</p>
-            <ol className="text-xs text-violet-800 space-y-1 list-decimal list-inside">
+          <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg">
+            <p className="text-sm font-semibold text-zinc-900 mb-1">How to get your key:</p>
+            <ol className="text-xs text-zinc-800 space-y-1 list-decimal list-inside">
               <li>Go to API Keys in the sidebar</li>
               <li>Click "Create New Key"</li>
               <li>Name it and copy the key immediately</li>
-              <li>Store it in your <code className="bg-violet-100 px-1 rounded">.env</code> file</li>
+              <li>Store it in your <code className="bg-zinc-100 px-1 rounded">.env</code> file</li>
             </ol>
           </div>
         </div>
@@ -246,8 +250,8 @@ npx webpeel "https://example.com"`}
             icon: Play,
             title: 'Try the Playground',
             desc: 'Test any URL and see results live in your browser',
-            color: 'text-violet-600',
-            bg: 'bg-violet-50 hover:bg-violet-100',
+            color: 'text-zinc-800',
+            bg: 'bg-zinc-50 hover:bg-zinc-100',
           },
           {
             href: 'https://webpeel.dev/docs',
@@ -298,7 +302,7 @@ npx webpeel "https://example.com"`}
         {/* Progress bar */}
         <div className="h-1 bg-zinc-100 rounded-t-lg overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-violet-500 to-violet-600 transition-all duration-500 ease-out"
+            className="h-full bg-gradient-to-r from-zinc-900 to-zinc-800 transition-all duration-500 ease-out"
             style={{ width: `${((step + 1) / steps.length) * 100}%` }}
           />
         </div>
@@ -326,9 +330,9 @@ npx webpeel "https://example.com"`}
                 onClick={() => setStep(index)}
                 className={`h-2 rounded-full transition-all ${
                   index === step
-                    ? 'w-8 bg-violet-600'
+                    ? 'w-8 bg-zinc-800'
                     : index < step
-                    ? 'w-2 bg-violet-300'
+                    ? 'w-2 bg-zinc-500'
                     : 'w-2 bg-zinc-200'
                 }`}
               />
@@ -358,7 +362,7 @@ npx webpeel "https://example.com"`}
                 <Button
                   onClick={() => setStep(step + 1)}
                   size="sm"
-                  className="bg-violet-600 hover:bg-violet-700"
+                  className="bg-zinc-800 hover:bg-zinc-800"
                 >
                   Next →
                 </Button>
@@ -366,7 +370,7 @@ npx webpeel "https://example.com"`}
                 <Button
                   onClick={handleComplete}
                   size="sm"
-                  className="bg-violet-600 hover:bg-violet-700"
+                  className="bg-zinc-800 hover:bg-zinc-800"
                 >
                   Start Building 🚀
                 </Button>

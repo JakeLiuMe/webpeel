@@ -323,6 +323,8 @@ export interface PeelResult {
   blocked?: boolean;
   /** Non-fatal warnings about content quality or extraction issues */
   warnings?: string[];
+  /** True when server returned pre-rendered markdown directly (Content-Type: text/markdown) */
+  serverMarkdown?: boolean;
   /** Content chunks (when chunk option is enabled) */
   chunks?: Array<{
     index: number;
