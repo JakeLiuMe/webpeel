@@ -61,7 +61,7 @@ export class ErrorBoundary extends React.Component<
               this.setState({ hasError: false, error: undefined });
               window.location.reload();
             }}
-            className="inline-flex items-center justify-center rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 transition-colors"
+            className="inline-flex items-center justify-center rounded-lg bg-zinc-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 transition-colors"
           >
             Reload page
           </button>

@@ -32,8 +32,8 @@ export function UsageBar({ label, used, limit, resetInfo, showTooltip }: UsageBa
             isWarning
               ? 'bg-gradient-to-r from-amber-400 to-red-500'
               : isMedium
-              ? 'bg-gradient-to-r from-violet-400 to-violet-600'
-              : 'bg-gradient-to-r from-violet-400 to-violet-600'
+              ? 'bg-gradient-to-r from-zinc-600 to-zinc-800'
+              : 'bg-gradient-to-r from-zinc-600 to-zinc-800'
           }`}
           style={{ width: `${percentage}%` }}
         />
@@ -45,7 +45,7 @@ export function UsageBar({ label, used, limit, resetInfo, showTooltip }: UsageBa
             style={{ left: `${Math.min(percentage - 3, 94)}%` }}
           >
             <div className={`w-1.5 h-1.5 rounded-full ${
-              isWarning ? 'bg-red-600' : 'bg-violet-600'
+              isWarning ? 'bg-red-600' : 'bg-zinc-800'
             } shadow-sm`} />
           </div>
         )}

@@ -132,7 +132,7 @@ export function createCLIUsageRouter(): Router {
         },
         // Simple boolean flags for CLI to check quickly
         canFetch: remaining > 0 && burstUsed < burstLimit,
-        upgradeUrl: 'https://webpeel.dev/#pricing',
+        upgradeUrl: 'https://webpeel.dev/pricing',
       });
     } catch (error: any) {
       console.error('CLI usage error:', error);

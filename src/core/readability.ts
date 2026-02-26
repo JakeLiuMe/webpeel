@@ -499,6 +499,30 @@ function calcReadingTime(wordCount: number): string {
   return `${minutes} min read`;
 }
 
+// ─── Output post-processing ───────────────────────────────────────────────────
+
+/**
+ * Post-process readability output to remove residual noise that survives
+ * readability extraction: skip-to-content links, breadcrumbs, cookie consent
+ * patterns, orphaned link references, and excessive blank lines.
+ */
+function cleanReadabilityOutput(content: string): string {
+  return content
+    // Remove skip-to-content links
+    .replace(/\[skip to (?:main )?content\]\([^)]*\)/gi, '')
+    // Remove standalone breadcrumb patterns (e.g. "Home > Category > Page")
+    .replace(/^(?:Home|Main)\s*[>›»]\s*.*/gm, '')
+    // Remove cookie consent patterns
+    .replace(/(?:we use cookies|cookie (?:policy|settings|preferences)).*$/gim, '')
+    // Remove orphaned link references like [something]: #
+    .replace(/^\[.*?\]:\s*#?\s*$/gm, '')
+    // Clean up leftover consecutive divider noise (e.g. "--- --- ---" → single "---")
+    .replace(/(?:---\s*){2,}/g, '---\n')
+    // Collapse excessive blank lines (4+ → 2)
+    .replace(/\n{4,}/g, '\n\n\n')
+    .trim();
+}
+
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 /**
@@ -621,6 +645,9 @@ export function extractReadableContent(
 
   // ── Step 7: Clean up whitespace ─────────────────────────────────────────────
   content = content.replace(/\n{3,}/g, '\n\n').trim();
+
+  // ── Step 7b: Remove residual noise (skip-links, breadcrumbs, cookie text) ──
+  content = cleanReadabilityOutput(content);
 
   // ── Step 8: Apply maxLength ──────────────────────────────────────────────────
   if (maxLength && maxLength > 0 && content.length > maxLength) {

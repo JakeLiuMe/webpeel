@@ -67,8 +67,8 @@ export function Topbar({ user, tier = 'free', onMenuClick }: TopbarProps) {
 
         {/* Plan badge - clickable */}
         <Link href="/billing">
-          <div className="flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 hover:bg-violet-100 transition-colors cursor-pointer">
-            <span className="text-[11px] font-semibold text-violet-700 uppercase">{tier} Plan</span>
+          <div className="flex items-center gap-1.5 rounded-full bg-zinc-50 px-2.5 py-1 hover:bg-zinc-100 transition-colors cursor-pointer">
+            <span className="text-[11px] font-semibold text-zinc-800 uppercase">{tier} Plan</span>
           </div>
         </Link>
       </div>
@@ -79,7 +79,7 @@ export function Topbar({ user, tier = 'free', onMenuClick }: TopbarProps) {
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-zinc-50"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-100 text-[11px] font-semibold text-violet-700">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-100 text-[11px] font-semibold text-zinc-800">
             {initials}
           </div>
           <span className="text-[13px] text-zinc-600 hidden sm:block">{user?.email || 'User'}</span>

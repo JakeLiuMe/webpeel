@@ -83,20 +83,39 @@ export class RateLimiter {
 /**
  * Hourly burst limits per tier.
  * These are the hard caps enforced by the in-memory sliding window.
- * Free: 25/hr, Pro: 100/hr, Max: 500/hr (matches pricing page).
+ * Free: 50/hr, Pro: 100/hr, Max: 500/hr (matches pricing page + stripe.ts).
  */
 const TIER_BURST_LIMITS: Record<string, number> = {
-  free: 25,
-  starter: 50,
+  free: 50,
   pro: 100,
-  enterprise: 250,
   max: 500,
   admin: 999999,
 };
 
+/**
+ * System/documentation endpoints that should be exempt from rate limiting.
+ * These are low-cost informational endpoints that should never be throttled.
+ */
+const EXEMPT_PATHS = [
+  '/health',
+  '/openapi.json',
+  '/openapi.yaml',
+  '/docs',
+  '/v1/usage',
+  '/v1/me',
+  '/v1/keys',
+  '/v1/activity',
+  '/v1/stats',
+];
+
 export function createRateLimitMiddleware(limiter: RateLimiter) {
   return (req: Request, res: Response, next: NextFunction): void => {
     try {
+      // Skip rate limiting for system/documentation endpoints
+      if (EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/'))) {
+        return next();
+      }
+
       // Use API key or real client IP as identifier.
       // Prefer Cloudflare CF-Connecting-IP, then x-forwarded-for first
       // entry (real client), then x-real-ip, then req.ip.
@@ -113,7 +132,7 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
       const identifier = req.auth?.keyInfo?.key || clientIp;
 
       // Use tier-based hourly burst limits (matches the 1-hour sliding window)
-      const limit = TIER_BURST_LIMITS[req.auth?.tier || 'free'] || 25;
+      const limit = TIER_BURST_LIMITS[req.auth?.tier || 'free'] || 50;
 
       // Weighted cost based on route — heavier operations consume more credits
       let cost = 1;
@@ -144,9 +163,9 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
         res.setHeader('Retry-After', retryAfterSecs.toString());
         const tier = req.auth?.tier || 'free';
         const upgradeHint = tier === 'free'
-          ? ' Upgrade to Pro ($9/mo) for 100/hr burst limit → https://webpeel.dev/#pricing'
+          ? ' Upgrade to Pro ($9/mo) for 100/hr burst limit → https://webpeel.dev/pricing'
           : tier === 'pro'
-          ? ' Upgrade to Max ($29/mo) for 500/hr burst limit → https://webpeel.dev/#pricing'
+          ? ' Upgrade to Max ($29/mo) for 500/hr burst limit → https://webpeel.dev/pricing'
           : '';
         res.status(429).json({
           success: false,

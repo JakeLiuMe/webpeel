@@ -54,11 +54,11 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="mb-8 sm:mb-12">
             <svg width="36" height="36" viewBox="0 0 32 32" className="mb-4 sm:mb-6">
-              <rect width="32" height="32" fill="#8B5CF6" rx="8"/>
+              <rect width="32" height="32" fill="#18181B" rx="8"/>
               <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95"/>
               <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/>
-              <path d="M8 16h10" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round"/>
-              <path d="M8 21h14" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M8 16h10" stroke="#18181B" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M8 21h14" stroke="#52525B" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
             <h1 className="font-serif text-[28px] sm:text-[32px] leading-tight text-zinc-900">
               Peel the web,<br />
@@ -113,7 +113,7 @@ export default function LoginPage() {
                   placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 placeholder-zinc-400 shadow-sm outline-none transition-all focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 placeholder-zinc-400 shadow-sm outline-none transition-all focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
                 />
                 <button
                   onClick={() => {
@@ -138,13 +138,13 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     autoComplete="email"
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 shadow-sm outline-none transition-all focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 shadow-sm outline-none transition-all focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
                   />
                 </div>
                 <div>
                   <div className="mb-1.5 flex items-center justify-between">
                     <label className="text-[13px] font-medium text-zinc-500">Password</label>
-                    <Link href="/forgot-password" className="text-[12px] text-violet-600 hover:text-violet-700">
+                    <Link href="/forgot-password" className="text-[12px] text-zinc-800 hover:text-zinc-800">
                       Forgot password?
                     </Link>
                   </div>
@@ -154,7 +154,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoComplete="current-password"
-                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 shadow-sm outline-none transition-all focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 shadow-sm outline-none transition-all focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
                   />
                 </div>
                 <button
@@ -192,7 +192,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side — Product Demo */}
-      <div className="hidden lg:flex flex-1 items-center justify-center p-16" style={{ backgroundColor: '#F5F3FF' }}>
+      <div className="hidden lg:flex flex-1 items-center justify-center p-16" style={{ backgroundColor: '#F4F4F5' }}>
         <WebAnimation />
       </div>
     </div>

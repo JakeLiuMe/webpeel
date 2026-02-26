@@ -28,7 +28,7 @@
   <nav class="docs-nav">
     <div class="container nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">
@@ -98,7 +98,7 @@
         <button class="tab-btn active" data-tab="npm">npm</button>
         <button class="tab-btn" data-tab="pnpm">pnpm</button>
         <button class="tab-btn" data-tab="yarn">Yarn</button>
-        <button class="tab-btn" data-tab="pip">Python</button>
+        <button class="tab-btn" data-tab="pip">Python <span style="font-size:10px;font-weight:600;background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">Soon</span></button>
       </div>
 
       <div class="tab-content active" data-content="npm">
@@ -114,7 +114,10 @@
       </div>
 
       <div class="tab-content" data-content="pip">
-        <pre><code class="language-bash">pip install webpeel</code></pre>
+        <div style="padding:16px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:14px;color:#92400E;">
+          🚧 <strong>Python SDK — Coming Soon</strong><br>
+          The Python SDK is under development. Use the <a href="https://docs.webpeel.dev/api" style="color:#27272A;">REST API</a> for now.
+        </div>
       </div>
 
       <h3>First Scrape</h3>
@@ -122,7 +125,7 @@
       <div class="tabs">
         <button class="tab-btn active" data-tab="cli2">CLI</button>
         <button class="tab-btn" data-tab="node2">Node.js</button>
-        <button class="tab-btn" data-tab="python2">Python</button>
+        <button class="tab-btn" data-tab="python2">Python <span style="font-size:10px;font-weight:600;background:#F4F4F5;color:#27272A;padding:2px 6px;border-radius:4px;margin-left:4px;vertical-align:middle;">Soon</span></button>
       </div>
 
       <div class="tab-content active" data-content="cli2">
@@ -145,12 +148,10 @@ console.log(result.content); // Markdown</code></pre>
       </div>
 
       <div class="tab-content" data-content="python2">
-        <pre><code class="language-python">from webpeel import WebPeel
-
-client = WebPeel()
-result = client.scrape("https://example.com")
-print(result.title)
-print(result.content)</code></pre>
+        <div style="padding:16px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:14px;color:#92400E;">
+          🚧 <strong>Python SDK — Coming Soon</strong><br>
+          The Python SDK is under development. Use the <a href="https://docs.webpeel.dev/api" style="color:#27272A;">REST API</a> for now.
+        </div>
       </div>
 
       <h2 id="core-concepts">Core Concepts</h2>

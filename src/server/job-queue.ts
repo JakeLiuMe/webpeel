@@ -7,6 +7,9 @@
 
 import { randomUUID } from 'crypto';
 import { PostgresJobQueue } from './pg-job-queue.js';
+import { createLogger } from './logger.js';
+
+const log = createLogger('job-queue');
 
 export interface WebhookConfig {
   url: string;
@@ -194,10 +197,10 @@ export class InMemoryJobQueue implements IJobQueue {
  */
 export function createJobQueue(): IJobQueue {
   if (process.env.DATABASE_URL) {
-    console.log('Using PostgreSQL job queue');
+    log.info('Using PostgreSQL job queue');
     return new PostgresJobQueue();
   } else {
-    console.log('Using in-memory job queue');
+    log.info('Using in-memory job queue');
     return new InMemoryJobQueue();
   }
 }

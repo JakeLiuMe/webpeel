@@ -32,13 +32,13 @@
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     :root {
       --bg: #FAFAF8; --surface: #FFFFFF; --text: #09090B; --text-2: #52525B;
-      --text-3: #71717A; --text-4: #A1A1AA; --accent: #8B5CF6;
-      --accent-light: #EDE9FE; --border: #E4E4E7; --border-light: #F4F4F5;
+      --text-3: #71717A; --text-4: #A1A1AA; --accent: #18181B;
+      --accent-light: #F4F4F5; --border: #E4E4E7; --border-light: #F4F4F5;
       --green: #16A34A; --red-light: #FDA4AF; --radius: 12px;
     }
     html { scroll-behavior: smooth; }
     body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-    ::selection { background: rgba(139,92,246,0.15); }
+    ::selection { background: rgba(24,24,27,0.15); }
     .serif { font-family: 'Instrument Serif', Georgia, serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
     .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
@@ -55,8 +55,8 @@
     .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
-    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
+    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
     .nav-hamburger { display: none; padding: 8px; cursor: pointer; background: none; border: none; }
     .nav-hamburger svg { width: 24px; height: 24px; }
     .mobile-menu { position: fixed; top: 56px; left: 0; right: 0; background: rgba(250,250,248,0.98); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 16px; display: none; flex-direction: column; gap: 12px; z-index: 99; }
@@ -91,13 +91,13 @@
     .terminal-line { font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.8; opacity: 0; }
     .terminal-line.visible { opacity: 1; }
     .t-prompt { color: #71717A; } .t-cmd { color: #4ADE80; } .t-url { color: #FDE047; }
-    .t-dim { color: #52525B; } .t-accent { color: #A78BFA; } .t-result { color: #D4D4D8; }
+    .t-dim { color: #52525B; } .t-accent { color: #52525B; } .t-result { color: #D4D4D8; }
     .t-success { color: #4ADE80; }
     .t-cursor { animation: blink 1s infinite; }
     @keyframes blink { 0%, 50% { opacity: 1; } 51%, 100% { opacity: 0; } }
     .t-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
     .t-badge-http { background: rgba(74,222,128,0.15); color: #4ADE80; }
-    .t-badge-stealth { background: rgba(167,139,250,0.15); color: #A78BFA; }
+    .t-badge-stealth { background: rgba(167,139,250,0.15); color: #52525B; }
     .t-badge-search { background: rgba(253,224,71,0.15); color: #FDE047; }
     .t-badge-research { background: rgba(96,165,250,0.15); color: #60A5FA; }
     .terminal-output { margin-top: 12px; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
@@ -140,7 +140,7 @@
 
     /* MCP SECTION */
     .mcp-section { background: #18181B; color: white; padding: 80px 0; }
-    .mcp-section .section-label { background: rgba(139,92,246,0.25); color: #C4B5FD; }
+    .mcp-section .section-label { background: rgba(24,24,27,0.25); color: #C4B5FD; }
     .mcp-section .section-header { text-align: left; margin-bottom: 0; }
     .mcp-section .section-header h2 { color: white; }
     .mcp-section .section-header h2 em { font-style: italic; color: #C4B5FD; }
@@ -149,7 +149,7 @@
     .mcp-sublabel { font-size: 11px; font-weight: 600; color: #71717A; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
     .mcp-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .mcp-tool { padding: 9px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #C4B5FD; transition: all 0.15s; }
-    .mcp-tool:hover { background: rgba(139,92,246,0.2); border-color: rgba(139,92,246,0.4); }
+    .mcp-tool:hover { background: rgba(24,24,27,0.2); border-color: rgba(24,24,27,0.4); }
     .mcp-clients { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
     .mcp-client { display: flex; align-items: center; gap: 7px; padding: 7px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 13px; font-weight: 500; color: #D4D4D8; }
     .mcp-client-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ADE80; flex-shrink: 0; }
@@ -157,13 +157,13 @@
     .mcp-code-bar { display: flex; align-items: center; padding: 10px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 12px; color: #71717A; font-family: 'JetBrains Mono', monospace; }
     .mcp-code pre { padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.8; color: #D4D4D8; overflow-x: auto; }
     .mcp-or { text-align: center; font-size: 12px; color: #3F3F46; margin: 10px 0; }
-    .mcp-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 16px; font-size: 14px; color: #A78BFA; font-weight: 500; }
+    .mcp-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 16px; font-size: 14px; color: #52525B; font-weight: 500; }
     .mcp-link:hover { color: #C4B5FD; text-decoration: underline; }
 
     /* FEATURE CARDS */
     .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .feature-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: all 0.2s; display: flex; flex-direction: column; gap: 10px; }
-    .feature-card:hover { border-color: rgba(139,92,246,0.3); box-shadow: 0 4px 20px rgba(139,92,246,0.07); transform: translateY(-2px); }
+    .feature-card:hover { border-color: rgba(24,24,27,0.3); box-shadow: 0 4px 20px rgba(24,24,27,0.07); transform: translateY(-2px); }
     .feature-icon { font-size: 28px; }
     .feature-card h3 { font-size: 17px; font-weight: 600; }
     .feature-card p { font-size: 14px; color: var(--text-2); line-height: 1.65; flex: 1; }
@@ -180,7 +180,7 @@
     .step-card p { font-size: 14px; color: var(--text-2); line-height: 1.6; }
     .step-time { display: inline-block; margin-top: 12px; padding: 3px 10px; border-radius: 6px; background: var(--border-light); font-size: 12px; font-weight: 500; color: var(--text-3); font-family: 'JetBrains Mono', monospace; }
     .step-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
-    .step-chip { padding: 3px 9px; background: rgba(139,92,246,0.1); border-radius: 5px; font-size: 11px; color: var(--accent); font-weight: 500; }
+    .step-chip { padding: 3px 9px; background: rgba(24,24,27,0.1); border-radius: 5px; font-size: 11px; color: var(--accent); font-weight: 500; }
 
     /* CODE */
     .code-section { background: white; border: 1px solid var(--border); border-radius: 16px; max-width: 720px; margin: 0 auto; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
@@ -208,10 +208,10 @@
     .benchmark-row.webpeel .benchmark-label { color: var(--text); font-weight: 600; }
     .benchmark-track { height: 16px; border-radius: 999px; background: #F1ECE3; overflow: hidden; }
     .benchmark-fill { height: 100%; width: 0; border-radius: inherit; background: #E5E0D8; min-width: 8%; }
-    .benchmark-row.webpeel .benchmark-fill { background: linear-gradient(90deg, var(--accent), #8B5CF6); }
+    .benchmark-row.webpeel .benchmark-fill { background: linear-gradient(90deg, #18181B, #52525B); }
     .benchmark-value { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; }
     .benchmark-methodology { margin-top: 18px; text-align: center; font-size: 12px; color: var(--text-3); }
-    .benchmark-methodology a { color: var(--accent); text-decoration: underline; text-decoration-color: rgba(139,92,246,0.4); text-underline-offset: 2px; }
+    .benchmark-methodology a { color: var(--accent); text-decoration: underline; text-decoration-color: rgba(24,24,27,0.4); text-underline-offset: 2px; }
 
     /* COMPARE TABLE */
     .compare-table { width: 100%; border-collapse: collapse; background: white; border-radius: var(--radius); border: 1px solid var(--border); }
@@ -224,7 +224,7 @@
     .tooltip-text::after { content: ''; position: absolute; right: 100%; top: 50%; transform: translateY(-50%); border: 4px solid transparent; border-right-color: #27272A; }
     .tooltip-icon:hover .tooltip-text { opacity: 1; }
     .check { color: var(--green); } .cross { color: var(--red-light); }
-    .highlight-col { background: rgba(139,92,246,0.04); }
+    .highlight-col { background: rgba(24,24,27,0.04); }
 
     /* INTEGRATIONS */
     .works-with-grid { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px; max-width: 900px; margin: 0 auto; }
@@ -242,7 +242,7 @@
     .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
     .price-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; transition: all 0.3s; }
     .price-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-    .price-card.featured { border: 2px solid var(--accent); box-shadow: 0 0 20px rgba(139,92,246,0.12); }
+    .price-card.featured { border: 2px solid var(--accent); box-shadow: 0 0 20px rgba(24,24,27,0.12); }
     .price-badge { display: inline-block; padding: 3px 10px; border-radius: 6px; background: var(--accent); color: white; font-size: 11px; font-weight: 600; margin-bottom: 12px; }
     .price-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
     .price-amount { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; }
@@ -257,7 +257,7 @@
     .price-btn-primary:hover { background: #27272A; }
     .price-btn-secondary { background: var(--border-light); color: var(--text); }
     .price-btn-secondary:hover { background: var(--border); }
-    .free-callout { text-align: center; padding: 14px 20px; background: linear-gradient(135deg, var(--accent-light) 0%, #F5F3FF 100%); border: 1px solid rgba(139,92,246,0.2); border-radius: var(--radius); margin-bottom: 32px; font-size: 15px; }
+    .free-callout { text-align: center; padding: 14px 20px; background: linear-gradient(135deg, var(--accent-light) 0%, #F4F4F5 100%); border: 1px solid rgba(24,24,27,0.2); border-radius: var(--radius); margin-bottom: 32px; font-size: 15px; }
     .free-callout strong { color: var(--accent); }
 
     /* FAQ */
@@ -273,8 +273,8 @@
     .faq-item.open .faq-answer { max-height: 360px; }
 
     /* CTA */
-    .cta-section { text-align: center; padding: 100px 0; background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, transparent 100%); position: relative; overflow: hidden; }
-    .cta-section::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(139,92,246,0.03) 0%, transparent 70%); animation: float 20s infinite; }
+    .cta-section { text-align: center; padding: 100px 0; background: linear-gradient(135deg, rgba(24,24,27,0.05) 0%, transparent 100%); position: relative; overflow: hidden; }
+    .cta-section::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(24,24,27,0.03) 0%, transparent 70%); animation: float 20s infinite; }
     @keyframes float { 0%, 100% { transform: translate(0, 0) rotate(0deg); } 50% { transform: translate(5%, 5%) rotate(180deg); } }
     .cta-section .container { position: relative; z-index: 1; }
     .cta-section h2 { font-family: 'Instrument Serif', serif; font-size: 42px; font-weight: 400; margin-bottom: 12px; }
@@ -310,7 +310,7 @@
     .pg-input-area { padding: 24px 28px; }
     .pg-input-row { display: flex; gap: 12px; }
     .pg-input-row input { flex: 1; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 15px; font-family: inherit; transition: all 0.2s; }
-    .pg-input-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+    .pg-input-row input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(24,24,27,0.1); }
     .pg-input-row input::placeholder { color: var(--text-4); }
     .pg-options { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 16px; }
     .pg-opt-group { display: flex; align-items: center; gap: 6px; }
@@ -347,7 +347,7 @@
     .pg-content .markdown-body a { color: var(--accent); }
     .pg-content .markdown-body a:hover { text-decoration: underline; }
     .pg-content .markdown-body strong { font-weight: 600; color: var(--text); }
-    .pg-content .markdown-body code { background: rgba(139,92,246,0.08); padding: 2px 5px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
+    .pg-content .markdown-body code { background: rgba(24,24,27,0.08); padding: 2px 5px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); }
     .pg-content .markdown-body pre { background: #18181B; color: #D4D4D8; padding: 14px; border-radius: 8px; overflow-x: auto; margin: 14px 0; }
     .pg-content .markdown-body pre code { background: none; padding: 0; color: #D4D4D8; }
     .pg-content .markdown-body ul, .pg-content .markdown-body ol { margin-left: 20px; margin-bottom: 14px; }
@@ -368,7 +368,7 @@
     .pg-codegen-body.open { display: block; }
     .pg-code-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
     .pg-code-tab { padding: 5px 10px; font-size: 12px; font-weight: 500; color: var(--text-3); cursor: pointer; border-radius: 6px; background: none; border: none; font-family: inherit; transition: all 0.15s; }
-    .pg-code-tab:hover { background: rgba(139,92,246,0.1); color: var(--text); }
+    .pg-code-tab:hover { background: rgba(24,24,27,0.1); color: var(--text); }
     .pg-code-tab.active { background: var(--accent); color: white; }
     .pg-code-block { background: #18181B; color: #D4D4D8; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; padding: 14px; border-radius: 8px; overflow-x: auto; position: relative; }
     .pg-code-copy { position: absolute; top: 8px; right: 8px; padding: 4px 10px; background: rgba(255,255,255,0.1); border: none; color: white; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
@@ -435,6 +435,69 @@
       .pricing-grid { grid-template-columns: repeat(2, 1fr); }
       .mcp-grid { gap: 36px; }
     }
+
+    /* ── INSTALL BOX ─────────────────────────────────── */
+    .hero-install { max-width: 580px; margin: 0 auto 18px; text-align: left; }
+    .install-os-tabs { display: flex; background: #27272A; border-radius: 10px 10px 0 0; overflow: hidden; border: 1px solid #3F3F46; border-bottom: none; }
+    .install-os-tab { padding: 8px 20px; font-size: 12px; font-weight: 500; color: #71717A; background: none; border: none; cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
+    .install-os-tab.active { color: #E4E4E7; background: rgba(255,255,255,0.07); }
+    .install-os-tab:hover:not(.active) { color: #A1A1AA; }
+    .install-box { display: flex; align-items: center; gap: 10px; background: #18181B; border: 1px solid #3F3F46; border-radius: 0 0 10px 10px; padding: 14px 16px; }
+    .install-prompt { color: #18181B; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500; user-select: none; flex-shrink: 0; }
+    .install-cmd { flex: 1; font-size: 13px; color: #E4E4E7; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .install-copy { background: rgba(255,255,255,0.08); border: 1px solid #52525B; border-radius: 6px; color: #A1A1AA; padding: 5px 10px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; gap: 4px; white-space: nowrap; font-family: 'Inter', sans-serif; flex-shrink: 0; }
+    .install-copy:hover { background: rgba(255,255,255,0.15); color: #E4E4E7; border-color: #71717A; }
+    .install-copy.copied { color: #4ADE80; border-color: #4ADE80; }
+
+    /* ── TWO WAYS SECTION ────────────────────────────── */
+    .ways-section { padding: 80px 0; border-top: 1px solid var(--border-light); }
+    .ways-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 900px; margin: 0 auto; }
+    .ways-card { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; }
+    .ways-icon { font-size: 32px; margin-bottom: 16px; }
+    .ways-card h3 { font-size: 20px; font-weight: 600; margin-bottom: 10px; }
+    .ways-card p { font-size: 15px; color: var(--text-2); line-height: 1.6; margin-bottom: 20px; flex: 1; }
+    .ways-install { background: #18181B; border: 1px solid #3F3F46; border-radius: 8px; padding: 12px 14px; display: flex; align-items: center; gap: 8px; }
+    .ways-prompt { color: #18181B; font-family: 'JetBrains Mono', monospace; font-size: 13px; user-select: none; flex-shrink: 0; }
+    .ways-cmd { flex: 1; font-size: 12px; color: #E4E4E7; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ways-copy { background: rgba(255,255,255,0.08); border: 1px solid #52525B; border-radius: 5px; color: #A1A1AA; padding: 4px 8px; cursor: pointer; font-size: 11px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; gap: 3px; white-space: nowrap; font-family: 'Inter', sans-serif; flex-shrink: 0; }
+    .ways-copy:hover { background: rgba(255,255,255,0.15); color: #E4E4E7; }
+    .ways-copy.copied { color: #4ADE80; }
+
+    /* ── PLAN COMPARISON GRID ────────────────────────── */
+    .comparison-section { margin: 52px 0 0; }
+    .comparison-section > h3 { font-size: 22px; font-weight: 600; margin-bottom: 24px; text-align: center; letter-spacing: -0.01em; }
+    .comparison-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+    .plan-compare { width: 100%; border-collapse: collapse; background: white; min-width: 560px; }
+    .plan-compare th { padding: 14px 18px; font-size: 14px; font-weight: 600; background: #FAFAFA; border-bottom: 2px solid var(--border); text-align: center; color: var(--text); }
+    .plan-compare th:first-child { text-align: left; font-weight: 500; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; }
+    .plan-compare th.pc-featured { color: var(--accent); }
+    .plan-compare td { padding: 11px 18px; font-size: 13px; border-bottom: 1px solid var(--border-light); text-align: center; color: var(--text-2); }
+    .plan-compare td:first-child { text-align: left; font-weight: 500; color: var(--text); }
+    .plan-compare tr:last-child td { border-bottom: none; }
+    .plan-compare tr:nth-child(even) td { background: #FAFAFA; }
+    .plan-compare td.pc-featured { background: rgba(24,24,27,0.04); }
+    .plan-compare tr:nth-child(even) td.pc-featured { background: rgba(24,24,27,0.07); }
+    .plan-compare .pc-ck { color: var(--green); font-weight: 700; }
+    .plan-compare .pc-cx { color: #D4D4D8; }
+
+    /* ── API PRICING SECTION ─────────────────────────── */
+    .api-pricing-section { margin: 28px 0 0; padding: 28px 32px; background: white; border: 1px solid var(--border); border-radius: var(--radius); }
+    .api-pricing-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+    .api-pricing-header h3 { font-size: 18px; font-weight: 600; }
+    .api-pricing-tag { display: inline-block; padding: 2px 10px; border-radius: 100px; background: var(--border-light); font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.04em; text-transform: uppercase; }
+    .api-note { font-size: 13px; color: var(--text-3); margin-bottom: 20px; line-height: 1.5; }
+    .api-rows { display: grid; gap: 8px; }
+    .api-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 8px; }
+    .api-row-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .api-row-credits { font-size: 13px; font-weight: 600; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+    .api-row-cost { font-size: 12px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; margin-left: 6px; }
+    .api-footer { margin-top: 16px; padding: 12px 16px; background: var(--accent-light); border-radius: 8px; font-size: 13px; color: var(--accent); text-align: center; }
+
+    @media (max-width: 768px) {
+      .ways-grid { grid-template-columns: 1fr; }
+      .hero-install { max-width: 100%; }
+      .install-cmd { font-size: 11px; }
+    }
   </style>
 </head>
 <body>
@@ -443,7 +506,7 @@
   <nav>
     <div class="container nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">
@@ -451,7 +514,7 @@
         <a href="/#features">Features</a>
         <a href="/#playground">Playground</a>
         <a href="/#compare">Compare</a>
-        <a href="/#pricing">Pricing</a>
+        <a href="/pricing">Pricing</a>
         <a href="/docs/">Docs</a>
         <a href="/blog/">Blog</a>
         <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
@@ -469,24 +532,51 @@
     <a href="/#features" onclick="toggleMobileMenu()">Features</a>
     <a href="/#playground" onclick="toggleMobileMenu()">Playground</a>
     <a href="/#compare" onclick="toggleMobileMenu()">Compare</a>
-    <a href="/#pricing" onclick="toggleMobileMenu()">Pricing</a>
+    <a href="/pricing" onclick="toggleMobileMenu()">Pricing</a>
     <a href="/docs/">Docs</a>
     <a href="/blog/">Blog</a>
     <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
-    <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary" style="background:#7C3AED;">Get Started Free</a>
+    <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary" style="background:#18181B;">Get Started Free</a>
   </div>
 
   <!-- HERO -->
   <section class="hero">
     <div class="container">
-      <div class="hero-badge fade-up"><span class="dot"></span> v0.14.0 — YouTube Transcripts · LLM-Free Q&amp;A · 18 MCP Tools</div>
+      <div class="hero-badge fade-up"><span class="dot"></span> v0.17.1 — Reader Mode · Deep Research · cf-markdown · Auto-Readability</div>
       <h1 class="fade-up delay-1">Give your AI<br><em>the entire web.</em></h1>
       <p class="fade-up delay-2">Web intelligence for AI agents. Fetch any URL → clean markdown. YouTube transcripts. Reddit threads. Quick answers. 18 MCP tools. No API keys needed. 500 free/week.</p>
+      <!-- INSTALL COMMAND -->
+      <div class="hero-install fade-up delay-3">
+        <div class="install-os-tabs">
+          <button class="install-os-tab active" onclick="switchInstallOS('unix', this)">macOS / Linux</button>
+          <button class="install-os-tab" onclick="switchInstallOS('win', this)">Windows</button>
+        </div>
+        <div class="install-panel" id="install-os-unix">
+          <div class="install-box">
+            <span class="install-prompt">$</span>
+            <code class="install-cmd">curl -fsSL https://webpeel.dev/install.sh | bash</code>
+            <button class="install-copy" onclick="copyInstall('curl -fsSL https://webpeel.dev/install.sh | bash', this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+        <div class="install-panel" id="install-os-win" style="display:none">
+          <div class="install-box">
+            <span class="install-prompt">&gt;</span>
+            <code class="install-cmd">npm install -g webpeel</code>
+            <button class="install-copy" onclick="copyInstall('npm install -g webpeel', this)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="hero-actions fade-up delay-3">
-        <a href="https://app.webpeel.dev/signup" class="btn btn-primary">Start free — no credit card →</a>
-        <a href="https://github.com/webpeel/webpeel" class="btn btn-secondary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-          View on GitHub <span id="star-count" style="opacity: 0.7; margin-left: 4px;"></span>
+        <a href="/#playground" class="btn btn-secondary">Try Playground →</a>
+        <a href="https://github.com/webpeel/webpeel" class="btn btn-secondary" style="background:transparent;border-color:var(--border);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          GitHub <span id="star-count" style="opacity: 0.7; margin-left: 4px;"></span>
         </a>
       </div>
       <div class="hero-trust fade-up delay-3">
@@ -592,28 +682,28 @@
     <div class="stats reveal-stagger" data-reveal>
       <div class="stat">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
         </div>
         <div class="stat-num mono" id="github-stars">AGPL</div>
         <div class="stat-label">Open Source · <a href="https://github.com/webpeel/webpeel" style="color: var(--accent);">Star us ⭐</a></div>
       </div>
       <div class="stat">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1" fill="#EDE9FE"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1" fill="#EDE9FE"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1" fill="#F4F4F5"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1" fill="#F4F4F5"/></svg>
         </div>
         <div class="stat-num" data-target="18">18</div>
         <div class="stat-label">MCP tools for AI agents</div>
       </div>
       <div class="stat">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </div>
         <div class="stat-num" data-target="27">27</div>
         <div class="stat-label">Search sources supported</div>
       </div>
       <div class="stat">
         <div class="stat-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><circle cx="18" cy="16" r="2" fill="#EDE9FE"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="#18181B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 01-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><circle cx="18" cy="16" r="2" fill="#F4F4F5"/></svg>
         </div>
         <div class="stat-num" data-target="500">500</div>
         <div class="stat-label">Free fetches / week</div>
@@ -736,7 +826,7 @@
   </section>
 
   <!-- HOW IT WORKS -->
-  <section id="how" class="reveal" data-reveal style="background: linear-gradient(135deg, rgba(139,92,246,0.02) 0%, transparent 100%); border-top: 1px solid var(--border-light);">
+  <section id="how" class="reveal" data-reveal style="background: linear-gradient(135deg, rgba(24,24,27,0.02) 0%, transparent 100%); border-top: 1px solid var(--border-light);">
     <div class="container">
       <div class="section-header">
         <div class="section-label">Smart Escalation</div>
@@ -1166,7 +1256,7 @@
           </div>
           <div class="works-name">OpenAI</div>
         </a>
-        <a href="https://github.com/webpeel/webpeel" target="_blank" class="works-item">
+        <a href="https://openclaw.ai" target="_blank" class="works-item">
           <div class="works-icon" style="background: #E44332;">
             <svg viewBox="0 0 24 24" fill="white"><path d="M7.5 3C6.1 3 5 4.3 5 5.8c0 1.2.7 2.2 1.6 2.7l.4.2V11h10V8.7l.4-.2c.9-.5 1.6-1.5 1.6-2.7C19 4.3 17.9 3 16.5 3c-.9 0-1.7.5-2.3 1.2L12 6.5 9.8 4.2C9.2 3.5 8.4 3 7.5 3zM7 13v5.5C7 19.9 8.1 21 9.5 21h5c1.4 0 2.5-1.1 2.5-2.5V13H7z"/></svg>
           </div>
@@ -1190,6 +1280,38 @@
   </section>
 
   <!-- PRICING -->
+  <!-- TWO WAYS TO USE WEBPEEL -->
+  <section class="ways-section reveal" data-reveal>
+    <div class="container">
+      <div class="section-header">
+        <div class="section-label">Get Started</div>
+        <h2>Two ways to use<br><em class="serif" style="font-style:italic">WebPeel</em></h2>
+        <p>Pick the integration that fits how you build.</p>
+      </div>
+      <div class="ways-grid">
+        <div class="ways-card">
+          <div class="ways-icon">🤖</div>
+          <h3>For AI Agents</h3>
+          <p>Install the MCP server and give Claude, Cursor, or any AI the entire web — 18 tools, zero config, hosted endpoint.</p>
+          <div class="ways-install">
+            <span class="ways-prompt">$</span>
+            <code class="ways-cmd">curl -fsSL https://webpeel.dev/install.sh | bash</code>
+            <button class="ways-copy" onclick="copyInstall('curl -fsSL https://webpeel.dev/install.sh | bash', this)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </div>
+        <div class="ways-card">
+          <div class="ways-icon">💻</div>
+          <h3>For Developers</h3>
+          <p>REST API with clean markdown output. Sign up, get an API key, fetch anything. Works with any language or framework.</p>
+          <a href="https://app.webpeel.dev/signup" class="btn btn-primary" style="align-self:flex-start;">Get API Key →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="pricing" class="reveal" data-reveal>
     <div class="container">
       <div class="section-header">
@@ -1255,32 +1377,76 @@
         </div>
       </div>
 
-      <div style="max-width: 800px; margin: 48px auto 0; padding: 24px; background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, white 100%); border: 2px solid var(--accent-light); border-radius: var(--radius);">
-        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">✨ All Features on All Plans</h3>
-        <p style="font-size: 14px; color: var(--text-3); margin-bottom: 20px;">No feature-gating. Stealth, crawl, research, extraction, and MCP available to everyone. Only usage limits differ.</p>
-        <div style="display: grid; gap: 12px; font-size: 14px; color: var(--text-2); line-height: 1.6;">
-          <div style="display: flex; gap: 10px;"><span style="color: var(--green); font-weight: 600;">✓</span><span><strong>First 25 fetches need no account.</strong> Try WebPeel instantly via CLI or API.</span></div>
-          <div style="display: flex; gap: 10px;"><span style="color: var(--green); font-weight: 600;">✓</span><span><strong>Credit costs:</strong> Basic fetch = 1 · Stealth = 5 · Search = 1 · Crawl = 1/page · Research = varies</span></div>
-          <div style="display: flex; gap: 10px;"><span style="color: var(--green); font-weight: 600;">✓</span><span><strong>927 tests</strong> in the test suite — battle-tested reliability for production use.</span></div>
+      <!-- FEATURE COMPARISON GRID -->
+      <div class="comparison-section">
+        <h3>Compare features across plans</h3>
+        <div class="comparison-wrap">
+          <table class="plan-compare">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Free</th>
+                <th class="pc-featured">Pro <span style="font-size:12px;font-weight:400;color:var(--text-3);">$9/mo</span></th>
+                <th>Max <span style="font-size:12px;font-weight:400;color:var(--text-3);">$29/mo</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Weekly fetches</td><td>500</td><td class="pc-featured">1,250</td><td>6,250</td></tr>
+              <tr><td>Hourly burst</td><td>50/hr</td><td class="pc-featured">100/hr</td><td>500/hr</td></tr>
+              <tr><td>Stealth mode</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Browser rendering</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Crawl mode</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Search (27+ sources)</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Structured extraction</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>MCP server (18 tools)</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Deep research agent</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>YouTube transcripts</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>PDF parsing</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Batch processing</td><td><span class="pc-ck">✓</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Extra usage credits</td><td><span class="pc-cx">✗</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Webhook notifications</td><td><span class="pc-cx">✗</span></td><td class="pc-featured"><span class="pc-ck">✓</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Priority queue</td><td><span class="pc-cx">✗</span></td><td class="pc-featured"><span class="pc-cx">✗</span></td><td><span class="pc-ck">✓</span></td></tr>
+              <tr><td>Support</td><td style="color:var(--text-3);">GitHub Issues</td><td class="pc-featured" style="color:var(--text-2);font-weight:500;">Priority</td><td style="color:var(--text-2);font-weight:500;">Dedicated</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div style="max-width: 800px; margin: 20px auto 0; padding: 24px; background: white; border: 1px solid var(--border); border-radius: var(--radius);">
-        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Extra usage pricing</h3>
-        <p style="font-size: 14px; color: var(--text-3); margin-bottom: 18px;">Pro and Max plans can purchase extra credits when you run over. Free plan pauses until Monday's reset.</p>
-        <div style="display: grid; gap: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
-            <span style="font-size: 14px; font-weight: 500;">Basic fetch</span>
-            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.002 / extra credit</span>
+      <!-- API PRICING SECTION -->
+      <div class="api-pricing-section">
+        <div class="api-pricing-header">
+          <h3>API Pricing</h3>
+          <span class="api-pricing-tag">Pay per request</span>
+        </div>
+        <p class="api-note">All plans include a weekly credit allowance. Extra usage available on Pro and Max plans. Free plan pauses until Monday's reset.</p>
+        <div class="api-rows">
+          <div class="api-row">
+            <span class="api-row-name">Basic fetch</span>
+            <span><span class="api-row-credits">1 credit</span><span class="api-row-cost">($0.002)</span></span>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
-            <span style="font-size: 14px; font-weight: 500;">Search</span>
-            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.001 / extra credit</span>
+          <div class="api-row">
+            <span class="api-row-name">Stealth fetch</span>
+            <span><span class="api-row-credits">5 credits</span><span class="api-row-cost">($0.01)</span></span>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #FAFAFA; border: 1px solid var(--border-light); border-radius: 10px;">
-            <span style="font-size: 14px; font-weight: 500;">Stealth mode</span>
-            <span class="mono" style="font-size: 13px; color: var(--text-2);">$0.01 / extra credit</span>
+          <div class="api-row">
+            <span class="api-row-name">Search</span>
+            <span><span class="api-row-credits">1 credit</span><span class="api-row-cost">($0.001)</span></span>
           </div>
+          <div class="api-row">
+            <span class="api-row-name">Crawl</span>
+            <span><span class="api-row-credits">1 credit/page</span><span class="api-row-cost">($0.002/page)</span></span>
+          </div>
+          <div class="api-row">
+            <span class="api-row-name">Screenshot</span>
+            <span><span class="api-row-credits">3 credits</span><span class="api-row-cost">($0.006)</span></span>
+          </div>
+          <div class="api-row">
+            <span class="api-row-name">Deep research</span>
+            <span><span class="api-row-credits">10+ credits</span><span class="api-row-cost">(varies by depth)</span></span>
+          </div>
+        </div>
+        <div class="api-footer">
+          ✓ First 25 fetches need no account — try WebPeel instantly via CLI or API
         </div>
       </div>
 
@@ -1333,7 +1499,7 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <div class="footer-brand-logo">
-            <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
             WebPeel
           </div>
           <p>The web data platform for AI agents. MCP server, deep research, structured extraction, and smart escalation — in one open-source package.</p>
@@ -1345,7 +1511,7 @@
           <a href="/#features">Features</a>
           <a href="/#playground">Playground</a>
           <a href="/#compare">Compare</a>
-          <a href="/#pricing">Pricing</a>
+          <a href="/pricing">Pricing</a>
           <a href="/changelog">Changelog</a>
         </div>
         <div class="footer-col">
@@ -1810,6 +1976,31 @@ client = <span class="hl-fn">WebPeel</span>()
           btn.textContent = '✓ Copied!';
           btn.classList.add('copied');
           setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+
+      // Install OS tab switching
+      window.switchInstallOS = function(os, tab) {
+        document.querySelectorAll('.install-os-tab').forEach(function(t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById('install-os-unix').style.display = os === 'unix' ? '' : 'none';
+        document.getElementById('install-os-win').style.display = os === 'win' ? '' : 'none';
+      };
+
+      // Copy install command
+      window.copyInstall = function(text, btn) {
+        navigator.clipboard.writeText(text).then(function() {
+          var orig = btn.innerHTML;
+          btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+          btn.classList.add('copied');
+          setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
+        }).catch(function() {
+          // Fallback for browsers without clipboard API
+          var ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
         });
       };
     })();

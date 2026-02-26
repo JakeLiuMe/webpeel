@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta property="og:image" content="https://webpeel.dev/og-image.png">
+  <meta name="twitter:image" content="https://webpeel.dev/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:creator" content="@webpeel_dev">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="description" content="Get started with WebPeel in 60 seconds. Install, fetch your first URL, connect to Claude or Cursor via MCP, and use the REST API.">
+  <link rel="canonical" href="https://webpeel.dev/docs/quickstart">
+  <meta property="og:title" content="Quickstart — WebPeel Docs">
+  <meta property="og:description" content="Get started with WebPeel in 60 seconds. Install, fetch your first URL, connect to Claude or Cursor via MCP, and use the REST API.">
+  <meta property="og:url" content="https://webpeel.dev/docs/quickstart">
+  <meta property="og:type" content="website">
+  <title>Quickstart — WebPeel Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+  <link rel="stylesheet" href="../styles/docs.css">
+  <style>
+    /* Quickstart-specific enhancements */
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 40px 0 16px;
+    }
+    .step-header:first-of-type { margin-top: 0; }
+    .step-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--accent, #18181B);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-header h2 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+      border: none;
+      padding: 0;
+    }
+    .callout {
+      padding: 16px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      margin: 20px 0;
+    }
+    .callout-tip {
+      background: #F0FDF4;
+      border-left: 3px solid #16A34A;
+      color: #166534;
+    }
+    .callout-info {
+      background: #F4F4F5;
+      border-left: 3px solid #18181B;
+      color: #4C1D95;
+    }
+    .callout strong { font-weight: 600; }
+    .next-steps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 24px; }
+    .next-step-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      background: white;
+      border: 1px solid var(--border, #E4E4E7);
+      border-radius: 10px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .next-step-card:hover { border-color: var(--accent, #18181B); box-shadow: 0 2px 12px rgba(24,24,27,0.1); transform: translateY(-1px); }
+    .next-step-card .icon { font-size: 20px; }
+    .next-step-card .label { color: var(--text-3, #71717A); font-size: 12px; font-weight: 400; display: block; }
+    .os-tabs { display: flex; gap: 8px; margin-bottom: 0; }
+    .os-tab {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border, #E4E4E7);
+      background: white;
+      font-family: inherit;
+      color: var(--text-2, #52525B);
+      transition: all 0.15s;
+    }
+    .os-tab.active { background: var(--accent, #18181B); color: white; border-color: transparent; }
+    .os-content { display: none; }
+    .os-content.active { display: block; }
+    @media (max-width: 600px) {
+      .next-steps { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="docs-nav">
+    <div class="container nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/#how">How It Works</a>
+        <a href="/playground">Playground</a>
+        <a href="/#compare">Compare</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/blog/">Blog</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
+        <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Get Started</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Getting Started</div>
+        <a href="/docs/" class="sidebar-link">Overview</a>
+        <a href="/docs/quickstart" class="sidebar-link active">Quickstart</a>
+        <a href="/docs/api-reference" class="sidebar-link">API Reference</a>
+        <a href="/docs/errors" class="sidebar-link">Error Reference</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">SDKs</div>
+        <a href="/docs/sdks" class="sidebar-link">Node.js &amp; Python</a>
+        <a href="/docs/cli" class="sidebar-link">CLI</a>
+        <a href="/docs/mcp" class="sidebar-link">MCP Server</a>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Deployment</div>
+        <a href="/docs/self-hosting" class="sidebar-link">Self-Hosting</a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Features</div>
+        <a href="/docs/youtube" class="sidebar-link">YouTube Transcripts</a>
+        <a href="/docs/quick-answer" class="sidebar-link">LLM-Free Q&amp;A</a>
+        <a href="/docs/domain-extractors" class="sidebar-link">Domain Extractors</a>
+        <a href="/docs/readability" class="sidebar-link">Reader Mode</a>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Migration</div>
+        <a href="/docs/migrate-from-firecrawl" class="sidebar-link">From Firecrawl</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <div class="breadcrumbs">
+        <a href="/docs/">Documentation</a>
+        <span>/</span>
+        <span>Quickstart</span>
+      </div>
+
+      <h1>Get Started in 60 Seconds</h1>
+      <p class="lead">Fetch your first URL, unlock your free weekly quota, connect to Claude or Cursor via MCP, and call the REST API — all in a few minutes.</p>
+
+      <div class="callout callout-tip">
+        <strong>No signup needed for your first 25 fetches.</strong> Try WebPeel instantly via CLI or API — no account, no credit card.
+      </div>
+
+      <!-- STEP 1: INSTALL -->
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <h2 id="install">Install WebPeel</h2>
+      </div>
+
+      <div class="os-tabs" id="install-tabs">
+        <button class="os-tab active" data-target="install-mac">macOS / Linux</button>
+        <button class="os-tab" data-target="install-win">Windows</button>
+        <button class="os-tab" data-target="install-npm">npm</button>
+      </div>
+
+      <div class="os-content active" id="install-mac">
+        <pre><code class="language-bash">curl -fsSL https://webpeel.dev/install.sh | bash</code></pre>
+        <p>The install script adds <code>webpeel</code> to your PATH automatically. Restart your terminal or run <code>source ~/.zshrc</code> after installing.</p>
+      </div>
+
+      <div class="os-content" id="install-win">
+        <pre><code class="language-powershell">irm https://webpeel.dev/install.ps1 | iex</code></pre>
+        <p>Run in PowerShell (Administrator). The installer adds <code>webpeel</code> to your PATH automatically.</p>
+      </div>
+
+      <div class="os-content" id="install-npm">
+        <pre><code class="language-bash">npm install -g webpeel</code></pre>
+        <p>Works on any platform with Node.js 18+. The <code>webpeel</code> command is available globally after install.</p>
+        <pre><code class="language-bash"># Or with pnpm / yarn
+pnpm add -g webpeel
+yarn global add webpeel</code></pre>
+      </div>
+
+      <p>Verify the install:</p>
+      <pre><code class="language-bash">webpeel --version</code></pre>
+
+      <!-- STEP 2: FIRST FETCH -->
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <h2 id="first-fetch">Fetch Your First URL</h2>
+      </div>
+
+      <pre><code class="language-bash">webpeel "https://example.com"</code></pre>
+
+      <p>That's it. WebPeel outputs clean markdown — ready to paste into your AI agent, save to a file, or pipe to another command.</p>
+
+      <pre><code class="language-bash"># Output as JSON (includes metadata)
+webpeel "https://example.com" --json
+
+# Force browser rendering for JS-heavy sites
+webpeel "https://x.com/OpenAI" --render
+
+# Use stealth mode for Cloudflare-protected sites
+webpeel "https://protected-site.com" --stealth
+
+# Fetch and save to file
+webpeel "https://example.com" > output.md</code></pre>
+
+      <div class="callout callout-info">
+        <strong>Smart escalation:</strong> WebPeel automatically chooses the fastest method — plain HTTP first, then browser rendering, then stealth. Use <code>--render</code> or <code>--stealth</code> to force a specific mode.
+      </div>
+
+      <!-- STEP 3: FREE ACCOUNT -->
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <h2 id="signup">Unlock 500 Free Fetches / Week</h2>
+      </div>
+
+      <pre><code class="language-bash">webpeel login</code></pre>
+
+      <p>Follow the prompts to create a free account. You'll get:</p>
+      <ul>
+        <li><strong>500 fetches/week</strong> — resets every Monday</li>
+        <li><strong>50/hour burst limit</strong> — for rapid workflows</li>
+        <li><strong>All features</strong> — stealth, crawl, search, MCP, research, extraction</li>
+        <li><strong>API key</strong> — for REST API and SDK access</li>
+      </ul>
+
+      <p>After logging in, your API key is stored at <code>~/.webpeel/config.json</code> and used automatically by the CLI and SDK.</p>
+
+      <!-- STEP 4: MCP -->
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <h2 id="mcp">Use with AI (MCP)</h2>
+      </div>
+
+      <p>WebPeel includes an <a href="/docs/mcp">MCP server</a> with 18 tools for Claude, Cursor, VS Code, and any other MCP-compatible AI client.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="mcp-claude">Claude Desktop</button>
+        <button class="tab-btn" data-tab="mcp-cursor">Cursor</button>
+        <button class="tab-btn" data-tab="mcp-vscode">VS Code</button>
+      </div>
+
+      <div class="tab-content active" data-content="mcp-claude">
+        <p>Add to <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>:</p>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "webpeel",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+        <p>Restart Claude Desktop. You'll see a 🔌 icon indicating WebPeel is connected.</p>
+      </div>
+
+      <div class="tab-content" data-content="mcp-cursor">
+        <p>Open Cursor Settings → MCP → Add Server:</p>
+        <pre><code class="language-json">{
+  "mcpServers": {
+    "webpeel": {
+      "command": "webpeel",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+        <p>Or run from the terminal and Cursor will auto-detect the MCP server.</p>
+      </div>
+
+      <div class="tab-content" data-content="mcp-vscode">
+        <p>Add to your VS Code <code>settings.json</code> (with GitHub Copilot or Continue):</p>
+        <pre><code class="language-json">{
+  "mcp.servers": {
+    "webpeel": {
+      "command": "webpeel",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+      </div>
+
+      <p>Once connected, your AI can fetch URLs, search the web, extract structured data, get YouTube transcripts, run deep research, and more — all through natural language.</p>
+
+      <div class="callout callout-tip">
+        <strong>Try it:</strong> Ask Claude "Fetch the content of https://example.com and summarize it." WebPeel handles the rest.
+      </div>
+
+      <!-- STEP 5: REST API -->
+      <div class="step-header">
+        <div class="step-num">5</div>
+        <h2 id="api">Use the REST API</h2>
+      </div>
+
+      <p>Get your API key from <a href="https://app.webpeel.dev">app.webpeel.dev</a> → Settings → API Keys.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="api-curl">curl</button>
+        <button class="tab-btn" data-tab="api-node">Node.js</button>
+        <button class="tab-btn" data-tab="api-python">Python</button>
+      </div>
+
+      <div class="tab-content active" data-content="api-curl">
+        <pre><code class="language-bash">curl -H "Authorization: Bearer YOUR_API_KEY" \
+  "https://api.webpeel.dev/v1/fetch?url=https://example.com"</code></pre>
+        <pre><code class="language-bash"># Search the web
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  "https://api.webpeel.dev/v1/search?q=latest+AI+news"
+
+# Get a YouTube transcript
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  "https://api.webpeel.dev/v1/fetch?url=https://youtube.com/watch?v=VIDEO_ID"</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="api-node">
+        <pre><code class="language-javascript">import { WebPeel } from 'webpeel';
+
+const client = new WebPeel({ apiKey: process.env.WEBPEEL_API_KEY });
+
+// Fetch a URL
+const result = await client.fetch('https://example.com');
+console.log(result.content); // Clean markdown
+
+// Search the web
+const search = await client.search('latest AI news');
+console.log(search.results);
+
+// Crawl a site
+const pages = await client.crawl('https://docs.example.com', {
+  maxPages: 50
+});</code></pre>
+      </div>
+
+      <div class="tab-content" data-content="api-python">
+        <pre><code class="language-python">from webpeel import WebPeel
+
+client = WebPeel(api_key="YOUR_API_KEY")
+
+# Fetch a URL
+result = client.fetch("https://example.com")
+print(result.content)  # Clean markdown
+
+# Search the web
+search = client.search("latest AI news")
+for r in search.results:
+    print(r.title, r.url)
+
+# Get YouTube transcript
+transcript = client.fetch("https://youtube.com/watch?v=VIDEO_ID")
+print(transcript.content)</code></pre>
+      </div>
+
+      <p>The base URL is <code>https://api.webpeel.dev/v1</code>. Full reference: <a href="/docs/api-reference">API Reference →</a></p>
+
+      <!-- NEXT STEPS -->
+      <h2 id="next-steps">Next Steps</h2>
+
+      <div class="next-steps">
+        <a href="/docs/api-reference" class="next-step-card">
+          <span class="icon">📖</span>
+          <div>
+            <span>API Reference</span>
+            <span class="label">All endpoints, parameters &amp; responses</span>
+          </div>
+        </a>
+        <a href="/docs/mcp" class="next-step-card">
+          <span class="icon">🔌</span>
+          <div>
+            <span>MCP Setup Guide</span>
+            <span class="label">18 tools for Claude, Cursor &amp; VS Code</span>
+          </div>
+        </a>
+        <a href="/docs/cli" class="next-step-card">
+          <span class="icon">⌨️</span>
+          <div>
+            <span>CLI Reference</span>
+            <span class="label">All commands and flags</span>
+          </div>
+        </a>
+        <a href="/docs/sdks" class="next-step-card">
+          <span class="icon">📦</span>
+          <div>
+            <span>SDKs</span>
+            <span class="label">Node.js &amp; Python clients</span>
+          </div>
+        </a>
+        <a href="https://app.webpeel.dev/playground" class="next-step-card">
+          <span class="icon">🎮</span>
+          <div>
+            <span>Playground</span>
+            <span class="label">Try WebPeel in your browser</span>
+          </div>
+        </a>
+        <a href="/pricing" class="next-step-card">
+          <span class="icon">💳</span>
+          <div>
+            <span>Pricing</span>
+            <span class="label">500 free/week · Pro from $9/mo</span>
+          </div>
+        </a>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-powershell.min.js"></script>
+  <script>
+    // Docs tab switcher (from index.html pattern)
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        const parent = btn.closest('.docs-content') || document;
+        parent.querySelectorAll('.tab-btn').forEach(b => {
+          if (b.closest('.tabs') === btn.closest('.tabs')) b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        parent.querySelectorAll('.tab-content').forEach(c => {
+          if (c.dataset.content === tab) {
+            c.classList.add('active');
+          } else if (btn.closest('.tabs').nextElementSibling === c || 
+                     c.dataset.content && btn.closest('.tabs').parentNode.contains(c)) {
+            // only hide siblings in the same group
+          }
+        });
+        // simpler approach: toggle all tab-content in the section
+        document.querySelectorAll(`.tab-content[data-content="${tab}"]`).forEach(c => {
+          // find if it's a sibling group with this button
+          const allBtns = Array.from(document.querySelectorAll('.tab-btn'));
+          const btnIdx = allBtns.indexOf(btn);
+          c.classList.add('active');
+        });
+        document.querySelectorAll('.tab-content').forEach(c => {
+          if (c.dataset.content !== tab) {
+            // check if the matching button is in the same tabs container
+            const tabsContainer = btn.closest('.tabs');
+            const siblings = Array.from(tabsContainer.querySelectorAll('.tab-btn')).map(b => b.dataset.tab);
+            if (siblings.includes(c.dataset.content)) {
+              c.classList.remove('active');
+            }
+          }
+        });
+      });
+    });
+
+    // OS install tabs
+    document.querySelectorAll('#install-tabs .os-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('#install-tabs .os-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.querySelectorAll('.os-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(tab.dataset.target).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -37,11 +37,11 @@ export default function ForgotPasswordPage() {
         {/* Logo */}
         <div className="mb-8 sm:mb-12">
           <svg width="36" height="36" viewBox="0 0 32 32" className="mb-4 sm:mb-6">
-            <rect width="32" height="32" fill="#8B5CF6" rx="8"/>
+            <rect width="32" height="32" fill="#18181B" rx="8"/>
             <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95"/>
             <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/>
-            <path d="M8 16h10" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round"/>
-            <path d="M8 21h14" stroke="#A78BFA" strokeWidth="2.5" strokeLinecap="round"/>
+            <path d="M8 16h10" stroke="#18181B" strokeWidth="2.5" strokeLinecap="round"/>
+            <path d="M8 21h14" stroke="#52525B" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
           <h1 className="font-serif text-[28px] sm:text-[32px] leading-tight text-zinc-900">
             Reset your password
@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
             </p>
             <Link
               href="/login"
-              className="mt-3 inline-block text-sm font-medium text-violet-600 hover:text-violet-700"
+              className="mt-3 inline-block text-sm font-medium text-zinc-800 hover:text-zinc-800"
             >
               ← Back to login
             </Link>
@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
                 required
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 placeholder-zinc-400 shadow-sm outline-none transition-all focus:border-violet-300 focus:ring-2 focus:ring-violet-100"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-[15px] text-zinc-900 placeholder-zinc-400 shadow-sm outline-none transition-all focus:border-zinc-500 focus:ring-2 focus:ring-zinc-100"
               />
             </div>
 

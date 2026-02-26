@@ -102,7 +102,7 @@ export const TitleScene: React.FC<TitleSceneProps> = ({ compact = false }) => {
             width: compact ? 44 : 64,
             height: compact ? 44 : 64,
             borderRadius: "50%",
-            background: `linear-gradient(135deg, ${COLORS.accent}, #6D28D9)`,
+            background: `linear-gradient(135deg, ${COLORS.accent}, #27272A)`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

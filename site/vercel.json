@@ -1,14 +1,16 @@
 {
   "redirects": [
-    { "source": "/pricing", "destination": "/#pricing", "statusCode": 301 },
-    { "source": "/pricing/", "destination": "/#pricing", "statusCode": 301 },
     { "source": "/blog/webpeel-vs-firecrawl", "destination": "/blog/webpeel-vs-competitors", "statusCode": 301 },
     { "source": "/blog/webpeel-vs-firecrawl-vs-tavily-vs-exa", "destination": "/blog/webpeel-vs-competitors", "statusCode": 301 },
     { "source": "/blog/web-scraping-for-ai-agents", "destination": "/blog/how-webpeel-works", "statusCode": 301 }
   ],
   "rewrites": [
+    { "source": "/pricing", "destination": "/pricing.html" },
+    { "source": "/pricing/", "destination": "/pricing.html" },
     { "source": "/docs", "destination": "/docs/index.html" },
     { "source": "/docs/", "destination": "/docs/index.html" },
+    { "source": "/docs/quickstart", "destination": "/docs/quickstart.html" },
+    { "source": "/docs/quickstart/", "destination": "/docs/quickstart.html" },
     { "source": "/status", "destination": "/status.html" },
     { "source": "/status/", "destination": "/status.html" }
   ],
@@ -30,6 +32,20 @@
       "source": "/llms.txt",
       "headers": [
         { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/install.sh",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    },
+    {
+      "source": "/install.ps1",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=300" }
       ]
     }
   ],

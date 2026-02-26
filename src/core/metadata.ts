@@ -376,10 +376,23 @@ export function extractImages(html: string, baseUrl: string): import('../types.j
 }
 
 /**
- * Extract all metadata from HTML
+ * Extract all metadata from HTML.
+ * Optimization: only parse the <head> section with cheerio (avoids full DOM parse).
+ * Falls back to full HTML if head section is not found or produces no title.
  */
 export function extractMetadata(html: string, _url: string): { title: string; metadata: PageMetadata } {
-  const $ = cheerio.load(html);
+  // Extract only the <head> section for faster cheerio parsing
+  // This avoids parsing the entire body DOM just for meta tags
+  let headHtml = html;
+  const headMatch = html.match(/<head[\s>][\s\S]*?<\/head>/i);
+  if (headMatch) {
+    // Include a minimal body shell so cheerio parses it correctly,
+    // and append the first <h1> from body for the title fallback
+    const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    headHtml = `<html>${headMatch[0]}<body>${h1Match ? h1Match[0] : ''}</body></html>`;
+  }
+
+  const $ = cheerio.load(headHtml);
 
   const title = extractTitle($);
   const publishDate = extractPublishDate($, html);

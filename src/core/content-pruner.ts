@@ -100,6 +100,16 @@ const CHROME_PATTERNS = [
   /\bfloating/,
   /\bfixed-?bottom/,
   /\bback-?to-?top/,
+  // Interactive UI elements (non-content)
+  /\bquiz\b/,
+  /\bquestionnaire\b/,
+  /\btoggle(?!-content|-body|-text)\b/,
+  /\bcarousel\b/,
+  /\baccordion(?!-content|-body|-text)\b/,
+  /\bstepper\b/,
+  /\bpagination\b/,
+  /\btabs-?(?:list|nav|bar)\b/,
+  /\bcookie-?(?:banner|bar|notice|consent|popup)\b/,
 ];
 
 /**
@@ -298,6 +308,25 @@ export function pruneContent(html: string, options: PruneOptions = {}): PruneRes
   const originalLength = html.length;
   if (!html.trim()) {
     return { html, nodesRemoved: 0, reductionPercent: 0 };
+  }
+
+  // =====================================================================
+  // Pass 0: Regex pre-pass — strip obvious chrome BEFORE cheerio parse
+  // =====================================================================
+  // For large HTML (> 20KB), a fast regex pass removes top-level nav/footer/
+  // aside/header blocks before we load into cheerio, saving DOM parse time.
+  // Only applies to simple self-contained elements (no nesting concerns since
+  // these are structural tags that rarely wrap article content).
+  if (html.length > 20000) {
+    // Remove <nav>…</nav>, <footer>…</footer>, <aside>…</aside>
+    // Use a non-greedy match with dotAll flag; stop at the matching close tag.
+    html = html
+      .replace(/<nav(\s[^>]*)?>[\s\S]*?<\/nav>/gi, '')
+      .replace(/<footer(\s[^>]*)?>[\s\S]*?<\/footer>/gi, '')
+      .replace(/<aside(\s[^>]*)?>[\s\S]*?<\/aside>/gi, '');
+
+    // No safe way to strip noise <div>s by regex (nested divs break simple patterns).
+    // Cheerio's semantic pass handles them reliably in Pass 1.
   }
 
   const $ = cheerio.load(html);

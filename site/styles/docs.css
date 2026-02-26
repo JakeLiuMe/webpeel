@@ -11,8 +11,8 @@
   --text-2: #52525B;
   --text-3: #71717A;
   --text-4: #A1A1AA;
-  --accent: #8B5CF6;
-  --accent-light: #EDE9FE;
+  --accent: #18181B;
+  --accent-light: #F4F4F5;
   --border: #E4E4E7;
   --border-light: #F4F4F5;
   --green: #16A34A;
@@ -137,15 +137,15 @@ img, svg {
 }
 
 .nav-links a.nav-btn-primary {
-  background: #7C3AED;
+  background: #27272A;
   color: #FFFFFF;
   font-weight: 600;
 }
 
 .nav-links a.nav-btn-primary:hover {
-  background: #6D28D9;
+  background: #27272A;
   color: #FFFFFF;
-  box-shadow: 0 0 0 3px rgba(139,92,246,0.25);
+  box-shadow: 0 0 0 3px rgba(24,24,27,0.25);
 }
 
 /* ---------- Mobile hamburger (injected by JS) ---------- */

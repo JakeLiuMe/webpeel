@@ -68,8 +68,8 @@
       --text-2: #52525B;
       --text-3: #71717A;
       --text-4: #A1A1AA;
-      --accent: #8B5CF6;
-      --accent-light: #EDE9FE;
+      --accent: #18181B;
+      --accent-light: #F4F4F5;
       --border: #E4E4E7;
       --border-light: #F4F4F5;
       --green: #16A34A;
@@ -77,7 +77,7 @@
     }
     html { scroll-behavior: smooth; }
     body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-    ::selection { background: rgba(139,92,246,0.15); }
+    ::selection { background: rgba(24,24,27,0.15); }
     .serif { font-family: 'Instrument Serif', Georgia, serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
     .container { max-width: 760px; margin: 0 auto; padding: 0 24px; }
@@ -95,8 +95,8 @@
     .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
-    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
+    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
 
     /* ARTICLE HEADER */
     .article-header { padding: 60px 0 40px; text-align: center; border-bottom: 1px solid var(--border-light); }
@@ -118,7 +118,7 @@
     article pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
     
     /* CALLOUT BOX */
-    .callout { background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, white 100%); border: 2px solid var(--accent-light); border-radius: var(--radius); padding: 24px; margin: 32px 0; }
+    .callout { background: linear-gradient(135deg, rgba(24,24,27,0.05) 0%, white 100%); border: 2px solid var(--accent-light); border-radius: var(--radius); padding: 24px; margin: 32px 0; }
     .callout h3 { margin-top: 0; font-size: 18px; color: var(--accent); }
     .callout p { margin-bottom: 12px; font-size: 16px; }
     .callout ul { margin-bottom: 0; }
@@ -158,7 +158,7 @@
   <nav>
     <div class="nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">
@@ -411,7 +411,7 @@ Command: webpeel mcp</code></pre>
         <thead>
           <tr style="background: #FAFAFA;">
             <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border-light);">Feature</th>
-            <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);">WebPeel</th>
+            <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border-light); background: rgba(24,24,27,0.04);">WebPeel</th>
             <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border-light);">MCP Fetch</th>
             <th style="padding: 12px; text-align: left; font-weight: 600; border-bottom: 1px solid var(--border-light);">Browserbase</th>
           </tr>
@@ -419,31 +419,31 @@ Command: webpeel mcp</code></pre>
         <tbody>
           <tr>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light); font-weight: 500;">Tools Provided</td>
-            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);">18 (fetch, search, crawl, map, extract, batch, agent, research, screenshot, brand, summarize, answer, youtube, quick_answer, deep_fetch, auto_extract, watch, hotels)</td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(24,24,27,0.04);">18 (fetch, search, crawl, map, extract, batch, agent, research, screenshot, brand, summarize, answer, youtube, quick_answer, deep_fetch, auto_extract, watch, hotels)</td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);">1 (fetch only)</td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);">2 (fetch, screenshot)</td>
           </tr>
           <tr>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light); font-weight: 500;">Browser Rendering</td>
-            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span> Auto-escalates</td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(24,24,27,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span> Auto-escalates</td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);"><span style="color: #FDA4AF;">✗</span></td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);"><span style="color: var(--green); font-weight: 600;">✓</span></td>
           </tr>
           <tr>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light); font-weight: 500;">Stealth Mode</td>
-            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span></td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(24,24,27,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span></td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);"><span style="color: #FDA4AF;">✗</span></td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);"><span style="color: var(--green); font-weight: 600;">✓</span></td>
           </tr>
           <tr>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light); font-weight: 500;">Search Built-in</td>
-            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(139,92,246,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span></td>
+            <td style="padding: 12px; border-bottom: 1px solid var(--border-light); background: rgba(24,24,27,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span></td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);"><span style="color: #FDA4AF;">✗</span></td>
             <td style="padding: 12px; border-bottom: 1px solid var(--border-light);"><span style="color: #FDA4AF;">✗</span></td>
           </tr>
           <tr>
             <td style="padding: 12px; font-weight: 500;">Free Tier</td>
-            <td style="padding: 12px; background: rgba(139,92,246,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span> Unlimited local</td>
+            <td style="padding: 12px; background: rgba(24,24,27,0.04);"><span style="color: var(--green); font-weight: 600;">✓</span> Unlimited local</td>
             <td style="padding: 12px;"><span style="color: var(--green); font-weight: 600;">✓</span> Unlimited</td>
             <td style="padding: 12px;">Limited credits</td>
           </tr>

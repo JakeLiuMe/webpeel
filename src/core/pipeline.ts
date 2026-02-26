@@ -111,6 +111,8 @@ export interface PipelineContext {
   screenshotBase64?: string;
   /** True when domain API extraction handled the content (skip redundant extraction) */
   domainApiHandled?: boolean;
+  /** True when server returned pre-rendered markdown (Content-Type: text/markdown) */
+  serverMarkdown?: boolean;
   /** Non-fatal warnings accumulated during the pipeline run */
   warnings: string[];
 }
@@ -541,6 +543,11 @@ export function detectContentType(ctx: PipelineContext): void {
   const isPlainText = !isDocument && (ct.includes('text/plain') || ct.includes('text/markdown') || ct.includes('text/csv') || ct.includes('text/css') || ct.includes('javascript'));
 
   ctx.contentType = isDocument ? 'document' : isHTML ? 'html' : isJSON ? 'json' : isXML ? 'xml' : isPlainText ? 'text' : 'html';
+
+  // Flag when the server returned pre-rendered markdown — no HTML parsing needed
+  if (ct.includes('text/markdown')) {
+    ctx.serverMarkdown = true;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -620,6 +627,45 @@ export async function parseContent(ctx: PipelineContext): Promise<void> {
         ctx.timer.end('metadata');
         return;
       }
+    }
+
+    // === Readable mode fast-path ===
+    // Run readability on raw HTML directly, skipping expensive prune + convert stages.
+    // Readability handles its own noise removal and outputs markdown, making prune/convert redundant.
+    if (ctx.options.readable && !raw && !selector && !fullPage) {
+      // Run readability and metadata extraction in parallel
+      const [readResult, metaResult] = await Promise.all([
+        Promise.resolve().then(() => {
+          ctx.timer.mark('readability');
+          const result = extractReadableContent(fetchResult.html, fetchResult.url);
+          ctx.timer.end('readability');
+          return result;
+        }),
+        Promise.resolve().then(() => {
+          ctx.timer.mark('metadata');
+          const meta = extractMetadata(fetchResult.html, fetchResult.url);
+          const htmlForLinks = fetchResult.html.length > 100000
+            ? fetchResult.html.slice(0, 100000)
+            : fetchResult.html;
+          const links = extractLinks(htmlForLinks, fetchResult.url);
+          ctx.timer.end('metadata');
+          return { meta, links };
+        }),
+      ]);
+
+      ctx.readabilityResult = readResult;
+      ctx.content = readResult.content;
+      ctx.title = readResult.title || metaResult.meta.title || ctx.title;
+      ctx.metadata = {
+        ...metaResult.meta.metadata,
+        title: readResult.title || metaResult.meta.title,
+        ...(readResult.author ? { author: readResult.author } : {}),
+        ...(readResult.date ? { publishedDate: readResult.date } : {}),
+      };
+      ctx.links = metaResult.links;
+      ctx.linkCount = metaResult.links.length;
+      ctx.quality = readResult.content.length > 200 ? 0.95 : 0.5;
+      return;
     }
 
     // Standard HTML pipeline
@@ -844,8 +890,9 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
   // Lite mode — skip all post-processing (no readability, no QA, no budget, no domain extract)
   if (options.lite) return;
 
-  // Readability mode
-  if (options.readable && isHTML && fetchResult.html) {
+  // Readability mode — skip if fast-path already handled it in parseContent
+  // Also skip if selector was used — user explicitly chose content, don't override with readability
+  if (options.readable && isHTML && fetchResult.html && !ctx.readabilityResult && !ctx.selector) {
     ctx.timer.mark('readability');
     const readResult = extractReadableContent(fetchResult.html, fetchResult.url);
     ctx.timer.end('readability');
@@ -1238,5 +1285,6 @@ export function buildResult(ctx: PipelineContext): PeelResult {
     ...(ctx.jsonLdType !== undefined ? { jsonLdType: ctx.jsonLdType } : {}),
     ...(ctx.warnings.length > 0 ? { warnings: ctx.warnings } : {}),
     ...(ragChunks !== undefined ? { chunks: ragChunks } : {}),
+    ...(ctx.serverMarkdown ? { serverMarkdown: true } : {}),
   };
 }

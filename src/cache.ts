@@ -49,6 +49,7 @@ function cacheKey(url: string, options?: Record<string, any>): string {
     stealth: options?.stealth || false,
     selector: options?.selector || null,
     format: options?.format || 'markdown',
+    readable: options?.readable || false,
   };
   const hash = createHash('sha256').update(JSON.stringify(relevant)).digest('hex').slice(0, 16);
   return hash;

@@ -35,8 +35,8 @@
       --text-3:#71717A;
       --border:#E4E4E7;
       --border-light:#F4F4F5;
-      --accent:#8B5CF6;
-      --accent-light:#EDE9FE;
+      --accent:#18181B;
+      --accent-light:#F4F4F5;
       --radius:12px;
     }
     body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; -webkit-font-smoothing:antialiased; }
@@ -56,8 +56,8 @@
     .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #7C3AED; color: #FFFFFF; font-weight: 600; }
-    .nav-links a.nav-btn-primary:hover { background: #6D28D9; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(139,92,246,0.25); }
+    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
     .nav-links a.active { color:var(--text); font-weight:600; }
 
     main { padding: 72px 0; }
@@ -87,7 +87,7 @@
     .release-meta { font-size: 13px; color: var(--text-3); }
     .release ul { padding-left: 18px; }
     .release li { color: var(--text-2); font-size: 15px; margin: 8px 0; }
-    .release code { font-family:'JetBrains Mono',monospace; font-size: 13px; background: rgba(139,92,246,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(139,92,246,0.14); }
+    .release code { font-family:'JetBrains Mono',monospace; font-size: 13px; background: rgba(24,24,27,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(24,24,27,0.14); }
 
     footer { border-top:1px solid var(--border); padding:40px 0; }
     .footer-inner { display:flex; justify-content:space-between; align-items:center; max-width:1100px; margin:0 auto; padding:0 24px; }
@@ -108,7 +108,7 @@
   <nav>
     <div class="nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#8B5CF6" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#A78BFA" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">
@@ -134,8 +134,115 @@
         <div class="release">
           <div class="release-header">
             <div class="release-title">
-              <div class="release-version mono">v0.14.4</div>
+              <div class="release-version mono">v0.17.1</div>
               <span class="badge">Latest</span>
+            </div>
+            <div class="release-meta">February 26, 2026</div>
+          </div>
+          <ul>
+            <li><strong>Package fix:</strong> Added <code>dist/integrations</code> to npm package files — fixes server startup crash when loading integrations.</li>
+            <li><strong>Dockerfile:</strong> Pinned API Dockerfile to <code>webpeel@0.17.0</code> (was incorrectly pinned to 0.15.2).</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.17.0</div>
+            </div>
+            <div class="release-meta">February 26, 2026</div>
+          </div>
+          <ul>
+            <li><strong>CF Worker proxy:</strong> Cloudflare Worker integration for edge-proxied fetches with reduced latency.</li>
+            <li><strong>Google Cache fallback:</strong> Automatically falls back to Google Cache for blocked or rate-limited pages.</li>
+            <li><strong>Domain extractors:</strong> Added Best Buy and Walmart-specific structured data extractors for e-commerce use cases.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.16.1</div>
+            </div>
+            <div class="release-meta">February 25, 2026</div>
+          </div>
+          <ul>
+            <li><strong>Agent endpoint:</strong> New <code>/v1/agent</code> route for LLM-driven multi-step scraping tasks.</li>
+            <li><strong>Google Search:</strong> <code>/v1/search</code> now supports Google Search results alongside existing providers.</li>
+            <li><strong>Admin CLI fix:</strong> Resolved issue with admin CLI commands not applying tier overrides correctly.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.16.0</div>
+            </div>
+            <div class="release-meta">February 25, 2026</div>
+          </div>
+          <ul>
+            <li><strong>SSE streaming:</strong> Server-Sent Events support on <code>/v1/fetch</code> for streaming partial results as pages load.</li>
+            <li><strong>TypeScript SDK:</strong> First-class TypeScript SDK published to npm with full type definitions and JSDoc.</li>
+            <li><strong>API polish:</strong> Consistent error envelopes, improved rate-limit headers (<code>X-RateLimit-*</code>), and OpenAPI 3.1 spec updates.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.15.2</div>
+            </div>
+            <div class="release-meta">February 25, 2026</div>
+          </div>
+          <ul>
+            <li><strong>QA noise filter:</strong> Suppresses low-quality quick-answer results below confidence threshold instead of returning them.</li>
+            <li><strong>Graceful browser errors:</strong> Browser pool failures now return HTTP errors instead of crashing the request.</li>
+            <li><strong>Lite mode:</strong> New <code>lite: true</code> option skips browser rendering for a faster, cheaper extraction path.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.15.1</div>
+            </div>
+            <div class="release-meta">February 24, 2026</div>
+          </div>
+          <ul>
+            <li><strong>JSON-LD extraction:</strong> Structured data from <code>&lt;script type="application/ld+json"&gt;</code> blocks is now parsed and surfaced in the response.</li>
+            <li><strong>Zero-token safety net:</strong> Prevents over-extraction from triggering token budget errors — returns partial content gracefully.</li>
+            <li><strong>UI chrome removal:</strong> Improved heuristics to strip nav, footers, and cookie banners before content scoring.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.14.6</div>
+            </div>
+            <div class="release-meta">February 24, 2026</div>
+          </div>
+          <ul>
+            <li><strong>46% speed improvement:</strong> Budget mode now short-circuits extraction on large pages once enough high-quality content is found, cutting median latency from 1.9s to 1.0s.</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.14.5</div>
+            </div>
+            <div class="release-meta">February 24, 2026</div>
+          </div>
+          <ul>
+            <li><strong>npm package:</strong> Bundled all quick-answer and confidence scoring fixes from v0.14.4 into the published npm package (prior release was missing compiled output).</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.14.4</div>
             </div>
             <div class="release-meta">February 24, 2026</div>
           </div>

@@ -29,10 +29,10 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
         >
           {/* Logo mark */}
           <svg width="40" height="40" viewBox="0 0 32 32" style={{ marginBottom: '1.5rem' }} aria-hidden="true">
-            <rect width="32" height="32" fill="#8B5CF6" rx="8" />
+            <rect width="32" height="32" fill="#18181B" rx="8" />
             <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95" />
             <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE" />
-            <path d="M8 16h10" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M8 16h10" stroke="#18181B" strokeWidth="2.5" strokeLinecap="round" />
           </svg>
 
           <h1
@@ -57,7 +57,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             A critical error occurred while loading the page. Please try again or{' '}
             <a
               href="mailto:support@webpeel.dev"
-              style={{ color: '#8B5CF6', textDecoration: 'underline' }}
+              style={{ color: '#18181B', textDecoration: 'underline' }}
             >
               contact support
             </a>{' '}
@@ -73,7 +73,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
                 justifyContent: 'center',
                 padding: '0.625rem 1.25rem',
                 borderRadius: '0.5rem',
-                backgroundColor: '#8B5CF6',
+                backgroundColor: '#18181B',
                 color: '#FFFFFF',
                 fontSize: '0.875rem',
                 fontWeight: 500,

@@ -5,6 +5,9 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import pg from 'pg';
+import { createLogger } from '../logger.js';
+
+const log = createLogger('stripe');
 
 const { Pool } = pg;
 
@@ -28,12 +31,12 @@ export function createStripeRouter(): Router {
   const dbUrl = process.env.DATABASE_URL;
 
   if (!stripeSecretKey) {
-    console.warn('STRIPE_SECRET_KEY not configured - Stripe webhooks disabled');
+    log.warn('STRIPE_SECRET_KEY not configured - Stripe webhooks disabled');
     return router;
   }
 
   if (!webhookSecret) {
-    console.warn('STRIPE_WEBHOOK_SECRET not configured - Stripe webhooks disabled');
+    log.warn('STRIPE_WEBHOOK_SECRET not configured - Stripe webhooks disabled');
     return router;
   }
 
@@ -79,7 +82,7 @@ export function createStripeRouter(): Router {
           webhookSecret
         );
       } catch (err: any) {
-        console.error('Webhook signature verification failed:', err.message);
+        log.error('Webhook signature verification failed', { message: err.message });
         res.status(400).json({
           error: 'invalid_signature',
           message: 'Webhook signature verification failed',
@@ -114,12 +117,12 @@ export function createStripeRouter(): Router {
         }
 
         default:
-          console.log(`Unhandled event type: ${event.type}`);
+          log.warn(`Unhandled Stripe event type: ${event.type}`);
       }
 
       res.json({ received: true });
     } catch (error) {
-      console.error('Webhook error:', error);
+      log.error('Webhook error', { error: error instanceof Error ? error.message : String(error) });
       res.status(500).json({
         error: 'webhook_failed',
         message: 'Failed to process webhook',
@@ -175,9 +178,9 @@ async function handleCheckoutCompleted(
       ]
     );
 
-    console.log(`Checkout completed for customer ${customerId}: upgraded to ${tier}`);
+    log.info(`Checkout completed for customer ${customerId}: upgraded to ${tier}`);
   } catch (error) {
-    console.error('Failed to handle checkout completion:', error);
+    log.error('Failed to handle checkout completion', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -209,9 +212,9 @@ async function handleSubscriptionUpdated(
       [tier, limits.weekly_limit, limits.burst_limit, limits.rate_limit, subscription.id, customerId]
     );
 
-    console.log(`Subscription updated for customer ${customerId}: tier=${tier}`);
+    log.info(`Subscription updated for customer ${customerId}: tier=${tier}`);
   } catch (error) {
-    console.error('Failed to handle subscription update:', error);
+    log.error('Failed to handle subscription update', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -241,9 +244,9 @@ async function handleSubscriptionDeleted(
       [limits.weekly_limit, limits.burst_limit, limits.rate_limit, customerId]
     );
 
-    console.log(`Subscription deleted for customer ${customerId}: downgraded to free`);
+    log.info(`Subscription deleted for customer ${customerId}: downgraded to free`);
   } catch (error) {
-    console.error('Failed to handle subscription deletion:', error);
+    log.error('Failed to handle subscription deletion', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }
@@ -266,11 +269,11 @@ async function handlePaymentFailed(
     );
 
     if (result.rows.length > 0) {
-      console.warn(`Payment failed for customer ${customerId} (${result.rows[0].email})`);
+      log.warn(`Payment failed for customer ${customerId}`, { email: result.rows[0].email });
       // Note: Email notification not implemented. Log only for now.
     }
   } catch (error) {
-    console.error('Failed to handle payment failure:', error);
+    log.error('Failed to handle payment failure', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 }

@@ -138,7 +138,7 @@ export default function PlaygroundPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-zinc-900 flex items-center gap-2">
-          <Play className="h-7 w-7 text-violet-600" />
+          <Play className="h-7 w-7 text-zinc-800" />
           Playground
         </h1>
         <p className="text-sm md:text-base text-zinc-500 mt-1">
@@ -173,7 +173,7 @@ export default function PlaygroundPage() {
               <Button
                 onClick={handleFetch}
                 disabled={loading || !url.trim()}
-                className="bg-violet-600 hover:bg-violet-700 gap-2 px-6 flex-shrink-0"
+                className="bg-zinc-800 hover:bg-zinc-800 gap-2 px-6 flex-shrink-0"
               >
                 {loading ? (
                   <>
@@ -195,7 +195,7 @@ export default function PlaygroundPage() {
                 <button
                   key={exUrl}
                   onClick={() => setUrl(exUrl)}
-                  className="text-xs text-violet-600 hover:text-violet-700 hover:underline transition-colors"
+                  className="text-xs text-zinc-800 hover:text-zinc-800 hover:underline transition-colors"
                 >
                   {exUrl.replace('https://', '')}
                 </button>
@@ -306,7 +306,7 @@ export default function PlaygroundPage() {
                 href={result.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-violet-600 hover:underline flex items-center gap-1 ml-auto"
+                className="text-xs text-zinc-800 hover:underline flex items-center gap-1 ml-auto"
               >
                 View original
                 <ExternalLink className="h-3 w-3" />
@@ -347,7 +347,7 @@ export default function PlaygroundPage() {
                           href={link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2.5 text-xs font-mono text-violet-600 hover:bg-zinc-50 border-b border-zinc-100 last:border-0 transition-colors"
+                          className="flex items-center gap-2 px-4 py-2.5 text-xs font-mono text-zinc-800 hover:bg-zinc-50 border-b border-zinc-100 last:border-0 transition-colors"
                         >
                           <ExternalLink className="h-3 w-3 flex-shrink-0 text-zinc-400" />
                           <span className="truncate">{link}</span>
@@ -373,8 +373,8 @@ export default function PlaygroundPage() {
         <Card className="border-zinc-200">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="relative mb-4">
-              <div className="h-12 w-12 rounded-full border-4 border-zinc-100 border-t-violet-600 animate-spin" />
-              <Globe className="absolute inset-0 m-auto h-5 w-5 text-violet-600" />
+              <div className="h-12 w-12 rounded-full border-4 border-zinc-100 border-t-zinc-800 animate-spin" />
+              <Globe className="absolute inset-0 m-auto h-5 w-5 text-zinc-800" />
             </div>
             <p className="text-sm font-medium text-zinc-700">Fetching content...</p>
             <p className="text-xs text-zinc-400 mt-1">This may take a moment for complex pages</p>
@@ -389,7 +389,7 @@ export default function PlaygroundPage() {
           <Card className="border-zinc-200">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-violet-600" />
+                <Sparkles className="h-4 w-4 text-zinc-800" />
                 What the API returns
               </CardTitle>
             </CardHeader>
@@ -401,7 +401,7 @@ export default function PlaygroundPage() {
                 ['Stats', 'Response time, token count, status code'],
               ].map(([key, val]) => (
                 <div key={key} className="flex gap-3">
-                  <span className="text-xs font-semibold text-violet-600 w-20 flex-shrink-0 pt-0.5">{key}</span>
+                  <span className="text-xs font-semibold text-zinc-800 w-20 flex-shrink-0 pt-0.5">{key}</span>
                   <span className="text-xs text-zinc-600">{val}</span>
                 </div>
               ))}
