@@ -62,57 +62,50 @@
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      --bg: #FAFAF8;
-      --surface: #FFFFFF;
-      --text: #09090B;
-      --text-2: #52525B;
-      --text-3: #71717A;
-      --text-4: #A1A1AA;
-      --accent: #18181B;
-      --accent-light: #F4F4F5;
-      --border: #E4E4E7;
-      --border-light: #F4F4F5;
-      --green: #16A34A;
-      --red: #DC2626;
-      --radius: 12px;
+      --bg: #F5F2EC; --bg-alt: #FFFFFF; --bg-dark: #1A1A18; --bg-code: #1C1C1A;
+      --surface: #FFFFFF; --surface-muted: #F5F3EF;
+      --text: #1A1A18; --text-2: #5A5A55; --text-3: #8A8A82; --text-4: #A1A1AA;
+      --accent: #D4623A; --accent-hover: #C05530; --accent-light: #F5F3EF;
+      --border: rgba(0,0,0,0.08); --border-card: #E0DDD8; --border-light: #F0EDE8;
+      --green: #16A34A; --red: #DC2626; --radius: 12px;
     }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-    ::selection { background: rgba(24,24,27,0.15); }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(212,98,58,0.15); }
     .serif { font-family: 'Instrument Serif', Georgia, serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
     .container { max-width: 760px; margin: 0 auto; padding: 0 24px; }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
 
-    nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,248,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-light); }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(245,242,236,0.85); backdrop-filter: blur(12px); border-bottom: none; }
     .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
-    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; color: var(--text); text-decoration: none; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; color: var(--text); text-decoration: none; }
     .nav-logo svg { width: 24px; height: 24px; }
     .nav-links { display: flex; align-items: center; gap: 20px; }
-    .nav-links a { font-size: 14px; color: var(--text-3); transition: color 0.15s; text-decoration: none; }
+    .nav-links a { font-size: 14px; color: #A09B93; transition: color 0.15s; text-decoration: none; }
     .nav-links a:hover { color: var(--text); text-decoration: none; }
-    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 4px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary { background: #1A1A18; color: #FFFFFF; font-weight: 500; }
     .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
 
-    .article-header { padding: 60px 0 40px; text-align: center; border-bottom: 1px solid var(--border-light); }
-    .article-meta { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 14px; color: var(--text-3); margin-bottom: 20px; }
+    .article-header { padding: 60px 0 40px; text-align: center; border-bottom: none; }
+    .article-meta { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 14px; color: #A09B93; margin-bottom: 20px; }
     .article-meta a { color: var(--accent); text-decoration: none; }
     h1 { font-family: 'Instrument Serif', serif; font-size: clamp(32px, 5vw, 48px); line-height: 1.15; font-weight: 400; letter-spacing: -0.02em; color: var(--text); margin-bottom: 16px; }
-    .article-description { font-size: 18px; color: var(--text-2); max-width: 600px; margin: 0 auto; line-height: 1.6; }
+    .article-description { font-size: 18px; color: var(--text-2); max-width: 600px; margin: 0 auto; line-height: 1.65; }
 
     article { padding: 60px 0; }
     article h2 { font-family: 'Instrument Serif', serif; font-size: 32px; font-weight: 400; margin: 48px 0 16px; letter-spacing: -0.01em; }
-    article h3 { font-size: 22px; font-weight: 600; margin: 36px 0 12px; }
+    article h3 { font-size: 22px; font-weight: 500; margin: 36px 0 12px; }
     article p { font-size: 17px; line-height: 1.7; color: var(--text-2); margin-bottom: 20px; }
     article ul, article ol { margin: 20px 0 20px 24px; }
     article li { font-size: 17px; line-height: 1.7; color: var(--text-2); margin-bottom: 8px; }
-    article strong { color: var(--text); font-weight: 600; }
+    article strong { color: var(--text); font-weight: 500; }
     article code { font-family: 'JetBrains Mono', monospace; font-size: 14px; background: var(--border-light); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
-    article pre { background: #18181B; color: #D4D4D8; padding: 20px; border-radius: var(--radius); overflow-x: auto; margin: 24px 0; font-size: 14px; line-height: 1.6; }
+    article pre { background: #1A1A18; color: #D4D4D8; padding: 20px; border-radius: var(--radius); overflow-x: auto; margin: 24px 0; font-size: 14px; line-height: 1.65; }
     article pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
     
     .callout { background: linear-gradient(135deg, rgba(24,24,27,0.05) 0%, white 100%); border: 2px solid var(--accent-light); border-radius: var(--radius); padding: 24px; margin: 32px 0; }
@@ -123,23 +116,23 @@
     .benchmark h3 { margin-top: 0; font-size: 20px; margin-bottom: 20px; }
     .benchmark-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
     .benchmark-item { text-align: center; }
-    .benchmark-label { font-size: 13px; color: var(--text-3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .benchmark-label { font-size: 13px; color: #A09B93; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
     .benchmark-value { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
     .benchmark-value.bad { color: var(--red); }
     .benchmark-value.good { color: var(--green); }
-    .benchmark-desc { font-size: 14px; color: var(--text-3); }
+    .benchmark-desc { font-size: 14px; color: #A09B93; }
 
     .comparison-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--border); border-radius: var(--radius); margin: 32px 0; overflow: hidden; }
-    .comparison-table th, .comparison-table td { padding: 14px 20px; text-align: left; font-size: 15px; border-bottom: 1px solid var(--border-light); }
-    .comparison-table th { font-weight: 600; color: var(--text); background: #FAFAFA; }
-    .comparison-table .good { color: var(--green); font-weight: 600; }
+    .comparison-table th, .comparison-table td { padding: 14px 20px; text-align: left; font-size: 15px; border-bottom: none; }
+    .comparison-table th { font-weight: 500; color: var(--text); background: #FAFAFA; }
+    .comparison-table .good { color: var(--green); font-weight: 500; }
     .comparison-table .bad { color: var(--red); }
 
-    footer { border-top: 1px solid var(--border); padding: 40px 0; margin-top: 60px; }
+    footer { background: var(--bg-dark); color: #A09B93; border-top: none; padding: 40px 0; margin-top: 60px; }
     .footer-inner { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     .footer-left { font-size: 13px; color: var(--text-4); }
     .footer-links { display: flex; gap: 20px; }
-    .footer-links a { font-size: 13px; color: var(--text-3); transition: color 0.15s; text-decoration: none; }
+    .footer-links a { font-size: 13px; color: #A09B93; transition: color 0.15s; text-decoration: none; }
     .footer-links a:hover { color: var(--text); }
 
     @media (max-width: 768px) {
@@ -165,7 +158,7 @@
   <nav>
     <div class="nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#E0DDD8"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#5A5A55" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">
@@ -221,7 +214,7 @@
             <div class="benchmark-desc">tokens ($0.019)</div>
           </div>
         </div>
-        <p style="text-align: center; margin-top: 24px; font-size: 18px; font-weight: 600; color: var(--green);">96.4% reduction</p>
+        <p style="text-align: center; margin-top: 24px; font-size: 18px; font-weight: 500; color: var(--green);">96.4% reduction</p>
       </div>
 
       <p>Why does raw HTML use so many tokens?</p>
@@ -411,7 +404,7 @@ console.log(result.fingerprint); // "abc123def456"
           <li>25M tokens/month</li>
           <li>At $0.01/1K tokens = <strong>$250/month</strong></li>
         </ul>
-        <p style="margin-top: 16px; font-weight: 600; font-size: 18px; color: var(--green);">Savings: $4,750/month ($57,000/year)</p>
+        <p style="margin-top: 16px; font-weight: 500; font-size: 18px; color: var(--green);">Savings: $4,750/month ($57,000/year)</p>
       </div>
 
       <h2>Implementation Guide</h2>
@@ -532,11 +525,11 @@ if (result.fingerprint !== lastFingerprint) {
 
       <p>WebPeel handles all of this automatically. Install it, use <code>format: 'markdown'</code>, and watch your token costs drop.</p>
 
-      <hr style="margin: 48px 0; border: none; border-top: 1px solid var(--border);">
+      <hr style="margin: 48px 0; border: none; background: var(--bg-dark); color: #A09B93; border-top: none;">
 
       <p style="text-align: center;">
         <strong>Ready to cut your LLM costs?</strong><br>
-        <a href="https://webpeel.dev" style="font-size: 18px; font-weight: 600;">Get started with WebPeel →</a>
+        <a href="https://webpeel.dev" style="font-size: 18px; font-weight: 500;">Get started with WebPeel →</a>
       </p>
 
     </article>

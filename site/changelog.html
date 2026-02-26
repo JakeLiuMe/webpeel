@@ -19,7 +19,7 @@
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <meta name="theme-color" content="#FAFAF8">
+  <meta name="theme-color" content="#F4F0E8">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,73 +28,72 @@
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      --bg:#FAFAF8;
-      --surface:#FFFFFF;
-      --text:#09090B;
-      --text-2:#52525B;
-      --text-3:#71717A;
-      --border:#E4E4E7;
-      --border-light:#F4F4F5;
-      --accent:#18181B;
-      --accent-light:#F4F4F5;
-      --radius:12px;
+      --bg:#F5F2EC; --bg-alt:#FFFFFF; --bg-dark:#1A1A18; --bg-code:#1C1C1A;
+      --surface:#FFFFFF; --surface-muted:#F5F3EF;
+      --text:#1A1A18; --text-2:#5A5A55; --text-3:#8A8A82; --text-4:#A1A1AA;
+      --accent:#D4623A; --accent-hover:#C05530; --accent-light:#F5F3EF;
+      --border:rgba(0,0,0,0.08); --border-card:#E0DDD8; --border-light:#F0EDE8;
+      --green:#16A34A; --red:#DC2626; --radius:12px;
     }
-    body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; -webkit-font-smoothing:antialiased; }
+    body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); line-height:1.65; font-size:17px; -webkit-font-smoothing:antialiased; }
+    ::selection { background: rgba(212,98,58,0.15); }
     a { color: inherit; text-decoration:none; }
     a:hover { text-decoration:none; }
     .serif { font-family:'Instrument Serif',Georgia,serif; }
     .mono { font-family:'JetBrains Mono',monospace; }
     .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
 
-    nav { position:sticky; top:0; z-index:100; background:rgba(250,250,248,0.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--border-light); }
+    nav { position:sticky; top:0; z-index:100; background:rgba(245,242,236,0.85); backdrop-filter:blur(12px); border-bottom:none; }
     .nav-inner { display:flex; align-items:center; justify-content:space-between; height:56px; max-width:1100px; margin:0 auto; padding:0 24px; }
     .nav-logo { display:flex; align-items:center; gap:8px; font-weight:600; font-size:15px; }
     .nav-logo svg { width:24px; height:24px; }
     .nav-links { display:flex; align-items:center; gap:22px; }
     .nav-links a { font-size:14px; color:var(--text-3); transition: color 0.15s; }
     .nav-links a:hover { color:var(--text); }
-    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 4px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
-    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
+    .nav-links a.nav-btn-primary { background: #1A1A18; color: #FFFFFF; font-weight: 500; border-radius: 4px; }
+    .nav-links a.nav-btn-primary:hover { background: #1A1A18; color: #FFFFFF; opacity: 0.85; }
     .nav-links a.active { color:var(--text); font-weight:600; }
 
-    main { padding: 72px 0; }
-    h1 { font-size: 48px; font-weight: 400; letter-spacing: -0.02em; margin-bottom: 10px; }
+    main { padding: 120px 0; }
+    h1 { font-family: 'Instrument Serif', serif; font-size: clamp(36px, 5vw, 48px); font-weight: 400; letter-spacing: -0.02em; margin-bottom: 10px; }
     .lead { font-size: 16px; color: var(--text-2); max-width: 64ch; }
 
     .releases { margin-top: 44px; display: grid; gap: 18px; }
     .release {
       background: var(--surface);
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-card);
       border-radius: var(--radius);
       padding: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
     .release-header { display:flex; align-items:flex-start; justify-content:space-between; gap: 14px; margin-bottom: 14px; }
     .release-title { display:flex; align-items:center; gap: 10px; flex-wrap:wrap; }
-    .release-version { font-size: 15px; font-weight: 600; }
+    .release-version { font-size: 15px; font-weight: 500; }
     .badge {
       display:inline-flex;
       align-items:center;
       padding: 4px 10px;
-      border-radius: 999px;
+      border-radius: 4px;
       font-size: 12px;
-      font-weight: 600;
-      background: var(--accent-light);
-      color: var(--accent);
+      font-weight: 500;
+      background: var(--surface-muted);
+      border: 1px solid var(--border-card);
+      color: var(--text-2);
     }
     .release-meta { font-size: 13px; color: var(--text-3); }
     .release ul { padding-left: 18px; }
     .release li { color: var(--text-2); font-size: 15px; margin: 8px 0; }
-    .release code { font-family:'JetBrains Mono',monospace; font-size: 13px; background: rgba(24,24,27,0.08); padding: 2px 6px; border-radius: 6px; border: 1px solid rgba(24,24,27,0.14); }
+    .release code { font-family:'JetBrains Mono',monospace; font-size: 13px; background: rgba(26,26,24,0.06); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-card); }
 
-    footer { border-top:1px solid var(--border); padding:40px 0; }
+    footer { background: var(--bg-dark); color: #A09B93; border-top:none; padding:40px 0; }
     .footer-inner { display:flex; justify-content:space-between; align-items:center; max-width:1100px; margin:0 auto; padding:0 24px; }
-    .footer-left { font-size:13px; color:#A1A1AA; }
+    .footer-left { font-size:13px; color:#8A8580; }
     .footer-links { display:flex; gap:20px; flex-wrap:wrap; justify-content:center; }
-    .footer-links a { font-size:13px; color:var(--text-3); }
-    .footer-links a:hover { color:var(--text); }
+    .footer-links a { font-size:13px; color:#A09B93; }
+    .footer-links a:hover { color:#E0DDD8; }
 
     @media(max-width:768px) {
       main { padding: 48px 0; }
@@ -108,7 +107,7 @@
   <nav>
     <div class="nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#E0DDD8"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#5A5A55" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">

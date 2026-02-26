@@ -28,36 +28,31 @@
   <style>
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      --bg: #FAFAF8;
-      --surface: #FFFFFF;
-      --text: #09090B;
-      --text-2: #52525B;
-      --text-3: #71717A;
-      --text-4: #A1A1AA;
-      --accent: #18181B;
-      --accent-light: #F4F4F5;
-      --border: #E4E4E7;
-      --border-light: #F4F4F5;
-      --radius: 12px;
+      --bg: #F5F2EC; --bg-alt: #FFFFFF; --bg-dark: #1A1A18; --bg-code: #1C1C1A;
+      --surface: #FFFFFF; --surface-muted: #F5F3EF;
+      --text: #1A1A18; --text-2: #5A5A55; --text-3: #8A8A82; --text-4: #A1A1AA;
+      --accent: #D4623A; --accent-hover: #C05530; --accent-light: #F5F3EF;
+      --border: rgba(0,0,0,0.08); --border-card: #E0DDD8; --border-light: #F0EDE8;
+      --green: #16A34A; --red: #DC2626; --radius: 12px;
     }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-    ::selection { background: rgba(24,24,27,0.15); }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(212,98,58,0.15); }
     .serif { font-family: 'Instrument Serif', Georgia, serif; }
     .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
     a { color: inherit; text-decoration: none; }
 
-    nav { position: sticky; top: 0; z-index: 100; background: rgba(250,250,248,0.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border-light); }
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(245,242,236,0.85); backdrop-filter: blur(12px); border-bottom: none; }
     .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
-    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; }
     .nav-logo svg { width: 24px; height: 24px; }
     .nav-links { display: flex; align-items: center; gap: 20px; }
-    .nav-links a { font-size: 14px; color: var(--text-3); transition: color 0.15s; }
+    .nav-links a { font-size: 14px; color: #A09B93; transition: color 0.15s; }
     .nav-links a:hover { color: var(--text); }
-    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 4px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
     .nav-btn-ghost { color: var(--text-2); }
     .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
-    .nav-links a.nav-btn-primary { background: #18181B; color: #FFFFFF; font-weight: 600; }
+    .nav-links a.nav-btn-primary { background: #1A1A18; color: #FFFFFF; font-weight: 500; }
     .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
 
     .header { padding: 80px 0 56px; text-align: center; }
@@ -70,9 +65,9 @@
     .blog-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-color: #D4D4D8; }
 
     .blog-card-content { padding: 24px; flex: 1; display: flex; flex-direction: column; }
-    .blog-meta { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-3); margin-bottom: 12px; }
-    .blog-card h2 { font-size: 21px; font-weight: 600; line-height: 1.3; margin-bottom: 12px; color: var(--text); }
-    .blog-card p { font-size: 15px; color: var(--text-2); line-height: 1.6; margin-bottom: 20px; flex: 1; }
+    .blog-meta { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #A09B93; margin-bottom: 12px; }
+    .blog-card h2 { font-size: 21px; font-weight: 500; line-height: 1.3; margin-bottom: 12px; color: var(--text); }
+    .blog-card p { font-size: 15px; color: var(--text-2); line-height: 1.65; margin-bottom: 20px; flex: 1; }
     .blog-card .read-more { font-size: 14px; font-weight: 500; color: var(--accent); display: inline-flex; align-items: center; gap: 4px; }
     .blog-card:hover .read-more { text-decoration: underline; }
     .tag { display: inline-block; padding: 4px 10px; border-radius: 6px; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 500; margin-bottom: 16px; width: fit-content; }
@@ -82,14 +77,14 @@
     .blog-card.featured h2 { font-size: 24px; }
     .blog-card.featured .featured-badge { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
     .blog-card.featured .tag { margin-bottom: 0; }
-    .featured-label { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-light); padding: 3px 10px; border-radius: 6px; }
+    .featured-label { font-size: 12px; font-weight: 500; color: var(--accent); background: var(--accent-light); padding: 3px 10px; border-radius: 6px; }
     @media (max-width: 768px) { .blog-card.featured { flex-direction: column; } .blog-card.featured .blog-card-content { flex-direction: column; gap: 0; padding: 20px; } }
 
-    footer { border-top: 1px solid var(--border); padding: 40px 0; }
+    footer { background: var(--bg-dark); color: #A09B93; border-top: none; padding: 40px 0; }
     .footer-inner { display: flex; justify-content: space-between; align-items: center; }
     .footer-left { font-size: 13px; color: var(--text-4); }
     .footer-links { display: flex; gap: 20px; }
-    .footer-links a { font-size: 13px; color: var(--text-3); transition: color 0.15s; }
+    .footer-links a { font-size: 13px; color: #A09B93; transition: color 0.15s; }
     .footer-links a:hover { color: var(--text); }
 
     @media (max-width: 768px) {
@@ -109,7 +104,7 @@
   <nav>
     <div class="container nav-inner">
       <a href="/" class="nav-logo">
-        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#52525B" stroke-width="2.5" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#E0DDD8"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#5A5A55" stroke-width="2.5" stroke-linecap="round"/></svg>
         WebPeel
       </a>
       <div class="nav-links">
