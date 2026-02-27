@@ -72,33 +72,37 @@ export default function DashboardPage() {
     if (key) setStoredApiKey(key);
   }, []);
 
+  // SWR config: limit retries to avoid thundering herd on failures
+  const swrOpts = { errorRetryCount: 2, dedupingInterval: 5000 };
+
   const { data: usage, isLoading: usageLoading, error: usageError, mutate: refreshUsage } = useSWR<Usage>(
     token ? ['/v1/usage', token] : null,
     ([url, token]: [string, string]) => fetcher<Usage>(url, token),
-    { refreshInterval: 30000 }
+    { refreshInterval: 30000, ...swrOpts }
   );
 
   const { data: keys } = useSWR<{ keys: ApiKey[] }>(
     token ? ['/v1/keys', token] : null,
-    ([url, token]: [string, string]) => fetcher<{ keys: ApiKey[] }>(url, token)
+    ([url, token]: [string, string]) => fetcher<{ keys: ApiKey[] }>(url, token),
+    swrOpts
   );
 
   const { data: stats, isLoading: statsLoading, error: statsError, mutate: refreshStats } = useSWR<StatsData>(
     token ? ['/v1/stats', token] : null,
     ([url, token]: [string, string]) => fetcher<StatsData>(url, token),
-    { refreshInterval: 60000 }
+    { refreshInterval: 60000, ...swrOpts }
   );
 
   const { data: activity, isLoading: activityLoading, error: activityError, mutate: refreshActivity } = useSWR<ActivityData>(
     token ? ['/v1/activity?limit=5', token] : null,
     ([url, token]: [string, string]) => fetcher<ActivityData>(url, token),
-    { refreshInterval: 30000 }
+    { refreshInterval: 30000, ...swrOpts }
   );
 
   const { data: history } = useSWR<{ history: DailyUsage[] }>(
     token ? ['/v1/usage/history?days=7', token] : null,
     ([url, token]: [string, string]) => fetcher<{ history: DailyUsage[] }>(url, token),
-    { refreshInterval: 60000 }
+    { refreshInterval: 60000, ...swrOpts }
   );
 
   const dashboardError = usageError || statsError || activityError;
