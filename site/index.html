@@ -1427,19 +1427,8 @@ client = <span class="hl-fn">WebPeel</span>()
       setTimeout(runTerminalDemo, 500);
     });
 
-    // Scroll reveal — sections fade up as they enter viewport
-    const revealObserver = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.style.animation = 'reveal-up 0.5s ease-out both';
-          revealObserver.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
-    document.querySelectorAll('section > .container, .section-divider').forEach(el => {
-      el.style.opacity = '0';
-      revealObserver.observe(el);
-    });
+    // NO scroll reveal — content MUST be visible without JS. Period.
+    // Learned this lesson THREE TIMES now. Never set opacity:0 via JS.
 
     // Stats counter animation
     const counterObserver = new IntersectionObserver((entries) => {
