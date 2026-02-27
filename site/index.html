@@ -177,7 +177,7 @@
     }
 
     /* ── 3. WORKS WITH ───────────────────────────────── */
-    .works-with { padding: 40px 0 var(--space-section) 0; text-align: center; }
+    .works-with { padding: 40px 0 0 0; text-align: center; }
     .works-with-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 24px; }
     .works-with-logos { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
     .ww-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--text-2); box-shadow: 0 1px 2px rgba(0,0,0,0.04); letter-spacing: 0.01em; transition: border-color var(--transition-fast), box-shadow var(--transition-fast); }
@@ -301,7 +301,7 @@
     .price-btn { display: block; text-align: center; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 500; border: none; width: 100%; transition: opacity var(--transition-fast); }
     .price-btn:hover { opacity: 0.85; }
     .price-btn-filled { background: var(--accent); color: #fff; }
-    .price-btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .price-btn-outline { background: transparent; border: 1.5px solid rgba(0,0,0,0.18); color: var(--text); }
     @media (max-width: 768px) {
       .pricing-grid { grid-template-columns: 1fr; max-width: 400px; gap: 16px; }
       .price-card { padding: 28px 24px; }
@@ -441,7 +441,7 @@
         <div class="social-proof-divider"></div>
         <div class="social-proof-stat">
           <strong>99.7% Success</strong>
-          <span>on protected sites</span>
+          <span>content retrieval rate</span>
         </div>
         <div class="social-proof-divider"></div>
         <div class="social-proof-stat">
@@ -459,12 +459,12 @@
     <div class="container">
       <div class="works-with-label reveal">WORKS WITH</div>
       <div class="works-with-logos reveal">
-        <span class="ww-chip">Claude</span>
-        <span class="ww-chip">Cursor</span>
-        <span class="ww-chip">GPT</span>
-        <span class="ww-chip">LangChain</span>
-        <span class="ww-chip">Windsurf</span>
-        <span class="ww-chip">OpenClaw</span>
+        <span class="ww-chip"><span style="color:#D4721A;font-size:10px;">●</span> Claude</span>
+        <span class="ww-chip"><span style="color:#1A1A1A;font-size:10px;">●</span> Cursor</span>
+        <span class="ww-chip"><span style="color:#10A37F;font-size:10px;">●</span> GPT-4o</span>
+        <span class="ww-chip"><span style="color:#1C4FAD;font-size:10px;">●</span> LangChain</span>
+        <span class="ww-chip"><span style="color:#0EA5E9;font-size:10px;">●</span> Windsurf</span>
+        <span class="ww-chip"><span style="color:#5865F2;font-size:10px;">●</span> OpenClaw</span>
       </div>
     </div>
   </section>
@@ -520,7 +520,7 @@
           <div class="stat-divider-h"></div>
           <div class="stat">
             <div class="stat-num" data-count="50" data-suffix="ms">50ms</div>
-            <div class="stat-label">API response</div>
+            <div class="stat-label">API response (warm)</div>
           </div>
           <div class="stat-divider-h"></div>
           <div class="stat">
@@ -676,7 +676,7 @@
       <div class="pricing-header reveal">
         <div class="section-eyebrow" style="text-align:center;">PRICING</div>
         <h2 class="section-h2" style="text-align:center;">Start free. Scale when ready.</h2>
-        <p class="sub">All features on every plan. No feature-gating.</p>
+        <p class="sub">Full MCP tools, extraction &amp; search on every plan. Upgrade for higher limits and advanced features.</p>
       </div>
       <div class="pricing-grid">
         <div class="price-card reveal">
@@ -721,7 +721,7 @@
             <li>Higher spending caps</li>
             <li>Dedicated support</li>
           </ul>
-          <a href="https://app.webpeel.dev/signup" class="price-btn" style="background: var(--text); color: #fff;">Upgrade to Max →</a>
+          <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-outline" style="border-color: rgba(0,0,0,0.25); color: var(--text);">Upgrade to Max →</a>
         </div>
       </div>
     </div>
@@ -742,7 +742,7 @@
           <div class="faq-answer"><div class="faq-answer-inner">WebPeel is a web content extraction API built for AI agents. It turns any URL into clean, structured content — markdown, metadata, and structured data — ready for your AI in milliseconds. It handles JavaScript rendering, dynamic content, and protected pages automatically.</div></div>
         </div>
         <div class="faq-item">
-          <button class="faq-question"><span>How does it handle protected sites?</span><span class="faq-icon">+</span></button>
+          <button class="faq-question"><span>How does it handle JavaScript-heavy or dynamic pages?</span><span class="faq-icon">+</span></button>
           <div class="faq-answer"><div class="faq-answer-inner">WebPeel auto-escalates through three levels: simple HTTP fetch, headless browser rendering, and advanced stealth mode. It handles JavaScript-heavy pages, dynamic content, and protected sites with a 99.7% content retrieval success rate across 500+ tested domains.</div></div>
         </div>
         <div class="faq-item">
