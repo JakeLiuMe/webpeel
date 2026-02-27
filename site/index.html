@@ -178,11 +178,11 @@
     .superpower .section-h2 { color: #fff; line-height: 1.05; }
     .superpower .accent { color: #60A5FA; }
     .superpower-body { font-size: 20px; color: rgba(255,255,255,0.7); max-width: 560px; line-height: 1.7; margin-top: 32px; }
-    .stats-row { display: flex; gap: 80px; margin-top: 64px; align-items: center; }
-    .stats-row .stat { text-align: left; }
-    .stats-row .stat-num { font-size: clamp(72px, 10vw, 128px); font-weight: 700; color: #fff; letter-spacing: -0.04em; line-height: 1; }
-    .stats-row .stat-label { font-size: 16px; color: rgba(255,255,255,0.5); margin-top: 8px; }
-    .stats-divider { width: 1px; height: 64px; background: rgba(255,255,255,0.1); }
+    .stats-row { display: flex; gap: 48px; margin-top: 64px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .stats-row .stat { text-align: center; }
+    .stats-row .stat-num { font-size: clamp(64px, 8vw, 108px); font-weight: 700; color: #fff; letter-spacing: -0.04em; line-height: 1; }
+    .stats-row .stat-label { font-size: 16px; color: rgba(255,255,255,0.6); margin-top: 10px; font-weight: 500; }
+    .stats-divider { width: 1px; height: 56px; background: rgba(255,255,255,0.15); }
     @media (max-width: 768px) {
       .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
       .stats-divider { display: none; }
@@ -425,7 +425,7 @@
        5. THE SUPERPOWER — dark section
        ═══════════════════════════════════════════════════ -->
   <section class="superpower" style="padding: clamp(140px, 16vw, 220px) 0;">
-    <div class="container-narrow">
+    <div class="container">
       <div class="reveal">
         <div class="section-eyebrow">THE DIFFERENCE</div>
         <h2 class="section-h2">Other tools fetch pages.<br><span class="accent">WebPeel reads them.</span></h2>
