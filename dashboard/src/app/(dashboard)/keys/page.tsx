@@ -331,11 +331,11 @@ export default function ApiKeysPage() {
                 {/* Curl example with the new key */}
                 <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-zinc-700">Try it right now:</p>
-                  <div className="relative">
-                    <pre className="p-3 bg-zinc-900 text-zinc-100 rounded-lg text-xs overflow-x-auto pr-12">
+                  <div className="relative group">
+                    <pre className="p-3 pb-10 bg-zinc-900 text-zinc-100 rounded-lg text-[11px] sm:text-xs overflow-x-auto whitespace-pre-wrap break-all">
                       <code>{`curl "${API_URL}/v1/fetch?url=https://example.com" \\\n  -H "Authorization: Bearer ${newKey}"`}</code>
                     </pre>
-                    <div className="absolute top-2 right-2">
+                    <div className="absolute bottom-2 right-2">
                       <CopyButton
                         text={`curl "${API_URL}/v1/fetch?url=https://example.com" \\\n  -H "Authorization: Bearer ${newKey}"`}
                         size="sm"
