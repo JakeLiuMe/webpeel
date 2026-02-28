@@ -61,7 +61,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
           <svg width="24" height="24" viewBox="0 0 32 32">
             <rect width="32" height="32" fill="#5865F2" rx="7"/>
             <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95"/>
-            <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/>
+            <path d="M20 3v5a2 2 0 002 2h5" fill="#C7D2FE"/>
             <path d="M8 16h10" stroke="#5865F2" strokeWidth="2.5" strokeLinecap="round"/>
             <path d="M8 21h14" stroke="#52525B" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
@@ -134,7 +134,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
               <svg width="24" height="24" viewBox="0 0 32 32">
                 <rect width="32" height="32" fill="#5865F2" rx="7"/>
                 <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95"/>
-                <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/>
+                <path d="M20 3v5a2 2 0 002 2h5" fill="#C7D2FE"/>
                 <path d="M8 16h10" stroke="#5865F2" strokeWidth="2.5" strokeLinecap="round"/>
                 <path d="M8 21h14" stroke="#52525B" strokeWidth="2.5" strokeLinecap="round"/>
               </svg>
@@ -190,7 +190,7 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
             <svg width="24" height="24" viewBox="0 0 32 32">
               <rect width="32" height="32" fill="#5865F2" rx="7"/>
               <path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFFFFF" fillOpacity="0.95"/>
-              <path d="M20 3v5a2 2 0 002 2h5" fill="#DDD6FE"/>
+              <path d="M20 3v5a2 2 0 002 2h5" fill="#C7D2FE"/>
               <path d="M8 16h10" stroke="#5865F2" strokeWidth="2.5" strokeLinecap="round"/>
               <path d="M8 21h14" stroke="#52525B" strokeWidth="2.5" strokeLinecap="round"/>
             </svg>
