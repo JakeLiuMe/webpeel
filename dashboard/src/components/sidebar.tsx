@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import useSWR from 'swr';
 import { LayoutDashboard, Key, CreditCard, Settings, ExternalLink, BookOpen, X, Zap, Play, Activity, BarChart2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiClient, Usage } from '@/lib/api';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -14,6 +17,93 @@ const navigation = [
   { name: 'Billing', href: '/billing', icon: CreditCard },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
+
+// ---------------------------------------------------------------------------
+// Usage bar displayed at the bottom of the sidebar
+// ---------------------------------------------------------------------------
+function UsageWidget({ collapsed }: { collapsed?: boolean }) {
+  const { data: session } = useSession();
+  const token = (session as any)?.apiToken as string | undefined;
+
+  const { data: usage } = useSWR<Usage>(
+    token ? ['/v1/usage', token] : null,
+    ([url, tok]: [string, string]) => apiClient<Usage>(url, { token: tok }),
+    { refreshInterval: 60_000 }
+  );
+
+  const used = usage?.weekly?.totalUsed ?? 0;
+  const total = usage?.weekly?.totalAvailable ?? 0;
+  const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+  const planTier = usage?.plan?.tier ?? 'free';
+  const planLabel = planTier === 'pro' ? 'Pro plan' : planTier === 'max' ? 'Max plan' : 'Free plan';
+
+  if (collapsed) {
+    // Tablet: compact circle progress indicator
+    return (
+      <Link
+        href="/usage"
+        className="flex items-center justify-center rounded-lg p-2.5 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-600 transition-colors"
+        title={`Usage: ${used} / ${total} (${percent}%)`}
+      >
+        <div className="relative w-5 h-5">
+          <svg viewBox="0 0 20 20" className="w-5 h-5 -rotate-90">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="#E4E4E7" strokeWidth="2.5" />
+            <circle
+              cx="10"
+              cy="10"
+              r="8"
+              fill="none"
+              stroke="#5865F2"
+              strokeWidth="2.5"
+              strokeDasharray={`${2 * Math.PI * 8}`}
+              strokeDashoffset={`${2 * Math.PI * 8 * (1 - percent / 100)}`}
+              strokeLinecap="round"
+            />
+          </svg>
+        </div>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href="/usage"
+      className="block rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2.5 hover:bg-zinc-100 transition-colors group mx-1 mb-1"
+    >
+      {/* Usage counts */}
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] font-medium text-zinc-500">
+          {total > 0 ? (
+            <>
+              <span className="text-zinc-700 font-semibold">{used.toLocaleString()}</span>
+              {' / '}
+              {total.toLocaleString()}
+            </>
+          ) : (
+            <span className="text-zinc-400">Loading…</span>
+          )}
+        </span>
+        <span className="text-[11px] text-zinc-400">{percent}%</span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1 rounded-full bg-zinc-200 overflow-hidden mb-1.5">
+        <div
+          className="h-full rounded-full bg-[#5865F2] transition-all duration-500"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+
+      {/* Plan label */}
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-zinc-400 group-hover:text-zinc-500 transition-colors capitalize">
+          {planLabel}
+        </span>
+        <span className="text-[10px] text-zinc-300 group-hover:text-zinc-400 transition-colors">View →</span>
+      </div>
+    </Link>
+  );
+}
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -77,12 +167,15 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-zinc-100 px-3 py-3 space-y-1">
+      <div className="border-t border-zinc-100 px-3 pt-3 pb-2 space-y-1">
+        {/* Usage bar */}
+        <UsageWidget collapsed={false} />
+
         {/* Upgrade CTA - only shown for free tier */}
         {showUpgrade && !collapsed && (
           <Link
             href="/billing"
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 mb-2 bg-gradient-to-r from-[#5865F2] to-[#4752C4] text-white text-[13px] font-medium transition-all hover:from-[#4752C4] hover:to-[#4752C4] hover:shadow-md group"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 bg-gradient-to-r from-[#5865F2] to-[#4752C4] text-white text-[13px] font-medium transition-all hover:from-[#4752C4] hover:to-[#4752C4] hover:shadow-md group"
           >
             <Zap className="h-4 w-4 flex-shrink-0 group-hover:scale-110 transition-transform" />
             Upgrade to Pro
@@ -156,12 +249,15 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-zinc-100 px-3 py-3 space-y-1">
+          <div className="border-t border-zinc-100 px-3 pt-3 pb-2 space-y-1">
+            {/* Usage bar */}
+            <UsageWidget collapsed={false} />
+
             {showUpgrade && (
               <Link
                 href="/billing"
                 onClick={onClose}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 mb-2 bg-gradient-to-r from-[#5865F2] to-[#4752C4] text-white text-[13px] font-medium transition-all hover:from-[#4752C4] hover:to-[#4752C4] hover:shadow-md"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 bg-gradient-to-r from-[#5865F2] to-[#4752C4] text-white text-[13px] font-medium transition-all hover:from-[#4752C4] hover:to-[#4752C4] hover:shadow-md"
               >
                 <Zap className="h-4 w-4" />
                 Upgrade to Pro
@@ -224,6 +320,9 @@ export function Sidebar({ isOpen = true, onClose, collapsed = false, tier = 'fre
         </nav>
         {/* Icon-only footer */}
         <div className="border-t border-zinc-100 px-2 py-3 space-y-1">
+          {/* Compact usage indicator */}
+          <UsageWidget collapsed={true} />
+
           {showUpgrade && (
             <Link
               href="/billing"
