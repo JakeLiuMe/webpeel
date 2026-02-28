@@ -97,12 +97,12 @@
     .container { max-width: var(--container); margin: 0 auto; padding: 0 var(--gutter); }
     .container-narrow { max-width: var(--container-narrow); margin: 0 auto; padding: 0 var(--gutter); }
 
-    /* ── SCROLL REVEAL ─────────────────────────────── */
+    /* ── SCROLL REVEAL (progressive enhancement) ──── */
+    /* Content visible by default — JS adds .pending to hide, .visible to reveal */
     .reveal {
-      opacity: 0;
-      transform: translateY(24px);
       transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out);
     }
+    .reveal.pending { opacity: 0; transform: translateY(24px); }
     .reveal.visible { opacity: 1; transform: translateY(0); }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1149,14 +1149,16 @@ Ready for your AI agent.</div>
     });
     if (termEl) setTimeout(() => termEl.classList.add('visible'), 600);
 
-    /* ── Scroll reveal ─────────────────────────────── */
+    /* ── Scroll reveal (progressive enhancement) ──── */
+    /* First, add pending class to hide — then reveal on intersection */
+    document.querySelectorAll('.reveal').forEach(el => el.classList.add('pending'));
     const revealObs = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (!entry.isIntersecting) return;
         const el = entry.target;
-        const siblings = Array.from((el.parentElement || el).querySelectorAll(':scope > .reveal:not(.visible)'));
+        const siblings = Array.from((el.parentElement || el).querySelectorAll(':scope > .reveal.pending:not(.visible)'));
         const idx = siblings.indexOf(el);
-        setTimeout(() => el.classList.add('visible'), idx >= 0 ? idx * 100 : 0);
+        setTimeout(() => { el.classList.remove('pending'); el.classList.add('visible'); }, idx >= 0 ? idx * 100 : 0);
         revealObs.unobserve(el);
       });
     }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
