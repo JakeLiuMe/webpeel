@@ -3,21 +3,57 @@
 import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import useSWR from 'swr';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, ExternalLink, Sparkles, Zap, Crown, AlertCircle } from 'lucide-react';
+import {
+  Check,
+  ExternalLink,
+  Sparkles,
+  Zap,
+  Crown,
+  AlertCircle,
+  CreditCard,
+  Receipt,
+  ArrowRight,
+  Info,
+} from 'lucide-react';
 import { apiClient, Usage } from '@/lib/api';
 
-const fetcher = async <T,>(url: string, token: string): Promise<T> => {
-  return apiClient<T>(url, { token });
-};
+// ---------------------------------------------------------------------------
+// Data helpers
+// ---------------------------------------------------------------------------
 
-const plans = {
+const fetcher = async <T,>(url: string, token: string): Promise<T> =>
+  apiClient<T>(url, { token });
+
+type PlanTier = 'free' | 'pro' | 'max' | 'admin';
+
+interface PlanMeta {
+  name: string;
+  priceMonthly: number;
+  priceAnnual: number;
+  fetchesPerWeek: string;
+  fetchesPerWeekNum: number;
+  description: string;
+  monthlyLink: string;
+  annualLink: string;
+  features: string[];
+  popular: boolean;
+  icon: React.ElementType;
+  iconColor: string;
+  iconBg: string;
+}
+
+const plans: Record<PlanTier, PlanMeta> = {
   free: {
     name: 'Free',
     priceMonthly: 0,
     priceAnnual: 0,
+    fetchesPerWeek: '500',
+    fetchesPerWeekNum: 500,
+    description: '500 fetches per week',
     monthlyLink: '',
     annualLink: '',
     features: [
@@ -35,6 +71,9 @@ const plans = {
     name: 'Pro',
     priceMonthly: 9,
     priceAnnual: 90,
+    fetchesPerWeek: '1,250',
+    fetchesPerWeekNum: 1250,
+    description: '1,250 fetches per week',
     monthlyLink: 'https://buy.stripe.com/5kQeVcb800BGgx7gMn3AY00',
     annualLink: 'https://buy.stripe.com/28E14mekcdosa8Jbs33AY01',
     features: [
@@ -46,13 +85,16 @@ const plans = {
     ],
     popular: true,
     icon: Zap,
-    iconColor: 'text-zinc-800',
-    iconBg: 'bg-zinc-100',
+    iconColor: 'text-[#5865F2]',
+    iconBg: 'bg-indigo-100',
   },
   max: {
     name: 'Max',
     priceMonthly: 29,
     priceAnnual: 290,
+    fetchesPerWeek: '6,250',
+    fetchesPerWeekNum: 6250,
+    description: '6,250 fetches per week',
     monthlyLink: 'https://buy.stripe.com/28E7sKgskfwAdkV67J3AY02',
     annualLink: 'https://buy.stripe.com/bJe9AS4JC4RW4OpgMn3AY03',
     features: [
@@ -73,16 +115,15 @@ const plans = {
     name: 'Admin',
     priceMonthly: 0,
     priceAnnual: 0,
+    fetchesPerWeek: 'Unlimited',
+    fetchesPerWeekNum: 999999,
+    description: 'Unlimited fetches',
     monthlyLink: '',
     annualLink: '',
     features: [
-      '6,250 fetches per week',
+      'Unlimited fetches',
       '500/hr burst limit',
       'All Max features',
-      'Dedicated support',
-      'Higher spending caps',
-      'Advanced analytics',
-      'Webhook notifications',
       'Internal admin account',
     ],
     popular: false,
@@ -92,8 +133,6 @@ const plans = {
   },
 };
 
-type PlanTier = 'free' | 'pro' | 'max' | 'admin';
-
 function getCheckoutLink(baseLink: string, email?: string, userId?: string): string {
   if (!baseLink) return '#';
   const url = new URL(baseLink);
@@ -102,275 +141,493 @@ function getCheckoutLink(baseLink: string, email?: string, userId?: string): str
   return url.toString();
 }
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function PlanIcon({ tier, size = 'md' }: { tier: PlanTier; size?: 'sm' | 'md' | 'lg' }) {
+  const plan = plans[tier];
+  const Icon = plan.icon;
+  const sizeMap = {
+    sm: { wrap: 'w-9 h-9', icon: 'h-4 w-4' },
+    md: { wrap: 'w-12 h-12', icon: 'h-6 w-6' },
+    lg: { wrap: 'w-16 h-16', icon: 'h-8 w-8' },
+  };
+  const s = sizeMap[size];
+  return (
+    <div className={`${s.wrap} rounded-xl ${plan.iconBg} flex items-center justify-center flex-shrink-0`}>
+      <Icon className={`${s.icon} ${plan.iconColor}`} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
 export default function BillingPage() {
   const { data: session } = useSession();
   const token = (session as any)?.apiToken;
   const rawTier = (session as any)?.tier || 'free';
-  const currentTier: PlanTier = (plans[rawTier as PlanTier]) ? rawTier as PlanTier : 'free';
+  const currentTier: PlanTier = plans[rawTier as PlanTier] ? (rawTier as PlanTier) : 'free';
   const userEmail = (session as any)?.user?.email;
   const userId = (session as any)?.user?.id;
   const [isAnnual, setIsAnnual] = useState(false);
 
+  const currentPlan = plans[currentTier];
+  const isPaid = currentTier === 'pro' || currentTier === 'max';
+  const isAdmin = currentTier === 'admin';
+
   const { data: usage, error, mutate } = useSWR<Usage>(
     token ? ['/v1/usage', token] : null,
-    ([url, token]: [string, string]) => fetcher<Usage>(url, token),
+    ([url, tok]: [string, string]) => fetcher<Usage>(url, tok),
     { refreshInterval: 30000 }
   );
 
-  if (error) return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <AlertCircle className="h-8 w-8 text-red-500 mb-3" />
-      <p className="text-sm text-muted-foreground mb-3">Failed to load data. Please try again.</p>
-      <Button variant="outline" size="sm" onClick={() => mutate()}>Retry</Button>
-    </div>
-  );
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <AlertCircle className="h-8 w-8 text-red-500 mb-3" />
+        <p className="text-sm text-muted-foreground mb-3">Failed to load billing data. Please try again.</p>
+        <Button variant="outline" size="sm" onClick={() => mutate()}>Retry</Button>
+      </div>
+    );
+  }
+
+  // Usage math
+  const usedFetches = usage?.weekly?.totalUsed ?? 0;
+  const availFetches = usage?.weekly?.totalAvailable ?? currentPlan.fetchesPerWeekNum;
+  const usedPct = availFetches > 0 ? Math.min((usedFetches / availFetches) * 100, 100) : 0;
+  const resetsAt = usage?.weekly?.resetsAt
+    ? new Date(usage.weekly.resetsAt).toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+      })
+    : null;
+
+  // Plan comparison (show Free/Pro/Max only)
+  const comparisonTiers: PlanTier[] = ['free', 'pro', 'max'];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 md:space-y-8">
-      {/* Header */}
+    <div className="mx-auto max-w-5xl space-y-8">
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Page header                                                         */}
+      {/* ------------------------------------------------------------------ */}
       <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-zinc-900">Billing & Plans</h1>
-        <p className="text-base text-zinc-500 mt-2">Manage your subscription and billing</p>
+        <h1 className="text-3xl font-bold text-zinc-900">Billing &amp; Plans</h1>
+        <p className="text-sm text-zinc-500 mt-1.5">Manage your subscription and view usage</p>
       </div>
 
-      {/* Current Plan - Visual Card */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-zinc-900 to-zinc-800 opacity-5 rounded-xl" />
-        <Card className="border-2 border-zinc-200 relative">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className={`w-14 h-14 rounded-xl ${plans[currentTier].iconBg} flex items-center justify-center flex-shrink-0`}>
-                  {(() => {
-                    const Icon = plans[currentTier].icon;
-                    return <Icon className={`h-7 w-7 ${plans[currentTier].iconColor}`} />;
-                  })()}
-                </div>
-                <div>
-                  <CardTitle className="text-2xl">Current Plan: {plans[currentTier].name}</CardTitle>
-                  <CardDescription className="mt-1">
-                    {currentTier === 'free' 
-                      ? 'Upgrade to unlock more features' 
-                      : 'Thank you for being a valued customer'}
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge className="bg-zinc-800 text-white text-base px-4 py-2 w-fit">
-                {plans[currentTier].name}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-zinc-900">Plan Features</h3>
-                <ul className="space-y-2.5">
-                  {plans[currentTier].features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-2.5 text-sm">
-                      <Check className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                      <span className="text-zinc-700">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {currentTier !== 'free' && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-zinc-900 mb-3">Manage Subscription</h3>
-                    <p className="text-sm text-zinc-600 mb-3">
-                      Need to update your payment method, cancel, or change plans? Reach out and we&apos;ll take care of it.
-                    </p>
-                    <Button variant="outline" className="w-full gap-2" asChild>
-                      <a href="mailto:support@webpeel.dev?subject=Subscription%20Change%20Request">
-                        Contact Support
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* ------------------------------------------------------------------ */}
+      {/* Section 1: Current Plan Card                                        */}
+      {/* ------------------------------------------------------------------ */}
+      <div className={`relative rounded-2xl overflow-hidden border-2 ${
+        isPaid || isAdmin
+          ? 'border-[#5865F2] shadow-[0_0_0_1px_rgba(88,101,242,0.15),0_4px_24px_rgba(88,101,242,0.12)]'
+          : 'border-zinc-200 shadow-sm'
+      }`}>
+        {/* Subtle blurple gradient wash for paid plans */}
+        {(isPaid || isAdmin) && (
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/60 via-white to-white pointer-events-none" />
+        )}
 
-      {/* Extra Usage Info */}
-      {currentTier !== 'free' && (
-        <Card className="border-zinc-200">
-          <CardHeader>
-            <CardTitle className="text-xl">Extra Usage</CardTitle>
-            <CardDescription>What happens when you exceed your plan limits</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-zinc-50 rounded-lg border border-zinc-100">
-              <p className="font-medium text-zinc-900 mb-2">Pay-as-you-go rates</p>
-              <p className="text-sm text-zinc-600 mb-3">
-                When you hit your weekly limit, you can keep fetching at these rates:
-              </p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 bg-white rounded-lg border border-zinc-100">
-                  <p className="text-lg font-bold text-zinc-900">$0.002</p>
-                  <p className="text-xs text-zinc-500">Basic fetch</p>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg border border-zinc-100">
-                  <p className="text-lg font-bold text-zinc-900">$0.01</p>
-                  <p className="text-xs text-zinc-500">Stealth fetch</p>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg border border-zinc-100">
-                  <p className="text-lg font-bold text-zinc-900">$0.001</p>
-                  <p className="text-xs text-zinc-500">Search</p>
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Extra usage billing is coming soon. For now, soft limits apply — your requests slow down but never stop completely.
-              Questions? Contact{' '}
-              <a href="mailto:support@webpeel.dev" className="text-zinc-800 hover:underline">
-                support@webpeel.dev
-              </a>
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Upgrade Plans */}
-      {currentTier !== 'max' && currentTier !== 'admin' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-zinc-900">
-                {currentTier === 'free' ? 'Upgrade Your Plan' : 'Switch Plans'}
-              </h2>
-              <p className="text-base text-zinc-500 mt-1">Choose the plan that fits your needs</p>
-            </div>
-            
-            {/* Pill Toggle for Monthly/Annual */}
-            <div className="flex items-center gap-3 p-1 bg-zinc-100 rounded-full w-fit">
-              <button
-                onClick={() => setIsAnnual(false)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  !isAnnual 
-                    ? 'bg-white text-zinc-900 shadow-sm' 
-                    : 'text-zinc-600 hover:text-zinc-900'
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setIsAnnual(true)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                  isAnnual 
-                    ? 'bg-white text-zinc-900 shadow-sm' 
-                    : 'text-zinc-600 hover:text-zinc-900'
-                }`}
-              >
-                Annual
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-xs">
-                  Save 17%
-                </Badge>
-              </button>
-            </div>
-          </div>
-
-          {/* Plan Cards */}
-          <div className="grid gap-6 md:grid-cols-3">
-            {(Object.keys(plans) as PlanTier[]).filter((t) => t !== 'admin').map((tier) => {
-              const plan = plans[tier];
-              const Icon = plan.icon;
-              const isCurrent = currentTier === tier;
-              const price = isAnnual ? plan.priceAnnual : plan.priceMonthly;
-              const rawLink = isAnnual ? plan.annualLink : plan.monthlyLink;
-              const link = getCheckoutLink(rawLink, userEmail, userId);
-              const monthlySavings = isAnnual ? (plan.priceMonthly * 12 - plan.priceAnnual) : 0;
-              
-              return (
-                <div key={tier} className="relative">
-                  {/* Most Popular Ribbon */}
-                  {plan.popular && (
-                    <div className="absolute -top-3 left-0 right-0 flex justify-center z-10">
-                      <Badge className="bg-zinc-800 text-white px-4 py-1 shadow-md">
-                        Most Popular
-                      </Badge>
-                    </div>
-                  )}
-                  
-                  <Card 
-                    className={`relative h-full transition-all ${
-                      isCurrent 
-                        ? 'border-2 border-zinc-800 shadow-lg' 
-                        : plan.popular 
-                        ? 'border-2 border-zinc-200 shadow-md hover:shadow-lg hover:border-zinc-500' 
-                        : 'border border-zinc-200 hover:border-zinc-300 hover:shadow-md'
+        <div className="relative p-6 md:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+            {/* Left: plan identity */}
+            <div className="flex items-start gap-4">
+              <PlanIcon tier={currentTier} size="lg" />
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-2xl font-bold text-zinc-900">{currentPlan.name}</h2>
+                  <Badge
+                    className={`text-xs font-semibold px-2.5 py-0.5 ${
+                      isPaid || isAdmin
+                        ? 'bg-[#5865F2] text-white'
+                        : 'bg-zinc-800 text-white'
                     }`}
                   >
-                    {plan.popular && !isCurrent && (
-                      <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/5 to-zinc-800/5 rounded-xl pointer-events-none" />
-                    )}
-                    
-                    <CardHeader className="relative">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-12 h-12 rounded-xl ${plan.iconBg} flex items-center justify-center`}>
-                          <Icon className={`h-6 w-6 ${plan.iconColor}`} />
-                        </div>
-                        <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                      </div>
-                      
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-5xl font-bold text-zinc-900">
-                          ${price}
-                        </span>
-                        <span className="text-zinc-500">
-                          /{isAnnual ? 'year' : 'mo'}
-                        </span>
-                      </div>
-                      
-                      {isAnnual && monthlySavings > 0 && (
-                        <p className="text-sm text-emerald-600 font-medium mt-2">
-                          Save ${monthlySavings} per year
-                        </p>
-                      )}
-                    </CardHeader>
-                    
-                    <CardContent className="space-y-6 relative">
-                      <ul className="space-y-3">
-                        {plan.features.map((feature) => (
-                          <li key={feature} className="flex items-start gap-2.5 text-sm">
-                            <Check className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
-                            <span className="text-zinc-700">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      
-                      {isCurrent ? (
-                        <Badge variant="secondary" className="w-full justify-center py-3 text-sm">
-                          Current Plan
-                        </Badge>
-                      ) : tier === 'free' ? (
-                        <Button variant="outline" className="w-full" disabled>
-                          Downgrade
-                        </Button>
-                      ) : (
-                        <Button 
-                          className={`w-full ${
-                            plan.popular 
-                              ? 'bg-zinc-800 hover:bg-zinc-800 shadow-md' 
-                              : 'bg-zinc-900 hover:bg-zinc-800'
-                          }`}
-                          asChild
-                        >
-                          <a href={link} target="_blank" rel="noopener noreferrer">
-                            {currentTier === 'free' ? `Upgrade to ${plan.name}` : `Switch to ${plan.name}`}
-                          </a>
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                    {isAdmin ? 'Admin' : isPaid ? 'Active' : 'Free'}
+                  </Badge>
                 </div>
-              );
-            })}
+                <p className="text-sm text-zinc-500 mt-1">{currentPlan.description}</p>
+
+                {/* Price row */}
+                <div className="flex items-baseline gap-1 mt-3">
+                  <span className="text-4xl font-bold text-zinc-900">
+                    ${currentPlan.priceMonthly}
+                  </span>
+                  <span className="text-zinc-400 text-sm">/mo</span>
+                </div>
+
+                {/* Renewal or free note */}
+                {isPaid && resetsAt && (
+                  <p className="text-xs text-zinc-500 mt-2 flex items-center gap-1.5">
+                    <Info className="h-3.5 w-3.5" />
+                    Weekly quota resets on {resetsAt}
+                  </p>
+                )}
+                {!isPaid && !isAdmin && (
+                  <p className="text-xs text-zinc-400 mt-2">
+                    Upgrade to unlock more fetches and priority support
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Right: CTA */}
+            <div className="flex flex-col items-start sm:items-end gap-3 sm:flex-shrink-0">
+              {isPaid ? (
+                <Button
+                  variant="outline"
+                  className="gap-2 border-zinc-300 hover:border-zinc-400"
+                  asChild
+                >
+                  <a href="mailto:support@webpeel.dev?subject=Subscription%20Change%20Request">
+                    Manage Plan
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </Button>
+              ) : isAdmin ? (
+                <Badge className="bg-indigo-100 text-[#5865F2] text-sm px-3 py-1.5">
+                  Admin Account
+                </Badge>
+              ) : (
+                <Button
+                  className="gap-2 bg-[#5865F2] hover:bg-[#4752C4] shadow-sm"
+                  asChild
+                >
+                  <a
+                    href={getCheckoutLink(plans.pro.monthlyLink, userEmail, userId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Upgrade Plan
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Features list */}
+          <div className="mt-6 pt-6 border-t border-zinc-100">
+            <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
+              {currentPlan.features.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-zinc-600">
+                  <Check className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Section 2: Usage This Period                                        */}
+      {/* ------------------------------------------------------------------ */}
+      <Card className="border-zinc-200">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-zinc-900">Usage This Period</CardTitle>
+            <Button variant="ghost" size="sm" className="text-xs text-zinc-500 hover:text-zinc-800 gap-1 -mr-1" asChild>
+              <Link href="/usage">
+                Full details
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+          </div>
+          {resetsAt && (
+            <CardDescription className="text-xs">Resets on {resetsAt}</CardDescription>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {usage?.weekly ? (
+            <>
+              {/* Compact label */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-700 font-medium">
+                  {usedFetches.toLocaleString()} / {availFetches.toLocaleString()} fetches
+                  <span className="text-zinc-400 font-normal ml-2">·</span>
+                  <span className="text-zinc-400 font-normal ml-2">{usedPct.toFixed(1)}% used</span>
+                </span>
+                <span className="text-xs text-zinc-400">{usage.weekly.remaining.toLocaleString()} left</span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-2 w-full rounded-full bg-zinc-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${
+                    usedPct > 80
+                      ? 'bg-gradient-to-r from-amber-400 to-red-500'
+                      : 'bg-gradient-to-r from-[#5865F2] to-indigo-400'
+                  }`}
+                  style={{ width: `${usedPct}%` }}
+                />
+              </div>
+
+              {/* Type breakdown dots */}
+              <div className="flex items-center gap-5 text-xs text-zinc-400 pt-0.5">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-zinc-700 inline-block" />
+                  Basic: {usage.weekly.basicUsed.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                  Stealth: {usage.weekly.stealthUsed.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                  Search: {usage.weekly.searchUsed.toLocaleString()}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="h-4 rounded-full bg-zinc-100 animate-pulse" />
+              <div className="h-2 rounded-full bg-zinc-100 animate-pulse" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Section 3: Plan Comparison                                          */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-zinc-900">All Plans</h2>
+            <p className="text-sm text-zinc-500 mt-0.5">Compare plans and switch anytime</p>
+          </div>
+
+          {/* Monthly / Annual toggle */}
+          <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-full w-fit">
+            <button
+              onClick={() => setIsAnnual(false)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                !isAnnual ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setIsAnnual(true)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                isAnnual ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-700'
+              }`}
+            >
+              Annual
+              <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 font-semibold">
+                −17%
+              </Badge>
+            </button>
+          </div>
+        </div>
+
+        {/* Free plan trial CTA banner (only for free users) */}
+        {currentTier === 'free' && (
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-5 py-4 rounded-xl bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#5865F2] flex items-center justify-center flex-shrink-0">
+                <Zap className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Start your 7-day free trial of Pro</p>
+                <p className="text-xs text-zinc-500">No credit card required · Cancel anytime</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="bg-[#5865F2] hover:bg-[#4752C4] gap-1.5 flex-shrink-0"
+              asChild
+            >
+              <a
+                href={getCheckoutLink(plans.pro.monthlyLink, userEmail, userId)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Try Pro free
+                <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            </Button>
+          </div>
+        )}
+
+        {/* Plan cards grid */}
+        <div className="grid gap-4 md:grid-cols-3">
+          {comparisonTiers.map((tier) => {
+            const plan = plans[tier];
+            const Icon = plan.icon;
+            const isCurrent = currentTier === tier;
+            const price = isAnnual ? plan.priceAnnual : plan.priceMonthly;
+            const rawLink = isAnnual ? plan.annualLink : plan.monthlyLink;
+            const link = getCheckoutLink(rawLink, userEmail, userId);
+            const annualSavings = isAnnual && plan.priceMonthly > 0
+              ? plan.priceMonthly * 12 - plan.priceAnnual
+              : 0;
+            const isDowngrade = currentTier === 'pro' && tier === 'free'
+              || currentTier === 'max' && (tier === 'free' || tier === 'pro')
+              || isAdmin;
+
+            return (
+              <div key={tier} className="relative">
+                {/* Popular ribbon */}
+                {plan.popular && (
+                  <div className="absolute -top-3 left-0 right-0 flex justify-center z-10">
+                    <span className="bg-[#5865F2] text-white text-[11px] font-semibold px-3 py-0.5 rounded-full shadow-md">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+
+                <div
+                  className={`relative h-full flex flex-col rounded-xl border-2 transition-all overflow-hidden ${
+                    isCurrent
+                      ? 'border-[#5865F2] shadow-[0_0_0_1px_rgba(88,101,242,0.1),0_4px_16px_rgba(88,101,242,0.1)]'
+                      : plan.popular
+                      ? 'border-zinc-200 shadow-md hover:border-indigo-200 hover:shadow-lg'
+                      : 'border-zinc-200 hover:border-zinc-300 hover:shadow-sm'
+                  }`}
+                >
+                  {/* Subtle gradient for current */}
+                  {isCurrent && (
+                    <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/50 to-white pointer-events-none" />
+                  )}
+
+                  <div className="relative p-5 flex flex-col h-full">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl ${plan.iconBg} flex items-center justify-center`}>
+                          <Icon className={`h-5 w-5 ${plan.iconColor}`} />
+                        </div>
+                        <span className="font-bold text-zinc-900 text-lg">{plan.name}</span>
+                      </div>
+                      {isCurrent && (
+                        <Badge className="bg-[#5865F2] text-white text-[10px] px-2 py-0.5">
+                          Current
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Price */}
+                    <div className="mb-1">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-bold text-zinc-900">${price}</span>
+                        <span className="text-zinc-400 text-sm">/{isAnnual ? 'yr' : 'mo'}</span>
+                      </div>
+                      {annualSavings > 0 && (
+                        <p className="text-xs text-emerald-600 font-medium mt-0.5">
+                          Save ${annualSavings}/yr
+                        </p>
+                      )}
+                      {!isAnnual && plan.priceMonthly > 0 && (
+                        <p className="text-xs text-zinc-400 mt-0.5">{plan.fetchesPerWeek} fetches/week</p>
+                      )}
+                      {plan.priceMonthly === 0 && (
+                        <p className="text-xs text-zinc-400 mt-0.5">{plan.fetchesPerWeek} fetches/week</p>
+                      )}
+                    </div>
+
+                    {/* Features */}
+                    <ul className="space-y-2 mt-4 mb-6 flex-1">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-sm text-zinc-600">
+                          <Check className="h-4 w-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* CTA */}
+                    {isCurrent ? (
+                      <div className="w-full py-2 text-center rounded-lg bg-indigo-50 border border-indigo-100 text-[#5865F2] text-sm font-medium">
+                        Current Plan
+                      </div>
+                    ) : isDowngrade || tier === 'free' ? (
+                      <Button variant="outline" className="w-full text-zinc-400 border-zinc-200" disabled>
+                        {tier === 'free' ? 'Downgrade' : 'Contact support'}
+                      </Button>
+                    ) : (
+                      <Button
+                        className="w-full bg-[#5865F2] hover:bg-[#4752C4] gap-1.5"
+                        asChild
+                      >
+                        <a href={link} target="_blank" rel="noopener noreferrer">
+                          {currentTier === 'free'
+                            ? `Upgrade to ${plan.name}`
+                            : `Switch to ${plan.name}`}
+                          <ArrowRight className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Section 4: Payment Method (placeholder)                             */}
+      {/* ------------------------------------------------------------------ */}
+      <Card className="border-zinc-200">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-zinc-400" />
+            <CardTitle className="text-base font-semibold text-zinc-900">Payment Method</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-4 p-4 rounded-xl bg-zinc-50 border border-zinc-100">
+            <div className="w-10 h-10 rounded-lg bg-zinc-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <CreditCard className="h-5 w-5 text-zinc-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-700">Stripe integration coming soon</p>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Payment methods and saved cards will be available once our Stripe checkout is connected.
+                For billing questions, email{' '}
+                <a
+                  href="mailto:support@webpeel.dev"
+                  className="text-[#5865F2] hover:underline"
+                >
+                  support@webpeel.dev
+                </a>
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Section 5: Invoices (placeholder)                                   */}
+      {/* ------------------------------------------------------------------ */}
+      <Card className="border-zinc-200">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-zinc-400" />
+            <CardTitle className="text-base font-semibold text-zinc-900">Invoices</CardTitle>
+          </div>
+          <CardDescription className="text-xs">Your billing history will appear here</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center mb-3">
+              <Receipt className="h-6 w-6 text-zinc-400" />
+            </div>
+            <p className="text-sm font-medium text-zinc-600">No invoices yet</p>
+            <p className="text-xs text-zinc-400 mt-1 max-w-xs">
+              When you upgrade to a paid plan, your invoices will appear here.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
