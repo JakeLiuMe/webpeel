@@ -76,9 +76,9 @@ interface SearchResult {
 }
 
 const exampleSearchQueries = [
-  'best web scraping APIs',
+  'best web fetching APIs',
   'firecrawl alternatives',
-  'how to scrape with AI',
+  'how to fetch pages with AI',
 ];
 
 // ── Screenshot types ─────────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ export default function PlaygroundPage() {
   const searchCurl = searchQuery
     ? `curl "${API_URL}/v1/search?q=${encodeURIComponent(searchQuery)}" \\
   -H "Authorization: Bearer ${displayApiKey}"`
-    : `curl "${API_URL}/v1/search?q=AI+web+scraping+tools" \\
+    : `curl "${API_URL}/v1/search?q=AI+web+fetching+tools" \\
   -H "Authorization: Bearer ${displayApiKey}"`;
 
   const screenshotCurl = screenshotUrl
@@ -355,7 +355,7 @@ export default function PlaygroundPage() {
       </div>
 
       {/* Mode Tabs */}
-      <div className="flex gap-1 p-1 bg-zinc-100 rounded-xl w-fit">
+      <div className="flex gap-1 p-1 bg-zinc-100 rounded-xl w-full sm:w-fit">
         {(
           [
             { value: 'fetch', label: 'Fetch', icon: Globe },
@@ -366,7 +366,7 @@ export default function PlaygroundPage() {
           <button
             key={value}
             onClick={() => setMode(value)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            className={`flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
               mode === value
                 ? 'bg-zinc-900 text-white shadow-sm'
                 : 'bg-transparent text-zinc-700 hover:text-zinc-900'
@@ -677,7 +677,7 @@ export default function PlaygroundPage() {
                     <Input
                       id="search-input"
                       type="text"
-                      placeholder="AI web scraping tools"
+                      placeholder="AI web fetching tools"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={handleSearchKeyDown}

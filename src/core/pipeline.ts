@@ -964,7 +964,8 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
   // Smart budget distillation — applied AFTER maxTokens truncation
   // This intelligently compresses content (strips boilerplate, compresses
   // tables, removes weak paragraphs) rather than blindly cutting.
-  if (options.budget && options.budget > 0) {
+  // Skip for domain-extracted content (e.g. YouTube) — it's already clean and structured.
+  if (options.budget && options.budget > 0 && !ctx.domainData) {
     const budgetFormat: 'markdown' | 'text' | 'json' =
       ctx.contentType === 'json' ? 'json' :
       ctx.format === 'text' ? 'text' : 'markdown';

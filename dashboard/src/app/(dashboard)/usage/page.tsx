@@ -442,7 +442,7 @@ function ResponseTimeSection({ stats }: { stats: Stats | undefined }) {
   return (
     <div className="space-y-5">
       {/* Key metrics row */}
-      <div className="flex items-end gap-6">
+      <div className="flex flex-wrap items-end gap-6">
         <div>
           <p className="text-3xl font-bold text-zinc-900 tabular-nums">
             {avg > 0 ? `${avg}ms` : '—'}
