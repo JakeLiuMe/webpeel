@@ -22,7 +22,7 @@ const DEMO_SITES = [
   {
     url: 'https://news.ycombinator.com',
     title: 'Hacker News',
-    markdown: '# Hacker News\n\n1. Show HN: WebPeel (423 pts)\n2. React Server Components (389 pts)\n3. The future of web scraping (301 pts)',
+    markdown: '# Hacker News\n\n1. Show HN: WebPeel (423 pts)\n2. React Server Components (389 pts)\n3. The future of web fetching (301 pts)',
     time: '89ms',
     mode: 'HTTP',
     modeColor: 'bg-emerald-100 text-emerald-700',

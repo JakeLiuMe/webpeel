@@ -135,6 +135,8 @@ export class StealthSearchProvider implements SearchProvider {
     try {
       const parsed = new URL(rawUrl);
       if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+      // Filter DuckDuckGo ad redirect URLs (e.g. duckduckgo.com/y.js?ad_domain=...)
+      if (parsed.hostname === 'duckduckgo.com' && parsed.pathname === '/y.js') return null;
       return parsed.href;
     } catch {
       return null;
@@ -547,6 +549,10 @@ export class DuckDuckGoProvider implements SearchProvider {
         if (!['http:', 'https:'].includes(parsed.protocol)) {
           return;
         }
+        // Filter DuckDuckGo ad redirect URLs (e.g. duckduckgo.com/y.js?ad_domain=...)
+        if (parsed.hostname === 'duckduckgo.com' && parsed.pathname === '/y.js') {
+          return;
+        }
         url = parsed.href;
       } catch {
         return;
@@ -613,6 +619,8 @@ export class DuckDuckGoProvider implements SearchProvider {
       try {
         const parsed = new URL(url);
         if (!['http:', 'https:'].includes(parsed.protocol)) return;
+        // Filter DuckDuckGo ad redirect URLs (e.g. duckduckgo.com/y.js?ad_domain=...)
+        if (parsed.hostname === 'duckduckgo.com' && parsed.pathname === '/y.js') return;
         url = parsed.href;
       } catch { return; }
 
@@ -799,6 +807,8 @@ export class GoogleSearchProvider implements SearchProvider {
     try {
       const parsed = new URL(rawUrl);
       if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+      // Filter DuckDuckGo ad redirect URLs (e.g. duckduckgo.com/y.js?ad_domain=...)
+      if (parsed.hostname === 'duckduckgo.com' && parsed.pathname === '/y.js') return null;
       return parsed.href;
     } catch {
       return null;

@@ -369,7 +369,7 @@ export default function BillingPage() {
               </div>
 
               {/* Type breakdown dots */}
-              <div className="flex items-center gap-5 text-xs text-zinc-400 pt-0.5">
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-zinc-400 pt-0.5">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-zinc-700 inline-block" />
                   Basic: {usage.weekly.basicUsed.toLocaleString()}

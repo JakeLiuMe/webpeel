@@ -342,7 +342,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Default format */}
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="space-y-0.5">
               <p className="text-sm font-medium text-zinc-900">Default Output Format</p>
               <p className="text-xs text-zinc-400">
@@ -359,7 +359,7 @@ export default function SettingsPage() {
           <Separator className="bg-zinc-100" />
 
           {/* Default detail */}
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="space-y-0.5">
               <p className="text-sm font-medium text-zinc-900">Default Detail Level</p>
               <p className="text-xs text-zinc-400">
