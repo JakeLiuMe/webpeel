@@ -36,6 +36,16 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
   router.get('/v1/fetch', async (req: Request, res: Response) => {
     try {
+      // Require authentication — API key or JWT session
+      const userId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
+      if (!userId) {
+        res.status(401).json({
+          error: 'unauthorized',
+          message: 'API key required. Get one free at https://app.webpeel.dev/keys',
+        });
+        return;
+      }
+
       const { 
         url, 
         render, 
@@ -487,6 +497,16 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
   async function handlePostFetch(req: Request, res: Response): Promise<void> {
     try {
+      // Require authentication — API key or JWT session
+      const postUserId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
+      if (!postUserId) {
+        res.status(401).json({
+          error: 'unauthorized',
+          message: 'API key required. Get one free at https://app.webpeel.dev/keys',
+        });
+        return;
+      }
+
       const {
         url,
         render,

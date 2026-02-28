@@ -16,6 +16,12 @@ export function createScreenshotRouter(authStore: AuthStore): Router {
 
   router.post('/v1/screenshot', async (req: Request, res: Response) => {
     try {
+      const ssUserId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
+      if (!ssUserId) {
+        res.status(401).json({ error: 'unauthorized', message: 'API key required. Get one free at https://app.webpeel.dev/keys' });
+        return;
+      }
+
       const {
         url,
         fullPage = false,
