@@ -102,9 +102,11 @@ export default function SettingsPage() {
       ? 'GitHub'
       : 'Email';
 
-  const tierLabel = tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Free';
+  const tierLabel = tier === 'admin' ? 'Admin' : tier === 'pro' ? 'Pro' : tier === 'max' ? 'Max' : 'Free';
   const tierColor =
-    tier === 'pro'
+    tier === 'admin'
+      ? 'bg-emerald-100 text-emerald-700'
+      : tier === 'pro'
       ? 'bg-[#5865F2] text-white'
       : tier === 'max'
       ? 'bg-amber-500 text-white'

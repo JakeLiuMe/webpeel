@@ -35,7 +35,7 @@ function UsageWidget({ collapsed }: { collapsed?: boolean }) {
   const total = usage?.weekly?.totalAvailable ?? 0;
   const percent = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
   const planTier = usage?.plan?.tier ?? 'free';
-  const planLabel = planTier === 'pro' ? 'Pro plan' : planTier === 'max' ? 'Max plan' : 'Free plan';
+  const planLabel = planTier === 'admin' ? 'Admin' : planTier === 'pro' ? 'Pro plan' : planTier === 'max' ? 'Max plan' : 'Free plan';
 
   if (collapsed) {
     // Tablet: compact circle progress indicator
