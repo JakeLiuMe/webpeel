@@ -589,11 +589,16 @@ export class DuckDuckGoProvider implements SearchProvider {
     }
 
     // Fallback: try DDG Lite endpoint (different HTML, sometimes bypasses blocks)
+    console.log('[webpeel:search] DDG HTML returned 0 results, trying DDG Lite...');
     try {
       const liteResults = await this.searchLite(query, options);
-      if (liteResults.length > 0) return liteResults;
+      if (liteResults.length > 0) {
+        console.log(`[webpeel:search] DDG Lite returned ${liteResults.length} results`);
+        return liteResults;
+      }
+      console.log('[webpeel:search] DDG Lite also returned 0 results');
     } catch (e) {
-      if (process.env.DEBUG) console.debug('[webpeel]', 'ddg lite search failed:', e instanceof Error ? e.message : e);
+      console.log('[webpeel:search] DDG Lite failed:', e instanceof Error ? e.message : e);
     }
 
     // Fallback: try Brave Search API if key is configured
@@ -604,18 +609,23 @@ export class DuckDuckGoProvider implements SearchProvider {
         const braveResults = await braveProvider.searchWeb(query, { ...options, apiKey: braveKey });
         if (braveResults.length > 0) return braveResults;
       } catch (e) {
-        if (process.env.DEBUG) console.debug('[webpeel]', 'brave search failed:', e instanceof Error ? e.message : e);
+        console.log('[webpeel:search] Brave search failed:', e instanceof Error ? e.message : e);
       }
     }
 
     // Last resort: stealth multi-engine search (DDG + Bing + Ecosia via stealth browser)
     // Bypasses bot detection on datacenter IPs where HTTP scraping fails.
+    console.log('[webpeel:search] Trying stealth browser search (DDG + Bing + Ecosia)...');
     try {
       const stealthProvider = new StealthSearchProvider();
       const stealthResults = await stealthProvider.searchWeb(query, options);
-      if (stealthResults.length > 0) return stealthResults;
+      if (stealthResults.length > 0) {
+        console.log(`[webpeel:search] Stealth search returned ${stealthResults.length} results`);
+        return stealthResults;
+      }
+      console.log('[webpeel:search] Stealth search returned 0 results');
     } catch (e) {
-      if (process.env.DEBUG) console.debug('[webpeel]', 'stealth search failed:', e instanceof Error ? e.message : e);
+      console.log('[webpeel:search] Stealth search failed:', e instanceof Error ? e.message : e);
     }
 
     return [];
