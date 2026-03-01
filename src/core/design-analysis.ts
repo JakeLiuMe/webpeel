@@ -69,7 +69,9 @@ export interface DesignAnalysis {
  * The page must already be navigated to the target URL.
  */
 export async function extractDesignAnalysis(page: Page): Promise<DesignAnalysis> {
-  return page.evaluate((): DesignAnalysis => {
+  const timeoutMs = 15000; // 15 second timeout for design analysis
+  return await Promise.race([
+    page.evaluate((): DesignAnalysis => {
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     function elementLabel(el: Element): string {
@@ -128,7 +130,47 @@ export async function extractDesignAnalysis(page: Page): Promise<DesignAnalysis>
       return colors;
     }
 
-    const allElements = Array.from(document.querySelectorAll('*'));
+    // ── Color perception helpers (CIE Lab / deltaE76) ───────────────────────
+    function hexToRgb(hex: string): [number, number, number] {
+      const h = hex.replace('#', '');
+      if (h.length === 3) {
+        return [
+          parseInt(h[0] + h[0], 16),
+          parseInt(h[1] + h[1], 16),
+          parseInt(h[2] + h[2], 16),
+        ];
+      }
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+
+    function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+      // sRGB to linear light
+      let rr = r / 255, gg = g / 255, bb = b / 255;
+      rr = rr > 0.04045 ? Math.pow((rr + 0.055) / 1.055, 2.4) : rr / 12.92;
+      gg = gg > 0.04045 ? Math.pow((gg + 0.055) / 1.055, 2.4) : gg / 12.92;
+      bb = bb > 0.04045 ? Math.pow((bb + 0.055) / 1.055, 2.4) : bb / 12.92;
+      // linear RGB → XYZ (D65)
+      const x = (rr * 0.4124564 + gg * 0.3575761 + bb * 0.1804375) / 0.95047;
+      const y = (rr * 0.2126729 + gg * 0.7151522 + bb * 0.0721750);
+      const z = (rr * 0.0193339 + gg * 0.1191920 + bb * 0.9503041) / 1.08883;
+      // XYZ → Lab
+      const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : (7.787 * t) + 16 / 116;
+      return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+    }
+
+    function deltaE(lab1: [number, number, number], lab2: [number, number, number]): number {
+      return Math.sqrt(
+        (lab1[0] - lab2[0]) ** 2 +
+        (lab1[1] - lab2[1]) ** 2 +
+        (lab1[2] - lab2[2]) ** 2,
+      );
+    }
+
+    const rawElements = Array.from(document.querySelectorAll('*'));
+    // Sample up to 500 elements for performance — sufficient for accurate analysis
+    const allElements = rawElements.length > 500
+      ? rawElements.filter((_, i) => i % Math.ceil(rawElements.length / 500) === 0)
+      : rawElements;
 
     // ── A. Visual Effects ───────────────────────────────────────────────────
 
@@ -435,13 +477,33 @@ export async function extractDesignAnalysis(page: Page): Promise<DesignAnalysis>
       }
     }
 
-    // colorHarmony: based on unique non-transparent colors
-    const uniqueColors = new Set([...backgrounds, ...Array.from(textColorSet), ...Array.from(accentColorSet)]);
-    const colorCount = uniqueColors.size;
+    // colorHarmony: perceptual color clustering via CIE Lab / deltaE76
+    // Groups visually similar colors (deltaE ≤ 12) into clusters, then scores
+    // by cluster count — tolerant of glassmorphism variants, strict on chaos.
+    const uniqueColorSet = new Set([...backgrounds, ...Array.from(textColorSet), ...Array.from(accentColorSet)]);
+    const clusterCentroids: [number, number, number][] = [];
+    for (const hex of uniqueColorSet) {
+      if (!/^#[0-9a-fA-F]{3,8}$/.test(hex)) continue;
+      const [r, g, b] = hexToRgb(hex);
+      const lab = rgbToLab(r, g, b);
+      let assigned = false;
+      for (const centroid of clusterCentroids) {
+        if (deltaE(lab, centroid) <= 12) {
+          // update centroid as running average
+          centroid[0] = (centroid[0] + lab[0]) / 2;
+          centroid[1] = (centroid[1] + lab[1]) / 2;
+          centroid[2] = (centroid[2] + lab[2]) / 2;
+          assigned = true;
+          break;
+        }
+      }
+      if (!assigned) clusterCentroids.push([lab[0], lab[1], lab[2]]);
+    }
+    const clusterCount = clusterCentroids.length;
     let colorHarmony: number;
-    if (colorCount <= 8) colorHarmony = 1.0;
-    else if (colorCount >= 20) colorHarmony = 0.5;
-    else colorHarmony = 1.0 - (colorCount - 8) / (20 - 8) * 0.5;
+    if (clusterCount <= 10) colorHarmony = 1.0;
+    else if (clusterCount >= 25) colorHarmony = 0.5;
+    else colorHarmony = 1.0 - (clusterCount - 10) / (25 - 10) * 0.5;
 
     // visualHierarchy: ratio of h1 font size to body
     let visualHierarchy = 0.75;
@@ -490,5 +552,9 @@ export async function extractDesignAnalysis(page: Page): Promise<DesignAnalysis>
         overall: Math.round(overall * 1000) / 1000,
       },
     };
-  });
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Design analysis timed out after 15s')), timeoutMs)
+    ),
+  ]);
 }
