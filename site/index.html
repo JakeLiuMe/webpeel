@@ -159,11 +159,11 @@
     .nav-logo {
       display: flex; align-items: center; gap: 8px;
       font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: #fff;
-      transition: color 250ms ease;
+      min-height: 44px; transition: color 250ms ease;
       text-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
     .nav.scrolled .nav-logo { color: var(--text); text-shadow: none; }
-    .nav-links { display: flex; align-items: center; gap: 28px; }
+    .nav-links { display: flex; align-items: center; gap: 32px; }
     .nav-links a {
       font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.88);
       transition: color 200ms ease, opacity 150ms ease;
@@ -176,7 +176,7 @@
     .nav-cta {
       display: inline-flex; align-items: center;
       background: var(--accent); color: #fff !important;
-      font-size: 14px; font-weight: 500; padding: 8px 20px;
+      font-size: 14px; font-weight: 500; padding: 10px 24px; min-height: 40px;
       border-radius: 6px; border: none;
       transition: opacity 150ms ease, transform 150ms ease;
     }
@@ -216,7 +216,7 @@
       border: 1px solid rgba(129,140,248,0.35);
       background: rgba(88,101,242,0.12);
       color: #A5B4FC;
-      font-size: 13.5px; font-weight: 500; padding: 7px 18px; border-radius: 100px;
+      font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 100px;
       margin-bottom: 32px; letter-spacing: 0.01em;
     }
     .hero h1 {
@@ -234,11 +234,11 @@
     @media (max-width: 1024px) { .hero h1 { font-size: 72px; } }
     @media (max-width: 768px) { .hero h1 { font-size: 52px; } .hero-sub { font-size: 16px; line-height: 1.65; } }
     @media (max-width: 480px) { .hero h1 { font-size: 38px; letter-spacing: -0.03em; } .hero-sub { font-size: 15px; max-width: 100%; } }
-    .hero-ctas { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+    .hero-ctas { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
     .btn-primary {
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; align-items: center; gap: 8px;
       background: var(--accent); color: #fff;
-      font-size: 15px; font-weight: 600; padding: 14px 32px;
+      font-size: 15px; font-weight: 600; padding: 16px 32px;
       border-radius: 8px; border: none;
       position: relative; overflow: hidden;
       box-shadow: 0 1px 3px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12);
@@ -254,9 +254,9 @@
       color: #fff;
     }
     .btn-ghost {
-      display: inline-flex; align-items: center; gap: 6px;
+      display: inline-flex; align-items: center; gap: 8px;
       font-size: 15px; font-weight: 500;
-      color: rgba(255,255,255,0.8); padding: 13px 28px;
+      color: rgba(255,255,255,0.8); padding: 16px 32px;
       border-radius: 8px; border: 1.5px solid rgba(255,255,255,0.28);
       background: rgba(255,255,255,0.04);
       transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
@@ -297,7 +297,7 @@
     .terminal-dot.g { background: #28C840; }
     .terminal-tab {
       font-size: 12px; color: rgba(255,255,255,0.45);
-      margin-left: 12px; font-family: var(--font-mono);
+      margin-left: 16px; font-family: var(--font-mono);
     }
     .terminal-body {
       padding: 24px; font-family: var(--font-mono);
@@ -361,7 +361,7 @@
     /* ── SHARED SECTION STYLES ──────────────────────── */
     .section-eyebrow {
       font-size: 12px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.07em; color: var(--accent); margin-bottom: 20px;
+      letter-spacing: 0.07em; color: var(--accent); margin-bottom: 24px;
     }
     .section-h2 {
       font-family: var(--font-display); font-size: var(--text-h2);
@@ -383,7 +383,7 @@
     .demo-subtitle { font-size: 16px; color: var(--text-2); margin: 0 auto 40px; max-width: 480px; line-height: 1.6; }
     .demo-pills { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
     .demo-pill {
-      padding: 9px 18px; border: 1.5px solid var(--border-card);
+      padding: 8px 16px; border: 1.5px solid var(--border-card);
       border-radius: 100px; font-size: 13.5px; font-weight: 500;
       background: var(--bg-card); color: var(--text-2); cursor: pointer;
       transition: all 150ms ease; min-height: 44px;
@@ -404,9 +404,9 @@
     }
     .demo-extract-btn {
       flex-shrink: 0; background: var(--accent); color: #fff; border: none;
-      border-radius: 7px; padding: 9px 20px; font-size: 13.5px; font-weight: 600;
-      cursor: pointer; transition: opacity 150ms ease, transform 150ms ease;
-      display: flex; align-items: center; gap: 5px;
+      border-radius: 7px; padding: 11px 20px; font-size: 13.5px; font-weight: 600;
+      min-height: 44px; cursor: pointer; transition: opacity 150ms ease, transform 150ms ease;
+      display: flex; align-items: center; gap: 8px;
     }
     .demo-extract-btn:hover { opacity: 0.88; transform: translateY(-1px); }
     .demo-extract-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
@@ -635,7 +635,7 @@
     .install-card code { font-family: var(--font-mono); font-size: 13.5px; color: #E2E8F0; white-space: nowrap; }
     .install-copy-btn {
       background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
-      color: rgba(255,255,255,0.65); border-radius: 6px; padding: 5px 12px;
+      color: rgba(255,255,255,0.65); border-radius: 6px; padding: 8px 16px;
       font-size: 12px; font-weight: 500; cursor: pointer; flex-shrink: 0;
       transition: all 150ms ease;
     }
