@@ -109,19 +109,19 @@
       --shadow-xl: 0 16px 48px rgba(0,0,0,0.4);
       color: #FAFAFA;
     }
-    .how-section { --bg: #0b0b10; --bg-card: rgba(255,255,255,0.03); }
-    .pricing-section { --bg: #0d0d14; --bg-card: rgba(255,255,255,0.04); }
-    .faq-section { --bg: #0b0b10; --bg-elevated: #0b0b10; --bg-card: rgba(255,255,255,0.03); }
+    .how-section { --bg: #060608; --bg-card: rgba(255,255,255,0.03); }
+    .pricing-section { --bg: #070709; --bg-card: rgba(255,255,255,0.04); }
+    .faq-section { --bg: #060608; --bg-elevated: #060608; --bg-card: rgba(255,255,255,0.03); }
     /* Ambient glow orbs — visible through glass cards */
     .how-section {
-      background: #0b0b10;
+      background: #060608;
       background-image:
         radial-gradient(900px circle at 8% 25%, rgba(88,101,242,0.25), transparent 70%),
         radial-gradient(700px circle at 92% 70%, rgba(88,101,242,0.15), transparent 65%),
         radial-gradient(500px circle at 50% 95%, rgba(88,101,242,0.15), transparent 55%);
     }
     .pricing-section {
-      background: #0d0d14;
+      background: #070709;
       background-image:
         radial-gradient(1000px circle at 50% 42%, rgba(88,101,242,0.20), transparent 65%),
         radial-gradient(700px circle at 78% 10%, rgba(88,101,242,0.12), transparent 60%),
@@ -129,7 +129,7 @@
         radial-gradient(450px circle at 90% 90%, rgba(88,101,242,0.08), transparent 55%);
     }
     .faq-section {
-      background: #0b0b10;
+      background: #060608;
       background-image:
         radial-gradient(800px circle at 38% 35%, rgba(88,101,242,0.15), transparent 65%),
         radial-gradient(600px circle at 75% 80%, rgba(88,101,242,0.10), transparent 55%);
@@ -156,7 +156,7 @@
     }
 
     html { scroll-behavior: smooth; overflow-x: hidden; }
-    body { font-family: var(--font-body); background: var(--bg-dark); color: var(--text-on-dark); line-height: 1.65; font-size: var(--text-base); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    body { font-family: var(--font-body); background: #050507; color: var(--text-on-dark); line-height: 1.65; font-size: var(--text-base); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
     /* Noise/grain texture overlay — defined below with base64 PNG for better grain quality */
     ::selection { background: rgba(88,101,242,0.15); }
     a { color: inherit; text-decoration: none; }
@@ -273,11 +273,11 @@
 
     /* ── HERO ───────────────────────────────────────── */
     .hero {
-      background: var(--bg-dark);
+      background-color: #050507;
       background-image:
-        radial-gradient(ellipse 40% 30% at 50% -2%, rgba(99,102,241,0.75), transparent 65%),
-        radial-gradient(ellipse 55% 40% at 50% 8%, rgba(88,101,242,0.35), transparent 70%),
-        radial-gradient(ellipse 80% 50% at 50% 25%, rgba(88,101,242,0.08), transparent 60%),
+        radial-gradient(600px 350px ellipse at 50% 0%, rgba(99,102,241,0.60), rgba(88,101,242,0.15) 45%, transparent 70%),
+        radial-gradient(400px 250px ellipse at 50% 5%, rgba(124,58,237,0.30), transparent 60%),
+        radial-gradient(900px 500px ellipse at 50% 30%, rgba(88,101,242,0.06), transparent 55%),
         linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
       background-size: auto, auto, auto, 64px 64px, 64px 64px;
@@ -494,7 +494,7 @@
     /* ── DEMO SECTION ───────────────────────────────── */
     .demo-section {
       padding: var(--space-section) 0;
-      background: var(--bg-dark);
+      background: #050507;
       border-top: none;
       --bg: var(--bg-dark);
       --bg-card: rgba(255,255,255,0.04);
@@ -631,7 +631,7 @@
 
     /* ── WHY WEBPEEL (DARK) ─────────────────────────── */
     .why-section {
-      background-color: #09090B;
+      background-color: #050507;
       background-image:
         linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
@@ -828,7 +828,7 @@
 
     /* ── FINAL CTA ──────────────────────────────────── */
     .final-cta {
-      background-color: #09090B;
+      background-color: #050507;
       background-image: radial-gradient(ellipse 60% 50% at 50% 90%, rgba(88,101,242,0.30), transparent 70%), radial-gradient(600px circle at 25% 20%, rgba(88,101,242,0.06), transparent 55%);
       text-align: center;
       padding: var(--space-section) 0;
@@ -864,7 +864,7 @@
     .final-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 0 60px rgba(88,101,242,0.55), 0 8px 24px rgba(88,101,242,0.4); color: #fff; }
 
     /* ── FOOTER ─────────────────────────────────────── */
-    .footer { background: var(--bg-dark); border-top: 1px solid rgba(255,255,255,0.06); padding: 56px 0; }
+    .footer { background: #050507; border-top: 1px solid rgba(255,255,255,0.06); padding: 56px 0; }
     .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 48px; }
     .footer-brand { font-size: var(--text-sm); font-weight: 600; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     .footer-tagline { font-size: var(--text-sm); color: rgba(255,255,255,0.5); line-height: 1.6; }
