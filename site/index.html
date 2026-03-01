@@ -509,6 +509,41 @@
     .why-section .section-h2 { font-size: clamp(44px, 6vw, 72px); line-height: 1.15; }
     .section-h2 .accent { color: var(--accent-pale); }
 
+    /* ── TRUSTED BY STRIP ──────────────────────────── */
+    .trusted-strip {
+      padding: 32px 0;
+      background: #050507;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .trusted-label {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.3);
+      margin-bottom: 16px;
+    }
+    .trusted-logos {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .trusted-logo {
+      font-size: 14px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.45);
+      letter-spacing: 0.01em;
+      transition: color 200ms ease;
+    }
+    .trusted-logo:hover { color: rgba(255,255,255,0.7); }
+    @media (max-width: 480px) {
+      .trusted-logos { gap: 20px; }
+      .trusted-logo { font-size: 12px; }
+    }
+
     /* ── DEMO SECTION ───────────────────────────────── */
     .demo-section {
       padding: var(--space-section) 0;
@@ -1367,6 +1402,21 @@
     </div>
   </section>
 
+  <!-- TRUSTED BY -->
+  <div class="trusted-strip">
+    <div class="container">
+      <p class="trusted-label">Trusted by developers building with</p>
+      <div class="trusted-logos">
+        <span class="trusted-logo">🤖 Claude</span>
+        <span class="trusted-logo">⚡ Cursor</span>
+        <span class="trusted-logo">🧠 GPT-4o</span>
+        <span class="trusted-logo">🔗 LangChain</span>
+        <span class="trusted-logo">🌊 Windsurf</span>
+        <span class="trusted-logo">🐙 OpenClaw</span>
+      </div>
+    </div>
+  </div>
+
   <!-- DEMO -->
   <section class="demo-section" id="demo">
     <div class="container">
@@ -1380,6 +1430,8 @@
           <button class="demo-pill" data-demo="wiki">Wikipedia</button>
           <button class="demo-pill" data-demo="yt">YouTube</button>
           <button class="demo-pill" data-demo="example">example.com</button>
+          <button class="demo-pill" data-demo="screenshot">📸 Screenshot</button>
+          <button class="demo-pill" data-demo="search">🔍 Search</button>
         </div>
         <div class="demo-widget">
           <div class="demo-input-row">
@@ -1687,7 +1739,9 @@ Ready for your AI agent.</div>
       hn: { url: 'https://news.ycombinator.com', title: 'Hacker News', words: 737, time: 396, content: "# Hacker News\n\n1. Show HN: I built an open-source alternative to Notion\n2. Why SQLite is taking over the embedded database market\n3. The unreasonable effectiveness of simple HTML\n4. Ask HN: What are you working on this weekend?\n5. Launch HN: WebPeel – AI-ready web content extraction\n6. How we reduced our AWS bill by 90%\n7. The death of the traditional resume\n8. Rust is eating the world, one rewrite at a time\n9. Why I left Google after 12 years\n10. Show HN: A terminal UI for managing Docker containers..." },
       wiki: { url: 'https://en.wikipedia.org/wiki/Web_scraping', title: 'Web scraping - Wikipedia', words: 3994, time: 172, content: "# Web scraping\n\n**Web scraping**, **web harvesting**, or **web data extraction** is data scraping used for extracting data from websites. Web scraping software may directly access the World Wide Web using the Hypertext Transfer Protocol or a web browser.\n\nWhile web scraping can be done manually by a software user, the term typically refers to automated processes implemented using a bot or web crawler. It is a form of copying in which specific data is gathered and copied from the web...\n\n## Techniques\n\nWeb scraping is the process of automatically mining data or collecting information from the World Wide Web. It is a field with active developments sharing a common goal with the semantic web vision..." },
       yt: { url: 'https://www.youtube.com/watch?v=aircAruvnKk', title: 'But what is a neural network? | Deep learning chapter 1', words: 3200, time: 3428, content: "# But what is a neural network? | Deep learning chapter 1\n\n**Channel:** 3Blue1Brown | **Duration:** 18:40\n\n## Transcript\n\nThis is a 3. It's sloppily written and rendered at an extremely low resolution of 28x28 pixels, but your brain has no trouble recognizing it as a 3. And I want you to take a moment to appreciate how crazy it is that brains can do this so effortlessly.\n\nI mean, this, this and this are also recognizable as 3s, even though the specific values of each pixel is very different from one image to the next..." },
-      example: { url: 'https://example.com', title: 'Example Domain', words: 23, time: 42, content: "# Example Domain\n\nThis domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission.\n\n[More information...](https://www.iana.org/domains/example)" }
+      example: { url: 'https://example.com', title: 'Example Domain', words: 23, time: 42, content: "# Example Domain\n\nThis domain is for use in illustrative examples in documents. You may use this domain in literature without prior coordination or asking for permission.\n\n[More information...](https://www.iana.org/domains/example)" },
+      screenshot: { url: 'POST /v1/screenshot', type: 'screenshot' },
+      search: { url: 'https://api.webpeel.dev/v1/search?q=webpeel+vs+firecrawl', type: 'search', time: 310 }
     };
     let current = 'hn';
     const pills = document.querySelectorAll('.demo-pill');
@@ -1716,10 +1770,60 @@ Ready for your AI agent.</div>
       const spinner = extractBtn.querySelector('.demo-spinner');
       btnText.style.display = 'none'; spinner.style.display = 'inline-block';
       extractBtn.disabled = true;
-      const delay = Math.min(data.time, 700);
+      const delay = data.time ? Math.min(data.time, 700) : 400;
       setTimeout(() => {
         btnText.style.display = ''; spinner.style.display = 'none';
         extractBtn.disabled = false;
+
+        if (data.type === 'screenshot') {
+          metaChips.innerHTML =
+            '<span class="demo-chip url">POST /v1/screenshot</span>' +
+            '<span class="demo-chip time">📸 Server-rendered PNG/JPEG</span>';
+          resultHeader.style.display = '';
+          contentBox.innerHTML =
+            '<div style="font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;">' +
+            '<div style="color:#3F3F46;margin-bottom:6px;">// Response from api.webpeel.dev/v1/screenshot</div>' +
+            '<div><span style="color:#52525B;">{</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"url"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"https://stripe.com"</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"format"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"png"</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"width"</span><span style="color:#52525B;">:</span> <span style="color:#FCD34D;">1280</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"height"</span><span style="color:#52525B;">:</span> <span style="color:#FCD34D;">800</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"elapsed"</span><span style="color:#52525B;">:</span> <span style="color:#FCD34D;">1842</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"image"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."</span></div>' +
+            '<div><span style="color:#52525B;">}</span></div>' +
+            '</div>' +
+            '<hr class="demo-json-sep">' +
+            '<div style="text-align:center;padding:20px 0;">' +
+            '<div style="font-size:13px;color:rgba(255,255,255,0.5);margin-bottom:12px;">Screenshots render full pages with JavaScript — fonts, animations, everything.</div>' +
+            '<a href="https://app.webpeel.dev/playground" target="_blank" rel="noopener" style="display:inline-block;padding:8px 20px;background:var(--accent);color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">Try it in the API Playground →</a>' +
+            '</div>';
+          return;
+        }
+
+        if (data.type === 'search') {
+          metaChips.innerHTML =
+            '<span class="demo-chip url">GET /v1/search</span>' +
+            '<span class="demo-chip words">🔍 5 results</span>' +
+            '<span class="demo-chip time">⚡ ' + data.time + 'ms</span>';
+          resultHeader.style.display = '';
+          contentBox.innerHTML =
+            '<div style="font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.7;">' +
+            '<div style="color:#3F3F46;margin-bottom:6px;">// Response from api.webpeel.dev/v1/search?q=webpeel+vs+firecrawl</div>' +
+            '<div><span style="color:#52525B;">{</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"query"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"webpeel vs firecrawl"</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"elapsed"</span><span style="color:#52525B;">:</span> <span style="color:#FCD34D;">' + data.time + '</span><span style="color:#52525B;">,</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#818CF8;">"results"</span><span style="color:#52525B;">: [</span></div>' +
+            '<div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#52525B;">{</span> <span style="color:#818CF8;">"title"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"WebPeel vs Firecrawl: Which should you use?"</span><span style="color:#52525B;">,</span> <span style="color:#818CF8;">"url"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"https://dev.to/..."</span> <span style="color:#52525B;">},</span></div>' +
+            '<div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#52525B;">{</span> <span style="color:#818CF8;">"title"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"Open-source web scrapers compared in 2025"</span><span style="color:#52525B;">,</span> <span style="color:#818CF8;">"url"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"https://hackernews.com/..."</span> <span style="color:#52525B;">},</span></div>' +
+            '<div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#52525B;">{</span> <span style="color:#818CF8;">"title"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"WebPeel: AI-ready scraping for LLM agents"</span><span style="color:#52525B;">,</span> <span style="color:#818CF8;">"url"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"https://webpeel.dev/blog/..."</span> <span style="color:#52525B;">},</span></div>' +
+            '<div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#52525B;">{</span> <span style="color:#818CF8;">"title"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"Firecrawl GitHub – web crawling API"</span><span style="color:#52525B;">,</span> <span style="color:#818CF8;">"url"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"https://github.com/mendableai/firecrawl"</span> <span style="color:#52525B;">},</span></div>' +
+            '<div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#52525B;">{</span> <span style="color:#818CF8;">"title"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"Best web scraping tools for AI agents 2025"</span><span style="color:#52525B;">,</span> <span style="color:#818CF8;">"url"</span><span style="color:#52525B;">:</span> <span style="color:#86EFAC;">"https://medium.com/..."</span> <span style="color:#52525B;">}</span></div>' +
+            '<div>&nbsp;&nbsp;<span style="color:#52525B;">]</span></div>' +
+            '<div><span style="color:#52525B;">}</span></div>' +
+            '</div>';
+          return;
+        }
+
         metaChips.innerHTML =
           '<span class="demo-chip url">' + esc(data.url) + '</span>' +
           '<span class="demo-chip words">📝 ' + data.words.toLocaleString() + ' words</span>' +
