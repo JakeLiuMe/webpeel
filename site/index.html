@@ -546,9 +546,9 @@
       background: var(--bg-card); border: 1px solid var(--border-card);
       border-radius: 16px; padding: 36px; position: relative;
       box-shadow: var(--shadow-md);
-      transition: transform 250ms var(--ease-out), box-shadow 250ms var(--ease-out);
+      transition: transform 350ms ease, box-shadow 350ms ease, border-color 350ms ease;
     }
-    .price-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-xl); }
+    .price-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.08), 0 0 0 1px rgba(88,101,242,0.1); }
     .price-card.featured {
       border: 2px solid var(--accent);
       transform: scale(1.05);
@@ -680,6 +680,52 @@
       .section-h2 { letter-spacing: -0.02em; }
       .final-cta h2 { font-size: clamp(28px, 7vw, 40px); }
     }
+    /* ── AURORA HERO GRADIENT ──────────────────────── */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 40%, rgba(88,101,242,0.15), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 30%, rgba(99,102,241,0.10), transparent 50%),
+        radial-gradient(ellipse 50% 60% at 50% 70%, rgba(67,56,202,0.08), transparent 50%);
+      background-size: 200% 200%;
+      animation: aurora 15s ease-in-out infinite alternate;
+      z-index: 0;
+      pointer-events: none;
+    }
+    /* Ensure hero content sits above the aurora layer */
+    .hero > .container { position: relative; z-index: 1; }
+    @keyframes aurora {
+      0%   { background-position: 0% 50%; }
+      25%  { background-position: 50% 0%; }
+      50%  { background-position: 100% 50%; }
+      75%  { background-position: 50% 100%; }
+      100% { background-position: 0% 50%; }
+    }
+    @media (prefers-reduced-motion: reduce) { .hero::before { animation: none; } }
+
+    /* ── CTA BUTTON SHIMMER ─────────────────────────── */
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+      animation: shimmer 4s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { left: -100%; }
+      50%       { left: 150%; }
+    }
+    @media (prefers-reduced-motion: reduce) { .btn-primary::after { animation: none; display: none; } }
+
+    /* ── REVEAL STAGGER DELAYS ──────────────────────── */
+    .reveal[data-delay="1"] { transition-delay: 0.1s; }
+    .reveal[data-delay="2"] { transition-delay: 0.2s; }
+    .reveal[data-delay="3"] { transition-delay: 0.3s; }
+    .reveal[data-delay="4"] { transition-delay: 0.4s; }
+
   </style>
 </head>
 <body>
@@ -797,7 +843,7 @@
         <div class="section-eyebrow" style="text-align:center;">TRY IT NOW</div>
         <h2 class="section-h2" style="text-align:center;margin-bottom:12px;">See WebPeel in action</h2>
         <p class="demo-subtitle">Click a URL and watch WebPeel extract clean, structured content.</p>
-        <div class="demo-card-wrap">
+        <div class="demo-card-wrap reveal">
         <div class="demo-pills">
           <button class="demo-pill active" data-demo="hn">Hacker News</button>
           <button class="demo-pill" data-demo="wiki">Wikipedia</button>
@@ -836,21 +882,21 @@
         <h2 class="section-h2">Three lines to any page.</h2>
       </div>
       <div class="how-grid">
-        <div class="how-step reveal">
+        <div class="how-step reveal" data-delay="1">
           <div class="how-step-num">01</div>
           <h3>Install</h3>
           <p>One command. Works everywhere — macOS, Linux, Windows. Zero dependencies beyond Node.</p>
           <div class="mini-code"><span style="color:#3F3F46;"># Install globally</span>
 npm install -g webpeel</div>
         </div>
-        <div class="how-step reveal">
+        <div class="how-step reveal" data-delay="2">
           <div class="how-step-num">02</div>
           <h3>Fetch</h3>
           <p>Send any URL. WebPeel auto-detects what's needed — simple HTTP, browser rendering, or advanced mode.</p>
           <div class="mini-code"><span style="color:#3F3F46;"># Auto-detects: simple → browser → advanced</span>
 webpeel "https://example.com" --readable</div>
         </div>
-        <div class="how-step reveal">
+        <div class="how-step reveal" data-delay="3">
           <div class="how-step-num">03</div>
           <h3>Integrate</h3>
           <p>Clean markdown, metadata, structured data — ready for your agent in milliseconds.</p>
@@ -963,7 +1009,7 @@ Ready for your AI agent.</div>
         <p class="pricing-sub">Full MCP tools, extraction &amp; search on every plan. Upgrade for higher limits and advanced features.</p>
       </div>
       <div class="pricing-grid">
-        <div class="price-card reveal">
+        <div class="price-card reveal" data-delay="1">
           <div class="price-plan">Free</div>
           <div class="price-amount">$0<span class="per">/month</span></div>
           <div class="price-desc">500 fetches/week · ~2,000/month</div>
@@ -977,7 +1023,7 @@ Ready for your AI agent.</div>
           </ul>
           <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-outline">Get Started Free</a>
         </div>
-        <div class="price-card featured reveal">
+        <div class="price-card featured reveal" data-delay="2">
           <div class="price-badge">Most Popular</div>
           <div class="price-plan">Pro</div>
           <div class="price-amount">$9<span class="per">/month</span></div>
@@ -993,7 +1039,7 @@ Ready for your AI agent.</div>
           </ul>
           <a href="https://app.webpeel.dev/signup" class="price-btn price-btn-filled">Upgrade to Pro →</a>
         </div>
-        <div class="price-card reveal">
+        <div class="price-card reveal" data-delay="3">
           <div class="price-plan">Max</div>
           <div class="price-amount">$29<span class="per">/month</span></div>
           <div class="price-desc">6,250 fetches/week · ~25,000/month</div>
@@ -1018,7 +1064,7 @@ Ready for your AI agent.</div>
         <div class="section-eyebrow" style="margin-bottom:16px;">FAQ</div>
         <h2 class="section-h2">Questions &amp; answers</h2>
       </div>
-      <div class="faq-list">
+      <div class="faq-list reveal">
         <div class="faq-item">
           <button class="faq-q"><span>What is WebPeel?</span><span class="faq-icon">+</span></button>
           <div class="faq-answer"><div class="faq-answer-inner">WebPeel is a web content extraction API built for AI agents. It turns any URL into clean, structured content — markdown, metadata, and structured data — ready for your AI in milliseconds. It handles JavaScript rendering, dynamic content, and protected pages automatically.</div></div>
@@ -1054,14 +1100,14 @@ Ready for your AI agent.</div>
   <!-- FINAL CTA -->
   <section class="final-cta">
     <div class="container" style="max-width:600px;">
-      <h2>Ready to give your AI the web?</h2>
-      <p class="sub">Start with 500 free fetches. No credit card required.</p>
-      <div class="install-card">
+      <h2 class="reveal">Ready to give your AI the web?</h2>
+      <p class="sub reveal" data-delay="1">Start with 500 free fetches. No credit card required.</p>
+      <div class="install-card reveal" data-delay="2">
         <code id="install-cmd">curl -fsSL https://webpeel.dev/install.sh | bash</code>
         <button class="install-copy-btn" id="install-copy">Copy</button>
       </div>
       <br>
-      <a href="https://app.webpeel.dev/signup" class="btn-primary" style="margin-top:12px;">Get Started Free →</a>
+      <a href="https://app.webpeel.dev/signup" class="btn-primary reveal" data-delay="3" style="margin-top:12px;">Get Started Free →</a>
     </div>
   </section>
 
@@ -1269,7 +1315,10 @@ Ready for your AI agent.</div>
         const el = entry.target;
         const siblings = Array.from((el.parentElement || el).querySelectorAll(':scope > .reveal.pending:not(.visible)'));
         const idx = siblings.indexOf(el);
-        setTimeout(() => { el.classList.remove('pending'); el.classList.add('visible'); }, idx >= 0 ? idx * 100 : 0);
+        // Prefer explicit data-delay attribute; fall back to sibling-index stagger
+        const dataDelay = el.dataset.delay ? parseInt(el.dataset.delay) * 100 : null;
+        const delay = dataDelay !== null ? dataDelay : (idx >= 0 ? idx * 100 : 0);
+        setTimeout(() => { el.classList.remove('pending'); el.classList.add('visible'); }, delay);
         revealObs.unobserve(el);
       });
     }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
@@ -1292,6 +1341,30 @@ Ready for your AI agent.</div>
       });
     }, { threshold: 0.15 });
     document.querySelectorAll('[data-bar-group]').forEach(g => barObs.observe(g));
+
+    /* ── Stat number count-up ──────────────────────── */
+    const statObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const numEl = entry.target.querySelector('.stat-n');
+        if (numEl) {
+          const target = numEl.textContent.trim();
+          const num = parseInt(target);
+          if (!isNaN(num) && num > 0) {
+            let current = 0;
+            const step = Math.ceil(num / 30);
+            const suffix = target.replace(/[\d]/g, '');
+            const intervalId = setInterval(() => {
+              current += step;
+              if (current >= num) { current = num; clearInterval(intervalId); }
+              numEl.textContent = current + suffix;
+            }, 30);
+          }
+        }
+        statObserver.unobserve(entry.target);
+      });
+    }, { threshold: 0.3 });
+    document.querySelectorAll('.stat-card').forEach(el => statObserver.observe(el));
 
     /* ── Terminal typing animation ─────────────────── */
     (function() {
