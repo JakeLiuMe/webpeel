@@ -387,7 +387,7 @@
 
     /* Terminal */
     .hero-terminal {
-      max-width: 880px; margin: 64px auto 0;
+      max-width: 880px; margin: 48px auto 0;
       background: #0C0C0E; border-radius: 16px; overflow: hidden;
       text-align: left; position: relative;
       border: 1px solid rgba(255,255,255,0.08);
@@ -407,7 +407,7 @@
     }
     .terminal-body {
       padding: 24px; font-family: var(--font-mono);
-      font-size: var(--text-sm); line-height: 1.75; min-height: 280px;
+      font-size: var(--text-sm); line-height: 1.75; min-height: 220px; max-height: 320px; overflow-y: auto;
       overflow-x: auto;
     }
     .terminal-cursor { display: inline; color: var(--accent-light); animation: cursorBlink 800ms step-end infinite; }
@@ -426,9 +426,9 @@
     .hero-stats {
       display: flex;
       gap: 40px;
-      margin-top: 48px;
-      padding-top: 32px;
-      padding-bottom: 64px;
+      margin-top: 40px;
+      padding-top: 24px;
+      padding-bottom: 40px;
       border-top: 1px solid rgba(255,255,255,0.08);
       max-width: 880px;
       margin-left: auto;
@@ -511,37 +511,42 @@
 
     /* ── TRUSTED BY STRIP ──────────────────────────── */
     .trusted-strip {
-      padding: 32px 0;
+      padding: 40px 0;
       background: #050507;
+      border-top: 1px solid rgba(255,255,255,0.04);
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
     .trusted-label {
       text-align: center;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: rgba(255,255,255,0.3);
-      margin-bottom: 16px;
+      letter-spacing: 0.1em;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 20px;
     }
     .trusted-logos {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 32px;
+      gap: 40px;
       flex-wrap: wrap;
     }
     .trusted-logo {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
-      color: rgba(255,255,255,0.45);
+      color: rgba(255,255,255,0.5);
       letter-spacing: 0.01em;
       transition: color 200ms ease;
     }
-    .trusted-logo:hover { color: rgba(255,255,255,0.7); }
+    .trusted-logo:hover { color: rgba(255,255,255,0.8); }
+    @media (max-width: 768px) {
+      .trusted-logos { gap: 24px; }
+    }
     @media (max-width: 480px) {
-      .trusted-logos { gap: 20px; }
-      .trusted-logo { font-size: 12px; }
+      .trusted-strip { padding: 28px 0; }
+      .trusted-logos { gap: 16px; }
+      .trusted-logo { font-size: 13px; }
     }
 
     /* ── DEMO SECTION ───────────────────────────────── */
