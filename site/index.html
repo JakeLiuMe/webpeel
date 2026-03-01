@@ -51,7 +51,7 @@
       --text-3: #71717A;           /* was #A1A1AA — boosted for 4.5:1 on white */
       --text-on-dark: #FAFAFA;
       --text-on-dark-2: rgba(255,255,255,0.7);   /* was 0.6 — boosted */
-      --text-on-dark-3: rgba(255,255,255,0.5);   /* was 0.4 — boosted */
+      --text-on-dark-3: rgba(255,255,255,0.55);   /* was 0.4 — boosted */
 
       /* Borders */
       --border: rgba(0,0,0,0.07);
@@ -113,17 +113,27 @@
     }
 
     /* ── HERO ENTRANCE ──────────────────────────────── */
+    /* Content visible by default — JS adds .pending to hide first, then .visible to animate in */
     .hero-el {
+      opacity: 1;
+      transform: none;
+      transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+    }
+    .hero-el.pending {
       opacity: 0;
       transform: translateY(16px);
-      transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
     }
     .hero-el.visible { opacity: 1; transform: translateY(0); }
     .hero-terminal-el {
+      opacity: 1;
+      transform: none;
+      box-shadow: var(--shadow-terminal);
+      transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out), box-shadow 800ms var(--ease-out);
+    }
+    .hero-terminal-el.pending {
       opacity: 0;
       transform: translateY(40px);
       box-shadow: none;
-      transition: opacity 700ms var(--ease-out), transform 700ms var(--ease-out), box-shadow 800ms var(--ease-out);
     }
     .hero-terminal-el.visible {
       opacity: 1;
@@ -215,7 +225,9 @@
       color: rgba(255,255,255,0.72);
       line-height: 1.65; max-width: 540px; margin: 0 auto 36px;
     }
-    @media (max-width: 768px) { .hero-sub { font-size: 16px; line-height: 1.65; } }
+    @media (max-width: 1024px) { .hero h1 { font-size: 72px; } }
+    @media (max-width: 768px) { .hero h1 { font-size: 52px; } .hero-sub { font-size: 16px; line-height: 1.65; } }
+    @media (max-width: 480px) { .hero h1 { font-size: 38px; letter-spacing: -0.03em; } .hero-sub { font-size: 15px; max-width: 100%; } }
     .hero-ctas { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
     .btn-primary {
       display: inline-flex; align-items: center; gap: 6px;
@@ -330,9 +342,13 @@
     @media (max-width: 480px) {
       .hero-mobile-code { font-size: 11.5px; padding: 12px; }
       /* Stats: 2×2 grid on smallest screens */
-      .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; padding: 24px 0 40px; }
+      .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 8px; padding: 24px 0 40px; text-align: center; }
       .hero-stats .dot { display: none; }
-      .hero-stats span { text-align: center; }
+      .hero-stats span { text-align: center; font-size: 12px; }
+      .hero-stats .stat-n { font-size: 15px; }
+      /* demo card compact */
+      .demo-card-wrap { padding: 16px; border-radius: 14px; }
+      .demo-url-display { font-size: 11.5px; padding: 8px 10px; }
     }
 
     /* ── SHARED SECTION STYLES ──────────────────────── */
@@ -503,7 +519,12 @@
       .bar-label { width: 68px; font-size: 12.5px; }
       .bar-val { font-size: 12.5px; width: 42px; }
     }
-    @media (max-width: 480px) { .stat-cards { grid-template-columns: repeat(3, 1fr); gap: 6px; } .stat-card { padding: 14px 10px; } }
+    @media (max-width: 480px) {
+      .stat-cards { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .stat-card { padding: 12px 8px; }
+      .stat-card .stat-n { font-size: clamp(20px, 6vw, 30px); letter-spacing: -0.03em; }
+      .stat-card .stat-l { font-size: 11px; }
+    }
 
     /* ── PRICING ────────────────────────────────────── */
     .pricing-section { padding: var(--space-section) 0; background: var(--bg); border-top: 1px solid var(--border); }
@@ -550,9 +571,9 @@
       mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center/contain no-repeat;
     }
     .price-btn {
-      display: block; text-align: center; padding: 12px;
+      display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px;
       border-radius: 8px; font-size: 14px; font-weight: 500; border: none;
-      width: 100%; transition: opacity 150ms ease, transform 150ms ease; cursor: pointer;
+      width: 100%; min-height: 44px; transition: opacity 150ms ease, transform 150ms ease; cursor: pointer;
     }
     .price-btn:hover { opacity: 0.85; transform: translateY(-1px); }
     .price-btn-filled { background: var(--accent); color: #fff; }
@@ -608,18 +629,40 @@
     .footer-brand { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     .footer-tagline { font-size: 13.5px; color: rgba(255,255,255,0.4); line-height: 1.6; }
     .footer-col h4 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.8); margin-bottom: 16px; }
-    .footer-col a { display: block; font-size: 14px; color: rgba(255,255,255,0.55); margin-bottom: 10px; transition: color 150ms ease; }
+    .footer-col a { display: block; font-size: 14px; color: rgba(255,255,255,0.55); margin-bottom: 8px; padding: 4px 0; transition: color 150ms ease; }
     .footer-col a:hover { color: rgba(255,255,255,0.9); }
     .footer-bottom { margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .footer-bottom p { font-size: 13px; color: rgba(255,255,255,0.28); }
     .footer-bottom a { font-size: 13px; color: rgba(255,255,255,0.28); margin-left: 16px; transition: color 150ms ease; }
     .footer-bottom a:hover { color: rgba(255,255,255,0.6); }
     @media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr 1fr; gap: 28px; } }
-    @media (max-width: 480px) { .footer-grid { grid-template-columns: 1fr 1fr; gap: 20px; } .footer-col a { font-size: 13px; margin-bottom: 8px; } }
+    @media (max-width: 480px) {
+      .footer-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+      .footer-col a { font-size: 14px; margin-bottom: 6px; padding: 5px 0; }
+      .footer-col h4 { font-size: 11px; margin-bottom: 12px; }
+    }
 
     /* ── RESPONSIVE GLOBALS ─────────────────────────── */
-    @media (max-width: 1024px) { :root { --gutter: 28px; } }
-    @media (max-width: 768px) { :root { --gutter: 20px; --space-section: clamp(60px, 10vw, 80px); } }
+    @media (max-width: 1024px) {
+      :root { --gutter: 28px; }
+      .why-inner { gap: 48px; }
+      .how-grid { gap: 28px; }
+      .pricing-grid { gap: 16px; }
+      .price-card { padding: 28px 24px; }
+      .price-card.featured { transform: none; }
+      .price-card.featured:hover { transform: translateY(-4px); }
+    }
+    @media (max-width: 768px) {
+      :root { --gutter: 20px; --space-section: clamp(60px, 10vw, 80px); }
+      .faq-q { min-height: 44px; padding: 14px 0; font-size: 15px; }
+      .demo-card-wrap { padding: 20px; }
+    }
+    @media (max-width: 480px) {
+      :root { --gutter: 16px; }
+      .section-h2 { letter-spacing: -0.02em; }
+      .final-cta { padding: 72px 0; }
+      .final-cta h2 { font-size: clamp(28px, 7vw, 40px); }
+    }
   </style>
 </head>
 <body>
@@ -1185,11 +1228,14 @@ Ready for your AI agent.</div>
     /* ── Hero entrance animation ───────────────────── */
     const heroEls = document.querySelectorAll('.hero-el');
     const termEl = document.querySelector('.hero-terminal-el');
+    /* Content-first: add .pending synchronously to hide, then animate in with .visible */
+    heroEls.forEach(el => el.classList.add('pending'));
+    if (termEl) termEl.classList.add('pending');
     heroEls.forEach(el => {
       const delay = parseInt(el.dataset.delay) || 0;
-      setTimeout(() => el.classList.add('visible'), delay);
+      setTimeout(() => { el.classList.remove('pending'); el.classList.add('visible'); }, delay);
     });
-    if (termEl) setTimeout(() => termEl.classList.add('visible'), 600);
+    if (termEl) setTimeout(() => { termEl.classList.remove('pending'); termEl.classList.add('visible'); }, 600);
 
     /* ── Scroll reveal (progressive enhancement) ──── */
     /* Progressive enhancement: only animate for real users who scroll */
