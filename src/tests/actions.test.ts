@@ -301,6 +301,11 @@ describe('POST /v2/scrape with actions', () => {
     authStore = new InMemoryAuthStore();
     app = express();
     app.use(express.json());
+    // Inject test auth to bypass authentication checks
+    app.use((req: any, _res: any, next: any) => {
+      req.auth = { keyInfo: { accountId: 'test-user'  , key: 'test-key', plan: 'free' } };
+      next();
+    });
     app.use(createFetchRouter(authStore));
   });
 
@@ -398,6 +403,11 @@ describe('POST /v1/fetch with actions', () => {
     authStore = new InMemoryAuthStore();
     app = express();
     app.use(express.json());
+    // Inject test auth to bypass authentication checks
+    app.use((req: any, _res: any, next: any) => {
+      req.auth = { keyInfo: { accountId: 'test-user'  , key: 'test-key', plan: 'free' } };
+      next();
+    });
     app.use(createFetchRouter(authStore));
   });
 

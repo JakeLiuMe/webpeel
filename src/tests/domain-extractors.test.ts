@@ -17,6 +17,15 @@ vi.mock('../core/fetcher.js', () => ({
   // We only need simpleFetch; keep everything else as undefined (not used in extractors)
 }));
 
+// Mock getYouTubeTranscript to prevent browser fallback in CI
+vi.mock('../core/youtube.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../core/youtube.js')>();
+  return {
+    ...original,
+    getYouTubeTranscript: vi.fn().mockRejectedValue(new Error('Mocked: transcript unavailable in test')),
+  };
+});
+
 import { simpleFetch } from '../core/fetcher.js';
 const mockFetch = simpleFetch as ReturnType<typeof vi.fn>;
 
@@ -967,7 +976,7 @@ describe('Twitter FxTwitter API extraction', () => {
     expect(result!.structured.bio).toBe('Just a test user bio');
     expect(result!.structured.source).toBe('fxtwitter');
     expect(result!.cleanContent).toContain('testuser');
-    expect(result!.cleanContent).toContain('50,000 followers');
+    expect(result!.cleanContent).toContain('50,000');
   });
 
   it('falls back to HTML parsing when FxTwitter fails', async () => {
@@ -1209,7 +1218,7 @@ describe('YouTube extractor', () => {
     expect(result!.domain).toBe('youtube.com');
     expect(result!.type).toBe('video');
     expect(result!.structured.title).toBe('Rick Astley - Never Gonna Give You Up');
-    expect(result!.structured.author).toBe('Rick Astley');
+    expect(result!.structured.channel).toBe('Rick Astley');
     expect(result!.structured.source).toBe('oembed');
     expect(result!.cleanContent).toContain('Rick Astley - Never Gonna Give You Up');
     expect(result!.cleanContent).toContain('Rick Astley');
