@@ -212,9 +212,10 @@
     .hero h1 .accent { color: #A5B4FC; }
     .hero-sub {
       font-size: 18px; font-weight: 400;
-      color: rgba(255,255,255,0.7);
+      color: rgba(255,255,255,0.72);
       line-height: 1.65; max-width: 540px; margin: 0 auto 36px;
     }
+    @media (max-width: 768px) { .hero-sub { font-size: 16px; line-height: 1.65; } }
     .hero-ctas { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
     .btn-primary {
       display: inline-flex; align-items: center; gap: 6px;
@@ -328,8 +329,10 @@
     }
     @media (max-width: 480px) {
       .hero-mobile-code { font-size: 11.5px; padding: 12px; }
-      .hero-stats { font-size: 12px; gap: 4px; }
-      .hero-stats .dot { font-size: 8px; }
+      /* Stats: 2×2 grid on smallest screens */
+      .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; padding: 24px 0 40px; }
+      .hero-stats .dot { display: none; }
+      .hero-stats span { text-align: center; }
     }
 
     /* ── SHARED SECTION STYLES ──────────────────────── */
@@ -417,11 +420,11 @@
     }
     .how-step p { font-size: 15px; color: var(--text-2); line-height: 1.65; margin-bottom: 18px; }
     .mini-code {
-      background: #0C0C0E; border-radius: 10px; padding: 15px;
-      font-family: var(--font-mono); font-size: 12.5px; color: #E2E8F0;
+      background: #0C0C0E; border-radius: 10px; padding: 18px;
+      font-family: var(--font-mono); font-size: 13px; color: #E2E8F0;
       word-break: break-word; white-space: pre-wrap;
-      border: 1px solid rgba(255,255,255,0.05); box-shadow: var(--shadow-sm);
-      line-height: 1.65;
+      border: 1px solid rgba(255,255,255,0.07); box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      line-height: 1.7;
     }
     @media (max-width: 768px) { .how-section { padding: 64px 0; } .how-grid { grid-template-columns: 1fr; gap: 40px; margin-top: 48px; } .mini-code { font-size: 12px; overflow-x: auto; } }
     @media (max-width: 480px) { .how-grid { gap: 32px; } .mini-code { font-size: 11px; padding: 12px; } }
@@ -452,10 +455,10 @@
 
     /* Bars */
     .bar-group { margin-bottom: 28px; }
-    .bar-group-title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.5); margin-bottom: 12px; }
+    .bar-group-title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.65); margin-bottom: 12px; letter-spacing: 0.01em; }
     .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
-    .bar-label { width: 80px; font-size: 13px; color: rgba(255,255,255,0.45); flex-shrink: 0; }
-    .bar-label.hl { color: rgba(255,255,255,0.9); font-weight: 600; }
+    .bar-label { width: 80px; font-size: 13px; color: rgba(255,255,255,0.6); flex-shrink: 0; }
+    .bar-label.hl { color: rgba(255,255,255,0.95); font-weight: 600; }
     .bar-track { flex: 1; height: 26px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 4px; width: 0; transition: width 900ms var(--ease-out); }
     .bar-fill.accent { background: var(--accent); }
@@ -471,7 +474,7 @@
     }
     .stat-card:hover { border-color: rgba(88,101,242,0.2); }
     .stat-card .stat-n { font-size: clamp(48px, 6vw, 72px); font-weight: 700; color: #fff; letter-spacing: -0.04em; line-height: 1; }
-    .stat-card .stat-l { font-size: 11.5px; color: rgba(255,255,255,0.4); margin-top: 6px; }
+    .stat-card .stat-l { font-size: 12px; color: rgba(255,255,255,0.55); margin-top: 6px; }
 
     /* Integration chips */
     .why-integrations { padding: 48px 0 0; }
