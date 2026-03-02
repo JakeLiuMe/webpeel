@@ -2646,16 +2646,16 @@
     .hero-stats { gap: 24px !important; }
   }
 
-  /* ══ LOOP-7 ══ */
+  /* ══ LOOP-8 — ABSOLUTE FINAL ══ */
 
-  /* Kicker line above badge */
+  /* Kicker line: higher contrast, proper size */
   .hero-kicker {
-    font-size: 13px !important;
-    font-weight: 500 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.10em !important;
-    color: rgba(255,255,255,0.45) !important;
-    margin: 0 0 12px !important;
+    letter-spacing: 0.12em !important;
+    color: rgba(255,255,255,0.55) !important;
+    margin: 0 0 10px !important;
     text-align: inherit !important;
   }
 
@@ -2668,12 +2668,46 @@
   .hero-mobile-code {
     padding: 0 !important;
     overflow: hidden !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.12),
+      0 16px 40px rgba(0,0,0,0.6),
+      0 0 60px rgba(88,101,242,0.15) !important;
   }
 
-  /* Mobile: center-align hero for single column */
+  /* Gradient seam fix: extend purple glow to cover stats section (bottom of hero) */
+  .hero {
+    background-image:
+      radial-gradient(900px 500px ellipse at 30% 0%, rgba(88,101,242,0.55), transparent 65%),
+      radial-gradient(600px 350px ellipse at 30% 0%, rgba(99,102,241,0.35), transparent 55%),
+      radial-gradient(700px 600px ellipse at 50% 85%, rgba(88,101,242,0.12), transparent 60%),
+      radial-gradient(900px 500px ellipse at 50% 30%, rgba(88,101,242,0.04), transparent 55%),
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px) !important;
+    background-size: auto, auto, auto, auto, 64px 64px, 64px 64px !important;
+  }
+
+  /* Badge: stronger border for better visibility against gradient */
+  .hero-eyebrow {
+    border: 1px solid rgba(255,255,255,0.22) !important;
+    background: rgba(255,255,255,0.08) !important;
+    color: rgba(255,255,255,0.75) !important;
+  }
+
+  /* "One API call." — bold white, no competing blue color */
+  .hero-sub strong {
+    color: rgba(255,255,255,0.90) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Mobile: kicker left-align */
   @media (max-width: 768px) {
     .hero-kicker { text-align: left !important; }
   }
+
+  /* ══ LOOP-7 ══ */
+
+  /* Nav CTA: match hero button border-radius exactly */
 
   /* ══ LOOP-6 — FINAL AUTHORITY (placed last, overrides all) ══ */
 
@@ -2774,6 +2808,65 @@
     padding: 6px 14px !important;
     font-size: 12px !important;
     letter-spacing: 0.02em !important;
+  }
+
+  /* ══ LOOP-8 FINAL ══ (placed LAST — wins all conflicts) */
+
+  /* Kicker line: properly visible */
+  .hero-kicker {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    color: rgba(255,255,255,0.55) !important;
+    margin: 0 0 10px !important;
+  }
+
+  /* "One API call." — white bold, no competing hue, no blue link appearance */
+  .hero-sub strong {
+    color: rgba(255,255,255,0.92) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Badge: stronger border visibility on gradient background */
+  .hero-eyebrow {
+    border: 1px solid rgba(255,255,255,0.24) !important;
+    background: rgba(255,255,255,0.09) !important;
+    color: rgba(255,255,255,0.80) !important;
+  }
+
+  /* Nav CTA: match hero button border-radius */
+  .nav-cta { border-radius: 8px !important; }
+
+  /* Gradient: extend purple to cover full hero height including stats */
+  .hero {
+    background-image:
+      radial-gradient(900px 500px ellipse at 28% 0%, rgba(88,101,242,0.55), transparent 65%),
+      radial-gradient(600px 350px ellipse at 28% 5%, rgba(99,102,241,0.28), transparent 55%),
+      radial-gradient(700px 600px ellipse at 50% 88%, rgba(88,101,242,0.10), transparent 65%),
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px) !important;
+    background-size: auto, auto, auto, 64px 64px, 64px 64px !important;
+  }
+
+  /* Mobile terminal chrome: full width with proper overflow */
+  .hero-mobile-code {
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Mobile: left-align kicker */
+  @media (max-width: 768px) {
+    .hero-kicker { text-align: left !important; }
+  }
+
+  /* Stats: pure white, guaranteed by last rule */
+  .hero-stat-n { color: #FFFFFF !important; }
+
+  /* Social proof links: readable */
+  .hero-trust a, .hero-proof a {
+    opacity: 0.65 !important;
+    font-weight: 500 !important;
   }
 
   </style>
