@@ -2646,6 +2646,107 @@
     .hero-stats { gap: 24px !important; }
   }
 
+  /* ══ LOOP-6 — FINAL AUTHORITY (placed last, overrides all) ══ */
+
+  /* 1 — Stats: white numbers, no color exceptions */
+  .hero-stat-n {
+    color: #FFFFFF !important;
+    font-size: 34px !important;
+    font-weight: 800 !important;
+  }
+
+  /* 2 — Terminal: maximum visible depth (inner top highlight key on dark bg) */
+  .hero-terminal {
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      0 0 0 1px rgba(88,101,242,0.20),
+      0 24px 72px rgba(0,0,0,0.85),
+      0 0 100px rgba(88,101,242,0.22),
+      0 0 180px rgba(88,101,242,0.10) !important;
+  }
+
+  /* 3 — Hero gradient: anchor to LEFT column, not full viewport center */
+  .hero::before {
+    background:
+      radial-gradient(ellipse 70% 65% at 20% 32%, rgba(88,101,242,0.45), transparent 70%),
+      radial-gradient(ellipse 45% 40% at 75% 20%, rgba(88,101,242,0.18), transparent 65%),
+      radial-gradient(ellipse 35% 30% at 50% 70%, rgba(88,101,242,0.08), transparent 60%) !important;
+  }
+
+  /* 4 — Spacing: strict 8px grid for hero left column */
+  .hero-eyebrow {
+    margin-bottom: 24px !important;
+  }
+  .hero h1 {
+    margin-bottom: 20px !important;
+  }
+  .hero-sub {
+    margin-bottom: 0 !important;
+    line-height: 1.7 !important;
+  }
+  .hero-ctas {
+    margin-top: 36px !important;
+  }
+  .hero-cta-note {
+    margin-top: 12px !important;
+  }
+  .hero-proof {
+    margin-top: 24px !important;
+    padding-top: 16px !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+  }
+  .hero-stats {
+    padding-top: 40px !important;
+    margin-top: 40px !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
+    gap: 48px !important;
+  }
+
+  /* 5 — "One API call." — inline with paragraph, no orphan heading */
+  /* Handled in HTML — ensure the strong tag flows with the paragraph text */
+
+  /* 6 — CTA button: exact 8px radius matching nav button */
+  .btn-primary { border-radius: 8px !important; }
+  .hero-ctas .btn-primary { border-radius: 8px !important; }
+
+  /* 7 — Mobile: reduced dead zone */
+  @media (max-width: 768px) {
+    .hero { padding-top: 32px !important; }
+    .hero-grid .hero-content { padding-top: 0 !important; }
+    .hero-eyebrow { margin-bottom: 18px !important; }
+    .hero-ctas { margin-top: 28px !important; }
+    .hero-stat-n { font-size: 26px !important; }
+    .hero-stats { gap: 20px !important; }
+  }
+
+  /* 8 — Social proof links: readable contrast */
+  .hero-trust a, .hero-proof a {
+    opacity: 0.65 !important;
+    font-weight: 500 !important;
+  }
+  .hero-trust a:hover, .hero-proof a:hover {
+    opacity: 1 !important;
+  }
+
+  /* 9 — Stats labels: proper uppercase tracking */
+  .hero-stat-l {
+    font-size: 10px !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    color: rgba(255,255,255,0.35) !important;
+  }
+
+  /* 10 — Badge: clean pill with proper contrast */
+  .hero-eyebrow {
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    background: rgba(255,255,255,0.06) !important;
+    color: rgba(255,255,255,0.70) !important;
+    padding: 6px 14px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.02em !important;
+  }
+
   </style>
 </head>
 <body>
@@ -2687,7 +2788,7 @@
             <span class="hero-el" style="display:block;" data-delay="120">Your AI agent just</span>
             <span class="accent hero-el" style="display:block;" data-delay="200">unlocked the internet.</span>
           </h1>
-          <p class="hero-sub hero-el" data-delay="320">Structured, AI&#8209;ready content from virtually any URL.<br><strong style="color:#818CF8;font-size:20px;font-weight:600;letter-spacing:-0.01em;display:block;margin-top:6px;text-shadow:none;">One API call.</strong></p>
+          <p class="hero-sub hero-el" data-delay="320">Structured, AI&#8209;ready content from virtually any URL. <strong style="color:#818CF8;font-weight:600;font-style:normal;">One API call.</strong></p>
           <div class="hero-ctas hero-el" data-delay="420">
             <a href="https://app.webpeel.dev/signup" class="btn-primary">Start Extracting Free →</a>
             <span class="hero-cta-note">No credit card · 500 fetches/week free · Cancel anytime</span>
