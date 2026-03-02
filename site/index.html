@@ -2593,6 +2593,28 @@
   .hero-trust-live { color: rgba(255,255,255,0.82) !important; font-weight: 600 !important; }
   .hero-trust-sep { color: rgba(255,255,255,0.18) !important; margin: 0 6px !important; }
 
+  /* ══ HTML GLOW ELEMENT (most reliable — not pseudo, not shadow) ══ */
+  .hero-terminal-glow {
+    position: absolute;
+    top: -20%;
+    right: -10%;
+    width: 55%;
+    height: 140%;
+    background: radial-gradient(ellipse 60% 55% at 55% 45%,
+      rgba(88,101,242,0.42) 0%,
+      rgba(99,102,241,0.22) 30%,
+      rgba(88,101,242,0.08) 60%,
+      transparent 80%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Ensure content sits above glow div */
+  .hero-grid .hero-content,
+  .hero-grid .hero-terminal { position: relative; z-index: 1; }
+  @media (max-width: 768px) {
+    .hero-terminal-glow { display: none; }
+  }
+
   </style>
 </head>
 <body>
@@ -2627,7 +2649,9 @@
   <!-- HERO -->
   <section class="hero" id="hero-section">
     <div class="container">
-      <div class="hero-grid">
+      <div class="hero-grid" style="position:relative;">
+        <!-- Terminal atmospheric glow — explicit element, not pseudo, not box-shadow -->
+        <div class="hero-terminal-glow" aria-hidden="true"></div>
         <div class="hero-content">
           <p class="hero-kicker hero-el" data-delay="0">Web Extraction API for AI Agents</p>
           <div class="hero-eyebrow hero-el" data-delay="60">Open Source · 99.9% Uptime · Free Forever</div>
