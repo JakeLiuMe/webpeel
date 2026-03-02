@@ -10,11 +10,11 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://webpeel.dev">
   <meta property="og:title" content="WebPeel — Your AI Can Finally Read Any Website">
-  <meta property="og:description" content="One API call. Any URL. Structured, AI-ready content in milliseconds. Open source, 99.9% uptime.">
+  <meta property="og:description" content="Structured, AI-ready content from virtually any URL. One API call. Open source, 99.9% uptime, 97.6% success rate.">
   <meta property="og:image" content="https://webpeel.dev/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="WebPeel — Your AI Can Finally Read Any Website">
-  <meta name="twitter:description" content="One API call. Any URL. Structured, AI-ready content in milliseconds. Open source, 99.9% uptime.">
+  <meta name="twitter:description" content="Structured, AI-ready content from virtually any URL. One API call. Open source, 99.9% uptime, 97.6% success rate.">
   <meta name="twitter:image" content="https://webpeel.dev/og-image.png">
   <meta name="twitter:creator" content="@webpeel_dev">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -1811,6 +1811,23 @@
       mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
     }
 
+    /* Z-a. Demo tab mobile scroll affordance */
+    @media (max-width: 768px) {
+      .demo-pills {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        justify-content: flex-start !important;
+        padding-bottom: 8px !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
+        mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
+      }
+      .demo-pills::-webkit-scrollbar { display: none !important; }
+      .demo-pill { flex-shrink: 0 !important; white-space: nowrap !important; }
+    }
+
     /* ══ FINAL 0.15pt PUSH ══════════════════════════════ */
 
     /* V. How-steps card vertical breathing room at tablet */
@@ -1970,19 +1987,19 @@
 
       <div class="hero-stats hero-el" data-delay="600">
         <div class="hero-stat">
-          <span class="hero-stat-n">99.9%</span>
+          <span class="hero-stat-n" data-count-to="99.9" data-count-suffix="%" data-count-decimals="1">99.9%</span>
           <span class="hero-stat-l">uptime SLA</span>
         </div>
         <div class="hero-stat">
-          <span class="hero-stat-n">97.6%</span>
+          <span class="hero-stat-n" data-count-to="97.6" data-count-suffix="%" data-count-decimals="1">97.6%</span>
           <span class="hero-stat-l">success rate</span>
         </div>
         <div class="hero-stat">
-          <span class="hero-stat-n">&lt;650ms</span>
+          <span class="hero-stat-n" data-count-to="650" data-count-prefix="<" data-count-suffix="ms">&#60;650ms</span>
           <span class="hero-stat-l">avg latency</span>
         </div>
         <div class="hero-stat">
-          <span class="hero-stat-n">18</span>
+          <span class="hero-stat-n" data-count-to="18">18</span>
           <span class="hero-stat-l">MCP tools built-in</span>
         </div>
       </div>
@@ -2582,8 +2599,39 @@ Ready for your AI agent.</div>
     }, { threshold: 0.15 });
     document.querySelectorAll('[data-bar-group]').forEach(g => barObs.observe(g));
 
-    /* Stat counter removed — was corrupting text ("2-3×" → "2-×", "646ms" → intermediate values).
-       Stat cards already have the reveal animation which is sufficient. */
+    /* ── Stat count-up animation ─────────────────────── */
+    (function() {
+      var counters = document.querySelectorAll('[data-count-to]');
+      if (!counters.length) return;
+      // Respect reduced motion
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var counted = new Set();
+      var countObs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting || counted.has(entry.target)) return;
+          counted.add(entry.target);
+          countObs.unobserve(entry.target);
+          var el = entry.target;
+          var target = parseFloat(el.dataset.countTo);
+          var decimals = parseInt(el.dataset.countDecimals || '0');
+          var prefix = el.dataset.countPrefix || '';
+          var suffix = el.dataset.countSuffix || '';
+          var duration = 1200; // ms
+          var start = performance.now();
+          function ease(t) { return 1 - Math.pow(1 - t, 3); } // easeOutCubic
+          function tick(now) {
+            var elapsed = now - start;
+            var progress = Math.min(elapsed / duration, 1);
+            var val = target * ease(progress);
+            el.textContent = prefix + val.toFixed(decimals) + suffix;
+            if (progress < 1) requestAnimationFrame(tick);
+          }
+          // Small delay for visual effect
+          setTimeout(function() { requestAnimationFrame(tick); }, 200);
+        });
+      }, { threshold: 0.3 });
+      counters.forEach(function(el) { countObs.observe(el); });
+    })();
 
     /* ── Terminal typing animation ─────────────────── */
     (function() {
