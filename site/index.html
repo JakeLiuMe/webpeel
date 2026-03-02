@@ -1539,6 +1539,112 @@
     .footer-col h3 { color: rgba(255,255,255,0.55) !important; font-size: 12px !important; }
     .footer-bottom { margin-top: 48px !important; padding-top: 36px !important; }
 
+    /* ══ FINAL PUSH: 8.7 → 9.5+ ═══════════════════════ */
+
+    /* A. Typography scale differentiation — utility sections slightly smaller */
+    .how-section .section-h2 { font-size: clamp(36px, 5vw, 56px); }
+    .faq-section .section-h2 { font-size: clamp(36px, 5vw, 56px); }
+    .pricing-section .section-h2 { font-size: clamp(40px, 5.5vw, 60px); }
+    /* Why section stays large — it's the centerpiece */
+
+    /* B. Code block unified token — all code blocks get same treatment */
+    .mini-code, .ba-code, .install-card {
+      border-radius: 10px;
+      font-family: var(--font-mono);
+    }
+    .mini-code {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 16px;
+      font-size: 13px;
+    }
+
+    /* C. Nav link hover underline */
+    .nav-links a {
+      position: relative;
+    }
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: 10px;
+      left: 8px;
+      right: 8px;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+      transform: scaleX(0);
+      transform-origin: center;
+      transition: transform 200ms var(--ease-out);
+    }
+    .nav-links a:hover::after { transform: scaleX(1); }
+    .nav-links a.ext::after,
+    .nav-links a.nav-cta::after { display: none; }  /* no underline on external/CTA */
+
+    /* D. Price badge border for depth */
+    .price-badge {
+      border: 1px solid rgba(88,101,242,0.5) !important;
+      box-shadow: 0 4px 12px rgba(88,101,242,0.4) !important;
+    }
+
+    /* E. Mobile sticky CTA bar */
+    .mobile-sticky-cta {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px var(--gutter);
+      background: rgba(9,9,11,0.90);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      z-index: 100;
+      transform: translateY(100%);
+      transition: transform 300ms var(--ease-out);
+    }
+    .mobile-sticky-cta.visible { transform: translateY(0); }
+    .mobile-sticky-cta .btn-primary {
+      width: 100%;
+      justify-content: center;
+      min-height: 52px;
+      font-size: 16px;
+    }
+    @media (max-width: 768px) {
+      .mobile-sticky-cta { display: block; }
+    }
+    @media (min-width: 769px) {
+      .mobile-sticky-cta { display: none !important; }
+    }
+
+    /* F. Mobile code block horizontal scroll */
+    @media (max-width: 768px) {
+      .mini-code {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: pre;
+        max-width: 100%;
+      }
+      .ba-code {
+        font-size: 12px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+    }
+    @media (max-width: 480px) {
+      .mini-code { font-size: 12px; padding: 12px; }
+    }
+
+    /* G. Mobile bar chart separator */
+    @media (max-width: 768px) {
+      .before-after { margin-bottom: 40px; padding-bottom: 32px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    }
+
+    /* H. Tabular numbers on all stats */
+    .stat-card .stat-n,
+    .price-amount,
+    .bar-val,
+    .hero-stat-n { font-feature-settings: 'tnum' 1; font-variant-numeric: tabular-nums; }
+
   </style>
 </head>
 <body>
@@ -1984,6 +2090,11 @@ Ready for your AI agent.</div>
     </div>
   </footer>
 
+  <!-- Mobile sticky CTA (hidden on desktop, shows on scroll on mobile) -->
+  <div class="mobile-sticky-cta" id="mobile-sticky-cta">
+    <a href="https://app.webpeel.dev/signup" class="btn-primary">Start Extracting Free →</a>
+  </div>
+
   <script>
   /* ── DEMO ─────────────────────────────────────────── */
   (function() {
@@ -2338,6 +2449,28 @@ Ready for your AI agent.</div>
       }
 
       startTyping();
+    })();
+
+    /* ── Mobile sticky CTA ──────────────────────────── */
+    (function() {
+      var stickyCta = document.getElementById('mobile-sticky-cta');
+      if (!stickyCta) return;
+      var heroSection = document.getElementById('hero-section');
+      if (!heroSection) return;
+      var shown = false;
+      var ticking = false;
+      function checkSticky() {
+        var heroBottom = heroSection.getBoundingClientRect().bottom;
+        var shouldShow = heroBottom < 0;
+        if (shouldShow !== shown) {
+          shown = shouldShow;
+          stickyCta.classList.toggle('visible', shown);
+        }
+        ticking = false;
+      }
+      window.addEventListener('scroll', function() {
+        if (!ticking) { ticking = true; requestAnimationFrame(checkSticky); }
+      }, { passive: true });
     })();
 
   })();
