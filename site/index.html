@@ -315,7 +315,7 @@
     }
     @media (max-width: 768px) { .hero h1 { font-size: 52px; } .hero-sub { font-size: var(--text-base); line-height: 1.65; } }
     @media (max-width: 480px) { .hero h1 { font-size: 38px; letter-spacing: -0.03em; } .hero-sub { font-size: 16px; max-width: 100%; } }
-    .hero-ctas { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+    .hero-ctas { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
     .btn-primary {
       display: inline-flex; align-items: center; gap: 8px;
       background: linear-gradient(180deg, #6B73FF 0%, #5865F2 50%, #4752C4 100%); color: #fff;
@@ -1864,6 +1864,23 @@
       .hero-stat-l { font-size: 10px !important; }
     }
 
+    /* ══ HERO BACKGROUND GLOW ═══════════════════════════ */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 10%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(ellipse 100% 100% at 40% 50%, rgba(107,115,255,0.25), transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero .container {
+      position: relative;
+      z-index: 1;
+    }
+
     /* ══ HERO TWO-COLUMN GRID ═══════════════════════════ */
     .hero-grid {
       display: grid;
@@ -2110,7 +2127,7 @@
             <span class="hero-el" style="display:block;" data-delay="120">Your AI agent just</span>
             <span class="accent hero-el" style="display:block;" data-delay="200">unlocked the internet.</span>
           </h1>
-          <p class="hero-sub hero-el" data-delay="320">Structured, AI&#8209;ready content from virtually any URL.<br><strong style="color:#6B73FF;font-size:20px;font-weight:700;letter-spacing:-0.01em;display:block;margin-top:12px;">One API call.</strong></p>
+          <p class="hero-sub hero-el" data-delay="320">Structured, AI&#8209;ready content from virtually any URL.<br><strong style="color:#6B73FF;font-size:24px;font-weight:700;letter-spacing:-0.02em;display:block;margin-top:8px;">One API call.</strong></p>
           <div class="hero-ctas hero-el" data-delay="420">
             <a href="https://app.webpeel.dev/signup" class="btn-primary">Start Extracting Free →</a>
             <span class="hero-cta-note">No credit card · 500 fetches/week free · Cancel anytime</span>
