@@ -413,7 +413,7 @@
     }
     .terminal-body {
       padding: 20px; font-family: var(--font-mono);
-      font-size: var(--text-sm); line-height: 1.7; min-height: 180px; max-height: 260px; overflow-y: auto;
+      font-size: var(--text-sm); line-height: 1.65; min-height: 180px; max-height: 240px; overflow-y: auto;
       overflow-x: auto;
     }
     .terminal-cursor { display: inline; color: var(--accent-light); animation: cursorBlink 800ms step-end infinite; }
@@ -2085,25 +2085,18 @@
         </div>
         <div class="terminal-body" id="terminal-body">
           <div id="terminal-static">
-            <div><span class="t-prompt">$</span> <span class="t-cmd">curl "https://api.webpeel.dev/v1/fetch?url=https://stripe.com" \</span></div>
-            <div style="padding-left:16px"><span class="t-cmd">&nbsp;&nbsp;&nbsp;&nbsp;-H "Authorization: Bearer wp_live_..." | jq .</span></div>
+            <div><span class="t-prompt">$</span> <span class="t-cmd">curl "https://api.webpeel.dev/v1/fetch?url=stripe.com" \</span></div>
+            <div style="padding-left:16px"><span class="t-cmd">&nbsp;&nbsp;&nbsp;&nbsp;-H "Authorization: Bearer wp_live_..."</span></div>
             <br>
-            <div>
-              <div><span class="t-dim">{</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"url"</span><span class="t-dim">:</span> <span class="t-str">"https://stripe.com"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Stripe | Financial Infrastructure"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"tokens"</span><span class="t-dim">:</span> <span class="t-num">2847</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"elapsed"</span><span class="t-dim">:</span> <span class="t-num">412</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"method"</span><span class="t-dim">:</span> <span class="t-str">"auto"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"content"</span><span class="t-dim">:</span> <span class="t-str">"# Stripe | Financial Infrastructure\n\nStripe is a technology..."</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"metadata"</span><span class="t-dim">:</span> <span class="t-dim">{</span></div>
-              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"description"</span><span class="t-dim">:</span> <span class="t-str">"Online payment processing for internet businesses..."</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"author"</span><span class="t-dim">:</span> <span class="t-str">"Stripe"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"wordCount"</span><span class="t-dim">:</span> <span class="t-num">2847</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="t-key">"readingTime"</span><span class="t-dim">:</span> <span class="t-str">"12 min read"</span></div>
-              <div>&nbsp;&nbsp;<span class="t-dim">}</span></div>
-              <div><span class="t-dim">}</span></div>
-            </div>
+            <div><span class="t-dim">{</span></div>
+            <div>&nbsp;&nbsp;<span class="t-key">"url"</span><span class="t-dim">:</span> <span class="t-str">"https://stripe.com"</span><span class="t-dim">,</span></div>
+            <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Stripe | Financial Infrastructure"</span><span class="t-dim">,</span></div>
+            <div>&nbsp;&nbsp;<span class="t-key">"tokens"</span><span class="t-dim">:</span> <span class="t-num">2847</span><span class="t-dim">,</span></div>
+            <div>&nbsp;&nbsp;<span class="t-key">"elapsed"</span><span class="t-dim">:</span> <span class="t-num">412</span><span class="t-dim">,</span></div>
+            <div>&nbsp;&nbsp;<span class="t-key">"method"</span><span class="t-dim">:</span> <span class="t-str">"cloudflare-bypass"</span><span class="t-dim">,</span></div>
+            <div>&nbsp;&nbsp;<span class="t-key">"content"</span><span class="t-dim">:</span> <span class="t-str">"# Stripe | Financial Infrastructure\n\nStripe is a technology..."</span></div>
+            <div><span class="t-dim">}</span></div>
+            <div><span class="terminal-cursor">|</span></div>
           </div>
           <div style="display:none" id="terminal-dynamic"></div>
         </div>
