@@ -3991,6 +3991,113 @@
     animation: pulse-dot 2s ease-in-out infinite;
   }
 
+  /* ══ POLISH-13: mobile layout overhaul, glow containment, spacing fix ══ */
+
+  /* --- MOBILE OVERHAUL (max-width: 768px) --- */
+  @media (max-width: 768px) {
+
+    /* A. Hero section: contain glow, kill excess padding */
+    section.hero { overflow: hidden !important; padding-bottom: 32px !important; }
+
+    /* B. Re-order: code block right after CTA (order 6), push note/trust down */
+    .hero-mobile-code {
+      display: block !important;
+      order: 6 !important;
+      width: 100% !important;
+      margin: 16px 0 0 !important;
+      max-height: 130px !important;
+      overflow: hidden !important;
+      position: relative !important;
+      border-radius: 10px !important;
+      background: rgba(8,8,16,0.95) !important;
+      border: 1px solid rgba(255,255,255,0.10) !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.40) !important;
+    }
+    /* Fade-out gradient at bottom of truncated code block */
+    .hero-mobile-code::after {
+      content: '' !important;
+      display: block !important;
+      position: absolute !important;
+      bottom: 0 !important; left: 0 !important; right: 0 !important;
+      height: 32px !important;
+      background: linear-gradient(to bottom, transparent, rgba(8,8,16,0.98)) !important;
+      pointer-events: none !important;
+    }
+    .hero-cta-note {
+      order: 7 !important;
+      margin: 10px 0 0 !important;
+      padding: 0 !important;
+    }
+    .hero-trust {
+      order: 8 !important;
+      margin: 12px 0 0 !important;
+      padding: 0 !important;
+    }
+
+    /* C. Tighten ALL vertical gaps between hero elements */
+    .hero-kicker { margin: 0 0 8px !important; padding: 0 !important; }
+    .hero-eyebrow { margin: 0 0 12px !important; padding: 0 !important; }
+    .hero h1 { margin: 0 0 10px !important; padding: 0 !important; }
+    .hero-sub { margin: 0 0 0 !important; padding: 0 !important; }
+    .hero-ctas { margin: 18px 0 0 !important; padding: 0 !important; }
+
+    /* D. Stats section: tighter on mobile */
+    .hero-stats-section { padding: 0 !important; margin-top: 24px !important; }
+    .hero-stats { margin: 0 !important; padding: 16px 0 !important; }
+    .hero-stats-divider { margin: 0 !important; }
+
+    /* E. Compat strip: compact on mobile */
+    .hero-compat { margin: 16px 0 0 !important; padding: 0 !important; }
+  }
+
+  /* --- DESKTOP FIXES (min-width: 769px) --- */
+  @media (min-width: 769px) {
+
+    /* F. Hero section: contain glow bleed into nav */
+    section.hero { overflow: hidden !important; }
+
+    /* G. Hero grid: tighten gap, better alignment */
+    .hero-grid {
+      gap: 40px !important;
+      align-items: center !important;
+    }
+
+    /* H. Left column: content starts higher, less dead space */
+    .hero-grid .hero-content {
+      padding-top: 0 !important;
+    }
+
+    /* I. Hero sub: eliminate excess margin */
+    .hero-sub { margin: 16px 0 28px !important; }
+
+    /* J. CTA note: tighter to button */
+    .hero-cta-note { margin-top: 10px !important; }
+
+    /* K. Trust bar: tighter to CTA note */
+    .hero-trust { margin-top: 8px !important; }
+
+    /* L. Stats section: tighter */
+    .hero-stats-section { padding-top: 0 !important; margin-top: 8px !important; }
+  }
+
+  /* --- GLOBAL POLISH --- */
+
+  /* M. Nav Sign In: better contrast */
+  .nav-cta {
+    background: rgba(99,102,241,0.85) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+  }
+
+  /* N. Stats bar: normalize all numbers to same weight/size */
+  .hero-stat-n {
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    font-variant-numeric: tabular-nums !important;
+  }
+
+  /* O. Dot grid: clip to hero only — hero already overflow:hidden now */
+
   /* ══ POLISH-12: pill CTA, mobile code block restore, social proof upgrade ══ */
 
   /* 1. Primary CTA: full pill — confident, modern (Vercel/Railway/Resend pattern) */
