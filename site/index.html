@@ -2852,7 +2852,14 @@ Ready for your AI agent.</div>
         setTimeout(tick, 800);
       }
 
-      startTyping();
+      // Only start typing animation on user hover — static content shows first (better for screenshots/crawlers)
+      const termBody = document.getElementById('terminal-body');
+      let animStarted = false;
+      if (termBody) {
+        termBody.addEventListener('mouseenter', function() {
+          if (!animStarted) { animStarted = true; startTyping(); }
+        }, { once: true });
+      }
     })();
 
     /* ── Pricing scroll dots ────────────────────────── */
