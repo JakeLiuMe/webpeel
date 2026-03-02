@@ -2609,24 +2609,20 @@
 
   /* ══ MOBILE DEMO SECTION FIXES ══ */
   @media (max-width: 768px) {
-    /* Override line-1155 overflow:hidden to allow pill scroll */
-    .demo-card-wrap {
+    /* Pills WRAP into 2 rows — simpler than scroll */
+    .demo-pills {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      gap: 6px !important;
+      justify-content: center !important;
       overflow: visible !important;
     }
-    /* Scrollable pill row — no clipping */
-    .demo-pills {
-      flex-wrap: nowrap !important;
-      overflow-x: auto !important;
-      -webkit-overflow-scrolling: touch !important;
-      scrollbar-width: none !important;
-      justify-content: flex-start !important;
-      padding: 0 0 6px 0 !important;
-      margin-left: -4px !important;
-    }
-    .demo-pills::-webkit-scrollbar { display: none !important; }
     .demo-pill {
       flex-shrink: 0 !important;
       white-space: nowrap !important;
+      font-size: 12px !important;
+      padding: 6px 12px !important;
+      min-height: 34px !important;
     }
     /* URL display — truncate cleanly, don't overflow */
     .demo-url-display {
@@ -2650,19 +2646,54 @@
     }
   }
 
-  /* ══ MOBILE STATS LABELS FIX ══ */
+  /* ══ MOBILE READABILITY FIXES ══ */
   @media (max-width: 768px) {
+    /* Stats labels */
     .hero-stat-l {
       font-size: 10px !important;
-      opacity: 0.70 !important;
-      color: rgba(255,255,255,0.70) !important;
+      opacity: 1 !important;
+      color: rgba(255,255,255,0.65) !important;
     }
+    /* Trust/proof text */
     .hero-proof {
-      color: rgba(255,255,255,0.60) !important;
-      font-size: 12px !important;
+      color: rgba(255,255,255,0.65) !important;
+      font-size: 13px !important;
     }
     .hero-stats-note {
       color: rgba(255,255,255,0.50) !important;
+    }
+    /* CTA trust line — was nearly invisible */
+    .hero-cta-note {
+      color: rgba(255,255,255,0.50) !important;
+      font-size: 12px !important;
+      margin-top: 12px !important;
+    }
+    /* Social proof row */
+    .hero-trust {
+      font-size: 12px !important;
+    }
+    .hero-trust a {
+      color: rgba(255,255,255,0.60) !important;
+    }
+    /* How It Works code blocks — prevent overflow */
+    .how-step .mini-code,
+    .how-step pre,
+    .how-step code {
+      font-size: 11px !important;
+      overflow-x: auto !important;
+      white-space: pre !important;
+      word-break: normal !important;
+      max-width: 100% !important;
+    }
+    /* How It Works cards — contain overflow */
+    .how-step {
+      overflow: hidden !important;
+    }
+    /* Demo chips — bigger tap targets */
+    .demo-chip {
+      min-height: 34px !important;
+      padding: 6px 12px !important;
+      font-size: 12px !important;
     }
   }
 
