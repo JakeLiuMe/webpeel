@@ -1810,6 +1810,41 @@
       mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
     }
 
+    /* ══ FINAL 0.15pt PUSH ══════════════════════════════ */
+
+    /* V. How-steps card vertical breathing room at tablet */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .how-step { padding: 32px 28px !important; }
+      .how-grid { gap: 32px; margin-top: 48px; }
+    }
+
+    /* W. FAQ mobile — tighter item spacing */
+    @media (max-width: 768px) {
+      .faq-item { margin-bottom: 8px !important; padding: 4px 0 !important; }
+      .faq-q { min-height: 52px !important; padding: 14px 18px !important; }
+    }
+
+    /* X. Section connective tissue — stronger gradient between why+pricing */
+    .why-section::after {
+      left: 10% !important;
+      right: 10% !important;
+      background: linear-gradient(90deg, transparent, rgba(88,101,242,0.25), transparent) !important;
+    }
+    .pricing-section::after {
+      background: linear-gradient(90deg, transparent, rgba(88,101,242,0.20), transparent) !important;
+    }
+
+    /* Y. Hero stats 2x2 at all mobile sizes */
+    @media (max-width: 768px) {
+      .hero-stats { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 20px !important; justify-items: center !important; }
+      .hero-stat { text-align: center !important; }
+    }
+    @media (max-width: 480px) {
+      .hero-stats { gap: 16px !important; }
+      .hero-stat-n { font-size: 22px !important; }
+      .hero-stat-l { font-size: 10px !important; }
+    }
+
   </style>
 </head>
 <body>
