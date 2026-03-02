@@ -318,8 +318,9 @@
     .hero h1 .accent { color: var(--accent-pale); }
     .hero-sub {
       font-size: 18px; font-weight: 400;
-      color: rgba(255,255,255,0.75);
+      color: rgba(255,255,255,0.78);
       line-height: 1.7; max-width: 560px; margin: 16px auto 28px;
+      letter-spacing: -0.005em;
     }
     @media (max-width: 768px) { .hero h1 { font-size: 52px; } .hero-sub { font-size: var(--text-base); line-height: 1.65; } }
     @media (max-width: 480px) { .hero h1 { font-size: 38px; letter-spacing: -0.03em; } .hero-sub { font-size: 16px; max-width: 100%; } }
@@ -1383,7 +1384,7 @@
 
     /* 13. CTA button full width on 480px */
     @media (max-width: 480px) {
-      .final-cta-btn { width: 100%; justify-content: center; }
+      .final-cta-btn { width: 100%; justify-content: center; min-height: 56px; padding: 16px 24px; font-size: 17px; }
       .hero-ctas .btn-primary { width: 100%; justify-content: center; }
     }
 
