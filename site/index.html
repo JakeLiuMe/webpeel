@@ -3584,10 +3584,10 @@
     color: #E2E8F0;
   }
   .hdw-cmd-line { margin-bottom: 12px; min-height: 1.5em; color: rgba(255,255,255,0.85); white-space: pre; }
-  .hdw-output .t-key { color: #7DD3FC; }
-  .hdw-output .t-str { color: #86EFAC; }
-  .hdw-output .t-num { color: #FCA5A5; }
-  .hdw-output .t-dim { color: rgba(255,255,255,0.35); }
+  .hdw-output .t-key { color: #93C5FD !important; }
+  .hdw-output .t-str { color: #6EE7B7 !important; }
+  .hdw-output .t-num { color: #F9A8D4 !important; }
+  .hdw-output .t-dim { color: rgba(255,255,255,0.40) !important; }
   .hdw-footer {
     padding: 10px 20px 14px;
     border-top: 1px solid rgba(255,255,255,0.05);
@@ -3833,10 +3833,10 @@
 
   /* ══ FINAL-10: grid bg, widget depth, button contrast, social proof ══ */
 
-  /* Hero: dot grid (visible in dark areas) + directional glow */
+  /* Hero: dot grid (clearly visible) + directional glow */
   .hero {
     background:
-      radial-gradient(circle, rgba(255,255,255,0.065) 1px, transparent 1px),
+      radial-gradient(circle, rgba(255,255,255,0.10) 1.5px, transparent 1.5px),
       radial-gradient(ellipse 900px 550px at 18% 45%, rgba(99,102,241,0.11) 0%, rgba(99,102,241,0.03) 50%, transparent 72%),
       radial-gradient(circle at 88% 12%, rgba(139,92,246,0.07) 0%, transparent 42%),
       #050507 !important;
@@ -3845,16 +3845,16 @@
   @media (max-width: 768px) {
     .hero {
       background:
-        radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px),
         radial-gradient(circle at 20% 55%, rgba(99,102,241,0.09) 0%, transparent 65%),
         #050507 !important;
       background-size: 24px 24px, 100% 100%, 100% 100% !important;
     }
   }
 
-  /* Demo widget: premium depth — stronger border, shadow, inner glow */
+  /* Demo widget: premium depth — lighter bg for perceived lift off page */
   .hero-demo-widget {
-    background: rgba(12,12,22,0.92) !important;
+    background: #0F0F1C !important;
     border: 1px solid rgba(255,255,255,0.14) !important;
     backdrop-filter: blur(20px) !important;
     -webkit-backdrop-filter: blur(20px) !important;
