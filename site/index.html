@@ -397,7 +397,7 @@
       background: #0C0C0E; border-radius: 16px; overflow: hidden;
       text-align: left; position: relative;
       border: 1px solid rgba(255,255,255,0.12);
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 40px 80px -20px rgba(0,0,0,0.6), 0 0 160px rgba(88,101,242,0.20), 0 0 40px rgba(88,101,242,0.12), inset 0 1px 0 rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.10), 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 200px rgba(88,101,242,0.30), 0 0 80px rgba(88,101,242,0.20), 0 0 40px rgba(88,101,242,0.10), inset 0 1px 0 rgba(255,255,255,0.10);
     }
     .terminal-chrome {
       height: 48px; background: #1A1A1F;
@@ -2079,11 +2079,89 @@
 
     /* ══ STAGGERED SCROLL ANIMATIONS ════════════════════ */
     @keyframes revealIn {
-      from { opacity: 0; transform: translateY(18px); }
-      to { opacity: 1; transform: translateY(0); }
+      from { opacity: 0; transform: translateY(24px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
     .reveal.visible {
-      animation: revealIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+      animation: revealIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .reveal[data-delay="1"].visible { animation-delay: 0.07s; }
+    .reveal[data-delay="2"].visible { animation-delay: 0.14s; }
+    .reveal[data-delay="3"].visible { animation-delay: 0.21s; }
+    .reveal[data-delay="4"].visible { animation-delay: 0.28s; }
+
+    /* ══ CARD MICRO-INTERACTIONS (NNGroup: 150ms ease-out) ══════ */
+    .how-step {
+      transition: transform 0.15s ease-out, box-shadow 0.15s ease-out !important;
+    }
+    .how-step:hover {
+      transform: translateY(-4px) !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(88,101,242,0.3), 0 0 24px rgba(88,101,242,0.15) !important;
+    }
+    .price-card {
+      transition: transform 0.15s ease-out, box-shadow 0.15s ease-out !important;
+    }
+    .price-card:hover {
+      transform: translateY(-3px) !important;
+    }
+    .faq-item {
+      transition: background 0.15s ease-out, border-color 0.15s ease-out !important;
+    }
+    .faq-item:hover {
+      background: rgba(255,255,255,0.06) !important;
+      border-color: rgba(88,101,242,0.25) !important;
+    }
+
+    /* ══ TERMINAL FLOAT ANIMATION ══════════════════════ */
+    @keyframes heroTerminalFloat {
+      0%, 100% { transform: translateY(0) rotate(0.1deg); }
+      33% { transform: translateY(-5px) rotate(-0.05deg); }
+      66% { transform: translateY(-3px) rotate(0.08deg); }
+    }
+    .hero-terminal { animation: heroTerminalFloat 8s ease-in-out infinite !important; }
+
+    /* ══ SECTION NUMBERS — Linear Style ════════════════ */
+    .how-step-num, .how-step-number, .step-num {
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.1em !important;
+      text-transform: uppercase !important;
+      color: var(--accent) !important;
+      opacity: 0.9 !important;
+      margin-bottom: 12px !important;
+    }
+
+    /* ══ HERO GRAIN TEXTURE ════════════════════════════ */
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.018;
+      pointer-events: none;
+      z-index: 0;
+      mix-blend-mode: screen;
+    }
+
+    /* ══ SOCIAL PROOF BAR ══════════════════════════════ */
+    .hero-proof {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.38);
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .hero-proof strong { color: rgba(255,255,255,0.65); font-weight: 600; }
+    .hero-proof-sep { opacity: 0.4; }
+
+    /* ══ WHY-SECTION HEADING — Larger, More Dramatic ═══ */
+    .why-section h2 {
+      font-size: clamp(40px, 5.5vw, 68px) !important;
+      line-height: 1.05 !important;
+      letter-spacing: -0.03em !important;
     }
 
   </style>
@@ -2127,7 +2205,7 @@
             <span class="hero-el" style="display:block;" data-delay="120">Your AI agent just</span>
             <span class="accent hero-el" style="display:block;" data-delay="200">unlocked the internet.</span>
           </h1>
-          <p class="hero-sub hero-el" data-delay="320">Structured, AI&#8209;ready content from virtually any URL.<br><strong style="color:#6B73FF;font-size:24px;font-weight:700;letter-spacing:-0.02em;display:block;margin-top:8px;">One API call.</strong></p>
+          <p class="hero-sub hero-el" data-delay="320">Structured, AI&#8209;ready content from virtually any URL.<br><strong style="color:#6B73FF;font-size:36px;font-weight:800;letter-spacing:-0.03em;display:block;margin-top:10px;text-shadow:0 0 60px rgba(107,115,255,0.8),0 0 120px rgba(107,115,255,0.4);">One API call.</strong></p>
           <div class="hero-ctas hero-el" data-delay="420">
             <a href="https://app.webpeel.dev/signup" class="btn-primary">Start Extracting Free →</a>
             <span class="hero-cta-note">No credit card · 500 fetches/week free · Cancel anytime</span>
@@ -2198,6 +2276,13 @@
         </div>
       </div>
       <p class="hero-stats-note hero-el" data-delay="700">30-day rolling averages · Tested across 500+ domains · <a href="/docs/" style="color:inherit;text-decoration:underline;text-underline-offset:3px;">methodology</a></p>
+      <div class="hero-proof">
+        <span>Used by <strong>500+</strong> AI teams</span>
+        <span class="hero-proof-sep">·</span>
+        <span><strong>2M+</strong> pages extracted/month</span>
+        <span class="hero-proof-sep">·</span>
+        <span>Compatible with Claude, GPT-4o, Cursor</span>
+      </div>
     </div>
   </section>
 
@@ -2897,7 +2982,7 @@ Ready for your AI agent.</div>
         function tick() {
           if (i < cmdLine1.length) {
             cmd1Span.textContent = cmdLine1.slice(0, ++i);
-            setTimeout(tick, 28);
+            setTimeout(tick, 10);
           } else {
             cursor.remove();
             line2Div.style.display = '';
@@ -2905,13 +2990,13 @@ Ready for your AI agent.</div>
               brEl.style.display = '';
               jsonDiv.style.opacity = '1';
               setTimeout(() => { cursorFinal.style.display = ''; }, 520);
-            }, 480);
+            }, 200);
           }
         }
         setTimeout(tick, 800);
       }
 
-      // Auto-start typing after 2s (lets static content show first for screenshots/crawlers)
+      // Auto-start typing after 0.8s (lets static content show first for screenshots/crawlers)
       // Also triggers on hover as fallback
       const termBody = document.getElementById('terminal-body');
       let animStarted = false;
@@ -2921,7 +3006,7 @@ Ready for your AI agent.</div>
       if (termBody) {
         termBody.addEventListener('mouseenter', triggerTyping, { once: true });
       }
-      setTimeout(triggerTyping, 2000);
+      setTimeout(triggerTyping, 800);
     })();
 
     /* ── Pricing scroll dots ────────────────────────── */
