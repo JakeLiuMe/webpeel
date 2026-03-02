@@ -233,7 +233,7 @@
     .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 64px; }
     .nav-logo {
       display: flex; align-items: center; gap: 8px;
-      font-size: var(--text-base); font-weight: 600; letter-spacing: -0.01em; color: #fff;
+      font-size: 17px; font-weight: 700; letter-spacing: -0.015em; color: #fff;
       min-height: 44px; transition: color 250ms ease;
       text-shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
@@ -1738,7 +1738,14 @@
 
     /* ══ PRECISION FINAL PASS: 9.3 → 9.5+ ══════════════ */
 
-    /* O. Stats row — declare the numbers, whisper the labels */
+    /* O. Stats row — declare the numbers, whisper the labels + dividers */
+    .hero-stat + .hero-stat {
+      border-left: 1px solid rgba(255,255,255,0.08);
+      padding-left: 40px;
+    }
+    @media (max-width: 768px) {
+      .hero-stat + .hero-stat { border-left: none; padding-left: 0; }
+    }
     .hero-stat-l {
       font-size: 11px !important;
       color: rgba(255,255,255,0.45) !important;
@@ -1825,7 +1832,7 @@
         mask-image: linear-gradient(to right, black 85%, transparent 100%) !important;
       }
       .demo-pills::-webkit-scrollbar { display: none !important; }
-      .demo-pill { flex-shrink: 0 !important; white-space: nowrap !important; }
+      .demo-pill { flex-shrink: 0 !important; white-space: nowrap !important; min-height: 44px !important; padding: 8px 14px !important; font-size: 14px !important; }
     }
 
     /* ══ FINAL 0.15pt PUSH ══════════════════════════════ */
