@@ -3865,7 +3865,7 @@
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
     color: transparent !important;
-    filter: drop-shadow(0 0 6px rgba(96,165,250,0.40)) !important;
+    filter: none !important;
   }
 
   /* Mobile: boost gradient saturation + strengthen glow */
@@ -3875,7 +3875,7 @@
       -webkit-text-fill-color: rgba(255,255,255,0.45) !important;
     }
     .hero h1 .accent {
-      filter: drop-shadow(0 0 6px rgba(96,165,250,0.45)) !important;
+      filter: none !important;
     }
   }
 
@@ -3900,6 +3900,10 @@
   /* Kill ALL purple glow pseudo-elements on hero-grid — zero tolerance */
   .hero-grid::after { display: none !important; }
   .hero-grid::before { display: none !important; }
+  /* Kill the 200px indigo box-shadow glow on .hero-terminal (line 400 base CSS) */
+  .hero-terminal {
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 24px 48px -12px rgba(0,0,0,0.70), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+  }
 
   /* === NAV === */
   nav {
