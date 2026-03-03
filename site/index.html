@@ -3843,7 +3843,7 @@
     font-weight: 800 !important;
     font-size: 1em !important;
     letter-spacing: -0.025em !important;
-    background: linear-gradient(135deg, #E0E7FF 0%, #A5B4FC 45%, #818CF8 100%) !important;
+    background: linear-gradient(90deg, #C7D2FE 0%, #818CF8 40%, #A78BFA 70%, #C4B5FD 100%) !important;
     -webkit-background-clip: text !important;
     -webkit-text-fill-color: transparent !important;
     background-clip: text !important;
@@ -4128,7 +4128,7 @@
   <span class="hero-trust-sep">·</span>
   <a href="https://github.com/webpeel/webpeel" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.72);font-size:13px;font-weight:500;">GitHub ↗</a>
 </div>
-          <!-- Mobile widget: same visual identity as desktop hero-demo-widget -->
+          <!-- Mobile widget: full visual identity match with desktop hero-demo-widget -->
           <div class="hero-mobile-code hero-el" data-delay="600">
             <div class="hdw-chrome">
               <div class="hdw-dots">
@@ -4138,17 +4138,20 @@
               </div>
               <div class="hdw-tabs" style="pointer-events:none;">
                 <span class="hdw-tab active">stripe.com</span>
-                <span class="hdw-tab" style="opacity:0.40;">wikipedia</span>
-                <span class="hdw-tab" style="opacity:0.40;">hackernews</span>
+                <span class="hdw-tab" style="opacity:0.38;">wikipedia</span>
+                <span class="hdw-tab" style="opacity:0.38;">hackernews</span>
               </div>
+            </div>
+            <div class="hdw-input-row" style="pointer-events:none;">
+              <input type="text" class="hdw-url-input" value="https://stripe.com" readonly tabindex="-1" aria-hidden="true">
+              <button class="hdw-run-btn" tabindex="-1" aria-hidden="true" style="pointer-events:none;">Extract →</button>
             </div>
             <div class="hdw-body">
               <div class="hdw-cmd-line">$ curl "api.webpeel.dev/v1/fetch?url=stripe.com"</div>
               <div><span class="t-dim">{</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Stripe | Financial Infrastructure"</span><span class="t-dim">,</span></div>
+              <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Stripe | Financial Infra…"</span><span class="t-dim">,</span></div>
               <div>&nbsp;&nbsp;<span class="t-key">"tokens"</span><span class="t-dim">:</span> <span class="t-num">2847</span><span class="t-dim">,</span></div>
               <div>&nbsp;&nbsp;<span class="t-key">"method"</span><span class="t-dim">:</span> <span class="t-str">"cloudflare-bypass"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"markdown"</span><span class="t-dim">:</span> <span class="t-str">"# Stripe\nPayments infrastructure..."</span><span class="t-dim">,</span></div>
               <div>&nbsp;&nbsp;<span class="t-key">"elapsed"</span><span class="t-dim">:</span> <span class="t-num">412</span><span class="t-dim">ms</span></div>
               <div><span class="t-dim">}</span></div>
             </div>
