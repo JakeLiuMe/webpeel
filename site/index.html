@@ -5437,22 +5437,43 @@
   transform: translateY(-2px) !important;
 }
 
-/* 10. Hero: dot grid + atmospheric gradient merged into ::before */
+/* 10. Hero: VISIBLE dot grid + FOCUSED atmospheric glow — merged ::before */
 .hero::before {
   content: '' !important;
   position: absolute !important;
   inset: 0 !important;
   background:
-    radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px),
-    radial-gradient(ellipse 70% 65% at 20% 32%, rgba(88,101,242,0.38), transparent 70%),
-    radial-gradient(ellipse 45% 40% at 75% 20%, rgba(88,101,242,0.14), transparent 65%),
-    radial-gradient(ellipse 35% 30% at 50% 70%, rgba(88,101,242,0.07), transparent 60%) !important;
+    radial-gradient(circle, rgba(148,163,184,0.15) 1px, transparent 1px),
+    radial-gradient(ellipse 800px 600px at 25% 40%, rgba(99,102,241,0.22) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 400px at 75% 30%, rgba(59,130,246,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 35% 30% at 50% 70%, rgba(88,101,242,0.06), transparent 60%) !important;
   background-size: 28px 28px, cover, cover, cover !important;
   pointer-events: none !important;
   z-index: 0 !important;
   animation: aurora-pulse 8s ease-in-out infinite alternate !important;
 }
 .hero > * { position: relative !important; z-index: 1 !important; }
+
+/* 10b. Demo widget: glowing border + lift + subtle 3D tilt */
+.hero-demo-widget {
+  border: 1px solid rgba(99,102,241,0.30) !important;
+  box-shadow:
+    0 0 0 1px rgba(99,102,241,0.12),
+    0 24px 80px rgba(0,0,0,0.55),
+    0 0 50px rgba(99,102,241,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.08) !important;
+  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) !important;
+  transform-origin: center center !important;
+  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s ease !important;
+}
+.hero-demo-widget:hover {
+  transform: perspective(1200px) rotateY(0deg) rotateX(0deg) !important;
+  box-shadow:
+    0 0 0 1px rgba(99,102,241,0.20),
+    0 32px 100px rgba(0,0,0,0.60),
+    0 0 70px rgba(99,102,241,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.10) !important;
+}
 
 /* 11. Global section subtext: readable contrast + size */
 .section-sub { font-size: 17px !important; color: rgba(255,255,255,0.68) !important; line-height: 1.7 !important; }
