@@ -3901,9 +3901,8 @@
   /* Kill ALL purple glow pseudo-elements on hero-grid — zero tolerance */
   .hero-grid::after { display: none !important; }
   .hero-grid::before { display: none !important; }
-  /* Kill ALL indigo box-shadow glows on hero elements — terminal, demo widget, everything */
-  .hero-terminal,
-  .hero-demo-widget {
+  /* Kill indigo box-shadow glows on hero terminal only (widget gets its own glow in ABSOLUTE-FINAL) */
+  .hero-terminal {
     box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 24px 48px -12px rgba(0,0,0,0.70), inset 0 1px 0 rgba(255,255,255,0.08) !important;
   }
 
@@ -4024,9 +4023,8 @@
   @media (min-width: 769px) {
     .hero-demo-widget {
       background: rgba(12,12,22,0.95) !important;
-      border: 1px solid rgba(255,255,255,0.10) !important;
+      /* border, box-shadow, transform set in ABSOLUTE-FINAL block */
       border-radius: 12px !important;
-      box-shadow: 0 12px 32px rgba(0,0,0,0.40) !important;
       max-width: 100% !important;
       margin: 0 !important;
     }
@@ -5454,25 +5452,25 @@
 }
 .hero > * { position: relative !important; z-index: 1 !important; }
 
-/* 10b. Demo widget: glowing border + lift + subtle 3D tilt */
+/* 10b. Demo widget: glowing border + lift + 3D tilt */
 .hero-demo-widget {
-  border: 1px solid rgba(99,102,241,0.30) !important;
+  border: 1px solid rgba(99,102,241,0.45) !important;
   box-shadow:
-    0 0 0 1px rgba(99,102,241,0.12),
-    0 24px 80px rgba(0,0,0,0.55),
-    0 0 50px rgba(99,102,241,0.14),
-    inset 0 1px 0 rgba(255,255,255,0.08) !important;
-  transform: perspective(1200px) rotateY(-2deg) rotateX(1deg) !important;
+    0 0 0 1px rgba(99,102,241,0.25),
+    0 0 60px rgba(99,102,241,0.22),
+    0 30px 90px rgba(0,0,0,0.60),
+    inset 0 1px 0 rgba(255,255,255,0.10) !important;
+  transform: perspective(1000px) rotateY(-4deg) rotateX(2deg) !important;
   transform-origin: center center !important;
-  transition: transform 0.4s cubic-bezier(0.16,1,0.3,1), box-shadow 0.4s ease !important;
+  transition: transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.5s ease !important;
 }
 .hero-demo-widget:hover {
-  transform: perspective(1200px) rotateY(0deg) rotateX(0deg) !important;
+  transform: perspective(1000px) rotateY(0deg) rotateX(0deg) !important;
   box-shadow:
-    0 0 0 1px rgba(99,102,241,0.20),
-    0 32px 100px rgba(0,0,0,0.60),
-    0 0 70px rgba(99,102,241,0.20),
-    inset 0 1px 0 rgba(255,255,255,0.10) !important;
+    0 0 0 1px rgba(99,102,241,0.35),
+    0 0 80px rgba(99,102,241,0.30),
+    0 40px 100px rgba(0,0,0,0.65),
+    inset 0 1px 0 rgba(255,255,255,0.12) !important;
 }
 
 /* 11. Global section subtext: readable contrast + size */
