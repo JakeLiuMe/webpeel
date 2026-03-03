@@ -4161,7 +4161,7 @@
   .ai-pill-windsurf .ai-strip-dot { background: #38BDF8; }
   @keyframes aiesScroll {
     0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
+    100% { transform: translateX(-33.333%); }
   }
 
   /* ============================================================
@@ -5767,7 +5767,17 @@
       <span class="ai-strip-pill ai-pill-crewai"><span class="ai-strip-dot"></span>CrewAI</span>
       <span class="ai-strip-pill ai-pill-autogen"><span class="ai-strip-dot"></span>AutoGen</span>
       <span class="ai-strip-pill ai-pill-windsurf"><span class="ai-strip-dot"></span>Windsurf</span>
-      <!-- Duplicate for seamless infinite scroll -->
+      <!-- Copy 2 for seamless infinite scroll -->
+      <span class="ai-strip-label" aria-hidden="true">Works with</span>
+      <span class="ai-strip-pill ai-pill-claude" aria-hidden="true"><span class="ai-strip-dot"></span>Claude</span>
+      <span class="ai-strip-pill ai-pill-gpt" aria-hidden="true"><span class="ai-strip-dot"></span>GPT-4o</span>
+      <span class="ai-strip-pill ai-pill-cursor" aria-hidden="true"><span class="ai-strip-dot"></span>Cursor</span>
+      <span class="ai-strip-pill ai-pill-langchain" aria-hidden="true"><span class="ai-strip-dot"></span>LangChain</span>
+      <span class="ai-strip-pill ai-pill-llama" aria-hidden="true"><span class="ai-strip-dot"></span>LlamaIndex</span>
+      <span class="ai-strip-pill ai-pill-crewai" aria-hidden="true"><span class="ai-strip-dot"></span>CrewAI</span>
+      <span class="ai-strip-pill ai-pill-autogen" aria-hidden="true"><span class="ai-strip-dot"></span>AutoGen</span>
+      <span class="ai-strip-pill ai-pill-windsurf" aria-hidden="true"><span class="ai-strip-dot"></span>Windsurf</span>
+      <!-- Copy 3 — needed because one set (1029px) < viewport (1440px) -->
       <span class="ai-strip-label" aria-hidden="true">Works with</span>
       <span class="ai-strip-pill ai-pill-claude" aria-hidden="true"><span class="ai-strip-dot"></span>Claude</span>
       <span class="ai-strip-pill ai-pill-gpt" aria-hidden="true"><span class="ai-strip-dot"></span>GPT-4o</span>
