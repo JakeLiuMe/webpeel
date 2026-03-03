@@ -5581,7 +5581,14 @@
 .nav-links { gap: 28px !important; }
 
 /* 35. Ticker overflow — prevent clip at edges */
-.ai-ecosystem-strip { overflow: hidden !important; }
+/* 35. Ticker: seamless blend — no hard edges */
+.ai-ecosystem-strip {
+  overflow: hidden !important;
+  background: transparent !important;
+  border: none !important;
+  padding-top: 24px !important;
+  padding-bottom: 24px !important;
+}
 
 /* 36. How It Works step description: tighter copy */
 .how-step p { font-size: 14px !important; line-height: 1.6 !important; color: rgba(255,255,255,0.65) !important; }
