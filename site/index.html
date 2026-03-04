@@ -5839,22 +5839,21 @@
                 <span class="hdw-dot g"></span>
               </div>
               <div class="hdw-tabs" style="pointer-events:none;">
-                <span class="hdw-tab active">stripe.com</span>
-                <span class="hdw-tab" style="opacity:0.38;">wikipedia</span>
+                <span class="hdw-tab active">wikipedia</span>
                 <span class="hdw-tab" style="opacity:0.38;">hackernews</span>
               </div>
             </div>
             <div class="hdw-input-row" style="pointer-events:none;">
-              <input type="text" class="hdw-url-input" value="https://stripe.com" readonly tabindex="-1" aria-hidden="true">
+              <input type="text" class="hdw-url-input" value="https://en.wikipedia.org/wiki/AI" readonly tabindex="-1" aria-hidden="true">
               <button class="hdw-run-btn" tabindex="-1" aria-hidden="true" style="pointer-events:none;">Extract →</button>
             </div>
             <div class="hdw-body">
-              <div class="hdw-cmd-line">$ webpeel "stripe.com"</div>
+              <div class="hdw-cmd-line">$ webpeel "wikipedia.org/wiki/AI"</div>
               <div><span class="t-dim">{</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Stripe | Financial Infra…"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"tokens"</span><span class="t-dim">:</span> <span class="t-num">2847</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"method"</span><span class="t-dim">:</span> <span class="t-str">"cloudflare-bypass"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"elapsed"</span><span class="t-dim">:</span> <span class="t-num">412</span><span class="t-dim">ms</span></div>
+              <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Artificial intelligence…"</span><span class="t-dim">,</span></div>
+              <div>&nbsp;&nbsp;<span class="t-key">"tokens"</span><span class="t-dim">:</span> <span class="t-num">18420</span><span class="t-dim">,</span></div>
+              <div>&nbsp;&nbsp;<span class="t-key">"method"</span><span class="t-dim">:</span> <span class="t-str">"fetch"</span><span class="t-dim">,</span></div>
+              <div>&nbsp;&nbsp;<span class="t-key">"elapsed"</span><span class="t-dim">:</span> <span class="t-num">380</span><span class="t-dim">ms</span></div>
               <div><span class="t-dim">}</span></div>
             </div>
           </div>
@@ -5866,13 +5865,12 @@
               <span class="hdw-dot r"></span><span class="hdw-dot y"></span><span class="hdw-dot g"></span>
             </div>
             <div class="hdw-tabs">
-              <button class="hdw-tab active" data-idx="0">stripe.com</button>
-              <button class="hdw-tab" data-idx="1">wikipedia</button>
-              <button class="hdw-tab" data-idx="2">hackernews</button>
+              <button class="hdw-tab active" data-idx="0">wikipedia</button>
+              <button class="hdw-tab" data-idx="1">hackernews</button>
             </div>
           </div>
           <div class="hdw-input-row">
-            <input type="text" class="hdw-url-input" id="hdw-url-input" placeholder="Try any URL — stripe.com, wikipedia.org..." autocomplete="off" spellcheck="false">
+            <input type="text" class="hdw-url-input" id="hdw-url-input" placeholder="Try a topic or URL — dog, bitcoin, nytimes.com..." autocomplete="off" spellcheck="false">
             <button class="hdw-run-btn" id="hdw-run-btn">Extract →</button>
           </div>
           <div class="hdw-body">
@@ -6876,20 +6874,6 @@ traffic. Advertisers are watching closely.
   (function() {
     var DEMOS = [
       {
-        cmd: '$ webpeel "stripe.com"',
-        url: 'https://stripe.com',
-        lines: [
-          '{',
-          '  "url": "https://stripe.com",',
-          '  "title": "Stripe | Financial Infrastructure",',
-          '  "tokens": 2847,',
-          '  "elapsed": 412,',
-          '  "method": "cloudflare-bypass",',
-          '  "content": "# Stripe | Financial Infrastructure..."',
-          '}'
-        ]
-      },
-      {
         cmd: '$ webpeel "wikipedia.org/wiki/AI"',
         url: 'https://en.wikipedia.org/wiki/Artificial_intelligence',
         lines: [
@@ -7112,7 +7096,15 @@ traffic. Advertisers are watching closely.
         function submitHeroUrl() {
           var url = urlInput.value.trim();
           if (!url) return;
-          if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+          // Smart URL construction: if no dots, treat as Wikipedia search term
+          if (url.indexOf('.') === -1 && !/^https?:\/\//i.test(url)) {
+            // Capitalize first letter, replace spaces with underscores for Wikipedia
+            var term = url.replace(/\s+/g, '_');
+            term = term.charAt(0).toUpperCase() + term.slice(1);
+            url = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(term);
+          } else if (!/^https?:\/\//i.test(url)) {
+            url = 'https://' + url;
+          }
           urlInput.value = url;
           liveMode = true;
           clearTimeout(cycleTimer);
