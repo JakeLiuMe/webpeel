@@ -5714,25 +5714,11 @@
   }
 }
 
-/* 45. Hero widget output — max-height with fade for truncated pre-baked demos */
+/* 45. Hero widget output — max-height with scroll for live results */
 .hdw-output {
-  max-height: 220px !important;
-  overflow-y: hidden !important;
+  max-height: 240px !important;
+  overflow-y: auto !important;
   position: relative !important;
-}
-.hdw-body {
-  position: relative !important;
-}
-.hdw-body::after {
-  content: '' !important;
-  position: absolute !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  height: 48px !important;
-  background: linear-gradient(to bottom, transparent, #0C0C0E) !important;
-  pointer-events: none !important;
-  z-index: 2 !important;
 }
 
 /* 46. Final CTA — tighten gap between install card and button */
