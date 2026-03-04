@@ -5716,9 +5716,72 @@
 
 /* 45. Hero widget output — max-height with scroll for live results */
 .hdw-output {
-  max-height: 240px !important;
+  max-height: 280px !important;
   overflow-y: auto !important;
   position: relative !important;
+}
+
+/* 45b. Impact counter display (AdBlock-style) */
+.hdw-impact {
+  font-family: 'Inter', -apple-system, sans-serif;
+  padding: 4px 0;
+}
+.hdw-impact-header {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hdw-impact-header .shield {
+  font-size: 14px;
+}
+.hdw-impact-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+.hdw-impact-num {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+  text-align: right;
+  color: #A5B4FC;
+}
+.hdw-impact-label {
+  color: rgba(255,255,255,0.6);
+}
+.hdw-impact-divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin: 8px 0;
+}
+.hdw-impact-summary {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hdw-impact-summary .accent {
+  color: #818CF8;
+  font-weight: 600;
+}
+.hdw-impact-preview {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  margin-top: 8px;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* 46. Final CTA — tighten gap between install card and button */
@@ -6990,25 +7053,55 @@ traffic. Advertisers are watching closely.
           // Finalize command line
           cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot; --readable';
 
-          // Build display object with truncated content
+          var words = data.wordCount || data.word_count || 0;
+          var timeMs = data.fetchTimeMs || data.elapsed || data.fetch_time_ms || 0;
           var content = data.content || data.text || '';
-          var truncated = content.length > 300 ? content.substring(0, 300) + '...' : content;
-          var displayObj = {
-            title: data.title || '',
-            content: truncated,
-            wordCount: data.wordCount || data.word_count || 0,
-            fetchTimeMs: data.fetchTimeMs || data.elapsed || data.fetch_time_ms || 0,
-            url: url
-          };
+          var title = data.title || '';
+          var cleaned = data.cleaned || null;
 
-          // Render highlighted JSON
-          var jsonHtml = highlightJson(displayObj);
-          outEl.innerHTML = '<pre style="margin:0;font-family:inherit;font-size:inherit;white-space:pre-wrap;word-break:break-word;">' + jsonHtml + '</pre>';
+          // If cleaning stats available, show impact counter (AdBlock-style)
+          if (cleaned && cleaned.totalRemoved > 0) {
+            var rows = [];
+            if (cleaned.scripts > 0) rows.push({ n: cleaned.scripts, l: 'scripts removed' });
+            if (cleaned.styles > 0) rows.push({ n: cleaned.styles, l: 'stylesheets stripped' });
+            if (cleaned.ads > 0) rows.push({ n: cleaned.ads, l: 'ads blocked' });
+            if (cleaned.tracking > 0) rows.push({ n: cleaned.tracking, l: 'trackers removed' });
+            if (cleaned.navigation > 0) rows.push({ n: cleaned.navigation, l: 'nav elements filtered' });
+            if (cleaned.socialWidgets > 0) rows.push({ n: cleaned.socialWidgets, l: 'widgets removed' });
+            if (cleaned.popups > 0) rows.push({ n: cleaned.popups, l: 'popups blocked' });
+
+            var html = '<div class="hdw-impact">';
+            html += '<div class="hdw-impact-header"><span class="shield">🛡️</span> Cleaned for your AI agent</div>';
+            rows.forEach(function(r) {
+              html += '<div class="hdw-impact-row"><span class="hdw-impact-num">' + r.n + '</span><span class="hdw-impact-label">' + r.l + '</span></div>';
+            });
+            html += '<hr class="hdw-impact-divider">';
+            html += '<div class="hdw-impact-summary">';
+            html += '<span><span class="accent">' + words + '</span> words extracted</span>';
+            html += '<span>·</span>';
+            if (cleaned.reductionPercent > 0) {
+              html += '<span><span class="accent">' + cleaned.reductionPercent + '%</span> smaller</span>';
+              html += '<span>·</span>';
+            }
+            html += '<span><span class="accent">' + timeMs + 'ms</span></span>';
+            html += '</div>';
+            if (title) {
+              html += '<div class="hdw-impact-preview">"' + escapeForDisplay(title) + '"</div>';
+            }
+            html += '</div>';
+            outEl.innerHTML = html;
+          } else {
+            // Fallback: show JSON if no cleaning stats
+            var truncated = content.length > 300 ? content.substring(0, 300) + '...' : content;
+            var displayObj = { title: title, content: truncated, wordCount: words, fetchTimeMs: timeMs, url: url };
+            var jsonHtml = highlightJson(displayObj);
+            outEl.innerHTML = '<pre style="margin:0;font-family:inherit;font-size:inherit;white-space:pre-wrap;word-break:break-word;">' + jsonHtml + '</pre>';
+          }
 
           // Footer line
           var footer = document.createElement('div');
           footer.className = 'hdw-live-footer';
-          footer.innerHTML = '✓ ' + displayObj.wordCount + ' words · ' + displayObj.fetchTimeMs + 'ms · <a href="/docs/">Try the full API →</a>';
+          footer.innerHTML = '✓ ' + words + ' words · ' + timeMs + 'ms · <a href="/docs/">Try the full API →</a>';
           outEl.appendChild(footer);
         })
         .catch(function(err) {
