@@ -377,6 +377,14 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
         // Capture raw HTML size from the extractor (e.g. Wikipedia mobile-html size)
         if (ddResult.rawHtmlSize && ddResult.rawHtmlSize > 0) {
           ctx.rawHtmlSize = ddResult.rawHtmlSize;
+        } else {
+          // For API-first extractors (HN, Reddit, GitHub), estimate what the raw page
+          // would cost by doing a quick HEAD request for Content-Length
+          try {
+            const headResp = await fetch(ctx.url, { method: 'HEAD', signal: AbortSignal.timeout(2000) });
+            const cl = headResp.headers.get('content-length');
+            if (cl) ctx.rawHtmlSize = parseInt(cl, 10);
+          } catch { /* non-fatal — token estimate will be undefined */ }
         }
         // Create minimal fetchResult so downstream stages don't crash
         ctx.fetchResult = {
