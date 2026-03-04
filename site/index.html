@@ -4068,12 +4068,14 @@
 
     /* Mobile: trust bar MUST be above fold (criterion 4) */
     .hero-trust    { order: 5 !important; width: 100% !important; justify-content: center !important; margin: 12px 0 0 !important; opacity: 1 !important; gap: 10px !important; display: flex !important; align-items: center !important; flex-wrap: wrap !important; font-size: 12px !important; }
-    /* Mobile widget after trust bar — less critical since it's preview of desktop feature */
-    .hero-mobile-code { order: 6 !important; } 
+    .hero-mobile-code { display: none !important; }
     .hero-cta-note { order: 7 !important; width: 100% !important; text-align: center !important; margin: 10px 0 0 !important; font-size: 11.5px !important; }
 
-    /* Hide interactive widget on mobile — static code block handles it */
-    .hero .hero-demo-widget { display: none !important; }
+    /* Show interactive widget on mobile */
+    .hero .hero-demo-widget { display: block !important; order: 6 !important; width: 100% !important; min-width: 0 !important; margin: 16px 0 0 !important; }
+    .hero .hero-demo-widget .hdw-body { min-height: 200px !important; }
+    .hero .hero-demo-widget .hdw-url-input { font-size: 14px !important; }
+    .hero .hero-demo-widget .hdw-run-btn { font-size: 13px !important; min-height: 40px !important; padding: 0 14px !important; }
 
     /* Decorative elements off on mobile */
     .hero-ambient-orb, .hero-card-bloom, .hero-terminal-glow { display: none !important; }
@@ -5721,7 +5723,7 @@
   position: relative !important;
 }
 .hdw-body {
-  min-height: 320px !important;
+  min-height: 280px !important;
 }
 
 /* 45a. Loading animation */
@@ -5779,6 +5781,33 @@
 .hdw-loading-step .check {
   font-size: 11px;
   min-width: 16px;
+}
+.hdw-loading-step.active .check {
+  animation: hdw-pulse 1s ease-in-out infinite;
+}
+@keyframes hdw-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.hdw-loading-preview {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.hdw-loading-preview-line {
+  height: 10px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  animation: hdw-shimmer 1.5s ease-in-out infinite;
+}
+.hdw-loading-preview-line:nth-child(1) { width: 90%; animation-delay: 0s; }
+.hdw-loading-preview-line:nth-child(2) { width: 75%; animation-delay: 0.15s; }
+.hdw-loading-preview-line:nth-child(3) { width: 60%; animation-delay: 0.3s; }
+.hdw-loading-preview-line:nth-child(4) { width: 82%; animation-delay: 0.45s; }
+@keyframes hdw-shimmer {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
 }
 
 /* 45b. Impact counter display (AdBlock-style) */
@@ -5939,33 +5968,7 @@
   <span class="hero-trust-sep">·</span>
   <a href="https://github.com/webpeel/webpeel" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.72);font-size:13px;font-weight:500;">GitHub ↗</a>
 </div>
-          <!-- Mobile widget: full visual identity match with desktop hero-demo-widget -->
-          <div class="hero-mobile-code hero-el" data-delay="600">
-            <div class="hdw-chrome">
-              <div class="hdw-dots">
-                <span class="hdw-dot r"></span>
-                <span class="hdw-dot y"></span>
-                <span class="hdw-dot g"></span>
-              </div>
-              <div class="hdw-tabs" style="pointer-events:none;">
-                <span class="hdw-tab active">wikipedia</span>
-                <span class="hdw-tab" style="opacity:0.38;">hackernews</span>
-              </div>
-            </div>
-            <div class="hdw-input-row" style="pointer-events:none;">
-              <input type="text" class="hdw-url-input" value="https://en.wikipedia.org/wiki/AI" readonly tabindex="-1" aria-hidden="true">
-              <button class="hdw-run-btn" tabindex="-1" aria-hidden="true" style="pointer-events:none;">Extract →</button>
-            </div>
-            <div class="hdw-body">
-              <div class="hdw-cmd-line">$ webpeel "wikipedia.org/wiki/AI"</div>
-              <div><span class="t-dim">{</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"title"</span><span class="t-dim">:</span> <span class="t-str">"Artificial intelligence…"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"tokens"</span><span class="t-dim">:</span> <span class="t-num">18420</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"method"</span><span class="t-dim">:</span> <span class="t-str">"fetch"</span><span class="t-dim">,</span></div>
-              <div>&nbsp;&nbsp;<span class="t-key">"elapsed"</span><span class="t-dim">:</span> <span class="t-num">380</span><span class="t-dim">ms</span></div>
-              <div><span class="t-dim">}</span></div>
-            </div>
-          </div>
+          <!-- Mobile widget removed — interactive hero-demo-widget used on all viewports -->
         </div>
 
         <div class="hero-demo-widget" id="hero-demo-widget">
@@ -7117,13 +7120,19 @@ traffic. Advertisers are watching closely.
 
       // Show loading state with animated progress
       var shortUrl = url.replace(/^https?:\/\//i, '');
-      cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot; --readable';
+      cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot;';
       outEl.innerHTML = '<div class="hdw-loading">' +
         '<div class="hdw-loading-bar"><div class="hdw-loading-bar-fill"></div></div>' +
         '<div class="hdw-loading-steps">' +
           '<div class="hdw-loading-step active" id="hdw-step-1"><span class="check">◉</span> Connecting to ' + escapeForDisplay(shortUrl) + '</div>' +
           '<div class="hdw-loading-step" id="hdw-step-2"><span class="check">○</span> Extracting content</div>' +
           '<div class="hdw-loading-step" id="hdw-step-3"><span class="check">○</span> Cleaning for AI</div>' +
+        '</div>' +
+        '<div class="hdw-loading-preview">' +
+          '<div class="hdw-loading-preview-line"></div>' +
+          '<div class="hdw-loading-preview-line"></div>' +
+          '<div class="hdw-loading-preview-line"></div>' +
+          '<div class="hdw-loading-preview-line"></div>' +
         '</div>' +
       '</div>';
       // Animate steps
@@ -7152,7 +7161,7 @@ traffic. Advertisers are watching closely.
           // Clear loading step timers
           stepTimers.forEach(function(t) { clearTimeout(t); });
           // Finalize command line
-          cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot; --readable';
+          cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot;';
 
           var words = data.wordCount || data.word_count || 0;
           var timeMs = data.fetchTimeMs || data.elapsed || data.fetch_time_ms || 0;
@@ -7207,7 +7216,7 @@ traffic. Advertisers are watching closely.
         })
         .catch(function(err) {
           stepTimers.forEach(function(t) { clearTimeout(t); });
-          cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot; --readable';
+          cmdEl.innerHTML = '$ webpeel &quot;' + escapeForDisplay(shortUrl) + '&quot;';
           var errDiv = document.createElement('div');
           errDiv.className = 'hdw-error-line';
           if (err && err.code === 403) {
