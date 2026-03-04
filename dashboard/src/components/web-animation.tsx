@@ -91,7 +91,7 @@ export function WebAnimation() {
   return (
     <div className="relative w-full max-w-[480px]">
       {/* Main Terminal Card */}
-      <div className="rounded-2xl border border-zinc-700 bg-[#111116] shadow-xl shadow-black/40 overflow-hidden">
+      <div className="rounded-2xl border border-zinc-700 bg-[#111116] shadow-xl shadow-black/40 overflow-hidden" style={{ minHeight: 360 }}>
         {/* Title Bar */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 bg-zinc-900/80">
           <div className="flex gap-1.5">
@@ -103,7 +103,7 @@ export function WebAnimation() {
         </div>
 
         {/* Terminal Content */}
-        <div className="bg-zinc-950 p-5 min-h-[320px]" key={siteIndex}>
+        <div className="bg-zinc-950 p-5 min-h-[280px]" key={siteIndex}>
           {/* Command */}
           <div className="font-mono text-[13px] leading-relaxed">
             <span className="text-zinc-500">$ </span>
@@ -176,6 +176,26 @@ export function WebAnimation() {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-emerald-500" />
           <span className="text-[12px] font-medium text-zinc-300">API Online</span>
+        </div>
+      </div>
+
+      {/* Feature Highlights */}
+      <div className="mt-10 grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+          <div className="text-[13px] font-semibold text-emerald-400 mb-1">⚡ HTTP Mode</div>
+          <div className="text-[12px] text-zinc-500 leading-snug">Instant extraction — no browser overhead</div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+          <div className="text-[13px] font-semibold text-amber-400 mb-1">🌐 Browser Mode</div>
+          <div className="text-[12px] text-zinc-500 leading-snug">Full JS rendering for SPAs & dynamic sites</div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+          <div className="text-[13px] font-semibold text-indigo-400 mb-1">📄 Clean Markdown</div>
+          <div className="text-[12px] text-zinc-500 leading-snug">LLM-ready output, stripped of boilerplate</div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3">
+          <div className="text-[13px] font-semibold text-zinc-300 mb-1">🔑 Simple API</div>
+          <div className="text-[12px] text-zinc-500 leading-snug">One endpoint, one key — ship in minutes</div>
         </div>
       </div>
     </div>

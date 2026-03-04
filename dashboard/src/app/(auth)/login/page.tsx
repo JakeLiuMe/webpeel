@@ -47,9 +47,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
       {/* Left Side — Auth */}
-      <div className="flex w-full flex-col items-center justify-center px-4 sm:px-6 py-8 lg:w-1/2" style={{ backgroundColor: '#0A0A0F' }}>
+      <div className="flex w-full flex-col items-center justify-center overflow-y-auto px-4 sm:px-6 py-8 lg:w-1/2" style={{ backgroundColor: '#0A0A0F' }}>
         <div className="w-full max-w-[380px]">
           {/* Logo */}
           <div className="mb-8 sm:mb-12">
@@ -99,10 +99,10 @@ export default function LoginPage() {
 
               <div className="relative my-7">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-zinc-700" />
+                  <div className="w-full border-t border-zinc-600" />
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="px-3 text-[13px] text-zinc-500" style={{ backgroundColor: '#0A0A0F' }}>OR</span>
+                  <span className="px-3 text-[13px] font-medium text-zinc-300" style={{ backgroundColor: '#0A0A0F' }}>OR</span>
                 </div>
               </div>
 
@@ -192,7 +192,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right Side — Product Demo */}
-      <div className="hidden lg:flex flex-1 items-center justify-center p-16" style={{ backgroundColor: '#0D0D12' }}>
+      <div className="hidden lg:flex flex-1 items-center justify-center p-10" style={{ backgroundColor: '#0D0D12' }}>
         <WebAnimation />
       </div>
     </div>
