@@ -917,7 +917,7 @@ export function createUserRouter(): Router {
         [userId, currentWeek]
       );
 
-      const weeklyUsage = weeklyResult.rows[0] || {
+      let weeklyUsage = weeklyResult.rows[0] || {
         basic_used: 0,
         stealth_used: 0,
         captcha_used: 0,
@@ -925,6 +925,29 @@ export function createUserRouter(): Router {
         total_used: 0,
         rollover_credits: 0,
       };
+
+      // Fallback: if weekly_usage is 0 but usage_logs has entries (e.g. playground/JWT auth),
+      // count from usage_logs for the current week so the counter reflects real activity
+      if (parseInt(weeklyUsage.total_used) === 0) {
+        const weekStart = currentWeek; // e.g. "2026-W10"
+        const [weekYear, weekNum] = weekStart.split('-W').map(Number);
+        // Compute the start of the week (Monday) from ISO week number
+        const jan4 = new Date(weekYear, 0, 4);
+        const dayOfWeek = jan4.getDay() || 7;
+        const weekStartDate = new Date(jan4);
+        weekStartDate.setDate(jan4.getDate() - (dayOfWeek - 1) + (weekNum - 1) * 7);
+        weekStartDate.setHours(0, 0, 0, 0);
+
+        const logResult = await pool.query(
+          `SELECT COUNT(*) as total_used FROM usage_logs WHERE user_id = $1 AND created_at >= $2`,
+          [userId, weekStartDate.toISOString()]
+        ).catch(() => ({ rows: [{ total_used: 0 }] }));
+
+        const logCount = parseInt(logResult.rows[0]?.total_used) || 0;
+        if (logCount > 0) {
+          weeklyUsage = { ...weeklyUsage, total_used: logCount, basic_used: logCount };
+        }
+      }
 
       const totalAvailable = plan.weekly_limit + weeklyUsage.rollover_credits;
       const remaining = Math.max(0, totalAvailable - weeklyUsage.total_used);
