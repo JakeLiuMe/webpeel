@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CopyButton } from '@/components/copy-button';
+import ReactMarkdown from 'react-markdown';
 import {
   Play,
   Globe,
@@ -25,6 +26,7 @@ import {
   Sparkles,
   Search,
   Camera,
+  MessageSquare,
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.webpeel.dev';
@@ -42,8 +44,13 @@ interface FetchResult {
   statusCode?: number;
   responseTime?: number;
   tokenCount?: number;
+  wordCount?: number;
+  savings?: number;
+  fetchTimeMs?: number;
   links?: string[];
   error?: string;
+  answer?: string;
+  summary?: string;
 }
 
 type Format = 'markdown' | 'text' | 'html';
@@ -95,6 +102,12 @@ const fetcher = async <T,>(url: string, token: string): Promise<T> => {
   return apiClient<T>(url, { token });
 };
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PlaygroundPage() {
@@ -116,6 +129,10 @@ export default function PlaygroundPage() {
   const [format, setFormat] = useState<Format>('markdown');
   const [renderBrowser, setRenderBrowser] = useState(false);
   const [stealthMode, setStealthMode] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [summaryMode, setSummaryMode] = useState(false);
+  const [budget, setBudget] = useState('');
+  const [readable, setReadable] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchResult, setFetchResult] = useState<FetchResult | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -162,6 +179,10 @@ export default function PlaygroundPage() {
         format,
         ...(renderBrowser ? { render: 'true' } : {}),
         ...(stealthMode ? { stealth: 'true' } : {}),
+        ...(question.trim() ? { question: question.trim() } : {}),
+        ...(summaryMode && !question.trim() ? { summary: 'true' } : {}),
+        ...(budget.trim() ? { budget: budget.trim() } : {}),
+        ...(readable ? { readable: 'true' } : {}),
       });
 
       const response = await fetch(`${API_URL}/v1/fetch?${params}`, {
@@ -195,6 +216,8 @@ export default function PlaygroundPage() {
 
   const getFetchContent = (): string => {
     if (!fetchResult) return '';
+    // If summary mode active, prefer summary field
+    if (summaryMode && !question.trim() && fetchResult.summary) return fetchResult.summary;
     return fetchResult.markdown || fetchResult.content || fetchResult.text || fetchResult.html || '';
   };
 
@@ -229,7 +252,6 @@ export default function PlaygroundPage() {
       }
 
       const raw = await response.json();
-      // API returns { success, data: { web: [...] } } — normalize to { results, query }
       const data: SearchResult = {
         results: raw.data?.web || raw.results || [],
         query: raw.query || q,
@@ -315,10 +337,21 @@ export default function PlaygroundPage() {
 
   // ── cURL snippets ─────────────────────────────────────────────────────────
 
-  const fetchCurl = fetchUrl
-    ? `curl "${API_URL}/v1/fetch?url=${encodeURIComponent(fetchUrl)}&format=${format}${renderBrowser ? '&render=true' : ''}${stealthMode ? '&stealth=true' : ''}" \\
-  -H "Authorization: Bearer ${displayApiKey}"`
-    : `curl "${API_URL}/v1/fetch?url=https://example.com&format=markdown" \\
+  const buildFetchParams = (): string => {
+    const parts: string[] = [];
+    const base = fetchUrl || 'https://example.com';
+    parts.push(`url=${encodeURIComponent(base)}`);
+    parts.push(`format=${format}`);
+    if (renderBrowser) parts.push('render=true');
+    if (stealthMode) parts.push('stealth=true');
+    if (question.trim()) parts.push(`question=${encodeURIComponent(question.trim())}`);
+    if (summaryMode && !question.trim()) parts.push('summary=true');
+    if (budget.trim()) parts.push(`budget=${budget.trim()}`);
+    if (readable) parts.push('readable=true');
+    return parts.join('&');
+  };
+
+  const fetchCurl = `curl "${API_URL}/v1/fetch?${buildFetchParams()}" \\
   -H "Authorization: Bearer ${displayApiKey}"`;
 
   const searchCurl = searchQuery
@@ -338,6 +371,14 @@ export default function PlaygroundPage() {
   -H "Content-Type: application/json" \\
   -d '{"url":"https://example.com","fullPage":false,"format":"png"}' \\
   --output screenshot.png`;
+
+  // ── Output stats ──────────────────────────────────────────────────────────
+
+  const outputContent = getFetchContent();
+  const displayWordCount = fetchResult?.wordCount ?? (outputContent ? countWords(outputContent) : null);
+  const displayTokens = fetchResult?.tokenCount ?? null;
+  const displayTime = fetchResult?.fetchTimeMs ?? fetchElapsed ?? null;
+  const displaySavings = fetchResult?.savings ?? null;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -436,7 +477,7 @@ export default function PlaygroundPage() {
                 </div>
               </div>
 
-              {/* Options Row */}
+              {/* Options Row — format + render + stealth */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-zinc-100">Output Format</Label>
@@ -477,6 +518,78 @@ export default function PlaygroundPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Advanced params */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1 border-t border-zinc-800">
+                {/* Question */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="question-input" className="text-sm font-semibold text-zinc-100">
+                    Ask a question about this page
+                  </Label>
+                  <div className="relative">
+                    <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                    <Input
+                      id="question-input"
+                      type="text"
+                      placeholder="What is the main topic?"
+                      value={question}
+                      onChange={(e) => {
+                        setQuestion(e.target.value);
+                        if (e.target.value.trim()) setSummaryMode(false);
+                      }}
+                      className="pl-9 text-sm bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                      disabled={fetchLoading}
+                    />
+                  </div>
+                </div>
+
+                {/* Budget */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="budget-input" className="text-sm font-semibold text-zinc-100">
+                    Token budget
+                  </Label>
+                  <Input
+                    id="budget-input"
+                    type="number"
+                    placeholder="No limit"
+                    min={500}
+                    max={10000}
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    className="text-sm bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-500"
+                    disabled={fetchLoading}
+                  />
+                  <p className="text-xs text-zinc-500">Limit output tokens. Lower = faster + cheaper.</p>
+                </div>
+
+                {/* Summary toggle */}
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm font-semibold text-zinc-100">Summary only</Label>
+                  <div className="flex items-center gap-3 h-9 px-3 bg-zinc-900 rounded-lg border border-zinc-700">
+                    <Switch
+                      id="summary-toggle"
+                      checked={summaryMode}
+                      onCheckedChange={(v) => setSummaryMode(v)}
+                      disabled={!!question.trim() || fetchLoading}
+                    />
+                    <label htmlFor="summary-toggle" className={`text-xs cursor-pointer ${question.trim() ? 'text-zinc-600 line-through' : 'text-zinc-500'}`}>
+                      {summaryMode ? 'On' : 'Off'}{question.trim() ? ' (disabled while question set)' : ''}
+                    </label>
+                  </div>
+                </div>
+
+                {/* Readable toggle */}
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm font-semibold text-zinc-100">Article only</Label>
+                  <div className="flex items-center gap-3 h-9 px-3 bg-zinc-900 rounded-lg border border-zinc-700">
+                    <Switch id="readable-toggle" checked={readable} onCheckedChange={setReadable} disabled={fetchLoading} />
+                    <label htmlFor="readable-toggle" className="text-xs text-zinc-500 cursor-pointer">
+                      {readable ? 'On' : 'Off'}
+                    </label>
+                  </div>
+                  <p className="text-xs text-zinc-500">Extract main article content only. Strips nav, footer, ads.</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -501,21 +614,41 @@ export default function PlaygroundPage() {
           {/* Fetch Results */}
           {fetchResult && (
             <div className="space-y-4">
+              {/* Stats bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { icon: '⏱', label: 'Time', value: displayTime != null ? `${displayTime}ms` : '—' },
+                  { icon: '📝', label: 'Words', value: displayWordCount != null ? `${displayWordCount.toLocaleString()} words` : '—' },
+                  { icon: '🪙', label: 'Tokens', value: displayTokens != null ? `${displayTokens.toLocaleString()} tokens` : '—' },
+                  { icon: '✂️', label: 'Savings', value: displaySavings != null ? `${displaySavings}% smaller` : '—' },
+                ].map(({ icon, label, value }) => (
+                  <div key={label} className="flex items-center gap-2 px-3 py-2 bg-[#111116] border border-zinc-800 rounded-lg">
+                    <span className="text-sm">{icon}</span>
+                    <div className="min-w-0">
+                      <p className="text-xs text-zinc-500">{label}</p>
+                      <p className="text-xs font-semibold text-[#5865F2] truncate">{value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Answer card */}
+              {fetchResult.answer && (
+                <div className="flex items-start gap-3 p-4 bg-[#5865F2]/10 border border-[#5865F2]/30 rounded-lg">
+                  <MessageSquare className="h-5 w-5 text-[#5865F2] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-[#5865F2] mb-1">💬 Answer</p>
+                    <p className="text-sm text-zinc-200 leading-relaxed">{fetchResult.answer}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Title / meta bar */}
               <div className="flex flex-wrap items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
                 <Badge className="bg-emerald-100 text-emerald-700 border-0">✓ Success</Badge>
-                {fetchElapsed != null && (
-                  <span className="text-xs text-zinc-600 flex items-center gap-1">
-                    <Clock className="h-3 w-3" /> {fetchElapsed}ms
-                  </span>
-                )}
                 {fetchResult.title && (
                   <span className="text-xs text-zinc-600 truncate max-w-xs">
                     <span className="text-zinc-400">Title:</span> {fetchResult.title}
-                  </span>
-                )}
-                {fetchResult.tokenCount && (
-                  <span className="text-xs text-zinc-600">
-                    <span className="text-zinc-400">~</span>{fetchResult.tokenCount.toLocaleString()} tokens
                   </span>
                 )}
                 {fetchResult.url && (
@@ -534,7 +667,7 @@ export default function PlaygroundPage() {
                 <CardHeader className="pb-0">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Result</CardTitle>
-                    <CopyButton text={getFetchContent()} size="sm" />
+                    <CopyButton text={outputContent} size="sm" />
                   </div>
                 </CardHeader>
                 <CardContent className="pt-4">
@@ -548,9 +681,37 @@ export default function PlaygroundPage() {
                     </TabsList>
 
                     <TabsContent value="content" className="mt-0">
-                      <pre className="p-4 bg-zinc-900 text-zinc-100 rounded-lg overflow-auto text-xs md:text-sm max-h-[60vh] whitespace-pre-wrap leading-relaxed">
-                        <code>{getFetchContent() || '(no content returned)'}</code>
-                      </pre>
+                      {format === 'markdown' ? (
+                        <div className="p-4 bg-zinc-900 rounded-lg overflow-auto max-h-[60vh]">
+                          <div className="prose-sm prose-invert max-w-none
+                            [&_h1]:text-zinc-100 [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-3 [&_h1]:mt-4
+                            [&_h2]:text-zinc-100 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4
+                            [&_h3]:text-zinc-200 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:mt-3
+                            [&_p]:text-zinc-300 [&_p]:text-sm [&_p]:leading-relaxed [&_p]:mb-3
+                            [&_ul]:text-zinc-300 [&_ul]:text-sm [&_ul]:pl-5 [&_ul]:mb-3 [&_ul]:list-disc
+                            [&_ol]:text-zinc-300 [&_ol]:text-sm [&_ol]:pl-5 [&_ol]:mb-3 [&_ol]:list-decimal
+                            [&_li]:mb-1
+                            [&_a]:text-[#5865F2] [&_a]:underline [&_a]:hover:text-[#7983f5]
+                            [&_code]:text-zinc-200 [&_code]:bg-zinc-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                            [&_pre]:bg-zinc-800 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:mb-3
+                            [&_pre_code]:bg-transparent [&_pre_code]:p-0
+                            [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-600 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-400 [&_blockquote]:italic
+                            [&_hr]:border-zinc-700 [&_hr]:my-4
+                            [&_strong]:text-zinc-100 [&_strong]:font-semibold
+                            [&_em]:text-zinc-300 [&_em]:italic
+                            [&_table]:w-full [&_table]:text-sm [&_table]:border-collapse
+                            [&_th]:text-zinc-200 [&_th]:text-left [&_th]:p-2 [&_th]:border-b [&_th]:border-zinc-700
+                            [&_td]:text-zinc-300 [&_td]:p-2 [&_td]:border-b [&_td]:border-zinc-800">
+                            <ReactMarkdown>
+                              {outputContent || '*(no content returned)*'}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      ) : (
+                        <pre className="p-4 bg-zinc-900 text-zinc-100 rounded-lg overflow-auto text-xs md:text-sm max-h-[60vh] whitespace-pre-wrap leading-relaxed">
+                          <code>{outputContent || '(no content returned)'}</code>
+                        </pre>
+                      )}
                     </TabsContent>
 
                     {fetchResult.links && fetchResult.links.length > 0 && (
@@ -613,6 +774,8 @@ export default function PlaygroundPage() {
                     ['Metadata', 'Title, description, author, open graph'],
                     ['Links', 'All URLs found on the page'],
                     ['Stats', 'Response time, token count, status code'],
+                    ['Answer', 'AI answer when question param is set'],
+                    ['Summary', 'Condensed summary of the page'],
                   ].map(([key, val]) => (
                     <div key={key} className="flex gap-3">
                       <span className="text-xs font-semibold text-zinc-200 w-20 flex-shrink-0 pt-0.5">{key}</span>
@@ -703,7 +866,6 @@ export default function PlaygroundPage() {
                     )}
                   </Button>
                 </div>
-                {/* Quick try queries */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-zinc-400">Try:</span>
                   {exampleSearchQueries.map((q) => (
@@ -912,7 +1074,6 @@ export default function PlaygroundPage() {
                     )}
                   </Button>
                 </div>
-                {/* Example URLs */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs text-zinc-400">Try:</span>
                   {exampleUrls.map((exUrl) => (
@@ -929,7 +1090,6 @@ export default function PlaygroundPage() {
 
               {/* Options Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
-                {/* Full Page Toggle */}
                 <div className="flex flex-col gap-2">
                   <Label className="text-sm font-semibold text-zinc-100">Full Page</Label>
                   <div className="flex items-center gap-3 h-9 px-3 bg-zinc-900 rounded-lg border border-zinc-700">
@@ -944,7 +1104,6 @@ export default function PlaygroundPage() {
                   </div>
                 </div>
 
-                {/* Format Selector */}
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-zinc-100">Format</Label>
                   <div className="flex gap-1 p-1 bg-zinc-800 rounded-lg">
