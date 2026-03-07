@@ -22,7 +22,7 @@ describe('stealth mode', () => {
     expect(result.elapsed).toBeGreaterThan(0);
   }, 20000);
 
-  it('passes bot detection tests', async () => {
+  it.skipIf(!!process.env.CI)('passes bot detection tests', async () => {
     // bot.sannysoft.com is a comprehensive bot detection test page
     const result = await peel('https://bot.sannysoft.com', {
       stealth: true,
@@ -41,7 +41,7 @@ describe('stealth mode', () => {
     expect(result.content).toContain('present (passed)');
   }, 20000);
 
-  it('handles escalation chain: simple → browser → stealth', async () => {
+  it.skipIf(!!process.env.CI)('handles escalation chain: simple → browser → stealth', async () => {
     // This site requires JavaScript rendering and might have bot protection
     // nowsecure.nl can be slow in CI (~30s), so generous timeout
     const result = await peel('https://nowsecure.nl', {
