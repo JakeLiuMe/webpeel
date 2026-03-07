@@ -479,6 +479,7 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
     // to get the title/snippet from the search engine's cached version.
     if (fetchError instanceof BlockedError) {
       try {
+        // @ts-ignore — proprietary module, gitignored
         const { searchFallback } = await import('./search-fallback.js');
         const searchResult = await searchFallback(ctx.url);
         if (searchResult.cachedContent && searchResult.cachedContent.length > 50) {
@@ -1083,6 +1084,7 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
       }
       // Try search fallback for the real content
       try {
+        // @ts-ignore — proprietary module, gitignored
         const { searchFallback } = await import('./search-fallback.js');
         const searchResult = await searchFallback(ctx.url);
         if (searchResult.cachedContent && searchResult.cachedContent.length > 50) {
@@ -1141,7 +1143,8 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
     // Try 4: Search-as-proxy fallback (when page appears blocked)
     // Search engines already crawled this page — use their cached snippet.
     try {
-      const { searchFallback } = await import('./search-fallback.js');
+      // @ts-ignore — proprietary module, gitignored
+        const { searchFallback } = await import('./search-fallback.js');
       const searchResult = await searchFallback(ctx.url);
       if (searchResult.cachedContent && searchResult.cachedContent.length > 50) {
         ctx.content = searchResult.cachedContent;

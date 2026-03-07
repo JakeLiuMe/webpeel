@@ -550,6 +550,7 @@ export async function smartFetch(
 
   if (cloaked) {
     try {
+      // @ts-ignore — proprietary module, gitignored
       const { cloakFetch, isCloakBrowserAvailable } = await import('./cloak-fetch.js');
       if (!isCloakBrowserAvailable()) {
         throw new Error('CloakBrowser not installed. Run: npm install cloakbrowser playwright-core');
@@ -994,7 +995,8 @@ export async function smartFetch(
       // If still challenged after CF Worker, try CloakBrowser
       if (finalResult.challengeDetected) {
         try {
-          const { cloakFetch, isCloakBrowserAvailable } = await import('./cloak-fetch.js');
+          // @ts-ignore — proprietary module, gitignored
+      const { cloakFetch, isCloakBrowserAvailable } = await import('./cloak-fetch.js');
           if (isCloakBrowserAvailable()) {
             if (process.env.DEBUG) console.debug('[webpeel]', 'Escalating to CloakBrowser stealth');
             const cloakResult = await cloakFetch({

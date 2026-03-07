@@ -113,7 +113,12 @@ export { quickAnswer, type QuickAnswerOptions, type QuickAnswerResult } from './
 export { extractValueFromPassage, smartExtractSchemaFields } from './core/schema-postprocess.js';
 export { Timer, type PipelineTiming } from './core/timing.js';
 export { chunkContent, type ChunkOptions, type ContentChunk, type ChunkResult } from './core/chunker.js';
-export { searchFallback, type SearchFallbackResult } from './core/search-fallback.js';
+// search-fallback: proprietary module, loaded at runtime only
+export type SearchFallbackResult = { content: string; url: string; method: string };
+export async function searchFallback(..._args: any[]): Promise<SearchFallbackResult | null> {
+  // @ts-ignore — proprietary module, gitignored
+  try { const m = await import('./core/search-fallback.js'); return m.searchFallback(..._args); } catch { return null; }
+}
 export { peelTLSFetch, isPeelTLSAvailable, shutdownPeelTLS, type PeelTLSOptions, type PeelTLSResult } from './core/peel-tls.js';
 
 /**
@@ -242,7 +247,15 @@ export { WebPeelReader, type WebPeelReaderOptions } from './integrations/llamain
 
 // Advanced stealth utilities — for power users who want to apply extra evasions
 // to their own Playwright pages.
-export { applyStealthPatches, applyAcceptLanguageHeader } from './core/stealth-patches.js';
+// stealth-patches: proprietary module, loaded at runtime only
+export async function applyStealthPatches(page: any): Promise<void> {
+  // @ts-ignore — proprietary module, gitignored
+  try { const m = await import('./core/stealth-patches.js'); await m.applyStealthPatches(page); } catch { /* not available */ }
+}
+export async function applyAcceptLanguageHeader(page: any, lang?: string): Promise<void> {
+  // @ts-ignore — proprietary module, gitignored
+  try { const m = await import('./core/stealth-patches.js'); await m.applyAcceptLanguageHeader(page, lang); } catch { /* not available */ }
+}
 
 // Google Cache fallback — fetch cached copies of blocked pages
 export { fetchGoogleCache, isGoogleCacheAvailable, type GoogleCacheResult } from './core/google-cache.js';
