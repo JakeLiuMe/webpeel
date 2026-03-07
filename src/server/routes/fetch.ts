@@ -15,6 +15,7 @@ import { wantsEnvelope, successResponse } from '../utils/response.js';
 import { getSchemaTemplate } from '../../core/schema-templates.js';
 import { quickAnswer } from '../../core/quick-answer.js';
 import { sendUsageAlertEmail } from '../email-service.js';
+import { extractLinks } from '../../core/links.js';
 
 // ── Helper: extractive summarizer (TF-IDF-like sentence scoring) ─────────────
 function extractSummary(content: string, maxWords = 150): string {
@@ -1013,7 +1014,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         question: question,
         readable: readable === true,
         stealth: (isSoftLimited && !hasExtraUsage) ? false : stealth === true,
-        screenshot: (isSoftLimited && !hasExtraUsage) ? false : screenshot === true,
+        screenshot: (isSoftLimited && !hasExtraUsage) ? false : (screenshot === true || (Array.isArray(formats) && formats.some((f: any) => (typeof f === 'string' ? f : f?.type) === 'screenshot'))),
         maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
         selector: selector,
         exclude: excludeArray,
@@ -1185,6 +1186,46 @@ export function createFetchRouter(authStore: AuthStore): Router {
       }
       if (postSummaryText !== undefined) {
         responseBody.summary = postSummaryText;
+      }
+
+      // --- Multi-format response (formats array) --------------------------------
+      // When 'formats' is provided as an array, populate each requested format
+      // as a top-level field in the response. Backward-compatible: single-format
+      // responses continue to work unchanged via the 'format' param.
+      if (Array.isArray(formats) && formats.length > 0) {
+        for (const fmt of formats) {
+          const fmtStr = typeof fmt === 'string' ? fmt : fmt?.type;
+          switch (fmtStr) {
+            case 'markdown':
+              responseBody.markdown = result.content;
+              break;
+            case 'html':
+              // If the user requested html format, result.content is already html.
+              // Otherwise fall back to empty string (html is not exposed by peel()).
+              responseBody.html = (resolvedFormat === 'html') ? result.content : '';
+              break;
+            case 'rawHtml':
+              // rawHtml is not surfaced by PeelResult — return empty string.
+              responseBody.rawHtml = '';
+              break;
+            case 'screenshot':
+              responseBody.screenshot = result.screenshot || null;
+              break;
+            case 'links': {
+              // PeelResult.links is already a deduplicated string[] — convert to
+              // {url, text} objects. Fall back to cheerio extraction if links is empty.
+              if (result.links && result.links.length > 0) {
+                responseBody.links = result.links.map((url: string) => ({ url, text: '' }));
+              } else {
+                responseBody.links = extractLinks(result.content || '', result.url);
+              }
+              break;
+            }
+            case 'json':
+              // Already handled above via resolvedExtract / jsonData
+              break;
+          }
+        }
       }
 
       if (wantsEnvelope(req)) {
