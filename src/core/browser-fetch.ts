@@ -21,7 +21,15 @@ import {
   MAX_CONCURRENT_PAGES,
   getPooledPagesCount,
 } from './browser-pool.js';
-import { applyStealthPatches, applyAcceptLanguageHeader } from './stealth-patches.js';
+// Proprietary stealth module — gitignored, loaded conditionally
+let applyStealthPatches: ((page: any) => Promise<void>) | undefined;
+let applyAcceptLanguageHeader: ((page: any, lang?: string) => Promise<void>) | undefined;
+try {
+  // @ts-ignore — proprietary module, gitignored
+  const mod = await import('./stealth-patches.js');
+  applyStealthPatches = mod.applyStealthPatches;
+  applyAcceptLanguageHeader = mod.applyAcceptLanguageHeader;
+} catch { /* Not available in CI/open-source builds */ }
 import { validateUrl, validateUserAgent, createAbortError, type FetchResult } from './http-fetch.js';
 import { autoInteract, type AutoInteractResult } from './auto-interact.js';
 
@@ -255,8 +263,8 @@ export async function browserFetch(
       // Apply supplemental stealth patches (canvas noise, connection API, battery, etc.)
       // These go beyond what puppeteer-extra-plugin-stealth provides.
       if (stealth) {
-        await applyStealthPatches(page);
-        await applyAcceptLanguageHeader(page, 'en-US');
+        await applyStealthPatches?.(page);
+        await applyAcceptLanguageHeader?.(page, 'en-US');
       }
       usingPooledPage = false;
     } else {
