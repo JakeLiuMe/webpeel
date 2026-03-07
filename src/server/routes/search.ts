@@ -68,6 +68,9 @@ export function createSearchRouter(authStore: AuthStore): Router {
         return;
       }
 
+      // scrapeResults=true: fetches full page content for each result (like Firecrawl's scrape_options).
+      // Adds `content` field to each result. Significantly increases response time and credits used.
+      // Documented in OpenAPI spec under /v1/search parameters.
       const { q, count, scrapeResults, sources, categories, tbs, country, location } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---

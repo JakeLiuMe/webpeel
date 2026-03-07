@@ -40,6 +40,7 @@ import pg from 'pg';
 import { createScreenshotRouter } from './routes/screenshot.js';
 import { createDemoRouter } from './routes/demo.js';
 import { createPlaygroundRouter } from './routes/playground.js';
+import { createReaderRouter } from './routes/reader.js';
 import { createJobQueue } from './job-queue.js';
 import { createCompatRouter } from './routes/compat.js';
 import { createExtractRouter } from './routes/extract.js';
@@ -259,6 +260,10 @@ export function createApp(config: ServerConfig = {}): Express {
 
   // Playground endpoint — unauthenticated, CORS-locked to webpeel.dev/localhost
   app.use('/v1/playground', createPlaygroundRouter());
+
+  // Zero-auth reader API — Jina-style URL prefix (/r/URL) and search (/s/query)
+  // Must be BEFORE auth middleware so no API key is required
+  app.use(createReaderRouter());
 
   // Apply auth middleware globally
   app.use(createAuthMiddleware(authStore));
