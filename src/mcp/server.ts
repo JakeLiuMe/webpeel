@@ -763,8 +763,7 @@ async function handleAct(args: Record<string, unknown>) {
   if (!url) return textResponse(safeJson({ error: 'url is required' }));
   if (!actions?.length) return textResponse(safeJson({ error: 'actions array is required' }));
 
-  // Reuse the full peel() pipeline — same as handleFetch
-  const { peel } = await import('../index.js');
+  // Reuse the full peel() pipeline — peel is already statically imported at module top
   const result = await peel(url, {
     render: true,       // actions always require browser
     actions,
