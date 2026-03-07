@@ -43,6 +43,7 @@ import { createPlaygroundRouter } from './routes/playground.js';
 import { createJobQueue } from './job-queue.js';
 import { createCompatRouter } from './routes/compat.js';
 import { createExtractRouter } from './routes/extract.js';
+import { createAgentRouter } from './routes/agent.js';
 import { createSessionRouter } from './routes/session.js';
 import { createSentryHooks } from './sentry.js';
 import { warmup, cleanup as cleanupFetcher } from '../core/fetcher.js';
@@ -291,6 +292,7 @@ export function createApp(config: ServerConfig = {}): Express {
   });
   app.use(createAnswerRouter());
   app.use(createAskRouter());
+  app.use('/v1/agent', createAgentRouter());
   app.use('/v1/do', createDoRouter());
   app.use(createYouTubeRouter());
   app.use(createMcpRouter(authStore, pool));
