@@ -39,6 +39,7 @@
     "dist/core",
     "dist/integrations",
     "dist/mcp",
+    "dist/server",
     "dist/cli/",
     "README.md",
     "LICENSE",
