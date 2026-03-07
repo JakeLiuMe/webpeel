@@ -442,6 +442,7 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
       blockResources: ctx.options.blockResources,
       cloaked: ctx.options.cloaked,
       cycle: ctx.options.cycle,
+      noEscalate: ctx.options.noEscalate,
     });
   } catch (fetchError) {
     // If fetch failed but we have a domain extractor, try it as fallback

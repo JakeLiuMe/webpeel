@@ -234,6 +234,12 @@ export interface PeelOptions {
   cycle?: boolean; // @deprecated — use tls instead
   /** Use PeelTLS TLS fingerprint spoofing */
   tls?: boolean;
+  /**
+   * Skip browser escalation on thin/shell pages.
+   * When true, returns the simple HTTP result as-is without escalating to a headless browser.
+   * Use for Q&A or high-throughput workloads where speed > JS-rendered completeness.
+   */
+  noEscalate?: boolean;
   /** Chunk content for RAG pipelines */
   chunk?: boolean | {
     /** Max tokens per chunk (default: 512) */

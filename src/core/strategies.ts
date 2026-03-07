@@ -290,6 +290,12 @@ export interface StrategyOptions {
   cycle?: boolean; // @deprecated — use tls instead
   /** Use PeelTLS TLS fingerprint spoofing */
   tls?: boolean;
+  /**
+   * Skip browser escalation on thin/shell content.
+   * When true, the simple HTTP result is returned as-is without escalating to browser.
+   * Use for Q&A/search workloads where speed matters more than JS-rendered content.
+   */
+  noEscalate?: boolean;
 }
 
 /* ---------- browser-level fetch helper ---------------------------------- */
@@ -495,6 +501,7 @@ export async function smartFetch(
     cloaked = false,
     cycle = false,
     tls = false,
+    noEscalate = false,
   } = options;
   const usePeelTLS = tls || cycle;
 
@@ -728,16 +735,17 @@ export async function smartFetch(
     if (raceTimer) clearTimeout(raceTimer);
 
     if (simpleOrTimeout.type === 'simple-success') {
-      // Check if the content is suspiciously thin or has SPA indicators — escalate to browser if so
-      if (shouldEscalateForLowContent(simpleOrTimeout.result) || hasSpaIndicators(simpleOrTimeout.result.html)) {
+      // Skip escalation when noEscalate=true (Q&A workloads that prefer speed over JS rendering)
+      if (!noEscalate && (shouldEscalateForLowContent(simpleOrTimeout.result) || hasSpaIndicators(simpleOrTimeout.result.html))) {
         shouldUseBrowser = true;
       } else {
         // Check whether the response is a bot-challenge page (e.g. Cloudflare, PerimeterX)
-        const challengeCheck = detectChallenge(
+        // Skip challenge detection when noEscalate=true (can't fix it with browser anyway)
+        const challengeCheck = noEscalate ? null : detectChallenge(
           simpleOrTimeout.result.html,
           simpleOrTimeout.result.statusCode,
         );
-        if (challengeCheck.isChallenge && challengeCheck.confidence >= 0.7) {
+        if (challengeCheck && challengeCheck.isChallenge && challengeCheck.confidence >= 0.7) {
           // Escalate — the browser/stealth path will handle it below
           shouldUseBrowser = true;
         } else {
@@ -755,7 +763,8 @@ export async function smartFetch(
     }
 
     if (simpleOrTimeout.type === 'simple-error') {
-      if (!shouldEscalateSimpleError(simpleOrTimeout.error)) {
+      // When noEscalate=true, don't try browser on simple fetch error — just throw
+      if (noEscalate || !shouldEscalateSimpleError(simpleOrTimeout.error)) {
         throw simpleOrTimeout.error;
       }
       shouldUseBrowser = true;
