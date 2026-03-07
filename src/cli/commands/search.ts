@@ -1,0 +1,551 @@
+/**
+ * Search commands: search, sites, batch, crawl, map
+ */
+
+import type { Command } from 'commander';
+import ora from 'ora';
+import { readFileSync } from 'fs';
+import { peel, peelBatch, cleanup } from '../../index.js';
+import { checkUsage, showUsageFooter, loadConfig } from '../../cli-auth.js';
+import { writeStdout, formatListingsCsv } from '../utils.js';
+
+export function registerSearchCommands(program: Command): void {
+
+  // ── search command ────────────────────────────────────────────────────────
+  program
+    .command('search <query>')
+    .description('Search the web (DuckDuckGo by default, or use --site for site-specific search)')
+    .option('-n, --count <n>', 'Number of results (1-10)', '5')
+    .option('--top <n>', 'Limit results (alias for --count)')
+    .option('--provider <provider>', 'Search provider: duckduckgo (default) or brave')
+    .option('--search-api-key <key>', 'API key for the search provider (or env WEBPEEL_BRAVE_API_KEY)')
+    .option('--site <site>', 'Search a specific site (e.g. ebay, amazon, github). Run "webpeel sites" for full list.')
+    .option('--json', 'Output as JSON')
+    .option('--urls-only', 'Output only URLs, one per line (pipe-friendly)')
+    .option('--table', 'Output site-search results as a formatted table (requires --site)')
+    .option('--csv', 'Output site-search results as CSV (requires --site)')
+    .option('--budget <n>', 'Token budget for site-search result content', parseInt)
+    .option('-s, --silent', 'Silent mode')
+    .option('--proxy <url>', 'Proxy URL for requests (http://host:port, socks5://user:pass@host:port)')
+    .option('--agent', 'Agent mode: sets --json, --silent, and --budget 4000 (override with --budget N)')
+    .action(async (query: string, options) => {
+      // --agent sets sensible defaults for AI agents; explicit flags override
+      if (options.agent) {
+        if (!options.json) options.json = true;
+        if (!options.silent) options.silent = true;
+        if (options.budget === undefined) options.budget = 4000;
+      }
+
+      const isJson = options.json;
+      const isSilent = options.silent;
+      // --top overrides --count when both are provided
+      const count = parseInt(options.top ?? options.count) || 5;
+
+      // Check usage quota
+      const usageCheck = await checkUsage();
+      if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
+        process.exit(1);
+      }
+
+      // ── --site: site-specific structured search ───────────────────────────
+      if (options.site) {
+        const spinner = isSilent ? null : ora(`Searching ${options.site}...`).start();
+        try {
+          const { buildSiteSearchUrl } = await import('../../core/site-search.js');
+          const siteResult = buildSiteSearchUrl(options.site, query);
+
+          // Fetch the raw HTML (needed for listing extraction)
+          const htmlResult = await peel(siteResult.url, {
+            format: 'html',
+            timeout: 30000,
+            proxy: options.proxy as string | undefined,
+          });
+
+          if (spinner) {
+            spinner.succeed(`Fetched ${siteResult.site} in ${htmlResult.elapsed}ms`);
+          }
+
+          // Extract listings from the HTML
+          const { extractListings } = await import('../../core/extract-listings.js');
+          let listings = extractListings(htmlResult.content, siteResult.url);
+
+          // Apply budget if requested
+          if (options.budget && options.budget > 0 && listings.length > 0) {
+            const { budgetListings } = await import('../../core/budget.js');
+            const { maxItems } = budgetListings(listings.length, options.budget);
+            listings = listings.slice(0, maxItems);
+          }
+
+          // Show usage footer
+          if (usageCheck.usageInfo && !isSilent) {
+            showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, false);
+          }
+
+          // Output
+          if (options.csv) {
+            const rows = listings.map(item => {
+              const row: Record<string, string | undefined> = {};
+              for (const [k, v] of Object.entries(item)) {
+                if (v !== undefined) row[k] = v;
+              }
+              return row;
+            });
+            await writeStdout(formatListingsCsv(rows));
+          } else if (options.table) {
+            const { formatTable } = await import('../../core/table-format.js');
+            const rows = listings.map(item => {
+              const row: Record<string, string | undefined> = {};
+              for (const [k, v] of Object.entries(item)) {
+                if (v !== undefined) row[k] = v;
+              }
+              return row;
+            });
+            await writeStdout(formatTable(rows) + '\n');
+          } else if (isJson) {
+            const envelope = {
+              site: siteResult.site,
+              query: siteResult.query,
+              url: siteResult.url,
+              count: listings.length,
+              items: listings,
+              elapsed: htmlResult.elapsed,
+            };
+            await writeStdout(JSON.stringify(envelope, null, 2) + '\n');
+          } else {
+            if (listings.length === 0) {
+              await writeStdout('No listings found.\n');
+            } else {
+              await writeStdout(`Found ${listings.length} listings on ${siteResult.site}:\n\n`);
+              for (const [i, item] of listings.entries()) {
+                const pricePart = item.price ? ` — ${item.price}` : '';
+                process.stdout.write(`${i + 1}. ${item.title}${pricePart}\n`);
+                if (item.link) process.stdout.write(`   ${item.link}\n`);
+                process.stdout.write('\n');
+              }
+            }
+          }
+
+          await cleanup();
+          process.exit(0);
+        } catch (error) {
+          if (spinner) spinner.fail('Site search failed');
+          if (error instanceof Error) {
+            console.error(`\nError: ${error.message}`);
+          } else {
+            console.error('\nError: Unknown error occurred');
+          }
+          await cleanup();
+          process.exit(1);
+        }
+      }
+
+      const spinner = isSilent ? null : ora('Searching...').start();
+
+      try {
+        // Route search through the WebPeel API when a key is configured
+        const searchCfg = loadConfig();
+        const searchApiKey = searchCfg.apiKey || process.env.WEBPEEL_API_KEY;
+        const searchApiUrl = process.env.WEBPEEL_API_URL || 'https://api.webpeel.dev';
+
+        if (!searchApiKey) {
+          if (spinner) spinner.fail('Authentication required');
+          console.error('No API key configured. Run: webpeel auth <your-key>');
+          console.error('Get a free key at: https://app.webpeel.dev/keys');
+          process.exit(2);
+        }
+
+        const searchParams = new URLSearchParams({ q: query });
+        searchParams.set('limit', String(Math.min(Math.max(count, 1), 10)));
+        if (options.budget) searchParams.set('budget', String(options.budget));
+
+        const searchRes = await fetch(`${searchApiUrl}/v1/search?${searchParams}`, {
+          headers: { Authorization: `Bearer ${searchApiKey}` },
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (searchRes.status === 401) {
+          if (spinner) spinner.fail('Authentication failed');
+          console.error('API key invalid or expired. Run: webpeel auth <new-key>');
+          process.exit(1);
+        }
+        if (searchRes.status === 429) {
+          if (spinner) spinner.fail('Rate limited');
+          console.error('Rate limit exceeded. Check your plan at https://app.webpeel.dev/billing');
+          process.exit(1);
+        }
+        if (!searchRes.ok) {
+          const body = await searchRes.text().catch(() => '');
+          throw new Error(`Search API error ${searchRes.status}: ${body.slice(0, 200)}`);
+        }
+
+        const searchData = await searchRes.json() as any;
+        // API returns { success: true, data: { web: [...] } } or { results: [...] }
+        let results: Array<{ title: string; url: string; snippet: string }> =
+          searchData.data?.web || searchData.data?.results || searchData.results || [];
+
+        if (spinner) {
+          spinner.succeed(`Found ${results.length} results`);
+        }
+
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !isSilent) {
+          showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, false);
+        }
+
+        if (options.urlsOnly) {
+          // Pipe-friendly: one URL per line
+          for (const result of results) {
+            await writeStdout(result.url + '\n');
+          }
+        } else if (isJson) {
+          const jsonStr = JSON.stringify({ query, results, count: results.length }, null, 2);
+          await writeStdout(jsonStr + '\n');
+        } else {
+          for (const result of results) {
+            console.log(`\n${result.title}`);
+            console.log(result.url);
+            console.log(result.snippet);
+          }
+        }
+
+        process.exit(0);
+      } catch (error) {
+        if (spinner) {
+          spinner.fail('Search failed');
+        }
+
+        if (error instanceof Error) {
+          console.error(`\nError: ${error.message}`);
+
+          const msg = error.message.toLowerCase();
+          if (msg.includes('brave') && msg.includes('api key')) {
+            console.error('\n💡 Hint: Set your Brave API key: webpeel config set braveApiKey YOUR_KEY');
+            console.error('   Or use free DuckDuckGo search (default, no key needed).');
+          } else if (msg.includes('timeout') || msg.includes('timed out')) {
+            console.error('\n💡 Hint: Search timed out. Try a more specific query or try again.');
+          }
+        } else {
+          console.error('\nError: Unknown error occurred');
+        }
+
+        process.exit(1);
+      }
+    });
+
+  // ── sites command — list all supported site templates ────────────────────
+  program
+    .command('sites')
+    .description('List all sites supported by "webpeel search --site <site>"')
+    .option('--json', 'Output as JSON')
+    .option('--category <cat>', 'Filter by category (shopping, social, tech, jobs, general, real-estate, food)')
+    .action(async (options) => {
+      const { listSites } = await import('../../core/site-search.js');
+      let sites = listSites();
+
+      if (options.category) {
+        sites = sites.filter(s => s.category === options.category);
+      }
+
+      if (options.json) {
+        await writeStdout(JSON.stringify(sites, null, 2) + '\n');
+        process.exit(0);
+      }
+
+      // Group by category for pretty output
+      const byCategory = new Map<string, typeof sites>();
+      for (const site of sites) {
+        if (!byCategory.has(site.category)) byCategory.set(site.category, []);
+        byCategory.get(site.category)!.push(site);
+      }
+
+      const categoryOrder = ['shopping', 'general', 'social', 'tech', 'jobs', 'real-estate', 'food'];
+      const sortedCategories = categoryOrder.filter(c => byCategory.has(c));
+
+      console.log('\nWebPeel Site-Aware Search — supported sites\n');
+      console.log('Usage: webpeel search --site <id> "<query>"\n');
+
+      for (const cat of sortedCategories) {
+        const catSites = byCategory.get(cat)!;
+        const label = cat.charAt(0).toUpperCase() + cat.slice(1);
+        console.log(`  ${label}:`);
+        for (const s of catSites) {
+          console.log(`    ${s.id.padEnd(16)} ${s.name}`);
+        }
+        console.log('');
+      }
+
+      process.exit(0);
+    });
+
+  // ── batch command ─────────────────────────────────────────────────────────
+  program
+    .command('batch [file]')
+    .description('Fetch multiple URLs from file or stdin pipe')
+    .option('-c, --concurrency <n>', 'Max concurrent fetches (default: 3)', '3')
+    .option('-o, --output <dir>', 'Output directory (one file per URL)')
+    .option('--json', 'Output as JSON array')
+    .option('-s, --silent', 'Silent mode')
+    .option('-r, --render', 'Use headless browser')
+    .option('--selector <css>', 'CSS selector to extract')
+    .action(async (file: string | undefined, options) => {
+      const isJson = options.json;
+      const isSilent = options.silent;
+      const shouldRender = options.render;
+      const selector = options.selector;
+
+      // Check usage quota
+      const usageCheck = await checkUsage();
+      if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
+        process.exit(1);
+      }
+
+      const spinner = isSilent ? null : ora('Loading URLs...').start();
+
+      try {
+        // Read URLs from file or stdin
+        let urls: string[];
+        if (file) {
+          // Read from file
+          try {
+            const content = readFileSync(file, 'utf-8');
+            urls = content.split('\n')
+              .map(line => line.trim())
+              .filter(line => line && !line.startsWith('#'));
+          } catch (error) {
+            throw new Error(`Failed to read file: ${file}`);
+          }
+        } else if (!process.stdin.isTTY) {
+          // Read from stdin pipe
+          const chunks: Buffer[] = [];
+          for await (const chunk of process.stdin) {
+            chunks.push(chunk);
+          }
+          const content = Buffer.concat(chunks).toString('utf-8');
+          urls = content.split('\n')
+            .map(line => line.trim())
+            .filter(line => line && !line.startsWith('#'));
+        } else {
+          throw new Error('Provide a file path or pipe URLs via stdin.\n  Example: cat urls.txt | webpeel batch');
+        }
+
+        if (urls.length === 0) {
+          throw new Error('No URLs found in file');
+        }
+
+        if (spinner) {
+          spinner.text = `Fetching ${urls.length} URLs (concurrency: ${options.concurrency})...`;
+        }
+
+        // Batch fetch
+        const results = await peelBatch(urls, {
+          concurrency: parseInt(options.concurrency) || 3,
+          render: shouldRender,
+          selector: selector,
+        });
+
+        if (spinner) {
+          const successCount = results.filter(r => 'content' in r).length;
+          spinner.succeed(`Completed: ${successCount}/${urls.length} successful`);
+        }
+
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !isSilent) {
+          showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, false);
+        }
+
+        // Output results
+        if (isJson) {
+          const jsonStr = JSON.stringify(results, null, 2);
+          await new Promise<void>((resolve, reject) => {
+            process.stdout.write(jsonStr + '\n', (err) => {
+              if (err) reject(err);
+              else resolve();
+            });
+          });
+        } else if (options.output) {
+          const { writeFileSync, mkdirSync } = await import('fs');
+          const { join } = await import('path');
+
+          // Create output directory
+          mkdirSync(options.output, { recursive: true });
+
+          results.forEach((result, i) => {
+            const urlObj = new URL(urls[i]);
+            const filename = `${i + 1}_${urlObj.hostname.replace(/[^a-z0-9]/gi, '_')}.md`;
+            const filepath = join(options.output, filename);
+
+            if ('content' in result) {
+              writeFileSync(filepath, result.content);
+            } else {
+              writeFileSync(filepath, `Error: ${result.error}`);
+            }
+          });
+
+          if (!isSilent) {
+            console.log(`\nResults saved to: ${options.output}`);
+          }
+        } else {
+          // Print results to stdout
+          results.forEach((result, i) => {
+            console.log(`\n=== ${urls[i]} ===\n`);
+            if ('content' in result) {
+              console.log(result.content.slice(0, 500) + '...');
+            } else {
+              console.log(`Error: ${result.error}`);
+            }
+          });
+        }
+
+        await cleanup();
+        process.exit(0);
+      } catch (error) {
+        if (spinner) {
+          spinner.fail('Batch fetch failed');
+        }
+
+        if (error instanceof Error) {
+          console.error(`\nError: ${error.message}`);
+        } else {
+          console.error('\nError: Unknown error occurred');
+        }
+
+        await cleanup();
+        process.exit(1);
+      }
+    });
+
+  // ── crawl command ─────────────────────────────────────────────────────────
+  program
+    .command('crawl <url>')
+    .description('Crawl a website starting from a URL')
+    .option('--max-pages <number>', 'Maximum number of pages to crawl (default: 10, max: 100)', (v: string) => parseInt(v, 10), 10)
+    .option('--max-depth <number>', 'Maximum depth to crawl (default: 2, max: 5)', (v: string) => parseInt(v, 10), 2)
+    .option('--allowed-domains <domains...>', 'Only crawl these domains (default: same as starting URL)')
+    .option('--exclude <patterns...>', 'Exclude URLs matching these regex patterns')
+    .option('--ignore-robots', 'Ignore robots.txt (default: respect robots.txt)')
+    .option('--rate-limit <ms>', 'Rate limit between requests in ms (default: 1000)', (v: string) => parseInt(v, 10), 1000)
+    .option('-r, --render', 'Use headless browser for all pages')
+    .option('--stealth', 'Use stealth mode for all pages')
+    .option('-s, --silent', 'Silent mode (no spinner)')
+    .option('--json', 'Output as JSON')
+    .option('--resume', 'Resume an interrupted crawl from its last checkpoint')
+    .action(async (url: string, options) => {
+      // Check usage quota
+      const usageCheck = await checkUsage();
+      if (!usageCheck.allowed) {
+        console.error(usageCheck.message);
+        process.exit(1);
+      }
+
+      const { crawl } = await import('../../core/crawler.js');
+
+      const spinner = options.silent ? null : ora('Crawling...').start();
+
+      try {
+        const results = await crawl(url, {
+          maxPages: options.maxPages,
+          maxDepth: options.maxDepth,
+          allowedDomains: options.allowedDomains,
+          excludePatterns: options.exclude,
+          respectRobotsTxt: !options.ignoreRobots,
+          rateLimitMs: options.rateLimit,
+          render: options.render || false,
+          stealth: options.stealth || false,
+          resume: options.resume || false,
+        });
+
+        if (spinner) {
+          spinner.succeed(`Crawled ${results.length} pages`);
+        }
+
+        // Show usage footer for free/anonymous users
+        if (usageCheck.usageInfo && !options.silent) {
+          showUsageFooter(usageCheck.usageInfo, usageCheck.isAnonymous || false, options.stealth || false);
+        }
+
+        if (options.json) {
+          console.log(JSON.stringify({ pages: results, count: results.length }, null, 2));
+        } else {
+          results.forEach((result, i) => {
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`[${i + 1}/${results.length}] ${result.title}`);
+            console.log(`URL: ${result.url}`);
+            console.log(`Depth: ${result.depth}${result.parent ? ` (from: ${result.parent})` : ''}`);
+            console.log(`Links found: ${result.links.length}`);
+            console.log(`Elapsed: ${result.elapsed}ms`);
+
+            if (result.error) {
+              console.log(`ERROR: ${result.error}`);
+            } else {
+              console.log(`\n${result.markdown.slice(0, 500)}${result.markdown.length > 500 ? '...' : ''}`);
+            }
+          });
+        }
+
+        await cleanup();
+        process.exit(0);
+      } catch (error) {
+        if (spinner) {
+          spinner.fail('Crawl failed');
+        }
+
+        if (error instanceof Error) {
+          console.error(`\nError: ${error.message}`);
+        } else {
+          console.error('\nError: Unknown error occurred');
+        }
+
+        await cleanup();
+        process.exit(1);
+      }
+    });
+
+  // ── map command ───────────────────────────────────────────────────────────
+  program
+    .command('map <url>')
+    .description('Discover all URLs on a domain (sitemap + crawl)')
+    .option('--no-sitemap', 'Skip sitemap.xml discovery')
+    .option('--no-crawl', 'Skip homepage crawl')
+    .option('--max <n>', 'Maximum URLs to discover (default: 5000)', (v: string) => parseInt(v, 10), 5000)
+    .option('--include <patterns...>', 'Include only URLs matching these regex patterns')
+    .option('--exclude <patterns...>', 'Exclude URLs matching these regex patterns')
+    .option('--json', 'Output as JSON')
+    .option('-s, --silent', 'Silent mode')
+    .action(async (url, options) => {
+      const { mapDomain } = await import('../../core/map.js');
+      const spinner = options.silent ? null : ora('Discovering URLs...').start();
+
+      try {
+        const result = await mapDomain(url, {
+          useSitemap: options.sitemap !== false,
+          crawlHomepage: options.crawl !== false,
+          maxUrls: options.max,
+          includePatterns: options.include,
+          excludePatterns: options.exclude,
+        });
+
+        if (spinner) spinner.succeed(`Found ${result.total} URLs in ${result.elapsed}ms`);
+
+        if (options.json) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          for (const u of result.urls) {
+            console.log(u);
+          }
+          if (!options.silent) {
+            console.error(`\nTotal: ${result.total} URLs`);
+            if (result.sitemapUrls.length > 0) {
+              console.error(`Sitemaps used: ${result.sitemapUrls.join(', ')}`);
+            }
+          }
+        }
+        process.exit(0);
+      } catch (error) {
+        if (spinner) spinner.fail('URL discovery failed');
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        process.exit(1);
+      }
+    });
+}
