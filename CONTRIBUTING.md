@@ -125,4 +125,48 @@ scripts/e2e-verify.sh         — End-to-end real-URL verification
 
 ---
 
+---
+
+## Target Architecture (Phase 1)
+
+We're moving from duplicated code to a shared handler registry:
+
+### Current (BAD — causes bugs):
+```
+src/mcp/server.ts        ← 7 handlers (standalone, stdio transport)
+src/server/routes/mcp.ts ← 26 handlers (HTTP, SSE transport)
+                            Same tools, different implementations. Drift guaranteed.
+```
+
+### Target (GOOD — single source of truth):
+```
+src/mcp/handlers/          ← ALL tool logic lives here
+  ├── read.ts              ← handleRead() — fetch, YouTube, question
+  ├── see.ts               ← handleSee() — screenshot, design analysis, compare
+  ├── find.ts              ← handleFind() — search, map, Q&A
+  ├── extract.ts           ← handleExtract() — structured extraction
+  ├── monitor.ts           ← handleMonitor() — watch, change detection
+  ├── act.ts               ← handleAct() — browser interaction
+  └── index.ts             ← exports registry: { name → handler }
+
+src/mcp/server.ts          ← stdio transport (imports from handlers/)
+src/server/routes/mcp.ts   ← HTTP/SSE transport (imports from handlers/)
+```
+
+Both transports import the SAME handlers. No duplication. No drift. Parity check becomes unnecessary because parity is structural.
+
+### CLI Target:
+```
+src/cli/                   ← Modular CLI
+  ├── index.ts             ← Commander setup, verb alias intercept
+  ├── commands/fetch.ts    ← runFetch()
+  ├── commands/search.ts   ← search, map
+  ├── commands/screenshot.ts
+  ├── commands/auth.ts     ← auth, status, doctor
+  ├── commands/webask.ts   ← webask
+  └── utils.ts             ← shared: config, API client, output formatting
+```
+
+---
+
 _This file is updated after every production bug. If you find a new trap, add it here._
