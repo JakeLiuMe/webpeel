@@ -6202,6 +6202,15 @@
     }
   }
 
+  /* ── DESIGN-FIX: Remove grey box from stat cards on mobile ──── */
+  @media (max-width: 768px) {
+    .hero-stat {
+      background: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+    }
+  }
+
   /* ── DESIGN-FIX: Center CTA button on mobile ──── */
   @media (max-width: 768px) {
     .hero-content {
