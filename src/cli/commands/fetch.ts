@@ -28,6 +28,15 @@ import {
 
 // Main fetch handler — shared with the `pipe` and `ask` subcommands
 export async function runFetch(url: string | undefined, options: any): Promise<void> {
+    // --content-only: override all output flags — we just want raw content
+    if (options.contentOnly) {
+      options.silent = true;
+      // Disable json/text/html — we output content directly
+      options.json = false;
+      options.html = false;
+      options.text = false;
+    }
+
     // Handle --format flag: maps to existing boolean flags
     if (options.format) {
       const fmt = options.format.toLowerCase();
@@ -43,9 +52,10 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
 
     // Smart defaults: when piped (not a TTY), default to silent JSON + budget
     // BUT respect explicit --format flag (user chose the output format)
+    // AND respect --content-only (raw content output, no JSON wrapper)
     const isPiped = !process.stdout.isTTY;
     const hasExplicitFormat = options.format && ['text', 'html', 'markdown', 'md'].includes(options.format.toLowerCase());
-    if (isPiped && !options.html && !options.text && !hasExplicitFormat) {
+    if (isPiped && !options.html && !options.text && !hasExplicitFormat && !options.contentOnly) {
       if (!options.json) options.json = true;
       if (!options.silent) options.silent = true;
       // Auto-enable readability for AI consumers — clean content by default
@@ -314,7 +324,11 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
           }
         }
 
-        await outputResult(cachedResult as PeelResult, options, { cached: true });
+        if (options.contentOnly) {
+          await writeStdout((cachedResult as PeelResult).content + '\n');
+        } else {
+          await outputResult(cachedResult as PeelResult, options, { cached: true });
+        }
         process.exit(0);
       }
     }
@@ -932,11 +946,27 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
           }
         }
 
-        // Output results (default path)
-        await outputResult(result, options, {
-          cached: false,
-          truncated: contentTruncated || undefined,
-        });
+        // --content-only: output raw content only, no wrapper
+        if (options.contentOnly) {
+          await writeStdout(result.content + '\n');
+        } else {
+          // Output results (default path)
+          await outputResult(result, options, {
+            cached: false,
+            truncated: contentTruncated || undefined,
+          });
+
+          // Token savings display (our unique selling point)
+          if (!options.json && !options.silent && (result as any).tokenSavingsPercent) {
+            const savings = (result as any).tokenSavingsPercent as number;
+            const raw = (result as any).rawTokenEstimate as number | undefined;
+            const optimized = result.tokens || 0;
+            if (savings > 0) {
+              const rawStr = raw ? `${raw.toLocaleString()}→${optimized.toLocaleString()} tokens` : `${optimized.toLocaleString()} tokens`;
+              process.stderr.write(`\x1b[32m💰 Token savings: ${savings}% smaller than raw HTML (${rawStr})\x1b[0m\n`);
+            }
+          }
+        }
       }
 
       // Clean up and exit
@@ -1046,6 +1076,7 @@ export function registerFetchCommands(program: Command): void {
     .option('--wait-selector <css>', 'Wait for CSS selector before extracting (auto-enables --render)')
     .option('--block-resources <types>', 'Block resource types, comma-separated: image,stylesheet,font,media,script (auto-enables --render)')
     .option('--format <type>', 'Output format: markdown (default), text, html, json')
+    .option('--content-only', 'Output only the raw content field (no metadata, no JSON wrapper) — ideal for piping to LLMs')
     .action(async (url: string | undefined, options) => {
       await runFetch(url, options);
     });

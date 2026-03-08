@@ -559,6 +559,8 @@ export async function outputResult(result: PeelResult, options: any, extra: Outp
       if (Object.keys(cleanMeta).length > 0) output.metadata = cleanMeta;
     }
     if (result.links?.length) output.links = result.links;
+    if ((result as any).tokenSavingsPercent !== undefined) output.tokenSavingsPercent = (result as any).tokenSavingsPercent;
+    if ((result as any).rawTokenEstimate !== undefined) output.rawTokenEstimate = (result as any).rawTokenEstimate;
     if ((result as any).images?.length) output.images = (result as any).images;
     if ((result as any).structured) output.structured = (result as any).structured;
     if ((result as any).domainData) output.domainData = (result as any).domainData;

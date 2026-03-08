@@ -27,6 +27,7 @@ export function registerSearchCommands(program: Command): void {
     .option('--budget <n>', 'Token budget for site-search result content', parseInt)
     .option('-s, --silent', 'Silent mode')
     .option('--proxy <url>', 'Proxy URL for requests (http://host:port, socks5://user:pass@host:port)')
+    .option('--fetch', 'Also fetch and include content from each result URL')
     .option('--agent', 'Agent mode: sets --json, --silent, and --budget 4000 (override with --budget N)')
     .action(async (query: string, options) => {
       // --agent sets sensible defaults for AI agents; explicit flags override
@@ -181,11 +182,60 @@ export function registerSearchCommands(program: Command): void {
 
         const searchData = await searchRes.json() as any;
         // API returns { success: true, data: { web: [...] } } or { results: [...] }
-        let results: Array<{ title: string; url: string; snippet: string }> =
+        let results: Array<{ title: string; url: string; snippet: string; content?: string }> =
           searchData.data?.web || searchData.data?.results || searchData.results || [];
+
+        // Client-side ad filtering: remove DuckDuckGo ads that slip through the server
+        results = results.filter(r => {
+          // Filter DDG-internal URLs
+          try {
+            const parsed = new URL(r.url);
+            if (parsed.hostname === 'duckduckgo.com') return false;
+            if (
+              parsed.searchParams.has('ad_domain') ||
+              parsed.searchParams.has('ad_provider') ||
+              parsed.searchParams.has('ad_type')
+            ) return false;
+          } catch { return false; }
+          // Filter ad snippets
+          if (r.snippet && (
+            r.snippet.includes('Ad ·') ||
+            r.snippet.includes('Ad Viewing ads is privacy protected by DuckDuckGo') ||
+            r.snippet.toLowerCase().startsWith('ad ·')
+          )) return false;
+          return true;
+        });
 
         if (spinner) {
           spinner.succeed(`Found ${results.length} results`);
+        }
+
+        // --fetch: fetch content from each result
+        if (options.fetch && results.length > 0) {
+          const fetchCfg = loadConfig();
+          const fetchApiKey = fetchCfg.apiKey || process.env.WEBPEEL_API_KEY;
+          const fetchApiUrl = process.env.WEBPEEL_API_URL || 'https://api.webpeel.dev';
+
+          if (fetchApiKey) {
+            const fetchSpinner = isSilent ? null : ora(`Fetching content from ${results.length} results...`).start();
+            await Promise.all(results.map(async (result) => {
+              try {
+                const fetchParams = new URLSearchParams({ url: result.url });
+                if (options.budget) fetchParams.set('budget', String(options.budget || 2000));
+                const fetchRes = await fetch(`${fetchApiUrl}/v1/fetch?${fetchParams}`, {
+                  headers: { Authorization: `Bearer ${fetchApiKey}` },
+                  signal: AbortSignal.timeout(20000),
+                });
+                if (fetchRes.ok) {
+                  const fetchData = await fetchRes.json() as any;
+                  result.content = fetchData.content || fetchData.data?.content || '';
+                }
+              } catch { /* skip on error */ }
+            }));
+            if (fetchSpinner) fetchSpinner.succeed('Content fetched');
+          } else if (!isSilent) {
+            console.error('Warning: --fetch requires API key (run: webpeel auth <key>)');
+          }
         }
 
         // Show usage footer for free/anonymous users
@@ -202,10 +252,23 @@ export function registerSearchCommands(program: Command): void {
           const jsonStr = JSON.stringify({ query, results, count: results.length }, null, 2);
           await writeStdout(jsonStr + '\n');
         } else {
-          for (const result of results) {
-            console.log(`\n${result.title}`);
-            console.log(result.url);
-            console.log(result.snippet);
+          // Human-readable numbered results
+          if (results.length === 0) {
+            await writeStdout('No results found.\n');
+          } else {
+            await writeStdout(`\n`);
+            for (const [i, result] of results.entries()) {
+              await writeStdout(`${i + 1}. ${result.title}\n`);
+              await writeStdout(`   ${result.url}\n`);
+              if (result.snippet) {
+                await writeStdout(`   ${result.snippet}\n`);
+              }
+              if (result.content) {
+                const preview = result.content.slice(0, 500);
+                await writeStdout(`\n   --- Content ---\n${preview}${result.content.length > 500 ? '\n   [...]' : ''}\n`);
+              }
+              await writeStdout('\n');
+            }
           }
         }
 
