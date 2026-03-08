@@ -846,8 +846,14 @@ export async function smartFetch(
           .catch((error) => ({ type: 'simple-error' as const, error }));
 
         if (simpleResult.type === 'simple-success') {
-          // Check if the content is suspiciously thin or has SPA indicators — escalate to browser if so
-          if (shouldEscalateForLowContent(simpleResult.result) || hasSpaIndicators(simpleResult.result.html)) {
+          // Check if the content is suspiciously thin, looks like an SPA shell, or is a shell page
+          // (looksLikeShellPage catches partial renders with 200-500 visible chars that
+          // shouldEscalateForLowContent misses — improves consistency on sites like China Daily)
+          if (
+            shouldEscalateForLowContent(simpleResult.result) ||
+            hasSpaIndicators(simpleResult.result.html) ||
+            looksLikeShellPage(simpleResult.result)
+          ) {
             shouldUseBrowser = true;
           } else {
             // Check whether the response is a bot-challenge page

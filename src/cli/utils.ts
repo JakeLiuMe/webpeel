@@ -540,13 +540,11 @@ export async function outputResult(result: PeelResult, options: any, extra: Outp
   // Default: full output
   if (options.json) {
     // Build clean JSON output with guaranteed top-level fields
+    // Note: elapsed/method/tokens are placed at the END so `tail -3` shows perf metrics
     const output: Record<string, any> = {
       url: result.url,
       title: result.metadata?.title || result.title || null,
-      tokens: result.tokens || 0,
       fetchedAt: new Date().toISOString(),
-      method: result.method || 'simple',
-      elapsed: result.elapsed,
       content: result.content,
     };
 
@@ -580,6 +578,11 @@ export async function outputResult(result: PeelResult, options: any, extra: Outp
 
     output._meta = { version: cliVersion, method: result.method || 'simple', timing: result.timing, serverMarkdown: (result as any).serverMarkdown || false };
 
+    // Perf metrics at the end — `tail -3` shows: elapsed | method | tokens
+    output.elapsed = result.elapsed;
+    output.method = result.method || 'simple';
+    output.tokens = result.tokens || 0;
+
     await writeStdout(JSON.stringify(output, null, 2) + '\n');
   } else {
     // Smart terminal header (interactive mode only)
@@ -599,10 +602,11 @@ export async function outputResult(result: PeelResult, options: any, extra: Outp
     }
     // Stream content immediately to stdout — consumer gets it without waiting
     await writeStdout(result.content + '\n');
-    // Append timing summary to stderr so it doesn't pollute piped content
-    if (!options.silent) {
+    // Append timing summary to stderr (always — doesn't pollute stdout pipe)
+    {
       const totalMs = result.timing?.total ?? result.elapsed;
-      process.stderr.write(`\n--- ${result.tokens} tokens · ${totalMs}ms ---\n`);
+      const method = result.method || 'simple';
+      process.stderr.write(`\n--- ${totalMs}ms | ${method} | ${result.tokens} tokens ---\n`);
     }
   }
 }

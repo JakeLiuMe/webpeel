@@ -333,7 +333,30 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
       }
     }
 
-    const spinner = options.silent ? null : ora('Fetching...').start();
+    // --progress: show escalation steps on stderr (overrides spinner)
+    let progressInterval: ReturnType<typeof setInterval> | undefined;
+    const progressStart = Date.now();
+    if (options.progress) {
+      process.stderr.write(`[simple] Fetching ${url}...\n`);
+      // Show escalation hints based on elapsed time (best-effort approximations)
+      const progressSteps = [
+        { afterMs: 2500,  message: '[simple] Waiting for response...' },
+        { afterMs: 6000,  message: '[browser] Simple too slow — escalating to browser render...' },
+        { afterMs: 12000, message: '[browser] Rendering with Chromium...' },
+        { afterMs: 20000, message: '[stealth] Escalating to stealth mode...' },
+      ];
+      let stepIdx = 0;
+      progressInterval = setInterval(() => {
+        const elapsed = Date.now() - progressStart;
+        while (stepIdx < progressSteps.length && elapsed >= progressSteps[stepIdx].afterMs) {
+          process.stderr.write(`${progressSteps[stepIdx].message}\n`);
+          stepIdx++;
+        }
+      }, 500);
+    }
+
+    // Suppress spinner when --progress is active (progress lines replace it)
+    const spinner = (options.silent || options.progress) ? null : ora('Fetching...').start();
 
     try {
       // Validate options
@@ -591,7 +614,22 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
         touchProfile(resolvedProfileName);
       }
 
-      if (spinner) {
+      // Stop progress interval and show final result
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = undefined;
+      }
+
+      if (options.progress) {
+        const method = result.method || 'simple';
+        const elapsedSec = ((result.elapsed || (Date.now() - progressStart)) / 1000).toFixed(1);
+        const tokenCount = (result.tokens || 0).toLocaleString();
+        // Show escalation arrow if browser/stealth was needed
+        if (method !== 'simple') {
+          process.stderr.write(`[simple] → [${method}] escalated\n`);
+        }
+        process.stderr.write(`[${method}] Done — ${tokenCount} tokens in ${elapsedSec}s\n`);
+      } else if (spinner) {
         const domainTag = (result as any).domainData
           ? ` [${(result as any).domainData.domain}:${(result as any).domainData.type}]`
           : '';
@@ -1077,6 +1115,7 @@ export function registerFetchCommands(program: Command): void {
     .option('--block-resources <types>', 'Block resource types, comma-separated: image,stylesheet,font,media,script (auto-enables --render)')
     .option('--format <type>', 'Output format: markdown (default), text, html, json')
     .option('--content-only', 'Output only the raw content field (no metadata, no JSON wrapper) — ideal for piping to LLMs')
+    .option('--progress', 'Show engine escalation steps (simple → browser → stealth) with timing')
     .action(async (url: string | undefined, options) => {
       await runFetch(url, options);
     });
