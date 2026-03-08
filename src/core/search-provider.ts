@@ -123,6 +123,31 @@ function decodeDdgUrl(rawUrl: string): string {
   }
 }
 
+/** Returns true if a URL looks like a DuckDuckGo ad or tracking link */
+function isDdgAdUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    // DDG-internal ad redirect paths
+    if (parsed.hostname === 'duckduckgo.com') return true;
+    // URLs with known ad tracking query params
+    if (
+      parsed.searchParams.has('ad_domain') ||
+      parsed.searchParams.has('ad_provider') ||
+      parsed.searchParams.has('ad_type')
+    ) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Returns true if a snippet is a DuckDuckGo ad snippet */
+function isDdgAdSnippet(snippet: string): boolean {
+  return snippet.includes('Ad ·') ||
+    snippet.includes('Ad Viewing ads is privacy protected by DuckDuckGo') ||
+    snippet.toLowerCase().startsWith('ad ·');
+}
+
 // ============================================================
 // ProviderStatsTracker
 // Tracks per-source success/failure rates over a sliding window.
@@ -238,13 +263,19 @@ export class StealthSearchProvider implements SearchProvider {
   readonly id: SearchProviderId = 'stealth';
   readonly requiresApiKey = false;
 
-  /** Validate and normalize a URL; returns null if invalid/non-http */
+  /** Validate and normalize a URL; returns null if invalid/non-http or a DDG ad URL */
   private validateUrl(rawUrl: string): string | null {
     try {
       const parsed = new URL(rawUrl);
       if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-      // Filter DuckDuckGo ad redirect URLs (e.g. duckduckgo.com/y.js?ad_domain=...)
-      if (parsed.hostname === 'duckduckgo.com' && parsed.pathname === '/y.js') return null;
+      // Filter all DuckDuckGo URLs (internal links, ad redirects, etc.)
+      if (parsed.hostname === 'duckduckgo.com') return null;
+      // Filter URLs with ad tracking query params
+      if (
+        parsed.searchParams.has('ad_domain') ||
+        parsed.searchParams.has('ad_provider') ||
+        parsed.searchParams.has('ad_type')
+      ) return null;
       return parsed.href;
     } catch {
       return null;
@@ -297,9 +328,15 @@ export class StealthSearchProvider implements SearchProvider {
         const snippet = cleanText(snippetRaw, { maxLen: 500, stripEllipsisPadding: true });
         if (!title || !rawUrl) return;
 
+        // Filter ad snippets
+        if (isDdgAdSnippet(snippet)) return;
+
         // Extract real URL from DDG redirect param
         const finalUrl = decodeDdgUrl(rawUrl);
         if (!finalUrl) return; // filtered out (DDG internal link)
+
+        // Filter ad URLs
+        if (isDdgAdUrl(finalUrl)) return;
 
         const validated = this.validateUrl(finalUrl);
         if (!validated) return;
@@ -631,9 +668,15 @@ export class DuckDuckGoProvider implements SearchProvider {
 
       if (!title || !rawUrl) return;
 
+      // Filter ad snippets (DuckDuckGo injects ad labels into snippets)
+      if (isDdgAdSnippet(snippet)) return;
+
       // Extract actual URL from DuckDuckGo redirect; filter DDG internal/ad URLs
       const decoded = decodeDdgUrl(rawUrl);
       if (!decoded) return; // filtered out (DDG internal link or ad redirect)
+
+      // Filter ad URLs
+      if (isDdgAdUrl(decoded)) return;
 
       // SECURITY: Validate and sanitize results — only allow HTTP/HTTPS URLs
       let url: string;
@@ -938,13 +981,19 @@ export class GoogleSearchProvider implements SearchProvider {
     return map[tbs];
   }
 
-  /** Validate URL; returns null if invalid/non-http */
+  /** Validate URL; returns null if invalid/non-http or a DDG ad URL */
   private validateUrl(rawUrl: string): string | null {
     try {
       const parsed = new URL(rawUrl);
       if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-      // Filter DuckDuckGo ad redirect URLs (e.g. duckduckgo.com/y.js?ad_domain=...)
-      if (parsed.hostname === 'duckduckgo.com' && parsed.pathname === '/y.js') return null;
+      // Filter all DuckDuckGo URLs (internal links, ad redirects, etc.)
+      if (parsed.hostname === 'duckduckgo.com') return null;
+      // Filter URLs with ad tracking query params
+      if (
+        parsed.searchParams.has('ad_domain') ||
+        parsed.searchParams.has('ad_provider') ||
+        parsed.searchParams.has('ad_type')
+      ) return null;
       return parsed.href;
     } catch {
       return null;
