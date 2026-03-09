@@ -419,7 +419,7 @@ export default function ReadPage() {
           { headers }
         );
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || json.message || 'Search failed');
+        if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Search failed');
         const rawResults = json.results || json.data || [];
         data = {
           detectedMode: 'search',
@@ -439,7 +439,7 @@ export default function ReadPage() {
           body: JSON.stringify({ url: intent.url, question: intent.question }),
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Ask failed');
+        if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Ask failed');
 
         data = {
           detectedMode: 'ask',
@@ -459,7 +459,7 @@ export default function ReadPage() {
           { headers }
         );
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || json.message || 'Fetch failed');
+        if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Fetch failed');
         const rawContent = json.content ?? json.markdown ?? json.text ?? json.data;
         data = {
           detectedMode: 'read',
@@ -476,7 +476,8 @@ export default function ReadPage() {
       // Notify sidebar to refresh usage
       window.dispatchEvent(new Event('webpeel:fetch-completed'));
     } catch (err: any) {
-      setErrorMsg(err.message || 'Something went wrong. Please try again.');
+      const msg = typeof err.message === 'string' ? err.message : String(err.message || err);
+      setErrorMsg(msg || 'Something went wrong. Please try again.');
       setAppState('error');
     }
   }, [token]);
