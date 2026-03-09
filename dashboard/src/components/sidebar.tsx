@@ -5,17 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import useSWR, { useSWRConfig } from 'swr';
-import { LayoutDashboard, Globe, Key, CreditCard, Settings, ExternalLink, BookOpen, X, Zap, Play, Activity, BarChart2 } from 'lucide-react';
+import { Home, BarChart3, Key, CreditCard, Settings, ExternalLink, BookOpen, X, Zap, Play, Activity, BarChart2, Code } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiClient, Usage } from '@/lib/api';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Read', href: '/read', icon: Globe },
-  { name: 'Playground', href: '/playground', icon: Play },
+  { name: 'WebPeel', href: '/dashboard', icon: Home },
+  { name: 'Overview', href: '/overview', icon: BarChart3 },
   { name: 'API Keys', href: '/keys', icon: Key },
   { name: 'Activity', href: '/activity', icon: Activity },
   { name: 'Usage', href: '/usage', icon: BarChart2 },
+  { name: 'Playground', href: '/playground', icon: Code },
   { name: 'Billing', href: '/billing', icon: CreditCard },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
