@@ -10,8 +10,31 @@ import { execFile } from 'node:child_process';
 import { readFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fetchTranscript as ytpFetchTranscript } from 'youtube-transcript-plus';
 import { simpleFetch } from './fetcher.js';
 import { getBrowser, getRandomUserAgent, applyStealthScripts } from './browser-pool.js';
+
+// ---------------------------------------------------------------------------
+// yt-dlp startup diagnostics
+// ---------------------------------------------------------------------------
+
+// Check yt-dlp availability on startup.
+// Skipped in test environments (VITEST) to avoid interfering with mocked paths.
+let ytdlpAvailable = false;
+(async () => {
+  if (process.env.VITEST) return;
+  try {
+    const { execFileSync } = await import('node:child_process');
+    const version = execFileSync('yt-dlp', ['--version'], {
+      timeout: 5000,
+      env: { ...process.env, PATH: `/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ''}` },
+    }).toString().trim();
+    ytdlpAvailable = true;
+    console.log(`[webpeel] [youtube] yt-dlp available: v${version}`);
+  } catch {
+    console.log('[webpeel] [youtube] yt-dlp NOT available — falling back to HTTP extraction');
+  }
+})();
 
 // ---------------------------------------------------------------------------
 // Public interfaces
@@ -307,17 +330,132 @@ export async function getYouTubeTranscript(
   const preferredLang = options.language ?? 'en';
   const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-  // --- Path 1: Try simpleFetch (fast, no browser overhead) ---
-  // YouTube serves consent/challenge pages to server IPs without cookies.
-  // Setting SOCS consent cookie bypasses this — same approach as youtube-transcript npm.
+  // --- Path 0: youtube-transcript-plus (fastest — uses InnerTube API, ~1s) ---
+  // This library calls YouTube's internal InnerTube API directly via POST request,
+  // bypassing the IP-locked timedtext XML URLs. Works reliably from cloud servers.
+  // Skip in test mode — tests use mocked HTTP, but this path makes real InnerTube calls.
+  if (!process.env.VITEST) {
+  console.log('[webpeel] [youtube] Trying path 0: youtube-transcript-plus (InnerTube API)');
+  try {
+    const ytpSegments = await ytpFetchTranscript(videoId, { lang: preferredLang });
+    if (ytpSegments && ytpSegments.length > 0) {
+      // We have transcript segments — now fetch page metadata (title, channel, etc.)
+      let title = '', channel = '', lengthSeconds = 0, description = '', publishDate = '';
+      let availableLanguages = [preferredLang];
+      try {
+        const metaResp = await fetch(videoUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Cookie': 'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwNTE1LjA3X3AxGgJlbiADGgYIgLv3tQY; CONSENT=PENDING+987',
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        const html = await metaResp.text();
+        const pr = extractPlayerResponse(html);
+        if (pr) {
+          const vd = pr.videoDetails ?? {};
+          const mf = pr.microformat?.playerMicroformatRenderer ?? {};
+          title = vd.title ?? '';
+          channel = vd.author ?? '';
+          lengthSeconds = parseInt(vd.lengthSeconds ?? mf.lengthSeconds ?? '0', 10);
+          description = (vd.shortDescription ?? mf.description?.simpleText ?? '').trim();
+          publishDate = mf.publishDate ?? mf.uploadDate ?? '';
+          const tracks = extractCaptionTracks(pr);
+          if (tracks.length > 0) availableLanguages = tracks.map(t => t.languageCode);
+        }
+      } catch { /* metadata fetch failed — segments are enough */ }
+
+      // Convert youtube-transcript-plus format to our format
+      const segments: TranscriptSegment[] = ytpSegments.map(s => ({
+        text: decodeHtmlEntities((s.text ?? '').replace(/\n/g, ' ').trim()),
+        start: (s.offset ?? 0) / 1000, // offset is in ms
+        duration: (s.duration ?? 0) / 1000,
+      })).filter(s => s.text.length > 0);
+
+      const fullText = segments.map(s => s.text).join(' ').replace(/\s+/g, ' ').trim();
+      const wordCount = fullText.split(/\s+/).filter(Boolean).length;
+      const chapters = parseChaptersFromDescription(description);
+      const keyPoints = extractKeyPoints(segments, chapters, lengthSeconds);
+      const summary = extractSummary(fullText);
+
+      console.log(`[webpeel] [youtube] Path 0 success: ${segments.length} segments, ${wordCount} words`);
+      return {
+        videoId,
+        title,
+        channel,
+        duration: formatDuration(lengthSeconds),
+        language: ytpSegments[0]?.lang ?? preferredLang,
+        segments,
+        fullText,
+        availableLanguages,
+        description,
+        publishDate,
+        chapters: chapters.length > 0 ? chapters : undefined,
+        keyPoints: keyPoints.length > 0 ? keyPoints : undefined,
+        summary,
+        wordCount,
+      };
+    }
+    console.log('[webpeel] [youtube] Path 0 returned empty segments');
+  } catch (err: any) {
+    console.log('[webpeel] [youtube] Path 0 failed:', err?.message);
+  }
+  } // end VITEST guard
+
   const ytUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
   const ytHeaders = {
     'Cookie': 'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwNTE1LjA3X3AxGgJlbiADGgYIgLv3tQY; CONSENT=PENDING+987',
     'Accept-Language': 'en-US,en;q=0.9',
   };
+
+  // --- Path 1: yt-dlp approach (most reliable on cloud servers — handles signature challenges internally) ---
+  if (ytdlpAvailable) {
+    console.log('[webpeel] [youtube] Trying path 1: yt-dlp');
+    try {
+      const ytdlpResult = await getTranscriptViaYtDlp(videoId, preferredLang);
+      if (ytdlpResult && ytdlpResult.segments.length > 0) {
+        return ytdlpResult;
+      }
+      console.log('[webpeel] [youtube] Path 1 failed: yt-dlp returned no segments');
+    } catch (err: any) {
+      console.log('[webpeel] [youtube] Path 1 failed:', err?.message);
+    }
+  } else {
+    console.log('[webpeel] [youtube] Skipping path 1: yt-dlp not available');
+  }
+
+  // --- Path 2: HTTP fetch (simpleFetch first; if our challenge detection fires, fall back to native fetch) ---
+  // YouTube serves consent/challenge pages to server IPs without cookies.
+  // Setting SOCS consent cookie bypasses this — same approach as youtube-transcript npm.
+  // On cloud servers, simpleFetch may throw BlockedError due to our own challenge detection;
+  // in that case we retry with native fetch() which bypasses that guard.
+  console.log('[webpeel] [youtube] Trying path 2: native fetch');
   try {
-    const fetchResult = await simpleFetch(videoUrl, ytUserAgent, 15000, ytHeaders);
-    const html = fetchResult.html;
+    let html: string;
+    try {
+      const fetchResult = await simpleFetch(videoUrl, ytUserAgent, 15000, ytHeaders);
+      html = fetchResult.html;
+    } catch (simpleFetchErr: any) {
+      // If our own challenge detection threw BlockedError, retry with raw native fetch
+      const errMsg = (simpleFetchErr?.message ?? '').toLowerCase();
+      const isBlocked =
+        simpleFetchErr?.constructor?.name === 'BlockedError' ||
+        errMsg.includes('blocked') ||
+        errMsg.includes('challenge') ||
+        errMsg.includes('cloudflare');
+      if (!isBlocked) throw simpleFetchErr;
+      console.log('[webpeel] [youtube] simpleFetch BlockedError — retrying with native fetch');
+      const fetchResponse = await fetch(videoUrl, {
+        headers: {
+          'User-Agent': ytUserAgent,
+          ...ytHeaders,
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000),
+      });
+      html = await fetchResponse.text();
+    }
+
     if (!html.includes('ytInitialPlayerResponse') && !html.includes('ytInitialData')) {
       throw new Error('YouTube served non-video page (likely challenge/consent)');
     }
@@ -342,7 +480,7 @@ export async function getYouTubeTranscript(
     const segments = parseCaptionXml(captionXml);
     if (segments.length === 0) {
       // Caption URL returned empty content (common when ip=0.0.0.0 in signature)
-      // Fall through to yt-dlp / browser intercept path
+      // Fall through to browser intercept path
       throw new Error('Caption XML returned empty — session-locked URL');
     }
     const fullText = segments.map(s => s.text).join(' ').replace(/\s+/g, ' ').trim();
@@ -373,23 +511,15 @@ export async function getYouTubeTranscript(
     if (msg.includes('No captions available') || msg.includes('Not a valid YouTube URL')) {
       throw err;
     }
+    console.log('[webpeel] [youtube] Path 2 failed:', msg);
     // Network/parsing failures — fall through to browser intercept approach
-  }
-
-  // --- Path 2: yt-dlp approach (fast, reliable, handles signature challenges) ---
-  try {
-    const ytdlpResult = await getTranscriptViaYtDlp(videoId, preferredLang);
-    if (ytdlpResult && ytdlpResult.segments.length > 0) {
-      return ytdlpResult;
-    }
-  } catch (err: any) {
-    if (process.env.DEBUG) console.debug('[webpeel]', 'yt-dlp transcript failed:', err?.message);
   }
 
   // --- Path 3: Browser intercept approach ---
   // YouTube's caption URLs are session-specific (they return empty when fetched
   // from a different HTTP client). We intercept the timedtext network request
   // that the YouTube player makes automatically when loading the page.
+  console.log('[webpeel] [youtube] Trying path 3: browser intercept');
   return getTranscriptViaBrowserIntercept(videoId, videoUrl, preferredLang);
 }
 
@@ -425,7 +555,7 @@ async function getTranscriptViaYtDlp(
       PATH: `/usr/local/bin:/usr/bin:/bin:${process.env.PATH ?? ''}`,
     };
 
-    const proc = execFile('yt-dlp', args, { timeout: 45000, env: execEnv }, async (err) => {
+    const proc = execFile('yt-dlp', args, { timeout: 60000, env: execEnv }, async (err) => {
       try {
         if (err) {
           // yt-dlp not installed, timed out, or failed
@@ -819,14 +949,36 @@ function selectBestTrack(tracks: CaptionTrack[], preferredLang: string): Caption
 /**
  * Fetch the caption XML from YouTube's timedtext API.
  * Must use same cookies/UA as the page fetch — URLs are session-locked.
+ * Tries simpleFetch first; falls back to native fetch() if BlockedError is thrown
+ * (our own challenge detection fires on cloud server IPs).
  */
 async function fetchCaptionXml(
   baseUrl: string,
   userAgent?: string,
   headers?: Record<string, string>,
 ): Promise<string> {
-  const result = await simpleFetch(baseUrl, userAgent, 10000, headers);
-  return result.html;
+  try {
+    const result = await simpleFetch(baseUrl, userAgent, 10000, headers);
+    return result.html;
+  } catch (simpleFetchErr: any) {
+    const errMsg = (simpleFetchErr?.message ?? '').toLowerCase();
+    const isBlocked =
+      simpleFetchErr?.constructor?.name === 'BlockedError' ||
+      errMsg.includes('blocked') ||
+      errMsg.includes('challenge') ||
+      errMsg.includes('cloudflare');
+    if (!isBlocked) throw simpleFetchErr;
+    // BlockedError: retry with native fetch
+    const fetchHeaders: Record<string, string> = {};
+    if (userAgent) fetchHeaders['User-Agent'] = userAgent;
+    if (headers) Object.assign(fetchHeaders, headers);
+    const response = await fetch(baseUrl, {
+      headers: fetchHeaders,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.text();
+  }
 }
 
 /**

@@ -111,7 +111,7 @@ export function createApp(config: ServerConfig = {}): Express {
     else if (path.includes('/batch')) timeoutMs = 120000; // 2min for batch
     else if (path.includes('/screenshot')) timeoutMs = 60000; // 1min for screenshots
     else if (req.query?.render === 'true') timeoutMs = 60000; // 1min for rendered fetches
-    else if (urlParam.includes('youtube.com') || urlParam.includes('youtu.be')) timeoutMs = 45000; // 45s for YouTube (transcript extraction)
+    else if (urlParam.includes('youtube.com') || urlParam.includes('youtu.be')) timeoutMs = 90000; // 90s for YouTube (yt-dlp needs time after simpleFetch fails)
 
     req.setTimeout(timeoutMs);
     res.setTimeout(timeoutMs, () => {
