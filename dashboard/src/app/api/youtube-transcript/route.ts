@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
 
 /** Try fetching caption XML with multiple approaches */
 async function tryFetchCaptionXml(baseUrl: string): Promise<string | null> {
-  const attempts = [
+  const attempts: Record<string, string>[] = [
     // Attempt 1: Android UA + cookies
     {
       'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14)',
@@ -187,8 +187,10 @@ async function tryFetchCaptionXml(baseUrl: string): Promise<string | null> {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       'Cookie': 'SOCS=CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjQwNTE1LjA3X3AxGgJlbiADGgYIgLv3tQY; CONSENT=PENDING+987',
     },
-    // Attempt 3: Bare fetch (no special headers)
-    {},
+    // Attempt 3: Googlebot UA (sometimes treated differently)
+    {
+      'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    },
   ];
 
   for (const headers of attempts) {
