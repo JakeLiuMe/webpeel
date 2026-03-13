@@ -9,6 +9,8 @@
 const INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   // Direct instruction overrides
   { pattern: /ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|rules?|prompts?|guidelines?)/gi, name: 'instruction-override' },
+  { pattern: /ignore\s+rules?/gi, name: 'instruction-override' },
+  { pattern: /override\s+rules?/gi, name: 'instruction-override' },
   { pattern: /disregard\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|rules?|prompts?)/gi, name: 'disregard-instructions' },
   { pattern: /forget\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions?|rules?|prompts?)/gi, name: 'forget-instructions' },
   { pattern: /override\s+(system|previous|all)\s+(prompt|instructions?|rules?)/gi, name: 'override-system' },
