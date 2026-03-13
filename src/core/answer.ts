@@ -129,8 +129,16 @@ function buildCitedContext(sources: Array<{ result: WebSearchResult; content: st
     const url = s.result.url;
     const snippet = s.result.snippet || '';
 
+    // Sanitize untrusted web content before passing to LLM
+    const rawContent = truncateChars(s.content || '', 20_000);
+    const sanitized = sanitizeForLLM(rawContent);
+    
+    if (sanitized.injectionDetected) {
+      console.log(`[webpeel] [prompt-guard] Injection patterns detected in source [${n}] (${url}): ${sanitized.detectedPatterns.join(', ')}`);
+    }
+
     parts.push(
-      `SOURCE [${n}]\nTitle: ${title}\nURL: ${url}\nSnippet: ${truncateChars(snippet, 800)}\n\nContent (markdown):\n${truncateChars(s.content || '', 20_000)}`
+      `SOURCE [${n}]\nTitle: ${title}\nURL: ${url}\nSnippet: ${truncateChars(snippet, 800)}\n\nContent (markdown):\n${sanitized.content}`
     );
   });
 
@@ -399,13 +407,17 @@ async function callGoogle(
   return { text: String(text || '').trim(), usage };
 }
 
+import { sanitizeForLLM, hardenSystemPrompt, validateOutput } from './prompt-guard.js';
+
+const BASE_SYSTEM_PROMPT = [
+  'You are a helpful assistant that answers questions using ONLY the provided sources.',
+  'You must cite sources using bracketed numbers like [1], [2], etc. corresponding to the sources list.',
+  'If the sources do not contain the answer, say you do not know.',
+  'Do not fabricate URLs or citations.',
+].join('\n');
+
 function systemPrompt(): string {
-  return [
-    'You are a helpful assistant that answers questions using ONLY the provided sources.',
-    'You must cite sources using bracketed numbers like [1], [2], etc. corresponding to the sources list.',
-    'If the sources do not contain the answer, say you do not know.',
-    'Do not fabricate URLs or citations.',
-  ].join('\n');
+  return hardenSystemPrompt(BASE_SYSTEM_PROMPT);
 }
 
 export async function answerQuestion(req: AnswerRequest): Promise<AnswerResponse> {
@@ -502,6 +514,17 @@ export async function answerQuestion(req: AnswerRequest): Promise<AnswerResponse
     }
   } else {
     throw new Error(`Unsupported llmProvider: ${llmProvider}`);
+  }
+
+  // Validate output for signs of successful injection
+  const outputCheck = validateOutput(answer, [
+    'cite sources using bracketed',
+    'do not fabricate urls',
+    'security rules',
+  ]);
+  if (!outputCheck.clean) {
+    console.log(`[webpeel] [prompt-guard] Output validation issues: ${outputCheck.issues.join(', ')}`);
+    // Don't block the response — log for monitoring. In future, could redact or retry.
   }
 
   return {
