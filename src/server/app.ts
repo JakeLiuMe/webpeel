@@ -52,6 +52,7 @@ import { createAgentRouter } from './routes/agent.js';
 import { createSessionRouter } from './routes/session.js';
 import { createSentryHooks } from './sentry.js';
 import { requireScope } from './middleware/scope-guard.js';
+import { createCacheWarmRouter, startCacheWarmer } from './routes/cache-warm.js';
 import { warmup, cleanup as cleanupFetcher } from '../core/fetcher.js';
 import { registerPremiumHooks } from './premium/index.js';
 import { readFileSync } from 'fs';
@@ -262,6 +263,10 @@ export function createApp(config: ServerConfig = {}): Express {
     res.redirect('/openapi.yaml');
   });
 
+  // Internal cache-warming endpoints — unauthenticated (self-auth via bearer token)
+  // Must be BEFORE auth middleware so the CF Worker can call without an API key
+  app.use(createCacheWarmRouter(pool));
+
   // Demo endpoint — unauthenticated, must be before auth middleware
   app.use(createDemoRouter());
 
@@ -437,9 +442,24 @@ export function startServer(config: ServerConfig = {}): void {
     log.warn('Browser warmup failed', { error: error instanceof Error ? error.message : String(error) });
   });
 
+  // Build a dedicated pool for the cache warmer (separate from the app pool inside createApp)
+  const warmerPool = process.env.DATABASE_URL
+    ? new pg.Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
+        max: 2, // small pool — warmer only needs occasional queries
+      })
+    : null;
+
   const server = app.listen(port, () => {
     log.info(`WebPeel API server listening on port ${port}`);
     log.info(`Health: http://localhost:${port}/health  Fetch: /v1/fetch  Search: /v1/search`);
+
+    // Start cache warmer only when opted-in
+    if (process.env.ENABLE_CACHE_WARM === 'true') {
+      log.info('Cache warming enabled (ENABLE_CACHE_WARM=true)');
+      startCacheWarmer(warmerPool);
+    }
   });
 
   // Graceful shutdown

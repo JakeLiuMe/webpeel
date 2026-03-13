@@ -1,0 +1,12 @@
+name = "webpeel-cache-warmer"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Cron trigger: run every 2 minutes
+[triggers]
+crons = ["*/2 * * * *"]
+
+# Public vars (non-sensitive). Sensitive values go in secrets:
+#   wrangler secret put CACHE_WARM_SECRET
+[vars]
+API_URL = "https://api.webpeel.dev"
