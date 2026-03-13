@@ -1329,15 +1329,35 @@ async function youtubeExtractor(_html: string, url: string): Promise<DomainExtra
   const oembedPromise = fetchJson(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
   const noembedPromise = fetchJson(`https://noembed.com/embed?url=${encodeURIComponent(url)}`).catch(() => null);
 
-  const [transcriptResult, oembedResult, noembedResult] = await Promise.allSettled([
+  // Fetch subscriber count from channel page (lightweight, parallel)
+  const subscriberPromise = (async (): Promise<string> => {
+    try {
+      // Wait for oEmbed to get channel URL, then fetch subscriber count from channel page
+      const oembed = await oembedPromise;
+      const channelUrl = (oembed as any)?.author_url;
+      if (!channelUrl) return '';
+      const resp = await fetch(channelUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(5000),
+      });
+      const html = await resp.text();
+      // Look for subscriber count in page metadata (e.g. "4.12M subscribers")
+      const subMatch = html.match(/(\d+(?:\.\d+)?[KMBkmb]?)\s*subscribers/i);
+      return subMatch ? subMatch[1] + ' subscribers' : '';
+    } catch { return ''; }
+  })();
+
+  const [transcriptResult, oembedResult, noembedResult, subscriberResult] = await Promise.allSettled([
     transcriptPromise,
     oembedPromise,
     noembedPromise,
+    subscriberPromise,
   ]);
 
   const transcript = transcriptResult.status === 'fulfilled' ? transcriptResult.value : null;
   const oembedData = oembedResult.status === 'fulfilled' ? oembedResult.value : null;
   const noembedData = noembedResult.status === 'fulfilled' ? noembedResult.value : null;
+  const subscriberCount = subscriberResult.status === 'fulfilled' ? subscriberResult.value : '';
 
   if (process.env.DEBUG) {
     if (transcriptResult.status === 'rejected') {
@@ -1362,12 +1382,15 @@ async function youtubeExtractor(_html: string, url: string): Promise<DomainExtra
       title,
       channel,
       channelUrl,
+      subscriberCount: subscriberCount || undefined,
       duration: transcript.duration,
       publishDate,
       language: transcript.language,
       availableLanguages: transcript.availableLanguages,
       transcriptSegments: transcript.segments.length,
       wordCount: transcript.wordCount ?? 0,
+      viewCount: transcript.viewCount ?? '',
+      likeCount: transcript.likeCount ?? '',
       description,
       thumbnailUrl,
       chapters: transcript.chapters ?? [],
@@ -1386,9 +1409,22 @@ async function youtubeExtractor(_html: string, url: string): Promise<DomainExtra
       }
     }
 
+    // Format view count (e.g. "1,234,567" → "1.2M views")
+    let viewStr = '';
+    if (transcript.viewCount) {
+      const v = parseInt(transcript.viewCount, 10);
+      if (!isNaN(v)) {
+        if (v >= 1_000_000) viewStr = `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M views`;
+        else if (v >= 1_000) viewStr = `${(v / 1_000).toFixed(1).replace(/\.0$/, '')}K views`;
+        else viewStr = `${v.toLocaleString()} views`;
+      }
+    }
+
     // Build header line
-    const headerParts = [`**Channel:** ${channel}`];
+    const channelPart = subscriberCount ? `${channel} (${subscriberCount})` : channel;
+    const headerParts = [`**Channel:** ${channelPart}`];
     if (transcript.duration && transcript.duration !== '0:00') headerParts.push(`**Duration:** ${transcript.duration}`);
+    if (viewStr) headerParts.push(`**${viewStr}**`);
     if (publishStr) headerParts.push(`**Published:** ${publishStr}`);
     const headerLine = headerParts.join(' | ');
 
