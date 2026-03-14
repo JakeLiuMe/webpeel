@@ -804,7 +804,7 @@ ${commentsMd || '*No comments found.*'}`;
       });
 
     const subredditName = posts[0]?.url?.match(/\/r\/([^/]+)\//)?.[1] || path.match(/\/r\/([^/]+)/)?.[1] || '';
-    const structured = { subreddit: `r/${subredditName}`, posts };
+    const structured = { title: `r/${subredditName} — Top Posts`, subreddit: `r/${subredditName}`, posts };
 
     const cleanContent = `## 📋 r/${subredditName} — Hot Posts
 
@@ -837,7 +837,7 @@ ${posts.map((p: any, i: number) => `${i + 1}. **${p.title}**\n   ${p.author} | �
         };
       });
 
-    const structured: Record<string, any> = { sortType, posts, postCount: posts.length };
+    const structured: Record<string, any> = { title: `Reddit — ${sortType.charAt(0).toUpperCase() + sortType.slice(1)} Posts`, sortType, posts, postCount: posts.length };
 
     const listMd = posts.map((p: any, i: number) => {
       const flairTag = p.flair ? ` | ${p.flair}` : '';
@@ -1024,6 +1024,7 @@ ${commentsMd || '*No comments.*'}`;
     }
 
     const structured: Record<string, any> = {
+      title: `${owner}/${repo}`,
       name: `${owner}/${repo}`,
       description: repoData.description || '',
       stars: repoData.stargazers_count ?? 0,
@@ -1182,7 +1183,7 @@ ${commentsMd || '*No comments found.*'}`;
         hnUrl: `https://news.ycombinator.com/item?id=${s.id}`,
       }));
 
-    const structured = { stories };
+    const structured = { title: 'Hacker News — Front Page', stories };
     const cleanContent = `## 🟠 Hacker News — Front Page
 
 ${stories.map((s: any, i: number) =>
@@ -1518,16 +1519,26 @@ async function arxivExtractor(_html: string, url: string): Promise<DomainExtract
       const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
       return match ? stripHtml(match[1]).trim() : '';
     };
-    const getAllTags = (tag: string): string[] => {
-      const matches = [...xml.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g'))];
+    // getAllTags removed — unused
+
+    // ArXiv Atom feed: <feed><title>query URL</title> ... <entry><title>Paper Title</title>...
+    // We must grab the entry title, not the feed title.
+    const entryMatch = xml.match(/<entry[\s\S]*?<\/entry>/);
+    const entryXml = entryMatch ? entryMatch[0] : xml;
+    const getEntryTag = (tag: string): string => {
+      const match = entryXml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+      return match ? stripHtml(match[1]).trim() : '';
+    };
+    const getAllEntryTags = (tag: string): string[] => {
+      const matches = [...entryXml.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g'))];
       return matches.map(m => stripHtml(m[1]).trim()).filter(Boolean);
     };
 
-    const title = getTag('title');
-    const summary = getTag('summary');
-    const published = getTag('published');
-    const updated = getTag('updated');
-    const authors = getAllTags('name');
+    const title = getEntryTag('title') || getTag('title');
+    const summary = getEntryTag('summary') || getTag('summary');
+    const published = getEntryTag('published') || getTag('published');
+    const updated = getEntryTag('updated') || getTag('updated');
+    const authors = getAllEntryTags('name');
 
     // Extract categories
     const categories = [...xml.matchAll(/category[^>]*term="([^"]+)"/g)].map(m => m[1]);
