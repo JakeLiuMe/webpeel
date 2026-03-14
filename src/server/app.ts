@@ -30,6 +30,7 @@ import { createCLIUsageRouter } from './routes/cli-usage.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createBatchRouter } from './routes/batch.js';
 import { createAnswerRouter } from './routes/answer.js';
+import { createDeepResearchRouter } from './routes/deep-research.js';
 import { createAskRouter } from './routes/ask.js';
 import { createMcpRouter } from './routes/mcp.js';
 import { createDoRouter } from './routes/do.js';
@@ -337,6 +338,9 @@ export function createApp(config: ServerConfig = {}): Express {
   });
   // /v1/answer, /v1/ask — all scopes allowed, no guard needed
   app.use(createAnswerRouter());
+  // /v1/deep-research — full or read only
+  app.use('/v1/deep-research', requireScope('full', 'read'));
+  app.use(createDeepResearchRouter());
   app.use(createAskRouter());
   // /v1/agent — full or read only (router uses relative paths)
   app.use('/v1/agent', requireScope('full', 'read'), createAgentRouter());
