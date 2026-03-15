@@ -27,6 +27,7 @@ type FetchRequest struct {
 	Timeout         int               `json:"timeout"`
 	FollowRedirects bool              `json:"followRedirects"`
 	MaxRedirects    int               `json:"maxRedirects"`
+	ForceHTTP1      bool              `json:"forceHttp1"`
 }
 
 // FetchResponse is the JSON response for POST /fetch
@@ -74,7 +75,7 @@ func doFetch(req FetchRequest) FetchResponse {
 		}
 		visited[currentURL] = true
 
-		resp, err := fetchOnce(currentURL, req.Method, req.Headers, req.Fingerprint, req.Proxy, timeout, timing)
+		resp, err := fetchOnce(currentURL, req.Method, req.Headers, req.Fingerprint, req.Proxy, timeout, timing, req)
 		if err != nil {
 			return FetchResponse{Error: err.Error(), Status: 0}
 		}
@@ -133,7 +134,7 @@ func isRedirect(status int) bool {
 }
 
 // fetchOnce makes a single HTTP request (no redirects). Updates timing in-place.
-func fetchOnce(rawURL, method string, headers map[string]string, fingerprint, proxy string, timeout time.Duration, timing *FetchTiming) (*http.Response, error) {
+func fetchOnce(rawURL, method string, headers map[string]string, fingerprint, proxy string, timeout time.Duration, timing *FetchTiming, req FetchRequest) (*http.Response, error) {
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid url: %s", err)
@@ -186,6 +187,20 @@ func fetchOnce(rawURL, method string, headers map[string]string, fingerprint, pr
 		if err := tlsConn.ApplyPreset(fpSpec.CustomSpec); err != nil {
 			tcpConn.Close()
 			return nil, fmt.Errorf("tls apply preset failed: %s", err)
+		}
+	}
+
+	// Force HTTP/1.1: strip "h2" from ALPN to bypass Akamai's H2 fingerprinting.
+	// We must call BuildHandshakeState() first to populate Extensions, modify ALPN,
+	// then the Handshake() below will use the modified extensions.
+	if req.ForceHTTP1 {
+		if err := tlsConn.BuildHandshakeState(); err == nil {
+			for _, ext := range tlsConn.Extensions {
+				if alpnExt, ok := ext.(*tls.ALPNExtension); ok {
+					alpnExt.AlpnProtocols = []string{"http/1.1"}
+					break
+				}
+			}
 		}
 	}
 
