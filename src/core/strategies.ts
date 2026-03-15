@@ -11,6 +11,7 @@ import { simpleFetch, browserFetch, retryFetch, type FetchResult } from './fetch
 import { getCached, setCached as setBasicCache } from './cache.js';
 import { resolveAndCache } from './dns-cache.js';
 import { BlockedError, NetworkError } from '../types.js';
+import { getWebshareProxyUrl } from './proxy-config.js';
 import { detectChallenge } from './challenge-detection.js';
 import {
   getStrategyHooks,
@@ -508,11 +509,16 @@ export async function smartFetch(
   } = options;
   const usePeelTLS = tls || cycle;
 
-  // Build effective proxy list: explicit proxies array, or single proxy, or empty
+  // Build effective proxy list: explicit proxies array, or single proxy, or empty.
+  // When no explicit proxy is configured and Webshare is available, automatically
+  // add it as a fallback: try direct connection first (fast), then Webshare on block.
   const effectiveProxies: (string | undefined)[] =
     proxies?.length ? proxies :
     proxy ? [proxy] :
-    [undefined]; // undefined = direct connection (no proxy)
+    (() => {
+      const wsUrl = getWebshareProxyUrl();
+      return wsUrl ? [undefined, wsUrl] : [undefined];
+    })();
   const firstProxy = effectiveProxies[0];
 
   const hooks = getStrategyHooks();
