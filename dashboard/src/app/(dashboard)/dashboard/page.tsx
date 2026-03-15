@@ -54,6 +54,13 @@ interface SearchResult {
   title: string;
   url: string;
   snippet: string;
+  // Rich result fields (populated via progressive enrichment)
+  content?: string;      // First ~200 words of extracted content
+  wordCount?: number;    // Total word count from extraction
+  method?: string;       // How it was fetched (domain-api, simple, stealth, etc.)
+  fetchTimeMs?: number;  // How long the fetch took
+  loading?: boolean;     // True while fetching content
+  domain?: string;       // Extracted domain (e.g. "wikipedia.org")
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -290,17 +297,57 @@ function SearchResults({ results, onReadUrl }: { results: SearchResult[]; onRead
     <div className="space-y-3">
       {results.map((r, i) => (
         <div key={i} className="p-4 rounded-xl bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/60 transition-all">
-          <a href={r.url} target="_blank" rel="noopener noreferrer"
-             className="text-sm font-medium text-[#818CF8] hover:underline line-clamp-1">{r.title}</a>
-          <div className="text-xs text-zinc-500 mt-1 truncate">{r.url}</div>
-          {r.snippet && (
-            <div className="text-sm text-zinc-400 mt-2 line-clamp-2">{r.snippet}</div>
-          )}
+          {/* Title row with domain badge */}
+          <div className="flex items-start gap-2 mb-1 flex-wrap">
+            {r.domain && (
+              <span className="shrink-0 bg-zinc-700/60 text-zinc-400 text-xs px-2 py-0.5 rounded-full mt-0.5">
+                {r.domain}
+              </span>
+            )}
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-[#818CF8] hover:underline line-clamp-1 flex-1 min-w-0"
+            >
+              {r.title}
+            </a>
+          </div>
+          <div className="text-xs text-zinc-500 mb-2 truncate">{r.url}</div>
+
+          {/* Content area: loading skeleton, rich content, or snippet fallback */}
+          {r.loading ? (
+            <div className="space-y-2 mt-2" aria-label="Loading content">
+              <div className="bg-zinc-700/40 animate-pulse rounded h-4 w-full" />
+              <div className="bg-zinc-700/40 animate-pulse rounded h-4 w-4/5" />
+              <div className="bg-zinc-700/40 animate-pulse rounded h-4 w-3/5" />
+            </div>
+          ) : r.content ? (
+            <div>
+              <p className="text-zinc-300 text-sm line-clamp-4 leading-relaxed">
+                {r.content}
+                {r.content.length >= 1500 ? '…' : ''}
+              </p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-zinc-600">
+                  {r.wordCount != null ? `${r.wordCount.toLocaleString()} words` : ''}
+                  {r.wordCount != null && r.method ? ' · ' : ''}
+                  {r.method ?? ''}
+                </span>
+                {r.fetchTimeMs != null && (
+                  <span className="text-xs text-zinc-600">{r.fetchTimeMs}ms</span>
+                )}
+              </div>
+            </div>
+          ) : r.snippet ? (
+            <div className="text-sm text-zinc-400 line-clamp-2">{r.snippet}</div>
+          ) : null}
+
           <button
             onClick={(e) => { e.stopPropagation(); onReadUrl(r.url); }}
             className="mt-2 inline-flex items-center min-h-[44px] px-3 py-2 text-xs text-[#5865F2] hover:text-[#818CF8] hover:bg-zinc-800/50 rounded-lg font-medium transition-colors -ml-3"
           >
-            📖 Read this page →
+            📖 Read full page →
           </button>
         </div>
       ))}
@@ -699,22 +746,37 @@ export default function ReadPage() {
       const headers: Record<string, string> = token
         ? { Authorization: `Bearer ${token}` }
         : {};
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      let searchRawResults: any[] = [];
 
       if (intent.mode === 'search') {
-        // ── Search mode ─────────────────────────────────────────────────────
+        // ── Search mode — server-side enrichment for top 3 results ──────────
         const res = await fetch(
-          `${API_URL}/v1/search?q=${encodeURIComponent(intent.question || raw)}`,
+          `${API_URL}/v1/search?q=${encodeURIComponent(intent.question || raw)}&enrich=3`,
           { headers }
         );
         const json = await res.json();
         if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Search failed');
         const rawResults = json.results || json.data?.web || json.data?.results || (Array.isArray(json.data) ? json.data : []);
+        searchRawResults = rawResults;
+
+        const getDomain = (url: string) => {
+          try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+        };
+
         data = {
           detectedMode: 'search',
           results: rawResults.map((r: any) => ({
             title: r.title || r.name || 'Untitled',
             url: r.url || r.link || '#',
             snippet: r.snippet || r.description || r.body || '',
+            domain: getDomain(r.url || r.link || ''),
+            // Server-side enrichment: content already populated for top 3
+            content: r.content?.substring(0, 1500) || undefined,
+            wordCount: r.wordCount || (r.content ? r.content.trim().split(/\s+/).length : undefined),
+            method: r.method || undefined,
+            fetchTimeMs: r.fetchTimeMs || undefined,
+            loading: false,
           })),
           fetchTimeMs: json.fetchTimeMs,
         };
@@ -809,6 +871,8 @@ export default function ReadPage() {
 
       // Notify sidebar to refresh usage
       window.dispatchEvent(new Event('webpeel:fetch-completed'));
+
+      // Server-side enrichment via ?enrich=3 — no client-side fetches needed
     } catch (err: any) {
       const msg = typeof err.message === 'string' ? err.message : String(err.message || err);
       setErrorMsg(msg || 'Something went wrong. Please try again.');
