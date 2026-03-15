@@ -16,6 +16,7 @@
 import { fetch as undiciFetch } from 'undici';
 import { load } from 'cheerio';
 import { getStealthBrowser, getRandomUserAgent, applyStealthScripts } from './browser-pool.js';
+import { getWebshareProxy } from './proxy-config.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('search');
@@ -293,10 +294,12 @@ export class StealthSearchProvider implements SearchProvider {
       const params = new URLSearchParams({ q: query });
       const url = `https://html.duckduckgo.com/html/?${params.toString()}`;
 
+      const proxy = getWebshareProxy();
       ctx = await browser.newContext({
         userAgent: getRandomUserAgent(),
         locale: 'en-US',
         timezoneId: 'America/New_York',
+        ...(proxy ? { proxy: { server: proxy.server, username: proxy.username, password: proxy.password } } : {}),
       });
 
       const page = await ctx.newPage();
@@ -367,10 +370,12 @@ export class StealthSearchProvider implements SearchProvider {
       const params = new URLSearchParams({ q: query });
       const url = `https://www.bing.com/search?${params.toString()}`;
 
+      const proxy = getWebshareProxy();
       ctx = await browser.newContext({
         userAgent: getRandomUserAgent(),
         locale: 'en-US',
         timezoneId: 'America/New_York',
+        ...(proxy ? { proxy: { server: proxy.server, username: proxy.username, password: proxy.password } } : {}),
       });
 
       const page = await ctx.newPage();
@@ -452,10 +457,12 @@ export class StealthSearchProvider implements SearchProvider {
       const params = new URLSearchParams({ q: query });
       const url = `https://www.ecosia.org/search?${params.toString()}`;
 
+      const proxy = getWebshareProxy();
       ctx = await browser.newContext({
         userAgent: getRandomUserAgent(),
         locale: 'en-US',
         timezoneId: 'America/New_York',
+        ...(proxy ? { proxy: { server: proxy.server, username: proxy.username, password: proxy.password } } : {}),
       });
 
       const page = await ctx.newPage();

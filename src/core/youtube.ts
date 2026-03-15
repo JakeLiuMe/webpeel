@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { fetchTranscript as ytpFetchTranscript } from 'youtube-transcript-plus';
 import { simpleFetch } from './fetcher.js';
 import { getBrowser, getRandomUserAgent, applyStealthScripts } from './browser-pool.js';
+import { hasWebshareProxy as _hasWebshareProxy } from './proxy-config.js';
 import { createLogger } from './logger.js';
 
 // ---------------------------------------------------------------------------
@@ -323,8 +324,10 @@ export function extractSummary(fullText: string): string {
 // Proxy-based InnerTube transcript extraction
 // ---------------------------------------------------------------------------
 
-// Webshare residential proxy config — reads from env vars on Render.
+// Webshare residential proxy config — reads from env vars via proxy-config.ts.
 // Locally, falls back to direct fetch (residential IP already works).
+// These constants are kept for use in proxyRequestSlotted() which does
+// low-level HTTP CONNECT tunneling (not Playwright-level proxy).
 const PROXY_HOST = process.env.WEBSHARE_PROXY_HOST || 'p.webshare.io';
 const PROXY_BASE_PORT = parseInt(process.env.WEBSHARE_PROXY_PORT || '10000', 10);
 const PROXY_USER = process.env.WEBSHARE_PROXY_USER || '';
@@ -334,7 +337,8 @@ const PROXY_PASS = process.env.WEBSHARE_PROXY_PASS || '';
 const PROXY_MAX_US_SLOTS = parseInt(process.env.WEBSHARE_PROXY_SLOTS || '44744', 10);
 
 function isProxyConfigured(): boolean {
-  return !!(PROXY_USER && PROXY_PASS);
+  // Delegate to the shared proxy-config helper for consistency
+  return _hasWebshareProxy();
 }
 
 /**
