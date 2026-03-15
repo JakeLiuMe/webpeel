@@ -431,6 +431,25 @@ export interface PeelEnvelope {
   totalAvailable?: number;
 }
 
+/**
+ * Programmatic error classification for fetch failures.
+ * Returned in the `error.type` field of API error responses.
+ *
+ * - `timeout`      — Site took too long to respond
+ * - `blocked`      — Site actively blocked the request (403, CAPTCHA, bot detection)
+ * - `not_found`    — 404 or the domain/URL does not exist
+ * - `server_error` — Target site returned a 5xx error
+ * - `network`      — DNS failure, connection refused, or other network-level issue
+ * - `unknown`      — Unclassified error
+ */
+export type FetchErrorType =
+  | 'timeout'
+  | 'blocked'
+  | 'not_found'
+  | 'server_error'
+  | 'network'
+  | 'unknown';
+
 export class WebPeelError extends Error {
   constructor(message: string, public code?: string) {
     super(message);

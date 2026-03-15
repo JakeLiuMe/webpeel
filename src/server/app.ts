@@ -115,7 +115,7 @@ export function createApp(config: ServerConfig = {}): Express {
     if (path.includes('/crawl') || path.includes('/map')) timeoutMs = 300000; // 5min for crawls
     else if (path.includes('/batch')) timeoutMs = 120000; // 2min for batch
     else if (path.includes('/screenshot')) timeoutMs = 60000; // 1min for screenshots
-    else if (req.query?.render === 'true') timeoutMs = 60000; // 1min for rendered fetches
+    else if (req.query?.render === 'true' || req.query?.stealth === 'true') timeoutMs = 60000; // 1min for browser/stealth fetches
     else if (urlParam.includes('youtube.com') || urlParam.includes('youtu.be')) timeoutMs = 90000; // 90s for YouTube (yt-dlp needs time after simpleFetch fails)
 
     req.setTimeout(timeoutMs);
