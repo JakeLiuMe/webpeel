@@ -58,7 +58,8 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "bash scripts/pre-publish.sh",
     "serve": "node dist/server/app.js",
-    "mcp": "node dist/mcp/server.js"
+    "mcp": "node dist/mcp/server.js",
+    "version": "bash scripts/postversion.sh"
   },
   "repository": {
     "type": "git",
