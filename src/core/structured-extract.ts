@@ -448,6 +448,7 @@ export async function extractStructured(
   schema: ExtractionSchema,
   llmConfig?: LLMConfig,
   prompt?: string,
+  domainHints?: Record<string, unknown>,
 ): Promise<ExtractionResult> {
   // Guard: empty content
   if (!content || content.trim().length === 0) {
@@ -532,7 +533,39 @@ export async function extractStructured(
 
   // ── Heuristic extraction ─────────────────────────────────────────────────
 
-  return heuristicExtract(content, schema);
+  const heuristic = await heuristicExtract(content, schema);
+
+  // ── Domain hints overlay ─────────────────────────────────────────────────
+  // If domain-api pre-extracted fields (e.g. GitHub stars/language), merge them
+  // into the result. Domain-api data is authoritative — prefer over heuristic.
+  if (domainHints && Object.keys(domainHints).length > 0) {
+    const props = schema.properties;
+    let hintMerged = 0;
+    for (const [field, hintValue] of Object.entries(domainHints)) {
+      if (field in props && hintValue !== null && hintValue !== undefined) {
+        const expected = props[field].type;
+        const actual = typeof hintValue;
+        // Only merge if type matches (or number vs string coercion)
+        if (
+          actual === expected ||
+          (expected === 'number' && actual === 'string' && !isNaN(Number(hintValue))) ||
+          (expected === 'string' && actual !== 'object')
+        ) {
+          (heuristic.data as Record<string, unknown>)[field] =
+            expected === 'number' ? Number(hintValue) : hintValue;
+          hintMerged++;
+        }
+      }
+    }
+    if (hintMerged > 0) {
+      // Boost confidence since we have authoritative domain-api data
+      const filled = Object.values(heuristic.data).filter(v => v !== null && v !== undefined).length;
+      const total = Object.keys(props).length;
+      heuristic.confidence = parseFloat(Math.min(0.90, 0.65 + (filled / total) * 0.25).toFixed(2));
+    }
+  }
+
+  return heuristic;
 }
 
 // ---------------------------------------------------------------------------

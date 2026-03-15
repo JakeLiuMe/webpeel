@@ -231,6 +231,7 @@ export function createExtractRouter(): Router {
       const peelResult = await peel(url, {
         format: 'markdown',
         render: useRender,
+        noEscalate: !useRender, // prevent OOM: only browser when render=true explicitly
         timeout: 30000,
         readable: true,
       });
@@ -238,12 +239,24 @@ export function createExtractRouter(): Router {
       const content = peelResult.content || '';
 
       // ── Extract structured data ─────────────────────────────────────────
+      // Seed hints from domain-api structured data (GitHub stars/language, etc.)
+      // This lets heuristic extraction use pre-parsed structured fields as ground truth.
+      const domainHints: Record<string, unknown> = {};
+      const rawDomainData = peelResult.domainData?.structured;
+      if (rawDomainData && typeof rawDomainData === 'object') {
+        for (const [k, v] of Object.entries(rawDomainData as Record<string, unknown>)) {
+          if (v !== null && v !== undefined && v !== '') {
+            domainHints[k] = v;
+          }
+        }
+      }
 
       const extractResult = await extractStructured(
         content,
         schema,
         llmConfig,
         typeof prompt === 'string' ? prompt : undefined,
+        Object.keys(domainHints).length > 0 ? domainHints : undefined,
       );
 
       const method: 'llm' | 'heuristic' = llmConfig ? 'llm' : 'heuristic';
