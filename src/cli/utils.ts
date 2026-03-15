@@ -145,20 +145,26 @@ export function parseActions(actionStrings: string[]): PageAction[] {
  */
 export function formatError(error: Error, _url: string, options: any): string {
   const msg = error.message || String(error);
+  const errorType = (error as any).errorType || '';
   const lines: string[] = [`\x1b[31m✖ ${msg}\x1b[0m`];
 
-  if (msg.includes('net::ERR_') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) {
-    lines.push('\x1b[33m💡 Check the URL is correct and the site is accessible.\x1b[0m');
-  } else if (msg.includes('timeout') || msg.includes('Timeout') || msg.includes('Navigation timeout')) {
+  // Check structured errorType from API first (takes precedence over message heuristics)
+  if (errorType === 'timeout' || msg.includes('took too long') || msg.includes('timeout') || msg.includes('Timeout') || msg.includes('Navigation timeout')) {
     lines.push('\x1b[33m💡 Try increasing timeout: --timeout 60000\x1b[0m');
     if (!options.render) {
       lines.push('\x1b[33m💡 Site may need browser rendering: --render\x1b[0m');
     }
-  } else if (msg.includes('blocked') || msg.includes('403') || msg.includes('Access Denied') || msg.includes('challenge')) {
+  } else if (errorType === 'blocked' || msg.includes('blocking automated') || msg.includes('bot protection') || msg.includes('blocked') || msg.includes('403') || msg.includes('Access Denied') || msg.includes('challenge')) {
     if (!options.stealth) {
       lines.push('\x1b[33m💡 Try stealth mode to bypass bot detection: --stealth\x1b[0m');
     }
     lines.push('\x1b[33m💡 Try a different user agent: --ua "Mozilla/5.0..."\x1b[0m');
+  } else if (errorType === 'not_found' || msg.includes('domain may not exist') || msg.includes('not found') || msg.includes('ENOTFOUND') || msg.includes('net::ERR_') || msg.includes('ECONNREFUSED')) {
+    lines.push('\x1b[33m💡 Check the URL is correct and the site is accessible.\x1b[0m');
+  } else if (errorType === 'network' || msg.includes('Could not reach') || msg.includes('could not connect') || msg.includes('ECONNREFUSED') || msg.includes('ENOTFOUND')) {
+    lines.push('\x1b[33m💡 Check the URL is correct and the site is accessible.\x1b[0m');
+  } else if (errorType === 'server_error' || msg.includes('server error')) {
+    lines.push('\x1b[33m💡 The target site returned a server error. Try again in a moment.\x1b[0m');
   } else if (msg.includes('empty') || msg.includes('no content') || msg.includes('0 tokens')) {
     if (!options.render) {
       lines.push('\x1b[33m💡 Page may be JavaScript-rendered. Try: --render\x1b[0m');
@@ -216,16 +222,33 @@ export async function fetchViaApi(url: string, options: PeelOptions, apiKey: str
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     // Sanitize error message — don't expose raw HTML (e.g. Cloudflare 502 pages)
-    const isHtml = body.trimStart().startsWith('<');
+    const isHtml = body.trimStart().startsWith('<') || body.includes('<!DOCTYPE') || body.includes('<html');
     let errorMsg: string;
+    let errorType: string | undefined;
     if (res.status === 502 || res.status === 503 || res.status === 504) {
-      errorMsg = `Could not reach this website (gateway error)`;
+      errorMsg = `Could not reach this website. The site may be blocking our server or timing out.`;
+      errorType = res.status === 504 ? 'timeout' : 'network';
     } else if (isHtml) {
-      errorMsg = `Server returned an error page`;
+      errorMsg = `Server returned an error page (${res.status})`;
     } else {
-      errorMsg = body.slice(0, 200) || 'Unknown error';
+      // Try to parse a structured JSON error response
+      try {
+        const json = JSON.parse(body);
+        const errObj = json?.error;
+        if (errObj && typeof errObj === 'object') {
+          errorMsg = typeof errObj.message === 'string' ? errObj.message : (body.slice(0, 200) || 'Unknown error');
+          if (typeof errObj.type === 'string') errorType = errObj.type;
+        } else {
+          errorMsg = body.slice(0, 200) || 'Unknown error';
+        }
+      } catch {
+        errorMsg = body.slice(0, 200) || 'Unknown error';
+      }
     }
-    throw new Error(`API error ${res.status}: ${errorMsg}`);
+    const err = new Error(`${errorMsg}`);
+    if (errorType) (err as any).errorType = errorType;
+    (err as any).statusCode = res.status;
+    throw err;
   }
 
   const data = await res.json();
@@ -422,20 +445,40 @@ export function classifyErrorCode(error: unknown): string {
   // Check for our custom _code first (set in pre-fetch validation)
   if ((error as any)._code) return (error as any)._code;
 
+  // Check for structured errorType from API responses (set by fetchViaApi)
+  const errorType = (error as any).errorType;
+  if (errorType) {
+    const typeMap: Record<string, string> = {
+      timeout: 'TIMEOUT',
+      blocked: 'BLOCKED',
+      not_found: 'NOT_FOUND',
+      server_error: 'SERVER_ERROR',
+      network: 'NETWORK',
+      unknown: 'FETCH_FAILED',
+    };
+    if (typeMap[errorType]) return typeMap[errorType];
+  }
+
   const msg = error.message.toLowerCase();
   const name = error.name || '';
 
-  if (name === 'TimeoutError' || msg.includes('timeout') || msg.includes('timed out')) {
+  if (name === 'TimeoutError' || msg.includes('timeout') || msg.includes('timed out') || msg.includes('took too long')) {
     return 'TIMEOUT';
   }
-  if (name === 'BlockedError' || msg.includes('blocked') || msg.includes('403') || msg.includes('cloudflare')) {
+  if (name === 'BlockedError' || msg.includes('blocked') || msg.includes('403') || msg.includes('cloudflare') || msg.includes('bot protection')) {
     return 'BLOCKED';
   }
-  if (msg.includes('enotfound') || msg.includes('getaddrinfo') || msg.includes('dns resolution failed') || msg.includes('not found')) {
-    return 'DNS_FAILED';
+  if (msg.includes('domain may not exist') || msg.includes('enotfound') || msg.includes('getaddrinfo') || msg.includes('dns resolution failed')) {
+    return 'NOT_FOUND';
+  }
+  if (msg.includes('http 404') || msg.includes('page was not found')) {
+    return 'NOT_FOUND';
   }
   if (msg.includes('invalid url') || msg.includes('invalid hostname') || msg.includes('only http')) {
     return 'INVALID_URL';
+  }
+  if (msg.includes('could not reach') || msg.includes('could not connect') || msg.includes('econnrefused')) {
+    return 'NETWORK';
   }
 
   return 'FETCH_FAILED';

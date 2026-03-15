@@ -16,6 +16,59 @@ import { getSchemaTemplate } from '../../core/schema-templates.js';
 import { quickAnswer } from '../../core/quick-answer.js';
 import { sendUsageAlertEmail } from '../email-service.js';
 import { extractLinks } from '../../core/links.js';
+import type { FetchErrorType } from '../../types.js';
+
+// ── Helper: classify an error thrown by peel() into a FetchErrorType ─────────
+function classifyFetchError(err: any): FetchErrorType {
+  const code = err.code || err.name || '';
+  const msg = (err.message || '').toLowerCase();
+
+  if (code === 'TIMEOUT' || msg.includes('timeout') || msg.includes('timed out')) {
+    return 'timeout';
+  }
+  if (code === 'BLOCKED' || msg.includes('blocked') || msg.includes('cloudflare challenge') || msg.includes('captcha') || msg.includes('bot detection')) {
+    return 'blocked';
+  }
+  if (msg.includes('http 404') || msg.includes('not found') || msg.includes('dns resolution failed') || msg.includes('enotfound') || msg.includes('getaddrinfo')) {
+    return 'not_found';
+  }
+  if (msg.match(/http\s+5\d{2}/) || msg.includes('server error') || msg.includes('internal server')) {
+    return 'server_error';
+  }
+  if (code === 'NETWORK' || msg.includes('network') || msg.includes('econnrefused') || msg.includes('connection refused') || msg.includes('connection reset')) {
+    return 'network';
+  }
+  return 'unknown';
+}
+
+// ── Helper: build a clean, user-facing error message from a peel() error ─────
+function buildFetchErrorMessage(err: any): { type: FetchErrorType; message: string; hint?: string } {
+  const type = classifyFetchError(err);
+  const hints: Record<FetchErrorType, string | undefined> = {
+    timeout: 'Try increasing timeout with ?timeout=20000, or use render=true for JS-heavy sites.',
+    blocked: 'This site blocks automated requests. Try render=true or stealth=true.',
+    not_found: 'Verify the URL is correct and the site is accessible.',
+    server_error: 'The target site returned a server error. Try again later.',
+    network: 'Could not connect to the target URL. Verify the URL is correct and the site is online.',
+    unknown: undefined,
+  };
+
+  // Sanitize message: strip HTML chars, truncate
+  const safeMsg = (err.message || 'An unexpected error occurred while fetching the URL')
+    .replace(/[<>"']/g, '')
+    .trim();
+
+  const messages: Record<FetchErrorType, string> = {
+    timeout: `The website took too long to respond. Try with render=true or stealth=true for JavaScript-heavy sites.`,
+    blocked: `This website is blocking automated access (bot protection detected).`,
+    not_found: `The URL could not be reached — the domain may not exist or the page was not found.`,
+    server_error: `The target website returned a server error while processing the request.`,
+    network: `Could not reach this website. The server may be down or the URL may be incorrect.`,
+    unknown: safeMsg,
+  };
+
+  return { type, message: messages[type] || safeMsg, hint: hints[type] };
+}
 
 // ── Helper: extractive summarizer (TF-IDF-like sentence scoring) ─────────────
 function extractSummary(content: string, maxWords = 150): string {
@@ -641,27 +694,25 @@ export function createFetchRouter(authStore: AuthStore): Router {
       }
       
       // SECURITY: Sanitize error messages to prevent information disclosure
-      if (err.code) {
+      if (res.headersSent) return; // Timeout middleware already responded
+
+      const requestUrl = req.query.url as string;
+      if (err.code || err.name === 'TimeoutError' || err.name === 'BlockedError' || err.name === 'NetworkError' || err.name === 'WebPeelError') {
         // WebPeelError from core library - safe to expose with helpful context
-        if (res.headersSent) return; // Timeout middleware already responded
-        const safeMessage = err.message.replace(/[<>"']/g, ''); // Remove HTML chars
-        const statusCode = err.code === 'TIMEOUT' ? 504 
-          : err.code === 'BLOCKED' ? 403 
-          : err.code === 'NETWORK' ? 502 
+        const { type, message, hint } = buildFetchErrorMessage(err);
+        const statusCode = type === 'timeout' ? 504
+          : type === 'blocked' ? 403
+          : type === 'not_found' ? 404
+          : type === 'network' || type === 'server_error' ? 502
           : 500;
-        
-        const hints: Record<string, string> = {
-          TIMEOUT: 'Try increasing timeout with ?wait=10000, or use render=true for JS-heavy sites.',
-          BLOCKED: 'This site blocks automated requests. Try adding render=true or use stealth mode (costs 5 credits).',
-          NETWORK: 'Could not reach the target URL. Verify the URL is correct and the site is online.',
-        };
 
         res.status(statusCode).json({
           success: false,
           error: {
-            type: err.code,
-            message: safeMessage,
-            hint: hints[err.code] || undefined,
+            type,
+            message,
+            url: requestUrl,
+            ...(hint ? { hint } : {}),
             docs: 'https://webpeel.dev/docs/api-reference#errors',
           },
           requestId: req.requestId,
@@ -669,12 +720,12 @@ export function createFetchRouter(authStore: AuthStore): Router {
       } else {
         // Unexpected error - generic message only
         console.error('Fetch error:', err); // Log full error server-side
-        if (res.headersSent) return; // Timeout middleware already responded
         res.status(500).json({
           success: false,
           error: {
-            type: 'internal_error',
+            type: 'unknown',
             message: 'An unexpected error occurred while fetching the URL. If this persists, check https://webpeel.dev/status',
+            url: requestUrl,
             docs: 'https://webpeel.dev/docs/api-reference#errors',
           },
           requestId: req.requestId,
@@ -1271,25 +1322,23 @@ export function createFetchRouter(authStore: AuthStore): Router {
       console.error('POST fetch/scrape error:', err);
 
       if (res.headersSent) return; // Timeout middleware already responded
-      if (err.code) {
-        const safeMessage = err.message.replace(/[<>"']/g, '');
-        const statusCode = err.code === 'TIMEOUT' ? 504 
-          : err.code === 'BLOCKED' ? 403 
-          : err.code === 'NETWORK' ? 502 
+
+      const postUrl = req.body?.url as string;
+      if (err.code || err.name === 'TimeoutError' || err.name === 'BlockedError' || err.name === 'NetworkError' || err.name === 'WebPeelError') {
+        const { type, message, hint } = buildFetchErrorMessage(err);
+        const statusCode = type === 'timeout' ? 504
+          : type === 'blocked' ? 403
+          : type === 'not_found' ? 404
+          : type === 'network' || type === 'server_error' ? 502
           : 500;
-        
-        const hints: Record<string, string> = {
-          TIMEOUT: 'Try increasing timeout, or set render:true for JS-heavy sites.',
-          BLOCKED: 'Site blocks automated requests. Try render:true or stealth mode.',
-          NETWORK: 'Could not reach the target URL. Verify it is correct and online.',
-        };
 
         res.status(statusCode).json({
           success: false,
           error: {
-            type: err.code,
-            message: safeMessage,
-            hint: hints[err.code] || undefined,
+            type,
+            message,
+            url: postUrl,
+            ...(hint ? { hint } : {}),
             docs: 'https://webpeel.dev/docs/api-reference#errors',
           },
           requestId: req.requestId,
@@ -1298,8 +1347,9 @@ export function createFetchRouter(authStore: AuthStore): Router {
         res.status(500).json({
           success: false,
           error: {
-            type: 'internal_error',
+            type: 'unknown',
             message: 'An unexpected error occurred. If this persists, check https://webpeel.dev/status',
+            url: postUrl,
             docs: 'https://webpeel.dev/docs/api-reference#errors',
           },
           requestId: req.requestId,
