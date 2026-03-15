@@ -236,7 +236,7 @@ const Scene3MCP: React.FC = () => {
             ✓ WebPeel MCP server running on stdio
           </div>
           <div style={{ color: "#64748b", fontSize: 18, marginTop: 4 }}>
-            18 tools registered:
+            7 tools registered:
           </div>
         </FadeIn>
       )}

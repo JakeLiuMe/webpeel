@@ -46,7 +46,7 @@ WebPeel should work **everywhere an AI agent lives**:
 **Already built:**
 - ✅ REST API (`api.webpeel.dev`)
 - ✅ CLI (`npx webpeel "url"`)
-- ✅ MCP Server (18 tools for Claude, Cursor, etc.)
+- ✅ MCP Server (7 tools for Claude, Cursor, etc.)
 - ✅ npm package
 
 **Need to build:**

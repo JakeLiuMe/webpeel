@@ -39,7 +39,7 @@ webpeel mcp                      Start MCP server
 - Quick answers: Ask questions about any page (no LLM needed)
 - Anti-bot handling: Stealth mode, proxy rotation, graceful degradation
 - Format options: markdown, text, html, clean (AI-optimized)
-- MCP server: 18 tools for AI agent integration
+- MCP server: 7 tools for AI agent integration
 - Site search: Search eBay, Amazon, GitHub, and 20+ sites with structured output
 
 ## Formats

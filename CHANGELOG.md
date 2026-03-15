@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## v0.21.16 (2026-03-15)
+
+### 🔧 Structured Extraction Improvements + GitHub Token Refresh
+
+- **Version pattern** — `structured-extract.ts` now recognizes semver (`x.y.z`) in extracted fields
+- **Downloads pattern** — Extracts `downloads` / `weekly_downloads` fields from package pages
+- **Population pattern** — Extracts population data from relevant pages
+- **Generic number fix** — Fixed field separator matching (`[^\d]*` instead of `[:\s$]*`) for better field:value extraction
+- **NPM extractor** — Now reliably extracts version, weekly_downloads, and license from npm package pages
+- **GITHUB_TOKEN refresh** — Refreshed expired token on Render (was returning "Bad credentials"); used `render-env-safe.sh` to update safely
+
+---
+
+## v0.21.15 (2026-03-15)
+
+### 🧮 Token Savings Fix + HN Comment Items + Pipeline Improvements
+
+- **Token savings fix** — `tokenSavingsPercent` was always showing 0 for domain-API extractors; now estimates `rawHtmlSize` as 7× clean content length for realistic savings (HackerNews: 86%, GitHub: 86%, Wikipedia: 89%)
+- **HN comment items** — HackerNews comment pages (`/item?id=` URLs for comments) now return proper titles: "Comment on: {story title}" by walking the parent chain to find the root story
+- **Pipeline improvements** — Various reliability improvements to the extraction pipeline
+
+---
+
+## v0.21.14 (2026-03-15)
+
+### 🔑 GitHub API Authentication + Docs Updates
+
+- **GitHub extractor auth** — GitHub extractor now uses `GITHUB_TOKEN` / `GH_TOKEN` env var for authenticated API requests, increasing rate limit from 60/hr (anonymous) to 5,000/hr
+- **Fixes GitHub on Render** — Shared IP addresses were hitting GitHub's anonymous rate limit (61 words returned); authenticated requests now work reliably
+- **Render ops** — Added `GITHUB_TOKEN` to Render environment variables
+
+---
+
+## v0.21.13 (2026-03-15)
+
+### 🛠️ PyPI Title Fix + Env Var Restore + Render Deploy Fix
+
+- **PyPI title** — PyPI extractor now includes a proper `title` field (`${name} ${version}`) so `peel()` returns a title for package pages
+- **Env var restore** — Restored all 12 required Render env vars that were accidentally wiped (affecting all deploys since v0.21.5): `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV`, `CORS_ORIGINS`, Webshare proxy vars, Stripe keys
+- **Render deploy fix** — Fixed deploy failures caused by missing environment variables
+
+---
+
 ## v0.21.12 (2026-03-15)
 
 ### ✨ Structured Extraction Polish

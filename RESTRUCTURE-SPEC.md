@@ -69,7 +69,7 @@ Move the existing stats row here. Add the MCP client logos (already exist in the
 White background. "Everything your agent needs" — the existing feature cards grid. Keep as-is but ensure it comes AFTER social proof. Already well-structured.
 
 ### 7. MCP TOOLS (keep, refine)
-Dark full-bleed section. The existing MCP section showing 18 tools + client compatibility. This is great content — keep it but make sure it flows naturally after the features grid. It's the "deep dive into capabilities" section.
+Dark full-bleed section. The existing MCP section showing 7 tools + client compatibility. This is great content — keep it but make sure it flows naturally after the features grid. It's the "deep dive into capabilities" section.
 
 ### 8. PERFORMANCE / BENCHMARKS (merge existing sections)
 Light cream background. MERGE the current "benchmarks" section and the "how it works" code section into one performance story:

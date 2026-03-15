@@ -181,6 +181,119 @@
       <h1>Changelog</h1>
       <p class="lead">Full release history for WebPeel. New versions ship frequently — follow <a href="https://github.com/webpeel/webpeel/releases">GitHub Releases</a> or <a href="https://x.com/webpeel_dev">@webpeel_dev</a> for updates.</p>
 
+      <!-- v0.21.16 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.16 &mdash; 2026-03-15</div>
+        <div class="changelog-title">Structured Extraction Improvements + GitHub Token Refresh <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li>Structured extraction: version (semver), downloads, and population patterns added; improved field:value separator matching</li>
+          <li>NPM extractor now reliably extracts version, weekly_downloads, and license</li>
+          <li>Refreshed expired GITHUB_TOKEN on Render — resolves "Bad credentials" errors on GitHub API requests</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.15 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.15 &mdash; 2026-03-15</div>
+        <div class="changelog-title">Token Savings Fix + HN Comment Items <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li><code>tokenSavingsPercent</code> was always 0 for domain-API extractors — now estimates raw size as 7× content for realistic savings</li>
+          <li>HackerNews comment items (<code>/item?id=</code>) now return "Comment on: {story title}" instead of blank title</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.14 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.14 &mdash; 2026-03-15</div>
+        <div class="changelog-title">GitHub API Authentication <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li>GitHub extractor now authenticates with <code>GITHUB_TOKEN</code> — raises rate limit from 60/hr (anonymous) to 5,000/hr</li>
+          <li>Fixes low/empty token counts for GitHub pages on Render's shared IP addresses</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.13 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.13 &mdash; 2026-03-15</div>
+        <div class="changelog-title">PyPI Title Fix + Env Var Restore <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li>PyPI extractor now returns a proper <code>title</code> field (<code>name version</code> format)</li>
+          <li>Restored all 12 required Render env vars that were accidentally wiped; fixes deploys since v0.21.5</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.12 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.12 &mdash; 2026-03-15</div>
+        <div class="changelog-title">Structured Extraction Polish <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li>Emoji stripping from extractor output; new <code>director</code> field for movies; more accurate <code>confidence</code> scoring</li>
+          <li>Richer domain extractors with smarter fallbacks; actionable error messages with docs links</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.11 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.11 &mdash; 2026-03-15</div>
+        <div class="changelog-title">PeelTLS H2 Fix + Search Relevance + CLI Progress <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li>Fixed double-decompression bug on HTTP/2 responses; added <code>forceHttp1</code> option</li>
+          <li><code>relevanceScore</code> (0–1) now returned on search results (BM25 score against query)</li>
+          <li>Better CLI progress indicators for long-running fetches</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.9-10 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.9–10 &mdash; 2026-03-15</div>
+        <div class="changelog-title">Complete Anti-Bot Stealth Upgrade <span class="changelog-badge minor">Minor</span></div>
+        <ul>
+          <li>Nine independent anti-bot detection patches — TLS fingerprinting, header ordering, timing randomization</li>
+          <li>Improved PeelTLS escalation logic — triggers earlier on Cloudflare/DataDome sites</li>
+          <li>Full test verification pass after stealth upgrade</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.8 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.8 &mdash; 2026-03-15</div>
+        <div class="changelog-title">Proxy Routing for Search and Browser <span class="changelog-badge minor">Minor</span></div>
+        <ul>
+          <li><code>--proxy</code> now applies to search providers and headless browser rendering</li>
+          <li>Shared <code>proxy-config</code> module — centralized proxy parsing across all transport layers</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.7 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.7 &mdash; 2026-03-14</div>
+        <div class="changelog-title">Smart Heuristic Extraction + Improved Error Classification <span class="changelog-badge minor">Minor</span></div>
+        <ul>
+          <li>Auto-extraction uses page-type-specific heuristics (product, article, recipe, job listing)</li>
+          <li>Errors now categorized as <code>blocked</code>, <code>timeout</code>, <code>parse_error</code>, or <code>network_error</code> with <code>hint</code> fields</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.6 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.6 &mdash; 2026-03-14</div>
+        <div class="changelog-title">Dashboard Polish + Docs Visual Upgrade <span class="changelog-badge patch">Patch</span></div>
+        <ul>
+          <li>Activity log color-coded latency (green &lt;3s, yellow 3–8s, red &gt;8s)</li>
+          <li>Improved code block styling, better mobile layout, fixed sidebar active states</li>
+        </ul>
+      </div>
+
+      <!-- v0.21.5 -->
+      <div class="changelog-entry">
+        <div class="changelog-version">v0.21.5 &mdash; 2026-03-14</div>
+        <div class="changelog-title">Structured JSON Extraction <span class="changelog-badge minor">Minor</span></div>
+        <ul>
+          <li><code>POST /v1/extract</code> — LLM-powered extraction using JSON Schema or natural language prompts (BYOK)</li>
+          <li><code>GET /v1/extract/auto</code> — Zero-LLM heuristic extraction with page-type detection and <code>confidence</code> score</li>
+        </ul>
+      </div>
+
       <!-- v0.19.5 -->
       <div class="changelog-entry">
         <div class="changelog-version">v0.19.5 &mdash; 2026-03-07</div>
