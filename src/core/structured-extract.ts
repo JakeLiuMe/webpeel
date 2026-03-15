@@ -323,7 +323,10 @@ function heuristicExtractNumber(fieldName: string, content: string): number | nu
 
   // Year
   if (/year/.test(lf)) {
-    const m = content.match(/\b(20\d{2})\b/);
+    // Match 4-digit years (1900-2099), prefer explicit "Year: YYYY" pattern first
+    const explicit = content.match(/\bYear[:\s]+(\d{4})\b/i);
+    if (explicit?.[1]) { const n = parseInt(explicit[1]); return isNaN(n) ? null : n; }
+    const m = content.match(/\b((?:19|20)\d{2})\b/);
     if (m?.[1]) { const n = parseInt(m[1]); return isNaN(n) ? null : n; }
   }
 

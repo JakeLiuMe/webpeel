@@ -365,6 +365,7 @@ async function twitterExtractor(html: string, url: string): Promise<DomainExtrac
       if (fxData && fxData.code === 200 && fxData.user) {
         const u = fxData.user;
         const structured: Record<string, any> = {
+          title: `${u.name || ''} (@${u.screen_name || ''}) on X/Twitter`,
           name: u.name || '',
           handle: '@' + (u.screen_name || ''),
           bio: u.description || '',
@@ -1693,6 +1694,7 @@ async function npmExtractor(_html: string, url: string): Promise<DomainExtractRe
     } catch { /* optional */ }
 
     const structured: Record<string, any> = {
+      title: `${data.name}@${latest || 'unknown'}`,
       name: data.name,
       description: data.description || '',
       version: latest || 'unknown',
