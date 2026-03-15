@@ -1013,11 +1013,12 @@ ${commentsMd || '*No comments.*'}`;
 
   // Repository page: /owner/repo (and no deeper path we handle above)
   if (pathParts.length >= 2) {
-    const [repoData, readmeData] = await Promise.all([
-      fetchJson(`https://api.github.com/repos/${owner}/${repo}`, ghHeaders),
-      fetchJson(`https://api.github.com/repos/${owner}/${repo}/readme`, ghHeaders).catch(() => null),
-    ]);
+    // Sequential fetches to avoid secondary rate limits on popular repos
+    const repoData = await fetchJsonWithRetry(`https://api.github.com/repos/${owner}/${repo}`, ghHeaders, 2, 1000);
     if (!repoData || repoData.message === 'Not Found') return null;
+    // Secondary rate limit check
+    if (repoData.message?.includes('secondary rate limit') || repoData.message?.includes('abuse')) return null;
+    const readmeData = await fetchJsonWithRetry(`https://api.github.com/repos/${owner}/${repo}/readme`, ghHeaders, 1, 500).catch(() => null);
 
     // README content is base64 encoded
     let readmeText = '';
