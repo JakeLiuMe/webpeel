@@ -27,7 +27,7 @@ src/
 │   ├── middleware/          # Auth, rate limiting, CORS
 │   └── openapi.yaml         # OpenAPI 3.1 spec
 ├── mcp/
-│   └── server.ts            # MCP server (18 tools)
+│   └── server.ts            # MCP server (7 tools)
 ├── cli.ts                   # CLI entry point (Commander.js)
 ├── types.ts                 # Core types (PeelOptions, PeelResult)
 └── tests/                   # Vitest test files

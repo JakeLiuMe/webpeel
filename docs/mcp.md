@@ -1,6 +1,6 @@
 # MCP — WebPeel for AI Agents
 
-WebPeel ships a full [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server with 18 tools.
+WebPeel ships a full [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server with 7 tools.
 Add it to any MCP-compatible agent and it can browse the web natively.
 
 ---

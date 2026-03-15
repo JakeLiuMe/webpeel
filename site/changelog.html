@@ -134,8 +134,60 @@
         <div class="release">
           <div class="release-header">
             <div class="release-title">
-              <div class="release-version mono">v0.21.12</div>
+              <div class="release-version mono">v0.21.16</div>
               <span class="badge">Latest</span>
+            </div>
+            <div class="release-meta">March 15, 2026</div>
+          </div>
+          <ul class="release-notes">
+            <li><strong>Structured extraction improvements:</strong> Version, downloads, and population patterns; better field:value separator matching; NPM extractor now reliably extracts version, weekly_downloads, and license</li>
+            <li><strong>GitHub token refresh:</strong> Refreshed expired GITHUB_TOKEN on Render — resolves "Bad credentials" errors</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.21.15</div>
+            </div>
+            <div class="release-meta">March 15, 2026</div>
+          </div>
+          <ul class="release-notes">
+            <li><strong>Token savings fix:</strong> <code>tokenSavingsPercent</code> now shows realistic values for domain extractors (was always 0); estimates based on 7× content ratio</li>
+            <li><strong>HN comment items:</strong> HackerNews comment pages now return proper titles ("Comment on: {story}")</li>
+            <li><strong>Pipeline improvements:</strong> Reliability improvements across the extraction pipeline</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.21.14</div>
+            </div>
+            <div class="release-meta">March 15, 2026</div>
+          </div>
+          <ul class="release-notes">
+            <li><strong>GitHub API auth:</strong> GitHub extractor now uses <code>GITHUB_TOKEN</code> env var — raises rate limit from 60/hr to 5,000/hr; fixes low token counts on Render's shared IPs</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.21.13</div>
+            </div>
+            <div class="release-meta">March 15, 2026</div>
+          </div>
+          <ul class="release-notes">
+            <li><strong>PyPI title fix:</strong> PyPI extractor now returns a proper title field (<code>name version</code> format)</li>
+            <li><strong>Env var restore:</strong> Restored all required Render env vars that were accidentally wiped (fixes deploys since v0.21.5)</li>
+          </ul>
+        </div>
+
+        <div class="release">
+          <div class="release-header">
+            <div class="release-title">
+              <div class="release-version mono">v0.21.12</div>
             </div>
             <div class="release-meta">March 15, 2026</div>
           </div>
