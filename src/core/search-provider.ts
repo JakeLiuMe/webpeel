@@ -735,26 +735,33 @@ export class DuckDuckGoProvider implements SearchProvider {
     // Use realistic browser headers to avoid DDG bot detection on datacenter IPs
     // Route through residential proxy when available (datacenter IPs are blocked)
     const proxyUrl = getWebshareProxyUrl();
-    const fetchOpts: Parameters<typeof undiciFetch>[1] = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-        'Referer': 'https://duckduckgo.com/',
-      },
-      signal,
+    const baseHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'no-cache',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1',
+      'Referer': 'https://duckduckgo.com/',
     };
+
+    // Try with proxy first (bypasses datacenter IP blocks), fall back to direct
+    let response: Awaited<ReturnType<typeof undiciFetch>>;
     if (proxyUrl) {
-      (fetchOpts as any).dispatcher = new ProxyAgent(proxyUrl);
+      try {
+        const dispatcher = new ProxyAgent(proxyUrl);
+        response = await undiciFetch(searchUrl, { headers: baseHeaders, signal, dispatcher } as any);
+      } catch (proxyErr) {
+        log.debug('DDG proxy fetch failed, falling back to direct:', proxyErr instanceof Error ? proxyErr.message : proxyErr);
+        response = await undiciFetch(searchUrl, { headers: baseHeaders, signal });
+      }
+    } else {
+      response = await undiciFetch(searchUrl, { headers: baseHeaders, signal });
     }
-    const response = await undiciFetch(searchUrl, fetchOpts);
 
     if (!response.ok) {
       throw new Error(`Search failed: HTTP ${response.status}`);
@@ -826,19 +833,24 @@ export class DuckDuckGoProvider implements SearchProvider {
     params.set('q', query);
 
     const liteProxyUrl = getWebshareProxyUrl();
-    const liteFetchOpts: Parameters<typeof undiciFetch>[1] = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': 'https://lite.duckduckgo.com/',
-      },
-      signal,
+    const liteHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Referer': 'https://lite.duckduckgo.com/',
     };
+    const liteUrl = `https://lite.duckduckgo.com/lite/?${params.toString()}`;
+    let response: Awaited<ReturnType<typeof undiciFetch>>;
     if (liteProxyUrl) {
-      (liteFetchOpts as any).dispatcher = new ProxyAgent(liteProxyUrl);
+      try {
+        const dispatcher = new ProxyAgent(liteProxyUrl);
+        response = await undiciFetch(liteUrl, { headers: liteHeaders, signal, dispatcher } as any);
+      } catch {
+        response = await undiciFetch(liteUrl, { headers: liteHeaders, signal });
+      }
+    } else {
+      response = await undiciFetch(liteUrl, { headers: liteHeaders, signal });
     }
-    const response = await undiciFetch(`https://lite.duckduckgo.com/lite/?${params.toString()}`, liteFetchOpts);
 
     if (!response.ok) return [];
 
