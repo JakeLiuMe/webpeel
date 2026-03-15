@@ -2352,20 +2352,40 @@ async function imdbExtractor(html: string, url: string): Promise<DomainExtractRe
         : jsonLd.director?.name || String(jsonLd.director))
       : $('a[href*="/name/"][class*="ipc-metadata-list-item__list-content-item"]').first().text().trim() || '';
 
-    // Cast — JSON-LD has top actors, also parse HTML for broader cast list
+    // Cast — parse HTML first for actor+character pairs, then fall back to JSON-LD
+    const castPairs: Array<{ actor: string; character: string }> = [];
+    // IMDB new UI: each title-cast-item contains actor link + character link
+    $('[data-testid="title-cast-item"]').each((_: any, el: any) => {
+      const actorEl = $(el).find('a[href*="/name/nm"]').first();
+      const charEl = $(el).find('[data-testid="title-cast-item__character"]').first();
+      const actor = actorEl.text().trim();
+      // Character name may span multiple elements; clean whitespace
+      const character = charEl.text().trim().replace(/\s+/g, ' ').replace(/^\.\.\.$/, '');
+      if (actor && actor.length > 1) {
+        castPairs.push({ actor, character: character || '' });
+      }
+    });
+
+    // Fall back to classic cast list (older IMDB page versions)
+    const castFromHtml: string[] = [];
+    if (!castPairs.length) {
+      $('.cast_list td.itemprop a').each((_: any, el: any) => {
+        const name = $(el).text().trim();
+        if (name && name.length > 1 && !castFromHtml.includes(name)) castFromHtml.push(name);
+      });
+    }
+
+    // JSON-LD actors as final fallback
     const castFromLd: string[] = jsonLd?.actor
       ? (Array.isArray(jsonLd.actor) ? jsonLd.actor : [jsonLd.actor])
           .map((a: any) => a.name || a)
       : [];
 
-    // Parse additional cast from HTML (IMDB cast section)
-    const castFromHtml: string[] = [];
-    // Try multiple IMDB cast selectors across page versions
-    $('[data-testid="title-cast-item"] a[href*="/name/nm"], a[data-testid*="cast"] span[class*="title"], .cast_list td.itemprop a').each((_: any, el: any) => {
-      const name = $(el).text().trim();
-      if (name && name.length > 1 && !castFromHtml.includes(name)) castFromHtml.push(name);
-    });
-    const cast = [...new Set([...castFromLd, ...castFromHtml])].slice(0, 15);
+    // Build final cast list: with characters if available (top 10), otherwise names only
+    const cast: string[] = castPairs.length > 0
+      ? castPairs.slice(0, 10).map(({ actor, character }) =>
+          character ? `${actor} as ${character}` : actor)
+      : [...new Set([...castFromLd, ...castFromHtml])].slice(0, 10);
 
     // Runtime
     const runtime = jsonLd?.duration
@@ -2409,13 +2429,37 @@ async function imdbExtractor(html: string, url: string): Promise<DomainExtractRe
       }
     }
 
+    // Awards / accolades — try hero accolades chip, then any awards-related link text
+    let awardsSummary = '';
+    // IMDB new UI: awards accolades chip in the hero section
+    const accoladesEl = $('[data-testid="awards-accolades"]');
+    if (accoladesEl.length) {
+      awardsSummary = accoladesEl.text().trim().replace(/\s+/g, ' ');
+    }
+    // Fallback: look for award-summary link text near the hero rating bar
+    if (!awardsSummary) {
+      $('a[href*="/awards"]').each((_: any, el: any) => {
+        const text = $(el).text().trim().replace(/\s+/g, ' ');
+        if (text && text.length > 5 && text.length < 200 &&
+          (text.toLowerCase().includes('win') || text.toLowerCase().includes('nomin') ||
+           text.toLowerCase().includes('oscar') || text.toLowerCase().includes('award'))) {
+          awardsSummary = text;
+          return false; // break
+        }
+      });
+    }
+    // Fallback: JSON-LD award field
+    if (!awardsSummary && jsonLd?.award) {
+      awardsSummary = typeof jsonLd.award === 'string' ? jsonLd.award : '';
+    }
+
     // Content rating & release date from JSON-LD
     const contentRating = jsonLd?.contentRating || '';
     const datePublished = jsonLd?.datePublished || '';
 
     const structured: Record<string, any> = {
       title, year, contentType, description: fullPlot, ratingValue, ratingCount,
-      genres, director, writers, cast, runtime, keywords, contentRating, datePublished, url,
+      genres, director, writers, cast, runtime, keywords, contentRating, datePublished, awardsSummary, url,
     };
 
     const ratingLine = ratingValue ? `⭐ ${ratingValue}/10${ratingCount ? ` (${Number(ratingCount).toLocaleString()} votes)` : ''}` : '';
@@ -2427,10 +2471,11 @@ async function imdbExtractor(html: string, url: string): Promise<DomainExtractRe
     const ratedLine = contentRating ? `**Rated:** ${contentRating}` : '';
     const releaseLine = datePublished ? `**Released:** ${datePublished}` : '';
     const keywordsLine = keywords.length ? `\n**Keywords:** ${keywords.slice(0, 10).join(', ')}` : '';
+    const awardsLine = awardsSummary ? `**Awards:** ${awardsSummary}` : '';
 
     const metaParts = [ratingLine, genreLine, runtimeLine, year ? `**Year:** ${year}` : ''].filter(Boolean).join(' | ');
 
-    const detailParts = [directorLine, writersLine, castLine, ratedLine, releaseLine].filter(Boolean).join('\n');
+    const detailParts = [directorLine, writersLine, castLine, ratedLine, releaseLine, awardsLine].filter(Boolean).join('\n');
 
     const cleanContent = `# 🎬 ${title}\n\n${metaParts}\n\n${detailParts}${keywordsLine}\n\n## Plot\n\n${fullPlot}`;
 
