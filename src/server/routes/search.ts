@@ -71,7 +71,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
       // scrapeResults=true: fetches full page content for each result (like Firecrawl's scrape_options).
       // Adds `content` field to each result. Significantly increases response time and credits used.
       // Documented in OpenAPI spec under /v1/search parameters.
-      const { q, count, scrapeResults, sources, categories, tbs, country, location } = req.query;
+      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---
       const providerParam = (req.query.provider as string || '').toLowerCase() || 'auto';
@@ -111,7 +111,8 @@ export function createSearchRouter(authStore: AuthStore): Router {
       const locationStr = (location as string) || '';
 
       // Build cache key (include all parameters)
-      const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}`;
+      const enrichCount = enrich ? Math.min(Math.max(parseInt(enrich as string, 10) || 0, 0), 5) : 0;
+      const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${enrichCount}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}`;
 
       // Check cache
       const cached = cache.get(cacheKey);
@@ -194,7 +195,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
           });
         }
 
-        // Scrape each result URL if requested
+        // Scrape each result URL if requested (sequential — legacy)
         if (shouldScrape) {
           for (const result of results) {
             try {
@@ -205,6 +206,43 @@ export function createSearchRouter(authStore: AuthStore): Router {
               result.content = peelResult.content;
             } catch (error) {
               result.content = `[Failed to scrape: ${(error as Error).message}]`;
+            }
+          }
+        }
+
+        // Enrich top N results in parallel with timeout (fast alternative to scrapeResults)
+        if (enrichCount > 0 && !shouldScrape) {
+          const ENRICH_TIMEOUT = 4000; // 4s hard timeout per URL
+          const toEnrich = results.slice(0, enrichCount);
+          const enrichResults = await Promise.allSettled(
+            toEnrich.map(async (result) => {
+              const fetchPromise = peel(result.url, {
+                format: 'markdown',
+                maxTokens: 1500,
+              }).then(peelResult => ({
+                url: result.url,
+                content: peelResult.content?.substring(0, 1500) || null,
+                wordCount: peelResult.content?.trim().split(/\s+/).length || 0,
+                method: peelResult.method || 'unknown',
+                fetchTimeMs: peelResult.elapsed || 0,
+              }));
+              const timeoutPromise = new Promise<{ url: string; content: null; wordCount: 0; method: 'timeout'; fetchTimeMs: 0 }>(
+                resolve => setTimeout(() => resolve({ url: result.url, content: null, wordCount: 0, method: 'timeout', fetchTimeMs: 0 }), ENRICH_TIMEOUT)
+              );
+              return Promise.race([fetchPromise, timeoutPromise]);
+            })
+          );
+
+          // Merge enrichment data back into results
+          for (const settled of enrichResults) {
+            if (settled.status === 'fulfilled' && settled.value.content) {
+              const match = results.find(r => r.url === settled.value.url);
+              if (match) {
+                (match as any).content = settled.value.content;
+                (match as any).wordCount = settled.value.wordCount;
+                (match as any).method = settled.value.method;
+                (match as any).fetchTimeMs = settled.value.fetchTimeMs;
+              }
             }
           }
         }
