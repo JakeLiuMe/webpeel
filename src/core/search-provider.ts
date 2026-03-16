@@ -18,6 +18,7 @@ import { load } from 'cheerio';
 import { getStealthBrowser, getRandomUserAgent, applyStealthScripts } from './browser-pool.js';
 import { getWebshareProxy, getWebshareProxyUrl } from './proxy-config.js';
 import { createLogger } from './logger.js';
+import { searchViaSearXNG } from './searxng-provider.js';
 
 const log = createLogger('search');
 
@@ -1179,6 +1180,33 @@ export class DuckDuckGoProvider implements SearchProvider {
 
   async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
     const attempts = this.buildQueryAttempts(query);
+
+    // -----------------------------------------------------------
+    // Stage 0: SearXNG (self-hosted, residential IP — highest reliability)
+    // Uses Mac Mini running SearXNG exposed via Cloudflare Tunnel.
+    // Aggregates Google, Bing, Brave, Startpage — 30-40 results typical.
+    // Env: SEARXNG_URL=https://search.webpeel.dev
+    // -----------------------------------------------------------
+    if (process.env.SEARXNG_URL) {
+      try {
+        const searxResults = await searchViaSearXNG(query, {
+          count: options.count ?? 10,
+          signal: options.signal,
+          timeoutMs: 6000,
+        });
+        if (searxResults.length > 0) {
+          providerStats.record('searxng', true);
+          log.debug(`source=searxng returned ${searxResults.length} results`);
+          const filtered = filterRelevantResults(searxResults as WebSearchResult[], query);
+          return filtered.length > 0 ? filtered : (searxResults as WebSearchResult[]);
+        }
+        providerStats.record('searxng', false);
+        log.debug('SearXNG returned 0 results, falling through to DDG');
+      } catch (e) {
+        providerStats.record('searxng', false);
+        log.debug('SearXNG failed:', e instanceof Error ? e.message : e);
+      }
+    }
 
     // -----------------------------------------------------------
     // Stage 1: DDG HTTP
