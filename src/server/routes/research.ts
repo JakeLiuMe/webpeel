@@ -535,6 +535,7 @@ export function createResearchRouter(): Router {
 
       const elapsed = Date.now() - startTime;
 
+      res.setHeader('Cache-Control', 'no-store');  // Research must never be cached
       res.json({
         success: true,
         data: {

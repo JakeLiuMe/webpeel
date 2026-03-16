@@ -414,6 +414,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
       res.setHeader('X-Credits-Used', '1');
       res.setHeader('X-Processing-Time', elapsed.toString());
       res.setHeader('X-Fetch-Type', 'search');
+      res.setHeader('Cache-Control', 'no-store');  // Never cache search results — they must be fresh
 
       res.json({
         success: true,
