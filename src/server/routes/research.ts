@@ -256,7 +256,13 @@ export function createResearchRouter(): Router {
         return;
       } catch (proxyErr: any) {
         console.warn('[research] Hetzner proxy failed, falling back to local:', proxyErr.message);
-        // Fall through to local research pipeline
+        // Return the proxy error directly instead of falling back to broken local path
+        res.json({
+          success: false,
+          error: { type: 'proxy_error', message: `Research worker unavailable: ${proxyErr.message}` },
+          requestId: req.requestId,
+        });
+        return;
       }
     }
 
