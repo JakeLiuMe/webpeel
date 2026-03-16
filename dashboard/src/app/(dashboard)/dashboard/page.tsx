@@ -179,6 +179,8 @@ const EXAMPLE_PROMPTS = [
   { label: 'youtube.com/watch?v=dQw4w9WgXcQ', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', type: 'url' },
 ];
 
+const EXAMPLE_URLS = EXAMPLE_PROMPTS;
+
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
 
 const LOADING_STAGES = [
