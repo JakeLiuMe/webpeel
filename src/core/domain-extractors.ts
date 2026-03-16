@@ -187,16 +187,32 @@ function unixToIso(sec: number): string {
 
 /** Fetch JSON from a URL using simpleFetch (reuses WebPeel's HTTP stack). */
 async function fetchJson(url: string, customHeaders?: Record<string, string>): Promise<any> {
-  const result = await simpleFetch(url, 'webpeel/0.21 (https://webpeel.dev)', 15000, {
-    Accept: 'application/json',
-    ...customHeaders,
-  });
-  const parsed = tryParseJson(result.html);
-  if (parsed === null && result.html.length > 0) {
-    // Log when we get non-JSON back (likely an HTML error page)
-    console.warn(`[webpeel:fetchJson] Non-JSON response from ${url} (${result.html.length} bytes, status: ${result.statusCode}): ${result.html.slice(0, 120)}`);
+  // Use plain fetch (not simpleFetch) for JSON API calls.
+  // simpleFetch adds stealth browser headers (Sec-CH-UA, Sec-Fetch-*, etc.)
+  // which confuse API endpoints like api.github.com into returning HTML.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'webpeel/0.21 (https://webpeel.dev)',
+        'Accept': 'application/json',
+        ...customHeaders,
+      },
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    clearTimeout(timer);
+    const text = await resp.text();
+    const parsed = tryParseJson(text);
+    if (parsed === null && text.length > 0) {
+      console.warn(`[webpeel:fetchJson] Non-JSON response from ${url} (${text.length} bytes, status: ${resp.status}): ${text.slice(0, 120)}`);
+    }
+    return parsed;
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
   }
-  return parsed;
 }
 
 /** Fetch JSON with exponential backoff retry on 429 / rate-limit errors. */
