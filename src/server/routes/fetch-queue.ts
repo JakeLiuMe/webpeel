@@ -1,0 +1,263 @@
+/**
+ * Queue-backed /v1/fetch and /v1/render endpoints.
+ *
+ * Used when API_MODE=queue (microservices mode).
+ * Instead of calling peel() directly, jobs are enqueued in Bull
+ * and results are polled from Redis via GET /v1/jobs/:id.
+ *
+ * POST /v1/fetch  → enqueue in webpeel:fetch queue  → return { jobId, status }
+ * POST /v1/render → enqueue in webpeel:render queue → return { jobId, status }
+ * GET  /v1/jobs/:id → return job status + result from Redis
+ */
+
+import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import { validateUrlForSSRF, SSRFError } from '../middleware/url-validator.js';
+import {
+  getFetchQueue,
+  getRenderQueue,
+  RESULT_KEY_PREFIX,
+  type FetchJobPayload,
+  type JobResult,
+} from '../bull-queues.js';
+import type { Redis as RedisType } from "ioredis";
+// @ts-ignore — ioredis CJS/ESM interop
+import IoRedisModule from "ioredis";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const IoRedis: any = (IoRedisModule as any).default ?? IoRedisModule;
+
+// ─── Redis client for result reads ──────────────────────────────────────────
+
+function buildRedisClient(): RedisType {
+  const url = process.env.REDIS_URL || 'redis://redis:6379';
+  const password = process.env.REDIS_PASSWORD || undefined;
+  try {
+    const parsed = new URL(url);
+    return new IoRedis({
+      host: parsed.hostname,
+      port: parseInt(parsed.port || '6379', 10),
+      password,
+      db: parseInt(parsed.pathname?.slice(1) || '0', 10) || 0,
+      lazyConnect: true,
+      maxRetriesPerRequest: 3,
+    });
+  } catch {
+    return new IoRedis({ host: 'redis', port: 6379, password, lazyConnect: true, maxRetriesPerRequest: 3 });
+  }
+}
+
+let _redis: RedisType | null = null;
+function getRedis(): RedisType {
+  if (!_redis) _redis = buildRedisClient();
+  return _redis;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function getJobResult(jobId: string): Promise<JobResult | null> {
+  const raw = await getRedis().get(`${RESULT_KEY_PREFIX}${jobId}`);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as JobResult;
+  } catch {
+    return null;
+  }
+}
+
+function validateUrl(url: unknown, res: Response, requestId: string): string | null {
+  if (!url || typeof url !== 'string') {
+    res.status(400).json({
+      success: false,
+      error: {
+        type: 'invalid_request',
+        message: 'Missing or invalid "url" parameter.',
+        hint: 'Send JSON: { "url": "https://example.com" }',
+        docs: 'https://webpeel.dev/docs/api-reference#fetch',
+      },
+      requestId,
+    });
+    return null;
+  }
+
+  if (url.length > 2048) {
+    res.status(400).json({
+      success: false,
+      error: { type: 'invalid_url', message: 'URL too long (max 2048 characters)' },
+      requestId,
+    });
+    return null;
+  }
+
+  try {
+    new URL(url);
+  } catch {
+    res.status(400).json({
+      success: false,
+      error: {
+        type: 'invalid_url',
+        message: 'Invalid URL format',
+        hint: 'Ensure the URL includes a scheme (https://) and a valid hostname',
+        docs: 'https://webpeel.dev/docs/api-reference#fetch',
+      },
+      requestId,
+    });
+    return null;
+  }
+
+  try {
+    validateUrlForSSRF(url);
+  } catch (e) {
+    if (e instanceof SSRFError) {
+      res.status(400).json({
+        success: false,
+        error: {
+          type: 'forbidden_url',
+          message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
+        },
+        requestId,
+      });
+      return null;
+    }
+    throw e;
+  }
+
+  return url;
+}
+
+// ─── Router factory ──────────────────────────────────────────────────────────
+
+export function createQueueFetchRouter(): Router {
+  const router = Router();
+
+  /**
+   * POST /v1/fetch  — enqueue HTTP fetch job
+   * POST /v1/render — enqueue browser render job
+   * These are the queue-mode replacements for the direct peel() calls.
+   */
+  async function handleEnqueue(req: Request, res: Response, renderMode: boolean): Promise<void> {
+    const requestId = req.requestId || randomUUID();
+
+    const url = validateUrl(req.body?.url, res, requestId);
+    if (!url) return;
+
+    const userId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: {
+          type: 'unauthorized',
+          message: 'API key required. Get one free at https://app.webpeel.dev/keys',
+          docs: 'https://webpeel.dev/docs/errors#unauthorized',
+        },
+        requestId,
+      });
+      return;
+    }
+
+    const jobId = randomUUID();
+
+    const payload: FetchJobPayload = {
+      jobId,
+      url,
+      render: renderMode,
+      format: req.body.format || 'markdown',
+      wait: req.body.wait,
+      maxTokens: req.body.maxTokens,
+      budget: req.body.budget,
+      stealth: req.body.stealth,
+      screenshot: req.body.screenshot,
+      fullPage: req.body.fullPage,
+      selector: req.body.selector,
+      exclude: req.body.exclude,
+      includeTags: req.body.includeTags,
+      excludeTags: req.body.excludeTags,
+      images: req.body.images,
+      actions: req.body.actions,
+      timeout: req.body.timeout,
+      lite: req.body.lite,
+      raw: req.body.raw,
+      readable: req.body.readable,
+      question: req.body.question,
+      userId,
+    };
+
+    // Write initial queued status to Redis immediately so polling works right away
+    await getRedis().set(
+      `${RESULT_KEY_PREFIX}${jobId}`,
+      JSON.stringify({ status: 'queued' } satisfies JobResult),
+      'EX',
+      86_400,
+    );
+
+    // Enqueue in the appropriate Bull queue
+    const queue = renderMode ? getRenderQueue() : getFetchQueue();
+    await queue.add(payload, {
+      jobId, // use our own UUID as Bull job id for easy lookup
+    });
+
+    res.status(202).json({
+      success: true,
+      jobId,
+      status: 'queued',
+      pollUrl: `/v1/jobs/${jobId}`,
+    });
+  }
+
+  router.post('/v1/fetch', (req, res) => void handleEnqueue(req, res, false));
+  router.post('/v1/render', (req, res) => void handleEnqueue(req, res, true));
+
+  /**
+   * GET /v1/jobs/:id — return job status + result (or error)
+   * This endpoint is used regardless of whether queue mode is enabled.
+   * When a job is complete, `result` contains the full peel() output.
+   */
+  router.get('/v1/jobs/:id', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const requestId = req.requestId || randomUUID();
+
+    if (!id || typeof id !== 'string') {
+      res.status(400).json({
+        success: false,
+        error: { type: 'invalid_request', message: 'Missing job id' },
+        requestId,
+      });
+      return;
+    }
+
+    try {
+      const job = await getJobResult(id);
+
+      if (!job) {
+        res.status(404).json({
+          success: false,
+          error: {
+            type: 'not_found',
+            message: 'Job not found or expired',
+            hint: 'Jobs expire after 24h. Check the jobId.',
+          },
+          requestId,
+        });
+        return;
+      }
+
+      const statusCode = job.status === 'failed' ? 200 : 200; // always 200 for polling
+      res.status(statusCode).json({
+        success: true,
+        jobId: id,
+        status: job.status,
+        result: job.result,
+        error: job.error,
+        startedAt: job.startedAt,
+        completedAt: job.completedAt,
+      });
+    } catch (err: any) {
+      res.status(500).json({
+        success: false,
+        error: { type: 'internal_error', message: 'Failed to retrieve job result' },
+        requestId,
+      });
+    }
+  });
+
+  return router;
+}
