@@ -46,6 +46,7 @@ import { createPlaygroundRouter } from './routes/playground.js';
 import { createReaderRouter } from './routes/reader.js';
 import { createSharePublicRouter, createShareRouter } from './routes/share.js';
 import { createJobQueue } from './job-queue.js';
+import { createQueueFetchRouter } from './routes/fetch-queue.js';
 import { createCompatRouter } from './routes/compat.js';
 import { createCrawlRouter } from './routes/crawl.js';
 import { createMapRouter } from './routes/map.js';
@@ -249,7 +250,8 @@ export function createApp(config: ServerConfig = {}): Express {
 
   // Health check MUST be before auth/rate-limit middleware
   // Render hits /health every ~30s; rate-limiting it causes 429 → service marked as failed
-  app.use(createHealthRouter());
+  // Pass pool so /ready can check DB connectivity
+  app.use(createHealthRouter(pool));
 
   // OpenAPI spec — public, no auth required
   app.get('/openapi.yaml', (_req: Request, res: Response) => {
@@ -320,7 +322,14 @@ export function createApp(config: ServerConfig = {}): Express {
     app.use(createWatchRouter(pool));
   }
   // /v1/fetch, /v1/search — all scopes allowed, no guard needed
-  app.use(createFetchRouter(authStore));
+  // In queue mode (API_MODE=queue), /v1/fetch and /v1/render are replaced by
+  // queue-backed endpoints that enqueue Bull jobs and return { jobId, status }.
+  // GET /v1/jobs/:id is also provided by the queue router for result polling.
+  if (process.env.API_MODE === 'queue') {
+    app.use(createQueueFetchRouter());
+  } else {
+    app.use(createFetchRouter(authStore));
+  }
   // /v1/screenshot — full or read only (router uses absolute paths, guard before router)
   app.use('/v1/screenshot', requireScope('full', 'read'));
   app.use(createScreenshotRouter(authStore));

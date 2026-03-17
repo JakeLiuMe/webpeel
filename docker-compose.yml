@@ -1,0 +1,166 @@
+version: '3.9'
+
+# ─── WebPeel Microservices Stack ─────────────────────────────────────────────
+# Services:
+#   redis   — single Redis instance, port 6379
+#   api     — 3 replicas of the lightweight API (ports 3000-3002)
+#   worker  — 2 replicas of the Playwright worker (isolated, no exposed ports)
+#
+# Env vars (never hard-coded here):
+#   REDIS_URL       e.g. redis://redis:6379
+#   REDIS_PASSWORD  optional — set if Redis is password-protected
+#   DATABASE_URL    PostgreSQL connection string (optional; enables pg job queue)
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-api-env: &api-env
+  NODE_ENV: production
+  API_MODE: queue
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+  DATABASE_URL: ${DATABASE_URL:-}
+  PORT: 3000
+  CORS_ORIGINS: ${CORS_ORIGINS:-https://app.webpeel.dev,https://webpeel.dev}
+
+x-worker-env: &worker-env
+  NODE_ENV: production
+  WORKER_MODE: "1"
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+  DATABASE_URL: ${DATABASE_URL:-}
+  # Playwright concurrency per worker replica
+  WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
+
+services:
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: >
+      redis-server
+      --save 60 1
+      --loglevel warning
+      ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - webpeel-net
+
+  # ── API (3 replicas, ports 3000-3002) ────────────────────────────────────
+  api-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *api-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - webpeel-net
+
+  api-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      <<: *api-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - webpeel-net
+
+  api-3:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    ports:
+      - "3002:3000"
+    environment:
+      <<: *api-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - webpeel-net
+
+  # ── Worker (2 replicas, isolated — no exposed ports) ─────────────────────
+  worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      <<: *worker-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    # Workers are memory-hungry (Playwright). Limit to 1GB.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    networks:
+      - webpeel-net
+
+  worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      <<: *worker-env
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+        reservations:
+          memory: 512m
+    networks:
+      - webpeel-net
+
+volumes:
+  redis-data:
+
+networks:
+  webpeel-net:
+    driver: bridge

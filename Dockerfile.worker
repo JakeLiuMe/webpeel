@@ -1,0 +1,37 @@
+# ─── Dockerfile.worker ──────────────────────────────────────────────────────
+# Playwright worker container — target 1GB.
+# Polls Bull queues (fetchQueue, renderQueue) and runs peel() / screenshot jobs.
+# Results are written back to Redis for the API to retrieve.
+# ─────────────────────────────────────────────────────────────────────────────
+
+FROM mcr.microsoft.com/playwright:v1.52.0-noble AS base
+WORKDIR /app
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM base AS builder
+COPY package*.json ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+RUN cp src/server/openapi.yaml dist/server/openapi.yaml 2>/dev/null || true
+
+# ── Production stage ──────────────────────────────────────────────────────────
+FROM base AS production
+
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --from=builder /app/dist ./dist
+
+# Non-root user (playwright image already has a suitable user)
+RUN useradd -r -s /bin/false -m workeruser || true
+USER workeruser
+
+HEALTHCHECK --interval=20s --timeout=10s --start-period=60s --retries=3 \
+  CMD node -e "const r = require('redis'); const c = r.createClient({url: process.env.REDIS_URL || 'redis://redis:6379'}); c.connect().then(() => c.ping()).then(() => { c.quit(); process.exit(0); }).catch(() => process.exit(1));"
+
+ENV NODE_ENV=production
+ENV WORKER_MODE=1
+
+CMD ["node", "dist/worker/worker.js"]
