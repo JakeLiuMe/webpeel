@@ -16,12 +16,19 @@ import {
   type SearchProviderId,
   type WebSearchResult,
 } from '../../core/search-provider.js';
+import { getSourceCredibility } from '../../core/deep-research.js';
 
 interface SearchResult {
   title: string;
   url: string;
   snippet: string;
   content?: string; // Added when scrapeResults=true
+  rank?: number;           // Credibility rank (1 = most trustworthy)
+  credibility?: {
+    tier: 'official' | 'verified' | 'general';
+    stars: number;         // 3=official, 2=verified, 1=general
+    label: string;         // 'OFFICIAL SOURCE' | 'VERIFIED' | 'UNVERIFIED'
+  };
 }
 
 interface ImageResult {
@@ -275,6 +282,20 @@ export function createSearchRouter(authStore: AuthStore): Router {
             }
           }
         }
+
+        // Add credibility scores and sort by trustworthiness
+        const tierOrder: Record<string, number> = { official: 0, verified: 1, general: 2 };
+        results = results
+          .map(r => {
+            const cred = getSourceCredibility(r.url);
+            return { ...r, credibility: cred };
+          })
+          .sort((a, b) => {
+            const aTier = tierOrder[a.credibility?.tier || 'general'] ?? 2;
+            const bTier = tierOrder[b.credibility?.tier || 'general'] ?? 2;
+            return aTier - bTier; // Official first, then verified, then general
+          })
+          .map((r, i) => ({ ...r, rank: i + 1 }));
 
         data.web = results;
       }

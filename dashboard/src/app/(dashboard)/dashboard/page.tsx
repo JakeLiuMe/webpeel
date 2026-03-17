@@ -61,6 +61,12 @@ interface SearchResult {
   fetchTimeMs?: number;  // How long the fetch took
   loading?: boolean;     // True while fetching content
   domain?: string;       // Extracted domain (e.g. "wikipedia.org")
+  rank?: number;         // Credibility rank (1 = most trustworthy)
+  credibility?: {
+    tier: 'official' | 'verified' | 'general';
+    stars: number;
+    label: string;
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -328,15 +334,30 @@ function SourceCards({ sources }: { sources: Source[] }) {
 // ─── Search results component ─────────────────────────────────────────────────
 
 function SearchResults({ results, onReadUrl }: { results: SearchResult[]; onReadUrl: (url: string) => void }) {
+  const credBadgeStyles: Record<string, string> = {
+    official: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+    verified: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    general: 'bg-zinc-700/40 text-zinc-500 border-zinc-600/30',
+  };
   return (
     <div className="space-y-3">
       {results.map((r, i) => (
         <div key={i} className="p-4 rounded-xl bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/60 transition-all">
-          {/* Title row with domain badge */}
+          {/* Title row with rank, domain badge, and credibility */}
           <div className="flex items-start gap-2 mb-1 flex-wrap">
+            {r.rank && (
+              <span className="shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-zinc-700/80 text-zinc-300 text-[10px] font-bold mt-0.5">
+                {r.rank}
+              </span>
+            )}
             {r.domain && (
               <span className="shrink-0 bg-zinc-700/60 text-zinc-400 text-xs px-2 py-0.5 rounded-full mt-0.5">
                 {r.domain}
+              </span>
+            )}
+            {r.credibility && (
+              <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full border font-medium mt-0.5 ${credBadgeStyles[r.credibility.tier] || credBadgeStyles.general}`}>
+                {r.credibility.tier === 'official' ? '★★★ Official' : r.credibility.tier === 'verified' ? '★★ Verified' : '★ General'}
               </span>
             )}
             <a
@@ -820,6 +841,8 @@ export default function ReadPage() {
             method: r.method || undefined,
             fetchTimeMs: r.fetchTimeMs || undefined,
             loading: false,
+            rank: r.rank || undefined,
+            credibility: r.credibility || undefined,
           })),
           fetchTimeMs: json.fetchTimeMs,
         };
