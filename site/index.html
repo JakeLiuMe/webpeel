@@ -170,8 +170,12 @@
     .reveal {
       transition: opacity 400ms var(--ease-out), transform 400ms var(--ease-out);
     }
-    .reveal.pending { opacity: 0; transform: translateY(12px); }
+    .reveal.pending { opacity: 0; transform: translateY(18px); }
     .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal[data-delay="1"] { transition-delay: 0.07s; }
+    .reveal[data-delay="2"] { transition-delay: 0.14s; }
+    .reveal[data-delay="3"] { transition-delay: 0.21s; }
+    .reveal[data-delay="4"] { transition-delay: 0.28s; }
 
     @media (prefers-reduced-motion: reduce) {
       .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
@@ -961,11 +965,7 @@
     }
     @media (prefers-reduced-motion: reduce) { .btn-primary::after { animation: none; display: none; } }
 
-    /* ── REVEAL STAGGER DELAYS ──────────────────────── */
-    .reveal[data-delay="1"] { transition-delay: 0.1s; }
-    .reveal[data-delay="2"] { transition-delay: 0.2s; }
-    .reveal[data-delay="3"] { transition-delay: 0.3s; }
-    .reveal[data-delay="4"] { transition-delay: 0.4s; }
+    /* ── REVEAL STAGGER DELAYS (defined in base .reveal rules above) ── */
 
     /* ── GLASS POLISH: NOISE GRAIN TEXTURE ──────────── */
     body::after {
@@ -2036,17 +2036,11 @@
     }
 
     /* ══ STAGGERED SCROLL ANIMATIONS ════════════════════ */
-    @keyframes revealIn {
-      from { opacity: 0; transform: translateY(24px) scale(0.98); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
+    /* Pure CSS transitions — no keyframe replays that cause mobile scroll blink */
     .reveal.visible {
-      animation: revealIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+      opacity: 1 !important;
+      transform: translateY(0) scale(1) !important;
     }
-    .reveal[data-delay="1"].visible { animation-delay: 0.07s; }
-    .reveal[data-delay="2"].visible { animation-delay: 0.14s; }
-    .reveal[data-delay="3"].visible { animation-delay: 0.21s; }
-    .reveal[data-delay="4"].visible { animation-delay: 0.28s; }
 
     /* ══ CARD MICRO-INTERACTIONS (NNGroup: 150ms ease-out) ══════ */
     .how-step {
