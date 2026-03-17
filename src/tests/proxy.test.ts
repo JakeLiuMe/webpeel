@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { mockSmartFetch } = vi.hoisted(() => {
   const mockSmartFetch = vi.fn(async (url: string, options: any) => ({
     url,
-    html: `<html><head><title>Proxy Test</title></head><body><p>proxy: ${options?.proxy ?? 'none'}</p></body></html>`,
+    html: `<html><head><title>Proxy Test</title></head><body>${Array.from({length: 250}, (_, i) => `<p>Content paragraph ${i} with enough words to prevent thin-content escalation. proxy: ${options?.proxy ?? 'none'}</p>`).join('\n')}</body></html>`,
     method: 'simple' as const,
     statusCode: 200,
     contentType: 'text/html',
