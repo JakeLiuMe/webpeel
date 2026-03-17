@@ -8,6 +8,7 @@ import { Router, Request, Response } from 'express';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { fetchCache, searchCache } from '../../core/fetch-cache.js';
 
 const startTime = Date.now();
 
@@ -29,12 +30,24 @@ export function createHealthRouter(): Router {
 
   router.get('/health', (_req: Request, res: Response) => {
     const uptime = Math.floor((Date.now() - startTime) / 1000);
-    
+    const fetchStats = fetchCache.stats();
+    const searchStats = searchCache.stats();
+
     res.json({
       status: 'healthy',
       version,
       uptime,
       timestamp: new Date().toISOString(),
+      cache: {
+        fetch: {
+          size: fetchStats.size,
+          hitRate: fetchStats.hitRate,
+        },
+        search: {
+          size: searchStats.size,
+          hitRate: searchStats.hitRate,
+        },
+      },
     });
   });
 

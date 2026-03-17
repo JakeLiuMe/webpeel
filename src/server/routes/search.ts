@@ -9,6 +9,7 @@ import { LRUCache } from 'lru-cache';
 import { AuthStore } from '../auth-store.js';
 import { peel } from '../../index.js';
 import { simpleFetch } from '../../core/fetcher.js';
+import { searchCache } from '../../core/fetch-cache.js';
 import {
   getSearchProvider,
   getBestSearchProvider,
@@ -94,9 +95,9 @@ export function createSearchRouter(authStore: AuthStore): Router {
       }
 
       // Parse and validate count
-      const resultCount = count ? parseInt(count as string, 10) : 5;
-      if (isNaN(resultCount) || resultCount < 1 || resultCount > 10) {
-        res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Invalid "count" parameter: must be between 1 and 10', hint: 'Use a count value between 1 and 10', docs: 'https://webpeel.dev/docs/errors#invalid_request' }, requestId: req.requestId });
+      const resultCount = count ? parseInt(count as string, 10) : 10;
+      if (isNaN(resultCount) || resultCount < 1 || resultCount > 20) {
+        res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Invalid "count" parameter: must be between 1 and 20', hint: 'Use a count value between 1 and 20', docs: 'https://webpeel.dev/docs/errors#invalid_request' }, requestId: req.requestId });
         return;
       }
 
@@ -114,15 +115,30 @@ export function createSearchRouter(authStore: AuthStore): Router {
       // Build cache key (include all parameters)
       const enrichCount = enrich ? Math.min(Math.max(parseInt(enrich as string, 10) || 0, 0), 5) : 0;
       const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${enrichCount}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}`;
+      const sharedCacheKey = searchCache.getKey(cacheKey, {});
 
-      // Check cache
+      // Check cache (local LRU first, then shared singleton)
       const cached = cache.get(cacheKey);
       if (cached) {
         res.setHeader('X-Cache', 'HIT');
+        res.setHeader('X-Cache-Status', 'HIT');
         res.setHeader('X-Cache-Age', Math.floor((Date.now() - cached.timestamp) / 1000).toString());
         res.json({
           success: true,
           data: cached.data,
+        });
+        return;
+      }
+      // Also check shared searchCache singleton (used for /health stats)
+      const sharedCached = searchCache.get(sharedCacheKey);
+      if (sharedCached) {
+        const age = Math.floor((Date.now() - sharedCached.timestamp) / 1000);
+        res.setHeader('X-Cache', 'HIT');
+        res.setHeader('X-Cache-Status', 'HIT');
+        res.setHeader('X-Cache-Age', age.toString());
+        res.json({
+          success: true,
+          data: sharedCached.content ? JSON.parse(sharedCached.content) : {},
         });
         return;
       }
@@ -403,14 +419,23 @@ export function createSearchRouter(authStore: AuthStore): Router {
         }
       }
 
-      // Cache results
+      // Cache results (local LRU + shared singleton for /health stats)
       cache.set(cacheKey, {
         data,
+        timestamp: Date.now(),
+      });
+      searchCache.set(sharedCacheKey, {
+        content: JSON.stringify(data),
+        title: q as string,
+        metadata: {},
+        method: 'search',
+        tokens: 0,
         timestamp: Date.now(),
       });
 
       // Add headers
       res.setHeader('X-Cache', 'MISS');
+      res.setHeader('X-Cache-Status', 'MISS');
       res.setHeader('X-Credits-Used', '1');
       res.setHeader('X-Processing-Time', elapsed.toString());
       res.setHeader('X-Fetch-Type', 'search');
