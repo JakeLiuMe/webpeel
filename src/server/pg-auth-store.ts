@@ -100,7 +100,7 @@ export class PostgresAuthStore implements AuthStore {
         title TEXT,
         content TEXT NOT NULL,
         tokens INTEGER,
-        created_by TEXT REFERENCES users(id),
+        created_by TEXT,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 days',
         view_count INTEGER DEFAULT 0
