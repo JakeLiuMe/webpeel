@@ -66,8 +66,6 @@ jobs:
           tags: |
             ${{ env.API_IMAGE }}:${{ steps.version.outputs.version }}
             ${{ env.API_IMAGE }}:latest
-          # Cache layers EXCEPT the npm install layer (busted by version number in Dockerfile)
-          # Use REGISTRY cache so npm install re-runs when webpeel version changes
           cache-from: type=registry,ref=${{ env.API_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.API_IMAGE }}:buildcache,mode=max
           platforms: linux/amd64
@@ -107,34 +105,170 @@ jobs:
           script: |
             VERSION="${{ needs.build-and-push.outputs.version }}"
             NS="webpeel"
-            
+
             echo "Deploying v${VERSION} to K3s..."
-            
+
             # Ensure GHCR pull secret exists (for private packages)
             kubectl create secret docker-registry ghcr-pull-secret \
               --docker-server=ghcr.io \
               --docker-username=github-actions \
               --docker-password="${GH_TOKEN}" \
               -n ${NS} --dry-run=client -o yaml | kubectl apply -f -
-            
+
             # Patch deployments to use pull secret
             kubectl patch deployment api -n ${NS} --type=json \
               -p='[{"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-pull-secret"}]}]' 2>/dev/null || true
             kubectl patch deployment worker -n ${NS} --type=json \
               -p='[{"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-pull-secret"}]}]' 2>/dev/null || true
-            
+
+            # PRE-PULL images using crictl (k3s containerd) before rolling out
+            # This prevents ErrImageNeverPull during rolling updates
+            echo "Pre-pulling images..."
+            export CONTAINER_RUNTIME_ENDPOINT=unix:///run/k3s/containerd/containerd.sock
+            crictl pull ghcr.io/webpeel/api:${VERSION} 2>&1 | tail -1
+            crictl pull ghcr.io/webpeel/worker:${VERSION} 2>&1 | tail -1
+            echo "Images pre-pulled ✅"
+
+            # Record previous image for rollback
+            PREV_API=$(kubectl get deployment api -n ${NS} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "unknown")
+            PREV_WORKER=$(kubectl get deployment worker -n ${NS} -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || echo "unknown")
+
             # Update deployments with new images
             kubectl set image deployment/api api=ghcr.io/webpeel/api:${VERSION} -n ${NS}
             kubectl set image deployment/worker worker=ghcr.io/webpeel/worker:${VERSION} -n ${NS}
-            
+
             # Rolling restart
             kubectl rollout restart deployment/api -n ${NS}
             kubectl rollout restart deployment/worker -n ${NS}
-            
-            # Wait for API rollout
+
+            # Wait for rollout
             kubectl rollout status deployment/api -n ${NS} --timeout=180s
-            
-            # Verify
+            kubectl rollout status deployment/worker -n ${NS} --timeout=120s
+
+            # Basic health check
             sleep 10
-            HEALTH=$(curl -sf --max-time 10 https://api.webpeel.dev/health)
-            echo "$HEALTH" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print('✅ v%s %s' % (d['version'], d['status']))"
+            HEALTH=$(curl -sf --max-time 15 https://api.webpeel.dev/health)
+            if [ $? -ne 0 ]; then
+              echo "❌ Health check failed! Rolling back..."
+              kubectl rollout undo deployment/api -n ${NS}
+              kubectl rollout undo deployment/worker -n ${NS}
+              exit 1
+            fi
+            echo "$HEALTH" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print('✅ v%s %s uptime:%ss' % (d['version'], d['status'], d.get('uptime', '?')))"
+
+  smoke-test:
+    name: Smoke Test (Real User Flows)
+    needs: [build-and-push, deploy]
+    runs-on: ubuntu-latest
+    env:
+      API_KEY: ${{ secrets.WEBPEEL_API_KEY }}
+      API_URL: https://api.webpeel.dev
+      VERSION: ${{ needs.build-and-push.outputs.version }}
+
+    steps:
+      - name: Wait for API warmup
+        run: sleep 15
+
+      - name: Test 1 — Health check reports correct version
+        run: |
+          RESP=$(curl -sf --max-time 10 "${API_URL}/health")
+          GOT=$(echo "$RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('version',''))")
+          if [ "$GOT" != "$VERSION" ]; then
+            echo "❌ Version mismatch: expected $VERSION got $GOT"
+            exit 1
+          fi
+          echo "✅ Version: $GOT"
+
+      - name: Test 2 — GET /v1/fetch (CLI flow — what users actually use)
+        run: |
+          RESP=$(curl -sf --max-time 30 \
+            -H "Authorization: Bearer ${API_KEY}" \
+            "${API_URL}/v1/fetch?url=https://example.com")
+          STATUS=$(echo "$RESP" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('success',''))" 2>/dev/null)
+          if [ "$STATUS" != "True" ]; then
+            echo "❌ GET /v1/fetch failed: $RESP"
+            exit 1
+          fi
+          echo "✅ GET /v1/fetch: jobId=$(echo "$RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('jobId','?'))")"
+
+      - name: Test 3 — POST /v1/fetch (API flow)
+        run: |
+          RESP=$(curl -sf --max-time 30 \
+            -H "Authorization: Bearer ${API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://example.com"}' \
+            "${API_URL}/v1/fetch")
+          STATUS=$(echo "$RESP" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('success',''))" 2>/dev/null)
+          if [ "$STATUS" != "True" ]; then
+            echo "❌ POST /v1/fetch failed: $RESP"
+            exit 1
+          fi
+          echo "✅ POST /v1/fetch: jobId=$(echo "$RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('jobId','?'))")"
+
+      - name: Test 4 — GET /v1/search (search flow)
+        run: |
+          RESP=$(curl -sf --max-time 30 \
+            -H "Authorization: Bearer ${API_KEY}" \
+            "${API_URL}/v1/search?q=webpeel+web+scraping")
+          STATUS=$(echo "$RESP" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('success',''))" 2>/dev/null)
+          if [ "$STATUS" != "True" ]; then
+            echo "❌ GET /v1/search failed: $RESP"
+            exit 1
+          fi
+          RESULTS=$(echo "$RESP" | python3 -c "import sys,json; print(len(json.loads(sys.stdin.read()).get('results',[])))" 2>/dev/null)
+          echo "✅ GET /v1/search: $RESULTS results"
+
+      - name: Test 5 — Auth rejection (no key)
+        run: |
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${API_URL}/v1/fetch?url=https://example.com")
+          if [ "$HTTP" != "401" ]; then
+            echo "❌ Unauthenticated request returned $HTTP (expected 401)"
+            exit 1
+          fi
+          echo "✅ Auth rejected correctly: HTTP $HTTP"
+
+      - name: Test 6 — Poll job result (queue integration)
+        run: |
+          # Enqueue a job
+          RESP=$(curl -sf --max-time 30 \
+            -H "Authorization: Bearer ${API_KEY}" \
+            "${API_URL}/v1/fetch?url=https://example.com")
+          JOB_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('jobId',''))" 2>/dev/null)
+          if [ -z "$JOB_ID" ]; then
+            echo "❌ No jobId in response: $RESP"
+            exit 1
+          fi
+          # Poll for result (up to 30s)
+          for i in $(seq 1 6); do
+            sleep 5
+            POLL=$(curl -sf --max-time 10 \
+              -H "Authorization: Bearer ${API_KEY}" \
+              "${API_URL}/v1/jobs/${JOB_ID}")
+            STATUS=$(echo "$POLL" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('status',''))" 2>/dev/null)
+            echo "  Poll $i: status=$STATUS"
+            if [ "$STATUS" = "completed" ]; then
+              CONTENT_LEN=$(echo "$POLL" | python3 -c "import sys,json; r=json.loads(sys.stdin.read()); print(len(r.get('result',{}).get('content','')))" 2>/dev/null)
+              echo "✅ Job completed: ${CONTENT_LEN} chars of content"
+              exit 0
+            fi
+            if [ "$STATUS" = "failed" ]; then
+              echo "❌ Job failed: $POLL"
+              exit 1
+            fi
+          done
+          echo "⚠️ Job still processing after 30s (status=$STATUS) — warning only"
+
+      - name: Auto-rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            echo "🔴 Smoke tests FAILED for v${{ needs.build-and-push.outputs.version }} — rolling back!"
+            kubectl rollout undo deployment/api -n webpeel
+            kubectl rollout undo deployment/worker -n webpeel
+            kubectl rollout status deployment/api -n webpeel --timeout=120s
+            HEALTH=$(curl -sf --max-time 15 https://api.webpeel.dev/health || echo '{"version":"unknown","status":"error"}')
+            echo "$HEALTH" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print('⬅️ Rolled back to: v%s %s' % (d['version'], d['status']))"
