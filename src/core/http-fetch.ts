@@ -673,10 +673,14 @@ export async function simpleFetch(
     try {
       const requestHeaders: Record<string, string> = { ...mergedHeaders };
       const validators = getConditionalValidators(currentUrl);
-      if (validators?.etag && !hasHeader(requestHeaders, 'if-none-match')) {
+      // Only send conditional headers if we actually have the cached body
+      // In server/worker mode, the in-memory cache may have been cleared (pod restart)
+      // and sending If-None-Match without a cached body would cause a 304 crash
+      const cachedBody = getCachedResultFor304(currentUrl, url);
+      if (validators?.etag && cachedBody && !hasHeader(requestHeaders, 'if-none-match')) {
         requestHeaders['If-None-Match'] = validators.etag;
       }
-      if (validators?.lastModified && !hasHeader(requestHeaders, 'if-modified-since')) {
+      if (validators?.lastModified && cachedBody && !hasHeader(requestHeaders, 'if-modified-since')) {
         requestHeaders['If-Modified-Since'] = validators.lastModified;
       }
 
