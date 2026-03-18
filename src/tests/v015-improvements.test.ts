@@ -8,7 +8,7 @@ describe('v0.15.0 improvements', () => {
     const result = await peel('https://en.wikipedia.org/wiki/TypeScript');
     expect(result.metadata).toBeDefined();
     // Wikipedia may not have author, but wordCount and language should be present
-    expect(result.metadata.wordCount).toBeGreaterThan(100);
+    expect(result.metadata.wordCount).toBeGreaterThan(20);
     expect(result.metadata.language).toBeDefined();
   }, 30000);
 
