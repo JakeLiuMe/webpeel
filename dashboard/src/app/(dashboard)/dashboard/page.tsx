@@ -1010,7 +1010,7 @@ export default function ReadPage() {
 
         {/* Unified input */}
         <div className="w-full max-w-2xl">
-          <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/60 focus-within:border-zinc-600 focus-within:ring-1 focus-within:ring-zinc-700 transition-all shadow-lg shadow-black/20">
+          <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/60 focus-within:border-zinc-700 transition-all shadow-lg shadow-black/20">
             <div className="flex items-start gap-3 p-4">
               <textarea
                 ref={inputRef}
@@ -1020,7 +1020,7 @@ export default function ReadPage() {
                 placeholder="Paste a URL, ask a question, or search anything..."
                 disabled={isLoading}
                 rows={2}
-                className="flex-1 resize-none bg-transparent text-zinc-100 placeholder-zinc-500 text-sm leading-relaxed outline-none min-h-[44px] max-h-[200px] overflow-y-auto disabled:opacity-50"
+                className="flex-1 resize-none bg-transparent text-zinc-100 placeholder-zinc-500 text-sm leading-relaxed outline-none ring-0 focus:ring-0 focus:outline-none border-none min-h-[44px] max-h-[200px] overflow-y-auto disabled:opacity-50"
                 style={{ height: '44px' }}
               />
               <button
