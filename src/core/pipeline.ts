@@ -33,10 +33,13 @@ import { Timer } from './timing.js';
 import { chunkContent, type ChunkOptions } from './chunker.js';
 import type { PeelOptions, PeelResult, ImageInfo } from '../types.js';
 import { BlockedError } from '../types.js';
+import { sanitizeForLLM } from './prompt-guard.js';
+import { getSourceCredibility } from './source-credibility.js';
 import type { BrandingProfile } from './branding.js';
 import type { ChangeResult } from './change-tracking.js';
 import type { DesignAnalysis } from './design-analysis.js';
 import { createLogger } from './logger.js';
+import type { SafeBrowsingResult } from './safe-browsing.js';
 
 const log = createLogger('pipeline');
 
@@ -124,6 +127,8 @@ export interface PipelineContext {
   warnings: string[];
   /** Raw HTML size in characters (measured from fetched content before any conversion) */
   rawHtmlSize?: number;
+  /** Safe Browsing check result (set early in pipeline, before fetch) */
+  safeBrowsingResult?: SafeBrowsingResult;
 }
 
 /** Create the initial PipelineContext with defaults */
@@ -1419,6 +1424,48 @@ export async function finalize(ctx: PipelineContext): Promise<void> {
 export function buildResult(ctx: PipelineContext): PeelResult {
   const fetchResult = ctx.fetchResult!;
   const elapsed = Date.now() - ctx.startTime;
+
+  // --- Trust & Safety ---
+  // Run prompt injection scan on final content
+  const sanitizeResult = sanitizeForLLM(ctx.content);
+  // If injection was detected, use the cleaned content
+  if (sanitizeResult.injectionDetected) {
+    ctx.content = sanitizeResult.content;
+    ctx.warnings.push('Prompt injection patterns detected and stripped from content.');
+  }
+
+  // Assess source credibility
+  const credibility = getSourceCredibility(ctx.url);
+
+  // Compute composite trust score
+  let trustScore = 1.0;
+  if (credibility.tier === 'general') trustScore -= 0.2;
+  if (sanitizeResult.injectionDetected) trustScore -= 0.5;
+  if ((ctx.quality ?? 1.0) < 0.5) trustScore -= 0.1;
+  trustScore = Math.max(0, Math.min(1, trustScore));
+
+  // Build trust warnings
+  const trustWarnings: string[] = [];
+  if (credibility.tier === 'general') trustWarnings.push('Source is unverified (not a known official or trusted domain).');
+  if (sanitizeResult.injectionDetected) trustWarnings.push(`Prompt injection detected: ${sanitizeResult.detectedPatterns.join(', ')}`);
+  if (sanitizeResult.strippedChars > 0) trustWarnings.push(`Stripped ${sanitizeResult.strippedChars} suspicious characters (zero-width/Unicode smuggling).`);
+
+  const trust: PeelResult['trust'] = {
+    source: {
+      tier: credibility.tier,
+      stars: credibility.stars,
+      label: credibility.label,
+    },
+    contentSafety: {
+      clean: !sanitizeResult.injectionDetected,
+      injectionDetected: sanitizeResult.injectionDetected,
+      detectedPatterns: sanitizeResult.detectedPatterns,
+      strippedCount: sanitizeResult.strippedChars,
+    },
+    score: trustScore,
+    warnings: trustWarnings,
+  };
+
   const tokens = estimateTokens(ctx.content);
   const fingerprint = createHash('sha256').update(ctx.content).digest('hex').slice(0, 16);
 
@@ -1522,5 +1569,6 @@ export function buildResult(ctx: PipelineContext): PeelResult {
     ...(rawTokenEstimate !== undefined ? { rawTokenEstimate } : {}),
     ...(tokenSavingsPercent !== undefined ? { tokenSavingsPercent } : {}),
     ...(fetchResult.autoInteract !== undefined ? { autoInteract: fetchResult.autoInteract } : {}),
+    trust,
   };
 }
