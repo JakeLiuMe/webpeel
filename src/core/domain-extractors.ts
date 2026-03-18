@@ -136,6 +136,16 @@ const REGISTRY: Array<{
   { match: (h) => h === 'draftkings.com' || h === 'www.draftkings.com' || h === 'sportsbook.draftkings.com', extractor: sportsBettingExtractor },
   { match: (h) => h === 'fanduel.com' || h === 'www.fanduel.com' || h === 'sportsbook.fanduel.com', extractor: sportsBettingExtractor },
   { match: (h) => h === 'betmgm.com' || h === 'www.betmgm.com', extractor: sportsBettingExtractor },
+  // ── Academic papers ───────────────────────────────────────────────────────
+  { match: (h) => h === 'semanticscholar.org' || h === 'www.semanticscholar.org', extractor: semanticScholarExtractor },
+  { match: (h) => h === 'pubmed.ncbi.nlm.nih.gov', extractor: pubmedExtractor },
+  // ── Crypto ───────────────────────────────────────────────────────────────
+  { match: (h) => h === 'coingecko.com' || h === 'www.coingecko.com', extractor: coinGeckoExtractor },
+  { match: (h) => h === 'coinmarketcap.com' || h === 'www.coinmarketcap.com', extractor: coinGeckoExtractor },
+  // ── Weather ──────────────────────────────────────────────────────────────
+  { match: (h) => h === 'open-meteo.com' || h === 'api.open-meteo.com' || h === 'www.open-meteo.com', extractor: weatherExtractor },
+  { match: (h) => h === 'weather.com' || h === 'www.weather.com', extractor: weatherExtractor },
+  { match: (h) => h === 'accuweather.com' || h === 'www.accuweather.com', extractor: weatherExtractor },
 ];
 
 /**
@@ -1581,6 +1591,70 @@ async function arxivExtractor(_html: string, url: string): Promise<DomainExtract
   const urlObj = new URL(url);
   const path = urlObj.pathname;
 
+  // --- Search page: /search/?query=... or /search/?searchtype=all&query=... ---
+  if (path.startsWith('/search')) {
+    const rawQuery = urlObj.searchParams.get('query') || '';
+    if (!rawQuery) return null;
+    try {
+      const searchQuery = encodeURIComponent(`all:${rawQuery}`);
+      const apiUrl = `https://export.arxiv.org/api/query?search_query=${searchQuery}&max_results=10&sortBy=relevance`;
+      const result = await simpleFetch(apiUrl, 'WebPeel/0.21', 20000, { Accept: 'application/xml' });
+      if (!result?.html) return null;
+      const xml = result.html;
+
+      // Parse total results count from opensearch:totalResults
+      const totalMatch = xml.match(/<opensearch:totalResults[^>]*>(\d+)<\/opensearch:totalResults>/);
+      const total = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+
+      // Parse all entries
+      const entries = [...xml.matchAll(/<entry[\s\S]*?<\/entry>/g)].map(m => m[0]);
+
+      const papers = entries.map(entryXml => {
+        const getTag = (tag: string): string => {
+          const match = entryXml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+          return match ? stripHtml(match[1]).trim() : '';
+        };
+        const getAllTags = (tag: string): string[] => {
+          const matches = [...entryXml.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'g'))];
+          return matches.map(m => stripHtml(m[1]).trim()).filter(Boolean);
+        };
+        const title = getTag('title');
+        const published = getTag('published');
+        const authors = getAllTags('name');
+        const summary = getTag('summary');
+        // Extract arXiv ID from <id> tag
+        const idTag = getTag('id');
+        const idMatch2 = idTag.match(/abs\/(\d{4}\.\d{4,5}(?:v\d+)?)/);
+        const paperId2 = idMatch2 ? idMatch2[1] : '';
+        // Categories
+        const cats = [...entryXml.matchAll(/category[^>]*term="([^"]+)"/g)].map(m => m[1]);
+        return { title, published: published?.split('T')[0], authors, summary, paperId: paperId2, categories: cats };
+      }).filter(p => p.title);
+
+      if (papers.length === 0) return null;
+
+      const rows = papers.map((p, i) => {
+        const authorLine = p.authors.length === 0 ? '—'
+          : p.authors.length === 1 ? p.authors[0]
+          : `${p.authors[0]} et al.`;
+        const pdfLink = p.paperId ? ` [[PDF](https://arxiv.org/pdf/${p.paperId})]` : '';
+        return `| ${i + 1} | [${p.title}](https://arxiv.org/abs/${p.paperId}) | ${p.published || '?'} | ${authorLine} |${pdfLink}`;
+      }).join('\n');
+
+      const cleanContent = `# 🔍 arXiv Search — "${rawQuery}"\n\n| # | Paper | Published | Authors |\n|---|-------|-----------|--------|\n${rows}\n\n*Source: arXiv API · Total results: ${total.toLocaleString()}*`;
+
+      return {
+        domain: 'arxiv.org',
+        type: 'search',
+        structured: { query: rawQuery, total, papers },
+        cleanContent,
+      };
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'ArXiv search failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+
   // Extract paper ID from URL patterns:
   // /abs/2501.12948, /pdf/2501.12948, /abs/2501.12948v2
   const idMatch = path.match(/\/(abs|pdf|html)\/(\d{4}\.\d{4,5}(?:v\d+)?)/);
@@ -1649,7 +1723,7 @@ async function arxivExtractor(_html: string, url: string): Promise<DomainExtract
       ? authors.join(', ')
       : `${authors.slice(0, 5).join(', ')} et al. (${authors.length} authors)`;
 
-    const cleanContent = `# ${title}\n\n**Authors:** ${authorLine}\n**Published:** ${published?.split('T')[0] || 'N/A'}${categories.length ? `\n**Categories:** ${categories.join(', ')}` : ''}${doi ? `\n**DOI:** ${doi}` : ''}${journalRef ? `\n**Journal:** ${journalRef}` : ''}\n\n## Abstract\n\n${summary}\n\n📄 [PDF](${structured.pdfUrl}) | [Abstract](${structured.absUrl})`;
+    const cleanContent = `# 📄 arXiv: ${title} (${paperId})\n\n**Authors:** ${authorLine}\n**Submitted:** ${published?.split('T')[0] || 'N/A'}${categories.length ? `\n**Categories:** ${categories.join(', ')}` : ''}${doi ? `\n**DOI:** ${doi}` : ''}${journalRef ? `\n**Journal:** ${journalRef}` : ''}\n\n## Abstract\n\n${summary}\n\n**PDF:** [Download](${structured.pdfUrl}) | **HTML:** [View](https://arxiv.org/html/${paperId})`;
 
     return { domain: 'arxiv.org', type: 'paper', structured, cleanContent };
   } catch (e) {
@@ -4517,4 +4591,575 @@ ${brandName} requires authentication and geo-verification. WebPeel cannot scrape
     structured: { site: brandName, reason: 'authentication and geo-verification required' },
     cleanContent,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Semantic Scholar extractor (Semantic Scholar API — free, no key needed)
+// ---------------------------------------------------------------------------
+
+async function semanticScholarExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const path = urlObj.pathname;
+  const domain = 'semanticscholar.org';
+
+  // --- Paper page: /paper/<title-slug>/<paperId> ---
+  const paperMatch = path.match(/^\/paper\/(?:[^/]+\/)?([a-f0-9]{40})/i);
+  if (paperMatch) {
+    const paperId = paperMatch[1];
+    try {
+      const fields = 'title,abstract,authors,year,citationCount,referenceCount,url,openAccessPdf,venue,publicationDate,tldr';
+      const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/${paperId}?fields=${fields}`;
+      const data = await fetchJson(apiUrl);
+      if (!data || !data.title) return null;
+
+      const authors: Array<{ name: string }> = data.authors || [];
+      const authorNames = authors.map((a) => a.name);
+      const authorLine = authorNames.length <= 5
+        ? authorNames.join(', ')
+        : `${authorNames.slice(0, 5).join(', ')} (+${authorNames.length - 5} more)`;
+
+      const pdfObj = data.openAccessPdf as { url?: string } | null;
+      const pdfUrl = pdfObj?.url || null;
+      const tldrText = (data.tldr as { text?: string } | null)?.text || null;
+      const citations = (data.citationCount as number | null);
+      const citStr = citations != null ? citations.toLocaleString() : '?';
+
+      const structured: Record<string, any> = {
+        paperId,
+        title: data.title,
+        authors: authorNames,
+        year: data.year,
+        venue: data.venue,
+        citationCount: data.citationCount,
+        referenceCount: data.referenceCount,
+        abstract: data.abstract,
+        tldr: tldrText,
+        pdfUrl,
+        url: data.url,
+        publicationDate: data.publicationDate,
+      };
+
+      const lines: string[] = [
+        `# 📄 ${data.title}`,
+        '',
+        `**Authors:** ${authorLine}`,
+        `**Year:** ${data.year || '?'} | **Venue:** ${data.venue || 'N/A'} | **Citations:** ${citStr}`,
+      ];
+      if (data.referenceCount != null) lines.push(`**References:** ${(data.referenceCount as number).toLocaleString()}`);
+      if (tldrText) {
+        lines.push('', '## TL;DR', '', tldrText);
+      }
+      if (data.abstract) {
+        lines.push('', '## Abstract', '', data.abstract as string);
+      }
+      lines.push('');
+      if (pdfUrl) lines.push(`**PDF:** [Open Access](${pdfUrl})`);
+      lines.push(`**Link:** [Semantic Scholar](${data.url || `https://www.semanticscholar.org/paper/${paperId}`})`);
+
+      return {
+        domain,
+        type: 'paper',
+        structured,
+        cleanContent: lines.join('\n'),
+      };
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'Semantic Scholar paper API failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+
+  // --- Search page: /search?q=... ---
+  const query = urlObj.searchParams.get('q') || urlObj.searchParams.get('query');
+  if (path === '/search' || path.startsWith('/search/')) {
+    if (!query) return null;
+    try {
+      const fields = 'title,authors,year,citationCount,url,openAccessPdf';
+      const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=10&fields=${fields}`;
+      const data = await fetchJson(apiUrl);
+      if (!data || !Array.isArray(data.data)) return null;
+
+      const papers = data.data as Array<Record<string, any>>;
+      const total: number = data.total || 0;
+
+      const rows = papers.map((p, i) => {
+        const authors: Array<{ name: string }> = p.authors || [];
+        const authorLine = authors.length === 0 ? '—'
+          : authors.length === 1 ? authors[0].name
+          : `${authors[0].name} et al.`;
+        const paperUrl = p.url || `https://www.semanticscholar.org/paper/${p.paperId}`;
+        const cits = p.citationCount != null ? (p.citationCount as number).toLocaleString() : '?';
+        return `| ${i + 1} | [${p.title}](${paperUrl}) | ${p.year || '?'} | ${cits} | ${authorLine} |`;
+      }).join('\n');
+
+      const cleanContent = [
+        `# 🔍 Semantic Scholar — "${query}"`,
+        '',
+        '| # | Paper | Year | Citations | Authors |',
+        '|---|-------|------|-----------|---------|',
+        rows,
+        '',
+        `*Source: Semantic Scholar API · Total results: ${total.toLocaleString()}*`,
+      ].join('\n');
+
+      return {
+        domain,
+        type: 'search',
+        structured: { query, total, papers },
+        cleanContent,
+      };
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'Semantic Scholar search API failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// PubMed extractor (NCBI E-utilities API — free, no key needed)
+// ---------------------------------------------------------------------------
+
+async function pubmedExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const path = urlObj.pathname;
+  const domain = 'pubmed.ncbi.nlm.nih.gov';
+
+  // --- Article page: /XXXXXX/ or /XXXXXX ---
+  const pmidMatch = path.match(/^\/(\d+)\/?$/);
+  if (pmidMatch) {
+    const pmid = pmidMatch[1];
+    try {
+      // Fetch summary
+      const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${pmid}&retmode=json`;
+      const summaryData = await fetchJson(summaryUrl);
+      if (!summaryData?.result) return null;
+
+      const result = summaryData.result as Record<string, any>;
+      const article = result[pmid];
+      if (!article) return null;
+
+      // Fetch abstract via efetch
+      let abstract = '';
+      try {
+        const efetchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${pmid}&retmode=xml&rettype=abstract`;
+        const efetchResult = await simpleFetch(efetchUrl, 'WebPeel/0.21', 15000, { Accept: 'application/xml' });
+        if (efetchResult?.html) {
+          const abstractMatch = efetchResult.html.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g);
+          if (abstractMatch) {
+            abstract = abstractMatch.map((m: string) => {
+              const labelMatch = m.match(/Label="([^"]+)"/);
+              const textMatch = m.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/);
+              const text = textMatch ? stripHtml(textMatch[1]).trim() : '';
+              return labelMatch ? `**${labelMatch[1]}:** ${text}` : text;
+            }).join('\n\n');
+          }
+        }
+      } catch { /* abstract is optional */ }
+
+      const authors: Array<{ name: string; authtype?: string }> = article.authors || [];
+      const authorNames = authors.filter(a => a.authtype !== 'CollectiveName').map(a => a.name);
+      const authorLine = authorNames.length <= 6
+        ? authorNames.join(', ')
+        : `${authorNames.slice(0, 6).join(', ')} et al.`;
+
+      const doi = article.elocationid?.replace(/^doi:\s*/i, '') || null;
+      const pubDate = article.pubdate || '?';
+      const journal = article.source || '?';
+      const volume = article.volume ? ` ${article.volume}` : '';
+      const issue = article.issue ? `(${article.issue})` : '';
+      const pages = article.pages ? `:${article.pages}` : '';
+
+      const structured: Record<string, any> = {
+        pmid,
+        title: article.title,
+        authors: authorNames,
+        journal,
+        pubDate,
+        volume: article.volume,
+        issue: article.issue,
+        pages: article.pages,
+        doi,
+        abstract: abstract || undefined,
+        url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+      };
+
+      const lines: string[] = [
+        `# 🧬 ${article.title}`,
+        '',
+        `**Authors:** ${authorLine}`,
+        `**Journal:** *${journal}*${volume}${issue}${pages} (${pubDate})`,
+        `**PMID:** ${pmid}`,
+      ];
+      if (doi) lines.push(`**DOI:** [${doi}](https://doi.org/${doi})`);
+      if (abstract) {
+        lines.push('', '## Abstract', '', abstract);
+      }
+      lines.push('', `**Link:** [PubMed](https://pubmed.ncbi.nlm.nih.gov/${pmid}/)`);
+
+      return {
+        domain,
+        type: 'article',
+        structured,
+        cleanContent: lines.join('\n'),
+      };
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'PubMed article API failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+
+  // --- Search page: /?term=... or /?query=... ---
+  const term = urlObj.searchParams.get('term') || urlObj.searchParams.get('query');
+  if (term) {
+    try {
+      // Step 1: search for IDs
+      const searchUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(term)}&retmode=json&retmax=10`;
+      const searchData = await fetchJson(searchUrl);
+      if (!searchData?.esearchresult) return null;
+
+      const esearch = searchData.esearchresult as Record<string, any>;
+      const ids: string[] = esearch.idlist || [];
+      const total: number = parseInt(esearch.count || '0', 10);
+
+      if (ids.length === 0) {
+        return {
+          domain,
+          type: 'search',
+          structured: { query: term, total: 0, articles: [] },
+          cleanContent: `# 🔍 PubMed — "${term}"\n\n*No results found.*`,
+        };
+      }
+
+      // Step 2: fetch summaries
+      const summaryUrl = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(',')}&retmode=json`;
+      const summaryData = await fetchJson(summaryUrl);
+      if (!summaryData?.result) return null;
+
+      const result = summaryData.result as Record<string, any>;
+      const articles = (result.uids as string[] || ids).map((id) => {
+        const a = result[id];
+        if (!a) return null;
+        const authors: Array<{ name: string }> = a.authors || [];
+        return {
+          pmid: id,
+          title: a.title as string,
+          journal: a.source as string,
+          pubDate: a.pubdate as string,
+          authors: authors.map(x => x.name),
+          doi: (a.elocationid as string | undefined)?.replace(/^doi:\s*/i, '') || null,
+        };
+      }).filter(Boolean) as Array<{ pmid: string; title: string; journal: string; pubDate: string; authors: string[]; doi: string | null }>;
+
+      const rows = articles.map((a, i) => {
+        const authorLine = a.authors.length === 0 ? '—'
+          : a.authors.length === 1 ? a.authors[0]
+          : `${a.authors[0]} et al.`;
+        const link = `https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/`;
+        return `| ${i + 1} | [${a.title}](${link}) | *${a.journal}* | ${a.pubDate} | ${authorLine} |`;
+      }).join('\n');
+
+      const cleanContent = [
+        `# 🔍 PubMed — "${term}"`,
+        '',
+        '| # | Article | Journal | Date | Authors |',
+        '|---|---------|---------|------|---------|',
+        rows,
+        '',
+        `*Source: NCBI PubMed E-utilities · Total results: ${total.toLocaleString()}*`,
+      ].join('\n');
+
+      return {
+        domain,
+        type: 'search',
+        structured: { query: term, total, articles },
+        cleanContent,
+      };
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'PubMed search API failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// 38. CoinGecko extractor — crypto prices via free CoinGecko API
+// ---------------------------------------------------------------------------
+
+async function coinGeckoExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const path = urlObj.pathname;
+  const domain = 'coingecko.com';
+
+  const cgHeaders = {
+    'Accept': 'application/json',
+    'User-Agent': 'webpeel/0.21 (https://webpeel.dev)',
+  };
+
+  // Helper: compact number formatting
+  const fmtMoney = (v: number) => {
+    if (v == null || isNaN(v)) return '?';
+    if (v >= 1_000_000_000_000) return `$${(v / 1_000_000_000_000).toFixed(2)}T`;
+    if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(2)}B`;
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+    return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const fmtPrice = (v: number) => {
+    if (v == null || isNaN(v)) return '?';
+    if (v >= 1000) return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    if (v >= 1) return `$${v.toFixed(4)}`;
+    return `$${v.toFixed(8)}`;
+  };
+
+  const fmtChange = (c: number | null | undefined) => {
+    if (c == null || isNaN(c)) return '?';
+    const sign = c >= 0 ? '+' : '';
+    return `${sign}${c.toFixed(1)}%`;
+  };
+
+  // Coin detail page: /en/coins/<coin-id>
+  const coinMatch = path.match(/^\/en\/coins\/([^/?#]+)\/?/);
+  if (coinMatch) {
+    const coinId = coinMatch[1].toLowerCase();
+    try {
+      const apiUrl = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coinId)}?localization=false&tickers=false&community_data=false&developer_data=false`;
+      const data = await fetchJson(apiUrl, cgHeaders);
+      if (!data || data.error) return null;
+
+      const md = data.market_data || {};
+      const price = md.current_price?.usd;
+      const change24h = md.price_change_percentage_24h;
+      const change7d = md.price_change_percentage_7d;
+      const marketCap = md.market_cap?.usd;
+      const volume = md.total_volume?.usd;
+      const ath = md.ath?.usd;
+      const circulatingSupply = md.circulating_supply;
+      const maxSupply = md.max_supply;
+      const name = data.name || coinId;
+      const symbol = (data.symbol || '').toUpperCase();
+      const description = data.description?.en?.replace(/<[^>]+>/g, '').split('\r\n')[0]?.slice(0, 500) || '';
+      const updatedAt = data.last_updated || new Date().toISOString();
+
+      const structuredData: Record<string, any> = {
+        id: coinId,
+        name,
+        symbol,
+        price_usd: price,
+        change_24h: change24h,
+        change_7d: change7d,
+        market_cap_usd: marketCap,
+        volume_24h_usd: volume,
+        ath_usd: ath,
+        circulating_supply: circulatingSupply,
+        max_supply: maxSupply,
+        last_updated: updatedAt,
+      };
+
+      let cleanContent = `# 🪙 ${name} (${symbol})\n\n`;
+      cleanContent += `## Quote\n`;
+      cleanContent += `- **Price:** ${fmtPrice(price)}\n`;
+      cleanContent += `- **24h Change:** ${fmtChange(change24h)}\n`;
+      if (change7d != null) cleanContent += `- **7d Change:** ${fmtChange(change7d)}\n`;
+      cleanContent += `- **Market Cap:** ${fmtMoney(marketCap)}\n`;
+      cleanContent += `- **24h Volume:** ${fmtMoney(volume)}\n`;
+      if (ath != null) cleanContent += `- **All-Time High:** ${fmtPrice(ath)}\n`;
+      if (circulatingSupply) {
+        const supply = circulatingSupply >= 1_000_000_000
+          ? `${(circulatingSupply / 1_000_000_000).toFixed(2)}B`
+          : circulatingSupply >= 1_000_000
+          ? `${(circulatingSupply / 1_000_000).toFixed(2)}M`
+          : circulatingSupply.toLocaleString();
+        cleanContent += `- **Circulating Supply:** ${supply} ${symbol}\n`;
+      }
+
+      if (description) {
+        cleanContent += `\n## Description\n${description}\n`;
+      }
+
+      cleanContent += `\n---\n*Source: CoinGecko API · Updated: ${updatedAt}*`;
+
+      return { domain, type: 'coin', structured: structuredData, cleanContent };
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'CoinGecko coin API failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+  }
+
+  // Main page / markets overview: coingecko.com or coingecko.com/en
+  try {
+    const apiUrl = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=15&page=1`;
+    const coins = await fetchJson(apiUrl, cgHeaders);
+    if (!Array.isArray(coins) || coins.length === 0) return null;
+
+    const rows = coins.slice(0, 15).map((c: any, i: number) => {
+      const change = c.price_change_percentage_24h;
+      const changeStr = change != null ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '?';
+      return `| ${i + 1} | ${c.name} (${(c.symbol || '').toUpperCase()}) | ${fmtPrice(c.current_price)} | ${changeStr} | ${fmtMoney(c.market_cap)} |`;
+    });
+
+    const cleanContent = `# 🪙 CoinGecko — Top Cryptocurrencies\n\n` +
+      `| # | Coin | Price | 24h | Market Cap |\n` +
+      `|---|------|-------|-----|------------|\n` +
+      rows.join('\n') +
+      `\n\n---\n*Source: CoinGecko API · Updated: ${new Date().toISOString()}*`;
+
+    return {
+      domain,
+      type: 'markets',
+      structured: { coins: coins.slice(0, 15) },
+      cleanContent,
+    };
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'CoinGecko markets API failed:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 39. Weather extractor — Open-Meteo free API (no key required)
+// ---------------------------------------------------------------------------
+
+// Weather code descriptions (WMO)
+const WMO_CODES: Record<number, string> = {
+  0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+  45: 'Foggy', 48: 'Icy fog',
+  51: 'Light drizzle', 53: 'Moderate drizzle', 55: 'Dense drizzle',
+  61: 'Slight rain', 63: 'Moderate rain', 65: 'Heavy rain',
+  71: 'Slight snow', 73: 'Moderate snow', 75: 'Heavy snow',
+  80: 'Slight showers', 81: 'Moderate showers', 82: 'Violent showers',
+  85: 'Slight snow showers', 86: 'Heavy snow showers',
+  95: 'Thunderstorm', 96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ heavy hail',
+};
+
+const WEATHER_ICONS: Record<number, string> = {
+  0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+  45: '🌫️', 48: '🌫️',
+  51: '🌦️', 53: '🌦️', 55: '🌧️',
+  61: '🌦️', 63: '🌧️', 65: '🌧️',
+  71: '🌨️', 73: '❄️', 75: '❄️',
+  80: '🌦️', 81: '🌧️', 82: '⛈️',
+  85: '🌨️', 86: '❄️',
+  95: '⛈️', 96: '⛈️', 99: '⛈️',
+};
+
+// Default city coordinates for common weather sites
+const DEFAULT_CITY = { name: 'New York City', lat: 40.7128, lon: -74.0060, tz: 'America/New_York' };
+
+async function weatherExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const hostname = urlObj.hostname;
+
+  // Determine lat/lon from URL params (for open-meteo.com direct API links)
+  let lat: number | null = null;
+  let lon: number | null = null;
+  let cityName = DEFAULT_CITY.name;
+  let timezone = DEFAULT_CITY.tz;
+
+  if (hostname.includes('open-meteo.com')) {
+    const latParam = urlObj.searchParams.get('latitude');
+    const lonParam = urlObj.searchParams.get('longitude');
+    const tzParam = urlObj.searchParams.get('timezone');
+    if (latParam && lonParam) {
+      lat = parseFloat(latParam);
+      lon = parseFloat(lonParam);
+      cityName = `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`;
+      if (tzParam) timezone = tzParam;
+    }
+  }
+
+  // For weather.com / accuweather: try to extract city from URL path
+  if (hostname.includes('weather.com') || hostname.includes('accuweather.com')) {
+    const path = urlObj.pathname;
+    // weather.com: /weather/today/l/40.71,-74.01:4:US or similar
+    const coordMatch = path.match(/\/l\/(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    if (coordMatch) {
+      lat = parseFloat(coordMatch[1]);
+      lon = parseFloat(coordMatch[2]);
+      cityName = `${lat.toFixed(2)}, ${lon.toFixed(2)}`;
+    }
+  }
+
+  // Default to NYC if no coords found
+  if (lat == null || lon == null) {
+    lat = DEFAULT_CITY.lat;
+    lon = DEFAULT_CITY.lon;
+    cityName = DEFAULT_CITY.name;
+    timezone = DEFAULT_CITY.tz;
+  }
+
+  try {
+    const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code&timezone=${encodeURIComponent(timezone)}&forecast_days=7`;
+    const data = await fetchJson(apiUrl);
+    if (!data || data.error) return null;
+
+    const current = data.current || {};
+    const daily = data.daily || {};
+
+    const tempC = current.temperature_2m;
+    const tempF = tempC != null ? Math.round(tempC * 9 / 5 + 32) : null;
+    const humidity = current.relative_humidity_2m;
+    const wind = current.wind_speed_10m;
+    const wCode = current.weather_code;
+    const condition = WMO_CODES[wCode] || 'Unknown';
+    const icon = WEATHER_ICONS[wCode] || '🌡️';
+
+    let cleanContent = `# ${icon} Weather Forecast — ${cityName}\n\n`;
+
+    if (tempC != null) {
+      cleanContent += `**Current:** ${tempC}°C (${tempF}°F)`;
+      if (wind != null) cleanContent += `, Wind: ${wind} km/h`;
+      if (humidity != null) cleanContent += `, Humidity: ${humidity}%`;
+      cleanContent += `, ${condition}\n\n`;
+    }
+
+    if (daily.time?.length) {
+      cleanContent += `| Date | Low | High | Precip | Condition |\n`;
+      cleanContent += `|------|-----|------|--------|----------|\n`;
+
+      for (let i = 0; i < Math.min(daily.time.length, 7); i++) {
+        const date = daily.time[i];
+        const low = daily.temperature_2m_min?.[i];
+        const high = daily.temperature_2m_max?.[i];
+        const precip = daily.precipitation_sum?.[i];
+        const dayCode = daily.weather_code?.[i];
+        const dayIcon = WEATHER_ICONS[dayCode] || '';
+        const dayCondition = WMO_CODES[dayCode] || '';
+
+        const lowStr = low != null ? `${low}°C` : '?';
+        const highStr = high != null ? `${high}°C` : '?';
+        const precipStr = precip != null ? `${precip}mm` : '0mm';
+
+        cleanContent += `| ${date} | ${lowStr} | ${highStr} | ${precipStr} | ${dayIcon} ${dayCondition} |\n`;
+      }
+    }
+
+    cleanContent += `\n---\n*Source: Open-Meteo API · Coordinates: ${lat}, ${lon} · Updated: ${data.current?.time || new Date().toISOString()}*`;
+
+    return {
+      domain: 'open-meteo.com',
+      type: 'forecast',
+      structured: {
+        city: cityName,
+        lat,
+        lon,
+        timezone,
+        current: {
+          temperature_c: tempC,
+          temperature_f: tempF,
+          humidity,
+          wind_speed_kmh: wind,
+          condition,
+          weather_code: wCode,
+        },
+        daily: daily,
+      },
+      cleanContent,
+    };
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'Weather API failed:', e instanceof Error ? e.message : e);
+    return null;
+  }
 }
