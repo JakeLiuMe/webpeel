@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitor-script
+  namespace: webpeel
+data:
+  monitor.sh: |
+    #!/bin/bash
+    set -e
+    DISCORD_WEBHOOK="${DISCORD_WEBHOOK_URL}"
+    K3S_NAMESPACE="webpeel"
+    
+    # Alert function
+    alert_discord() {
+      local title="$1"
+      local description="$2"
+      local color="$3"
+      
+      curl -X POST "$DISCORD_WEBHOOK" \
+        -H 'Content-Type: application/json' \
+        -d "{
+          \"embeds\": [{
+            \"title\": \"🚨 $title\",
+            \"description\": \"$description\",
+            \"color\": $color,
+            \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"
+          }]
+        }" 2>/dev/null || true
+    }
+    
+    # Check pod status
+    NOT_RUNNING=$(kubectl get pods -n $K3S_NAMESPACE --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+    if [ -n "$NOT_RUNNING" ]; then
+      alert_discord "Pod Down ❌" "Pods not running: $NOT_RUNNING" "16711680"
+    fi
+    
+    # Check restarts
+    RESTART_COUNT=$(kubectl get pods -n $K3S_NAMESPACE -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}' 2>/dev/null | tr ' ' '\n' | sort -n | tail -1 || echo "0")
+    if [ "$RESTART_COUNT" -gt 2 ]; then
+      alert_discord "High Restart Count ⚠️" "A pod has restarted $RESTART_COUNT times (threshold: 2)" "16776960"
+    fi
+    
+    # Check memory (if metrics available)
+    echo "Health check completed"
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: health-monitor
+  namespace: webpeel
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: monitor-sa
+          containers:
+          - name: monitor
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              cat <<'SCRIPT' | bash
+              #!/bin/bash
+              DISCORD_WEBHOOK="${DISCORD_WEBHOOK_URL}"
+              K3S_NAMESPACE="webpeel"
+              
+              # Check pod status
+              NOT_RUNNING=$(kubectl get pods -n $K3S_NAMESPACE --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+              if [ -n "$NOT_RUNNING" ]; then
+                curl -X POST "$DISCORD_WEBHOOK" \
+                  -H 'Content-Type: application/json' \
+                  -d '{"embeds":[{"title":"Pod Down ❌","description":"'"$NOT_RUNNING"'","color":16711680}]}' 2>/dev/null || true
+              fi
+              
+              # Check restarts
+              RESTART_COUNT=$(kubectl get pods -n $K3S_NAMESPACE -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}' 2>/dev/null | tr ' ' '\n' | sort -n | tail -1 || echo "0")
+              if [ "$RESTART_COUNT" -gt 2 ]; then
+                curl -X POST "$DISCORD_WEBHOOK" \
+                  -H 'Content-Type: application/json' \
+                  -d '{"embeds":[{"title":"High Restarts ⚠️","description":"Pod restarted '"$RESTART_COUNT"' times","color":16776960}]}' 2>/dev/null || true
+              fi
+              SCRIPT
+            env:
+            - name: DISCORD_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: discord-webhook
+                  key: url
+          restartPolicy: OnFailure
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitor-sa
+  namespace: webpeel
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: monitor-role
+  namespace: webpeel
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: monitor-rolebinding
+  namespace: webpeel
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: monitor-role
+subjects:
+- kind: ServiceAccount
+  name: monitor-sa
+  namespace: webpeel
