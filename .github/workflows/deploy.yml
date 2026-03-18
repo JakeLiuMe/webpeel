@@ -34,6 +34,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Security scan
+        run: bash scripts/security-scan.sh
+
       - name: Publish to npm (if version changed, main only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |

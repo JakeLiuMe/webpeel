@@ -59,6 +59,7 @@
     "prepublishOnly": "bash scripts/pre-publish.sh",
     "serve": "node dist/server/app.js",
     "mcp": "node dist/mcp/server.js",
+    "preversion": "npm run build && npm test && bash scripts/pre-publish-gate.sh",
     "version": "bash scripts/postversion.sh"
   },
   "repository": {
