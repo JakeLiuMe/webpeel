@@ -127,6 +127,10 @@ const REGISTRY: Array<{
   { match: (h) => h === 'www.producthunt.com' || h === 'producthunt.com', extractor: productHuntExtractor },
   { match: (h) => h === 'substack.com' || h === 'www.substack.com', extractor: substackRootExtractor },
   { match: (_h, url = '') => /\.pdf(\?|$|#)/i.test(url) || /\/pdf\//i.test(url), extractor: pdfExtractor },
+  // ── Prediction markets & trading ─────────────────────────────────────────
+  { match: (h) => h === 'polymarket.com' || h === 'www.polymarket.com', extractor: polymarketExtractor },
+  { match: (h) => h === 'kalshi.com' || h === 'www.kalshi.com', extractor: kalshiExtractor },
+  { match: (h) => h === 'tradingview.com' || h === 'www.tradingview.com', extractor: tradingViewExtractor },
 ];
 
 /**
@@ -3720,4 +3724,492 @@ Browse newsletters at:
 *WebPeel works best with individual Substack post URLs, not the root homepage.*`;
 
   return { domain: 'substack.com', type: 'homepage', structured, cleanContent };
+}
+
+// ---------------------------------------------------------------------------
+// 33. Polymarket extractor — prediction market data via Gamma API
+// ---------------------------------------------------------------------------
+
+async function polymarketExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const path = urlObj.pathname;
+  const domain = 'polymarket.com';
+
+  // Helper: format price as percent
+  const fmtPct = (p: string | number) => {
+    const n = typeof p === 'string' ? parseFloat(p) : p;
+    if (isNaN(n)) return '?%';
+    return (n * 100).toFixed(1) + '%';
+  };
+
+  // Helper: format large dollar amount
+  const fmtVol = (v: string | number) => {
+    const n = typeof v === 'string' ? parseFloat(v) : v;
+    if (isNaN(n) || n === 0) return '$0';
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+    return `$${n.toFixed(0)}`;
+  };
+
+  // Helper: format date string
+  const fmtDate = (d: string) => {
+    if (!d) return '?';
+    return d.slice(0, 10);
+  };
+
+  // --- Specific event page: /event/<slug> ---
+  const eventMatch = path.match(/^\/event\/([^/?#]+)/);
+  if (eventMatch) {
+    const slug = eventMatch[1];
+    try {
+      // Fetch event by slug from gamma API
+      const events = await fetchJson(
+        `https://gamma-api.polymarket.com/events?slug=${encodeURIComponent(slug)}&limit=1`
+      );
+
+      if (Array.isArray(events) && events.length > 0) {
+        const event = events[0];
+        const markets: any[] = event.markets || [];
+
+        const structured: Record<string, any> = {
+          title: event.title || slug,
+          slug: event.slug,
+          volume: event.volume,
+          volume24hr: event.volume24hr,
+          endDate: event.endDate,
+          markets: markets.map((m: any) => ({
+            question: m.question,
+            outcomes: m.outcomes,
+            outcomePrices: m.outcomePrices,
+            volume: m.volume,
+            volume24hr: m.volume24hr,
+            endDate: m.endDate,
+            bestBid: m.bestBid,
+            bestAsk: m.bestAsk,
+            lastTradePrice: m.lastTradePrice,
+          })),
+        };
+
+        const marketsMd = markets.map((m: any) => {
+          const outcomes: string[] = JSON.parse(m.outcomes || '[]');
+          const prices: string[] = JSON.parse(m.outcomePrices || '[]');
+          const priceStr = outcomes.map((o, i) => `${o}: **${fmtPct(prices[i] ?? 0)}**`).join(' | ');
+          const vol24 = m.volume24hr ? ` | Vol 24h: ${fmtVol(m.volume24hr)}` : '';
+          const endDate = m.endDate ? ` | Ends: ${fmtDate(m.endDate)}` : '';
+          return `- **${m.question}**\n  ${priceStr}${vol24}${endDate}`;
+        }).join('\n\n');
+
+        const totalVol24 = fmtVol(event.volume24hr || 0);
+        const totalVol = fmtVol(event.volume || 0);
+
+        const cleanContent = `# 📊 Polymarket: ${event.title || slug}
+
+**Volume (24h):** ${totalVol24} | **Total Volume:** ${totalVol} | **Ends:** ${fmtDate(event.endDate)}
+
+## Markets
+
+${marketsMd || '*No active markets found.*'}
+
+---
+*Source: [Polymarket](https://polymarket.com/event/${slug}) · Data via Polymarket Gamma API*`;
+
+        return { domain, type: 'event', structured, cleanContent };
+      }
+
+      // If event not found by slug, try a keyword search in markets
+      const markets = await fetchJson(
+        `https://gamma-api.polymarket.com/markets?closed=false&limit=10&order=volume24hr&ascending=false&q=${encodeURIComponent(slug.replace(/-/g, ' '))}`
+      );
+
+      if (Array.isArray(markets) && markets.length > 0) {
+        return buildPolymarketMarketList(markets, domain, `Search: ${slug}`);
+      }
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'Polymarket event fetch failed:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  // --- Main page or /markets: show top markets by 24h volume ---
+  try {
+    const markets = await fetchJson(
+      'https://gamma-api.polymarket.com/markets?closed=false&limit=20&order=volume24hr&ascending=false'
+    );
+    if (Array.isArray(markets)) {
+      return buildPolymarketMarketList(markets, domain, 'Top Markets');
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'Polymarket markets fetch failed:', e instanceof Error ? e.message : e);
+  }
+
+  return null;
+}
+
+function buildPolymarketMarketList(markets: any[], domain: string, title: string): DomainExtractResult {
+  const fmtPct = (p: string | number) => {
+    const n = typeof p === 'string' ? parseFloat(p) : p;
+    if (isNaN(n)) return '?%';
+    return (n * 100).toFixed(1) + '%';
+  };
+  const fmtVol = (v: string | number) => {
+    const n = typeof v === 'string' ? parseFloat(v) : v;
+    if (isNaN(n) || n === 0) return '$0';
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+    return `$${n.toFixed(0)}`;
+  };
+
+  const rows = markets.slice(0, 15).map((m: any) => {
+    const outcomes: string[] = (() => { try { return JSON.parse(m.outcomes || '[]'); } catch { return []; } })();
+    const prices: string[] = (() => { try { return JSON.parse(m.outcomePrices || '[]'); } catch { return []; } })();
+
+    const yesPrice = outcomes[0] ? fmtPct(prices[0] ?? 0) : '?%';
+    const vol24 = fmtVol(m.volume24hr || 0);
+    const end = m.endDate ? m.endDate.slice(0, 10) : '?';
+    return `| ${m.question} | ${yesPrice} | ${vol24} | ${end} |`;
+  }).join('\n');
+
+  const structured: Record<string, any> = {
+    markets: markets.slice(0, 15).map((m: any) => ({
+      question: m.question,
+      slug: m.slug,
+      outcomePrices: m.outcomePrices,
+      outcomes: m.outcomes,
+      volume24hr: m.volume24hr,
+      endDate: m.endDate,
+    })),
+    fetchedAt: new Date().toISOString(),
+  };
+
+  const cleanContent = `# 📊 Polymarket — ${title}
+
+| Question | Yes Price | Vol 24h | End Date |
+|----------|-----------|---------|----------|
+${rows}
+
+---
+*Source: [Polymarket](https://polymarket.com) · Data via Polymarket Gamma API*`;
+
+  return { domain, type: 'markets', structured, cleanContent };
+}
+
+// ---------------------------------------------------------------------------
+// 34. Kalshi extractor — prediction market data via Kalshi Elections API
+// ---------------------------------------------------------------------------
+
+async function kalshiExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const path = urlObj.pathname;
+  const domain = 'kalshi.com';
+
+  // Helper: format Kalshi dollar price (they use dollars like 0.78 = 78¢ = 78%)
+  const fmtPct = (v: number | string | null | undefined) => {
+    const n = typeof v === 'string' ? parseFloat(v) : v;
+    if (n == null || isNaN(n)) return '?%';
+    return (n * 100).toFixed(0) + '%';
+  };
+
+  const fmtVol = (v: number | string | null | undefined) => {
+    const n = typeof v === 'string' ? parseFloat(v) : v;
+    if (n == null || isNaN(n) || n === 0) return '$0';
+    if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
+    return `$${n.toFixed(0)}`;
+  };
+
+  // --- Specific market/event page: /markets/<ticker> or /events/<ticker> ---
+  const tickerMatch = path.match(/^\/(?:markets|events)\/([^/?#]+)/);
+  if (tickerMatch) {
+    const ticker = tickerMatch[1].toUpperCase();
+    try {
+      // Try fetching the specific event by ticker
+      const data = await fetchJson(
+        `https://api.elections.kalshi.com/trade-api/v2/events/${ticker}?with_nested_markets=true`
+      );
+
+      const event = data?.event;
+      if (event) {
+        const markets: any[] = event.markets || [];
+
+        const structured: Record<string, any> = {
+          title: event.title,
+          ticker: event.event_ticker,
+          category: event.category,
+          markets: markets.map((m: any) => ({
+            title: m.title,
+            ticker: m.ticker,
+            yes_bid: m.yes_bid_dollars,
+            yes_ask: m.yes_ask_dollars,
+            volume: m.volume_fp,
+            volume_24h: m.volume_24h_fp,
+            last_price: m.last_price_dollars,
+            expiration: m.expiration_time,
+          })),
+        };
+
+        const marketsMd = markets.map((m: any) => {
+          const yesBid = fmtPct(m.yes_bid_dollars);
+          const yesAsk = fmtPct(m.yes_ask_dollars);
+          const vol = fmtVol(m.volume_fp);
+          const vol24 = fmtVol(m.volume_24h_fp);
+          const expiry = m.expiration_time ? m.expiration_time.slice(0, 10) : '?';
+          return `- **${m.title}**\n  Yes: ${yesBid}–${yesAsk} | Vol: ${vol} | Vol 24h: ${vol24} | Expires: ${expiry}`;
+        }).join('\n\n');
+
+        const cleanContent = `# 🎯 Kalshi: ${event.title}
+
+**Category:** ${event.category || 'General'} | **Ticker:** ${event.event_ticker}
+
+## Markets
+
+${marketsMd || '*No active markets found.*'}
+
+---
+*Source: [Kalshi](https://kalshi.com/markets/${ticker.toLowerCase()}) · Data via Kalshi Trade API*`;
+
+        return { domain, type: 'event', structured, cleanContent };
+      }
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'Kalshi event fetch failed:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  // --- Main page or /markets: show top open events ---
+  try {
+    const data = await fetchJson(
+      'https://api.elections.kalshi.com/trade-api/v2/events?limit=20&status=open&with_nested_markets=true'
+    );
+
+    const events: any[] = data?.events || [];
+    if (events.length > 0) {
+      const rows = events.slice(0, 15).map((e: any) => {
+        const markets: any[] = e.markets || [];
+        const firstMkt = markets[0];
+        const yesBid = firstMkt ? fmtPct(firstMkt.yes_bid_dollars) : '?%';
+        const vol24 = firstMkt ? fmtVol(firstMkt.volume_24h_fp) : '$0';
+        const mktCount = markets.length > 1 ? ` (+${markets.length - 1} more)` : '';
+        return `| ${e.title} | ${yesBid}${mktCount} | ${vol24} | ${e.category || '?'} |`;
+      }).join('\n');
+
+      const structured: Record<string, any> = {
+        events: events.slice(0, 15).map((e: any) => ({
+          title: e.title,
+          ticker: e.event_ticker,
+          category: e.category,
+          markets: (e.markets || []).length,
+        })),
+        fetchedAt: new Date().toISOString(),
+      };
+
+      const cleanContent = `# 🎯 Kalshi — Top Open Events
+
+| Event | Yes Price | Vol 24h | Category |
+|-------|-----------|---------|----------|
+${rows}
+
+---
+*Source: [Kalshi](https://kalshi.com/markets) · Data via Kalshi Trade API*`;
+
+      return { domain, type: 'markets', structured, cleanContent };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'Kalshi markets fetch failed:', e instanceof Error ? e.message : e);
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// 35. TradingView extractor — stock/index data via TradingView Scanner API
+// ---------------------------------------------------------------------------
+
+async function tradingViewExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  const urlObj = new URL(url);
+  const path = urlObj.pathname;
+  const domain = 'tradingview.com';
+
+  const scannerHeaders = {
+    'Origin': 'https://www.tradingview.com',
+    'Referer': 'https://www.tradingview.com/',
+    'Content-Type': 'application/json',
+  };
+
+  // Helper: format price
+  const fmtPrice = (v: number) => {
+    if (v == null) return '?';
+    if (v >= 1_000_000_000_000) return `${(v / 1_000_000_000_000).toFixed(2)}T`;
+    if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`;
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`;
+    return v.toFixed(2);
+  };
+
+  const fmtChange = (c: number) => {
+    if (c == null) return '';
+    const sign = c >= 0 ? '+' : '';
+    return `${sign}${c.toFixed(2)}%`;
+  };
+
+  // --- Symbol page: /symbols/<TICKER>/ or /chart?symbol=<TICKER> ---
+  const symbolMatch = path.match(/^\/symbols\/([^/?#]+)\/?/);
+  const chartSymbolParam = urlObj.searchParams.get('symbol');
+
+  let ticker = symbolMatch?.[1] || chartSymbolParam || null;
+
+  if (ticker) {
+    ticker = ticker.toUpperCase().replace(/-/g, '');
+
+    try {
+      // Try symbol search to resolve exchange
+      const searchResp = await fetch(
+        `https://symbol-search.tradingview.com/symbol_search/?text=${encodeURIComponent(ticker)}&hl=0&lang=en&type=stock,fund,crypto,futures,forex&limit=5`,
+        {
+          headers: {
+            'User-Agent': 'webpeel/0.21 (https://webpeel.dev)',
+            'Origin': 'https://www.tradingview.com',
+            'Referer': 'https://www.tradingview.com/',
+          },
+          signal: AbortSignal.timeout(10000),
+        }
+      );
+      const searchData: any[] = await searchResp.json().catch(() => []);
+
+      // Find exact match
+      const exactMatch = searchData.find(s => s.symbol === ticker || s.symbol.replace(/<\/?em>/g, '') === ticker);
+      const symbolInfo = exactMatch || searchData[0];
+
+      if (symbolInfo) {
+        const exchange = symbolInfo.source_id || symbolInfo.exchange || 'NASDAQ';
+        // Fetch quote data via scanner
+        const scannerUrl = exchange === 'CRYPTO' || exchange === 'COINBASE' || exchange === 'BINANCE'
+          ? 'https://scanner.tradingview.com/crypto/scan'
+          : 'https://scanner.tradingview.com/america/scan';
+
+        const scanBody = {
+          filter: [{ left: 'name', operation: 'equal', right: symbolInfo.symbol?.replace(/<\/?em>/g, '') || ticker }],
+          columns: ['name', 'description', 'close', 'open', 'high', 'low', 'volume', 'change', 'change_abs', 'market_cap_basic', 'sector', 'industry', 'country', 'currency'],
+          range: [0, 1],
+        };
+
+        const scanResp = await fetch(scannerUrl, {
+          method: 'POST',
+          headers: { ...scannerHeaders, 'User-Agent': 'webpeel/0.21 (https://webpeel.dev)' },
+          body: JSON.stringify(scanBody),
+          signal: AbortSignal.timeout(10000),
+        });
+        const scanData = await scanResp.json().catch(() => null);
+        const row = scanData?.data?.[0]?.d;
+
+        if (row) {
+          const [name, desc, close, open, high, low, volume, changePct, changeAbs, mktCap, sector, industry, country, currency] = row;
+          const currStr = currency || 'USD';
+          const mktCapStr = mktCap ? fmtPrice(mktCap) : null;
+
+          const structured: Record<string, any> = {
+            symbol: name,
+            description: desc,
+            price: close,
+            open,
+            high,
+            low,
+            volume,
+            change_pct: changePct,
+            change_abs: changeAbs,
+            market_cap: mktCap,
+            sector,
+            industry,
+            country,
+            currency: currStr,
+            exchange,
+            fetchedAt: new Date().toISOString(),
+          };
+
+          const changeStr = fmtChange(changePct);
+          const changeIcon = (changePct ?? 0) >= 0 ? '📈' : '📉';
+
+          const cleanContent = `# ${changeIcon} TradingView: ${desc || name} (${name})
+
+## Quote
+- **Price:** ${close?.toFixed(2) ?? '?'} ${currStr}
+- **Change:** ${changeStr} (${changeAbs?.toFixed(2) ?? '?'} ${currStr})
+- **Open:** ${open?.toFixed(2) ?? '?'} | **High:** ${high?.toFixed(2) ?? '?'} | **Low:** ${low?.toFixed(2) ?? '?'}
+- **Volume:** ${fmtPrice(volume ?? 0)}
+${mktCapStr ? `- **Market Cap:** ${mktCapStr} ${currStr}` : ''}
+
+## Details
+${sector ? `- **Sector:** ${sector}` : ''}
+${industry ? `- **Industry:** ${industry}` : ''}
+${country ? `- **Country:** ${country}` : ''}
+- **Exchange:** ${exchange}
+
+---
+*Source: [TradingView](https://www.tradingview.com/symbols/${name}/) · Data via TradingView Scanner API*`;
+
+          return { domain, type: 'symbol', structured, cleanContent };
+        }
+      }
+    } catch (e) {
+      if (process.env.DEBUG) console.debug('[webpeel]', 'TradingView symbol fetch failed:', e instanceof Error ? e.message : e);
+    }
+  }
+
+  // --- Markets overview page or fallback: show major indices ---
+  try {
+    // Fetch major indices + top stocks
+    const scanBody = {
+      filter: [
+        { left: 'name', operation: 'in_range', right: ['SPX', 'NDX', 'DJI', 'RUT', 'VIX', 'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA'] },
+      ],
+      columns: ['name', 'description', 'close', 'change', 'volume', 'market_cap_basic'],
+      sort: { sortBy: 'market_cap_basic', sortOrder: 'desc' },
+      range: [0, 20],
+    };
+
+    const resp = await fetch('https://scanner.tradingview.com/global/scan', {
+      method: 'POST',
+      headers: { ...scannerHeaders, 'User-Agent': 'webpeel/0.21 (https://webpeel.dev)' },
+      body: JSON.stringify(scanBody),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const data = await resp.json().catch(() => null);
+    const rows: any[] = data?.data || [];
+
+    if (rows.length > 0) {
+      const tableRows = rows.map((row: any) => {
+        const [name, desc, close, changePct] = row.d;
+        const changeStr = changePct != null ? `${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%` : '?%';
+        const icon = (changePct ?? 0) >= 0 ? '🟢' : '🔴';
+        return `| ${name} | ${desc} | ${close?.toFixed(2) ?? '?'} | ${icon} ${changeStr} |`;
+      }).join('\n');
+
+      const structured: Record<string, any> = {
+        symbols: rows.map((r: any) => ({
+          symbol: r.d[0],
+          description: r.d[1],
+          price: r.d[2],
+          change_pct: r.d[3],
+        })),
+        fetchedAt: new Date().toISOString(),
+      };
+
+      const now = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+
+      const cleanContent = `# 📈 TradingView — Market Overview
+
+*As of ${now} ET*
+
+| Symbol | Name | Price | Change |
+|--------|------|-------|--------|
+${tableRows}
+
+---
+*Source: [TradingView](https://www.tradingview.com/markets/) · Data via TradingView Scanner API*`;
+
+      return { domain, type: 'markets', structured, cleanContent };
+    }
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'TradingView markets fetch failed:', e instanceof Error ? e.message : e);
+  }
+
+  return null;
 }
