@@ -348,6 +348,26 @@ export interface PeelResult {
   rawTokenEstimate?: number;
   /** Token savings percentage compared to raw HTML (how much cheaper WebPeel is) */
   tokenSavingsPercent?: number;
+  /** Trust & safety assessment of the fetched content */
+  trust?: {
+    /** Source credibility tier */
+    source: {
+      tier: 'official' | 'verified' | 'general';
+      stars: number;
+      label: string;
+    };
+    /** Prompt injection scan result */
+    contentSafety: {
+      clean: boolean;
+      injectionDetected: boolean;
+      detectedPatterns: string[];
+      strippedCount: number;
+    };
+    /** Overall trust score 0-1 (composite of source + content safety) */
+    score: number;
+    /** Human-readable safety warnings */
+    warnings: string[];
+  };
   /** Content chunks (when chunk option is enabled) */
   chunks?: Array<{
     index: number;
@@ -359,6 +379,12 @@ export interface PeelResult {
     startOffset: number;
     endOffset: number;
   }>;
+  /** Safe Browsing check result */
+  safeBrowsing?: {
+    safe: boolean;
+    threats: string[];
+    source: 'google-api' | 'local-blocklist' | 'unchecked';
+  };
 }
 
 export interface PageMetadata {

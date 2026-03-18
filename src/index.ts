@@ -17,6 +17,7 @@ import {
   finalize,
   buildResult,
 } from './core/pipeline.js';
+import { checkUrlSafety } from './core/safe-browsing.js';
 
 export * from './types.js';
 export { getDomainExtractor, extractDomainData, type DomainExtractResult, type DomainExtractor } from './core/domain-extractors.js';
@@ -120,6 +121,9 @@ export async function searchFallback(..._args: any[]): Promise<SearchFallbackRes
   try { const m = await import('./core/search-fallback.js'); return m.searchFallback(..._args); } catch { return null; }
 }
 export { peelTLSFetch, isPeelTLSAvailable, shutdownPeelTLS, type PeelTLSOptions, type PeelTLSResult } from './core/peel-tls.js';
+export { sanitizeForLLM, type SanitizeResult } from './core/prompt-guard.js';
+export { getSourceCredibility, type SourceCredibility } from './core/source-credibility.js';
+export { checkUrlSafety, type SafeBrowsingResult } from './core/safe-browsing.js';
 
 /**
  * Fetch and extract content from a URL
@@ -141,8 +145,25 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
   const ctx = createContext(url, options);
   normalizeOptions(ctx);
 
+  // Safe Browsing check — runs before any HTTP request, non-blocking
+  const sbResult = await checkUrlSafety(url, process.env.SAFE_BROWSING_API_KEY);
+  ctx.safeBrowsingResult = sbResult;
+  if (!sbResult.safe) {
+    const threatList = sbResult.threats.join(', ');
+    ctx.warnings.push(`⚠️ URL flagged by Safe Browsing: ${threatList}`);
+  }
+
   const ytResult = await handleYouTube(ctx);
-  if (ytResult) return ytResult;
+  if (ytResult) {
+    // Attach safe browsing to YouTube results too
+    return {
+      ...ytResult,
+      safeBrowsing: sbResult,
+      ...(ytResult.warnings || ctx.warnings.length > 0
+        ? { warnings: [...(ytResult.warnings ?? []), ...ctx.warnings.filter(w => !ytResult.warnings?.includes(w))] }
+        : {}),
+    };
+  }
 
   try {
     await fetchContent(ctx);
@@ -150,7 +171,10 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     await parseContent(ctx);
     await postProcess(ctx);
     await finalize(ctx);
-    return buildResult(ctx);
+    const result = buildResult(ctx);
+    // Attach safe browsing result
+    result.safeBrowsing = sbResult;
+    return result;
   } catch (error) {
     // Clean up browser resources on error
     await cleanup();
