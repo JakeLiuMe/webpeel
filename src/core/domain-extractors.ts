@@ -1064,22 +1064,13 @@ ${commentsMd || '*No comments.*'}`;
       if (repoData.message === 'Not Found') return null;
       if (repoData.message.includes('secondary rate limit') || repoData.message.includes('abuse')) return null;
     }
-    const readmeData = await fetchJsonWithRetry(`https://api.github.com/repos/${owner}/${repo}/readme`, ghHeaders, 1, 500).catch(() => null);
-
-    // README content is base64 encoded
-    let readmeText = '';
-    if (readmeData?.content) {
-      try {
-        readmeText = Buffer.from(readmeData.content, 'base64').toString('utf-8').slice(0, 5000);
-      } catch { /* ignore */ }
-    }
-
     const structured: Record<string, any> = {
       title: `${owner}/${repo}`,
       name: `${owner}/${repo}`,
       description: repoData.description || '',
       stars: repoData.stargazers_count ?? 0,
       forks: repoData.forks_count ?? 0,
+      watchers: repoData.watchers_count ?? 0,
       language: repoData.language || null,
       topics: repoData.topics || [],
       license: repoData.license?.spdx_id || null,
@@ -1090,20 +1081,27 @@ ${commentsMd || '*No comments.*'}`;
       homepage: repoData.homepage || null,
       archived: repoData.archived || false,
       fork: repoData.fork || false,
-      readme: readmeText,
+      url: repoData.html_url || `https://github.com/${owner}/${repo}`,
     };
 
-    const topicsStr = structured.topics.length ? structured.topics.join(', ') : 'none';
-    const cleanContent = `## 📦 Repository: ${structured.name}
+    const topicsStr = structured.topics.length ? structured.topics.slice(0, 8).join(', ') : '';
+    const updatedDate = structured.lastPush ? structured.lastPush.slice(0, 10) : 'N/A';
+    const lines: string[] = [
+      `# 💻 ${structured.name}`,
+      '',
+      structured.description ? `**${structured.description}**` : '*No description.*',
+      '',
+      `- ⭐ Stars: ${structured.stars.toLocaleString()} | 🍴 Forks: ${structured.forks.toLocaleString()} | 📝 Language: ${structured.language || 'N/A'}`,
+      `- 📦 License: ${structured.license || 'None'} | 🔄 Updated: ${updatedDate}`,
+      `- 📊 Open Issues: ${structured.openIssues}${structured.archived ? ' | ⚠️ ARCHIVED' : ''}`,
+    ];
+    if (topicsStr) lines.push(`- 🏷️ Topics: ${topicsStr}`);
+    lines.push('');
+    const links: string[] = [`[Repository](${structured.url})`];
+    if (structured.homepage) links.push(`[Homepage](${structured.homepage})`);
+    lines.push(`**Links:** ${links.join(' · ')}`);
 
-${structured.description || '*No description.*'}
-
-⭐ ${structured.stars.toLocaleString()} stars  |  🍴 ${structured.forks.toLocaleString()} forks  |  💻 ${structured.language || 'N/A'}  |  📜 ${structured.license || 'N/A'}
-🏷️ Topics: ${topicsStr}
-🔗 ${structured.homepage || 'No homepage'}  |  Last push: ${structured.lastPush}${structured.archived ? '\n⚠️ **ARCHIVED**' : ''}
-
-${structured.readme ? `### README\n\n${structured.readme}` : ''}`;
-
+    const cleanContent = lines.join('\n');
     return { domain, type: 'repository', structured, cleanContent };
   }
 
@@ -1253,14 +1251,16 @@ ${commentsMd || '*No comments found.*'}`;
         commentCount: s.descendants ?? 0,
         url: s.url || `https://news.ycombinator.com/item?id=${s.id}`,
         hnUrl: `https://news.ycombinator.com/item?id=${s.id}`,
+        domain: s.url ? (() => { try { return new URL(s.url).hostname.replace(/^www\./, ''); } catch { return ''; } })() : '',
       }));
 
     const structured = { title: 'Hacker News — Front Page', stories };
+    // Compact format: title (domain) | score pts | N comments
     const cleanContent = `## 🟠 Hacker News — Front Page
 
 ${stories.map((s: any, i: number) =>
-  `${i + 1}. **${s.title}**\n   ↑ ${s.score} | 💬 ${s.commentCount} | by ${s.author}\n   ${s.url}`
-).join('\n\n')}`;
+  `${i + 1}. **${s.title}**${s.domain ? ` (${s.domain})` : ''} — ↑${s.score} · 💬${s.commentCount}`
+).join('\n')}`;
 
     return { domain, type: 'frontpage', structured, cleanContent };
   }
@@ -1310,7 +1310,7 @@ function cleanWikipediaContent(content: string): string {
     .trim();
 }
 
-async function wikipediaExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+async function wikipediaExtractor(_html: string, url: string, options?: { budget?: number }): Promise<DomainExtractResult | null> {
   const urlObj = new URL(url);
   const pathParts = urlObj.pathname.split('/').filter(Boolean);
 
@@ -1322,60 +1322,74 @@ async function wikipediaExtractor(_html: string, url: string): Promise<DomainExt
   if (articleTitle.includes(':')) return null;
 
   const lang = urlObj.hostname.split('.')[0] || 'en';
-  const apiUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(articleTitle)}`;
+  const summaryUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(articleTitle)}`;
 
   // Wikipedia REST API requires a descriptive User-Agent (https://meta.wikimedia.org/wiki/User-Agent_policy)
   const wikiHeaders = { 'User-Agent': 'WebPeel/0.17.1 (https://webpeel.dev; jake@jakeliu.me) Node.js', 'Api-User-Agent': 'WebPeel/0.17.1 (https://webpeel.dev; jake@jakeliu.me)' };
 
   try {
-    const data = await fetchJson(apiUrl, wikiHeaders);
+    const data = await fetchJson(summaryUrl, wikiHeaders);
     if (!data || data.type === 'https://mediawiki.org/wiki/HyperSwitch/errors/not_found') return null;
-
-    // For full article content, use the mobile-html endpoint (mobile-sections is deprecated)
-    let fullContent = '';
-    let mobileHtmlSize: number | undefined;
-    try {
-      const fullUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/mobile-html/${encodeURIComponent(articleTitle)}`;
-      const fullResult = await simpleFetch(fullUrl, undefined, 15000, {
-        ...wikiHeaders,
-        'Accept': 'text/html',
-      });
-      if (fullResult?.html) {
-        mobileHtmlSize = fullResult.html.length;
-        // Parse sections from the mobile HTML
-        const sectionMatches = fullResult.html.match(/<section[^>]*>([\s\S]*?)<\/section>/gi) || [];
-        for (const section of sectionMatches) {
-          // Extract section heading
-          const headingMatch = section.match(/<h[2-6][^>]*id="([^"]*)"[^>]*class="[^"]*pcs-edit-section-title[^"]*"[^>]*>([\s\S]*?)<\/h[2-6]>/i);
-          const heading = headingMatch ? stripHtml(headingMatch[2]).trim() : '';
-          // Extract paragraphs
-          const paragraphs = section.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
-          const sectionText = paragraphs.map((p: string) => stripHtml(p).trim()).filter((t: string) => t.length > 0).join('\n\n');
-          if (sectionText) {
-            const prefix = heading ? `## ${heading}\n\n` : '';
-            fullContent += `\n\n${prefix}${sectionText}`;
-          }
-        }
-      }
-    } catch (e) {
-      // mobile-html failed — use summary extract as fallback
-      if (process.env.DEBUG) console.debug('[webpeel]', 'Wikipedia mobile-html failed, using summary:', e instanceof Error ? e.message : e);
-    }
-
-    // Clean Wikipedia-specific noise
-    fullContent = cleanWikipediaContent(fullContent);
 
     const structured: Record<string, any> = {
       title: data.title || articleTitle.replace(/_/g, ' '),
       description: data.description || '',
       extract: data.extract || '',
+      extractHtml: data.extract_html || '',
       thumbnail: data.thumbnail?.source || null,
       url: data.content_urls?.desktop?.page || url,
       lastModified: data.timestamp || null,
+      coordinates: data.coordinates || null,
     };
 
-    const cleanContent = `# ${structured.title}\n\n${structured.description ? `*${structured.description}*\n\n` : ''}${fullContent || structured.extract}`;
+    // Default: use summary API (200-400 tokens). Only fetch full article if budget > 5000.
+    const budget = options?.budget ?? 0;
+    const useFull = budget > 5000;
 
+    let bodyContent = structured.extract;
+    let mobileHtmlSize: number | undefined;
+
+    if (useFull) {
+      try {
+        const fullUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/mobile-html/${encodeURIComponent(articleTitle)}`;
+        const fullResult = await simpleFetch(fullUrl, undefined, 15000, {
+          ...wikiHeaders,
+          'Accept': 'text/html',
+        });
+        if (fullResult?.html) {
+          mobileHtmlSize = fullResult.html.length;
+          let fullContent = '';
+          const sectionMatches = fullResult.html.match(/<section[^>]*>([\s\S]*?)<\/section>/gi) || [];
+          for (const section of sectionMatches) {
+            const headingMatch = section.match(/<h[2-6][^>]*id="([^"]*)"[^>]*class="[^"]*pcs-edit-section-title[^"]*"[^>]*>([\s\S]*?)<\/h[2-6]>/i);
+            const heading = headingMatch ? stripHtml(headingMatch[2]).trim() : '';
+            const paragraphs = section.match(/<p[^>]*>([\s\S]*?)<\/p>/gi) || [];
+            const sectionText = paragraphs.map((p: string) => stripHtml(p).trim()).filter((t: string) => t.length > 0).join('\n\n');
+            if (sectionText) {
+              const prefix = heading ? `## ${heading}\n\n` : '';
+              fullContent += `\n\n${prefix}${sectionText}`;
+            }
+          }
+          bodyContent = cleanWikipediaContent(fullContent) || structured.extract;
+        }
+      } catch (e) {
+        if (process.env.DEBUG) console.debug('[webpeel]', 'Wikipedia mobile-html failed, using summary:', e instanceof Error ? e.message : e);
+      }
+    }
+
+    const articleUrl = structured.url;
+    const lines: string[] = [
+      `# ${structured.title}`,
+      '',
+    ];
+    if (structured.description) lines.push(`*${structured.description}*`, '');
+    lines.push(bodyContent);
+    if (structured.coordinates) {
+      lines.push('', `📍 Coordinates: ${structured.coordinates.lat}, ${structured.coordinates.lon}`);
+    }
+    lines.push('', `📖 [Read full article on Wikipedia](${articleUrl})`);
+
+    const cleanContent = lines.join('\n');
     return { domain: 'wikipedia.org', type: 'article', structured, cleanContent, rawHtmlSize: mobileHtmlSize };
   } catch (e) {
     if (process.env.DEBUG) console.debug('[webpeel]', 'Wikipedia API failed:', e instanceof Error ? e.message : e);
@@ -4610,7 +4624,17 @@ async function semanticScholarExtractor(_html: string, url: string): Promise<Dom
       const fields = 'title,abstract,authors,year,citationCount,referenceCount,url,openAccessPdf,venue,publicationDate,tldr';
       const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/${paperId}?fields=${fields}`;
       const data = await fetchJson(apiUrl);
-      if (!data || !data.title) return null;
+      if (!data) return null;
+      // Handle rate limiting — return helpful message instead of null
+      if (data.code === '429' || (data.message && String(data.message).includes('Too Many Requests'))) {
+        return {
+          domain,
+          type: 'paper',
+          structured: { paperId, rateLimited: true },
+          cleanContent: `# Semantic Scholar — Rate Limited\n\n⚠️ API rate limit reached. View paper directly: https://www.semanticscholar.org/paper/${paperId}`,
+        };
+      }
+      if (!data.title) return null;
 
       const authors: Array<{ name: string }> = data.authors || [];
       const authorNames = authors.map((a) => a.name);
@@ -4676,7 +4700,25 @@ async function semanticScholarExtractor(_html: string, url: string): Promise<Dom
       const fields = 'title,authors,year,citationCount,url,openAccessPdf';
       const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=10&fields=${fields}`;
       const data = await fetchJson(apiUrl);
-      if (!data || !Array.isArray(data.data)) return null;
+
+      // Handle rate limiting gracefully — return a helpful message instead of null
+      if (!data) return null;
+      if (data.code === '429' || (data.message && String(data.message).includes('Too Many Requests'))) {
+        const cleanContent = [
+          `# 🔍 Semantic Scholar — "${query}"`,
+          '',
+          '⚠️ **Rate limited by Semantic Scholar API.** The free tier has strict limits.',
+          '',
+          `Try again in a few seconds, or search directly: https://www.semanticscholar.org/search?q=${encodeURIComponent(query)}`,
+        ].join('\n');
+        return {
+          domain,
+          type: 'search',
+          structured: { query, total: 0, papers: [], rateLimited: true },
+          cleanContent,
+        };
+      }
+      if (!Array.isArray(data.data)) return null;
 
       const papers = data.data as Array<Record<string, any>>;
       const total: number = data.total || 0;
