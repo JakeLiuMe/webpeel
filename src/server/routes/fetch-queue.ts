@@ -203,6 +203,79 @@ export function createQueueFetchRouter(): Router {
     });
   }
 
+  /**
+   * GET/POST /v1/fetch/sync — Synchronous fetch, no queue
+   * Returns content inline (no jobId/polling). Much faster for simple pages.
+   * Timeout: 25s max. No fallback to queue — fails fast if timeout exceeded.
+   */
+  async function handleSyncFetch(req: Request, res: Response): Promise<void> {
+    const requestId = req.requestId || randomUUID();
+
+    const url = validateUrl(req.body?.url || req.query?.url, res, requestId);
+    if (!url) return;
+
+    const userId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        error: { type: 'unauthorized', message: 'API key required.' },
+        requestId,
+      });
+      return;
+    }
+
+    try {
+      // Import peel dynamically to avoid circular deps
+      const { peel } = await import('../../index.js');
+
+      const options: any = {
+        format: req.body?.format || req.query?.format || 'markdown',
+        render: req.body?.render === true || req.query?.render === 'true',
+        stealth: req.body?.stealth === true || req.query?.stealth === 'true',
+        budget: req.body?.budget ? Number(req.body.budget) : (req.query?.budget ? Number(req.query.budget) : undefined),
+        selector: req.body?.selector || req.query?.selector,
+        readable: req.body?.readable === true || req.query?.readable === 'true',
+        wait: req.body?.wait ? Number(req.body.wait) : (req.query?.wait ? Number(req.query.wait) : undefined),
+        question: req.body?.question || req.query?.question,
+        timeout: 25000, // 25s max (leave 5s buffer for response)
+      };
+
+      const result = await peel(url, options);
+
+      res.json({
+        success: true,
+        ...result,
+        requestId,
+        mode: 'sync',
+      });
+    } catch (err: any) {
+      const statusCode = err.statusCode || 500;
+      res.status(statusCode >= 400 && statusCode < 600 ? statusCode : 500).json({
+        success: false,
+        error: {
+          type: err.errorType || 'fetch_error',
+          message: err.message || 'Fetch failed',
+        },
+        requestId,
+      });
+    }
+  }
+
+  router.get('/v1/fetch/sync', (req, res) => {
+    // Map query params to body
+    req.body = req.body || {};
+    if (req.query.url) req.body.url = req.query.url;
+    if (req.query.format) req.body.format = req.query.format;
+    if (req.query.render) req.body.render = req.query.render === 'true';
+    if (req.query.stealth) req.body.stealth = req.query.stealth === 'true';
+    if (req.query.budget) req.body.budget = Number(req.query.budget);
+    if (req.query.selector) req.body.selector = req.query.selector;
+    if (req.query.readable) req.body.readable = req.query.readable === 'true';
+    if (req.query.question) req.body.question = req.query.question;
+    void handleSyncFetch(req, res);
+  });
+  router.post('/v1/fetch/sync', (req, res) => void handleSyncFetch(req, res));
+
   // GET /v1/fetch?url=...  — CLI and backward-compatible GET requests
   // Maps query params into req.body so handleEnqueue works uniformly
   router.get('/v1/fetch', (req, res) => {
