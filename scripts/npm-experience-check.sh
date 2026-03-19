@@ -102,6 +102,17 @@ else
   FAIL=1
 fi
 
+# 6. dist/ee in package.json files array (so npm includes it)
+echo -n "  dist/ee in package.json files... "
+DIST_EE=$(node -e "const p=require('./package.json'); console.log(p.files && p.files.includes('dist/ee') ? 'yes' : 'no')" 2>/dev/null)
+if [ "$DIST_EE" = "yes" ]; then
+  echo -e "${GREEN}OK${NC}"
+else
+  echo -e "${RED}FAIL${NC} — dist/ee not in package.json files array"
+  echo "  npm users won't get the ee/ compiled code"
+  FAIL=1
+fi
+
 if [ $FAIL -ne 0 ]; then
   echo ""
   echo -e "${RED}❌ npm experience check FAILED — version bump blocked${NC}"

@@ -37,6 +37,7 @@
     "dist/types.js",
     "dist/types.d.ts",
     "dist/core",
+    "dist/ee",
     "dist/integrations",
     "dist/mcp",
     "dist/server",

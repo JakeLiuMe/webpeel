@@ -20,6 +20,7 @@ import {
   type WebSearchResult,
 } from '../../core/search-provider.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
+import { callLLM } from '../../core/llm-provider.js';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,9 @@ export interface SmartSearchResult {
   tokens: number;
   fetchTimeMs: number;
   loadingMessage?: string; // intent-aware UX hint
+  answer?: string;  // AI-synthesized answer (markdown)
+  sources?: Array<{ title: string; url: string; domain: string }>; // peeled sources
+  timing?: { searchMs: number; peelMs: number; llmMs: number }; // per-phase timing
 }
 
 // ─── Intent Detection ──────────────────────────────────────────────────────
@@ -239,6 +243,7 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
   const t0 = Date.now();
   const { provider: searchProvider } = getBestSearchProvider();
   const rawResults: WebSearchResult[] = await searchProvider.searchWeb(query, { count: 10 });
+  const searchMs = Date.now() - t0;
 
   const getDomain = (url: string) => {
     try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
@@ -263,18 +268,20 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     })
     .map((r, i) => ({ ...r, rank: i + 1 })) as any[];
 
-  // Enrich top 2 results with peel() for richer content
-  const top2 = results.slice(0, 2);
+  // Enrich top 5 results with peel() for richer content
+  const tPeel = Date.now();
+  const top5 = results.slice(0, 5);
   const enriched = await Promise.allSettled(
-    top2.map(async (r) => {
+    top5.map(async (r) => {
       try {
-        const peeled = await peel(r.url, { render: true, timeout: 15000, maxTokens: 2000 });
-        return { url: r.url, content: peeled.content?.substring(0, 1500), fetchTimeMs: peeled.elapsed };
+        const peeled = await peel(r.url, { render: true, timeout: 12000, maxTokens: 3000 });
+        return { url: r.url, content: peeled.content?.substring(0, 3000), title: r.title, fetchTimeMs: peeled.elapsed };
       } catch {
-        return { url: r.url, content: null, fetchTimeMs: 0 };
+        return { url: r.url, content: null, title: r.title, fetchTimeMs: 0 };
       }
     })
   );
+  const peelMs = Date.now() - tPeel;
 
   for (const settled of enriched) {
     if (settled.status === 'fulfilled' && settled.value.content) {
@@ -290,6 +297,65 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.snippet}`)
     .join('\n\n');
 
+  // Build sources array from successfully peeled results
+  const sources = enriched
+    .filter((s): s is PromiseFulfilledResult<{ url: string; content: string | null; title: string; fetchTimeMs: number }> =>
+      s.status === 'fulfilled' && s.value.content !== null)
+    .map((s) => ({
+      title: s.value.title,
+      url: s.value.url,
+      domain: getDomain(s.value.url),
+    }));
+
+  // ── AI Synthesis via Qwen/Ollama ──────────────────────────────────────
+  let answer: string | undefined;
+  let llmMs = 0;
+
+  const ollamaUrl = process.env.OLLAMA_URL;
+  if (ollamaUrl && enriched.some((s) => s.status === 'fulfilled' && (s.value as any).content)) {
+    try {
+      // Build numbered source content for the LLM
+      const sourceContent = enriched
+        .map((s, i) => {
+          if (s.status !== 'fulfilled' || !(s.value as any).content) return null;
+          const v = s.value as any;
+          return `[${i + 1}] ${v.title}\nURL: ${v.url}\n\n${v.content?.substring(0, 1200) || ''}`;
+        })
+        .filter(Boolean)
+        .join('\n\n---\n\n');
+
+      const systemPrompt = `You answer search queries using source content. Be specific: include real names, addresses, phone numbers, prices, hours from the sources. Use markdown bold and bullet points. Cite with [1], [2]. Add a 💡 Tip at the end if relevant. Be concise (150-250 words). Don't make up data.`;
+
+      const userMessage = `Query: ${query}\n\nSources:\n\n${sourceContent}`;
+
+      const tLlm = Date.now();
+      const llmResult = await callLLM(
+        {
+          provider: 'ollama',
+          endpoint: process.env.OLLAMA_URL,
+          apiKey: process.env.OLLAMA_SECRET,
+          model: process.env.OLLAMA_MODEL,
+        },
+        {
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+          maxTokens: 800,
+          temperature: 0.3,
+        }
+      );
+      llmMs = Date.now() - tLlm;
+
+      if (llmResult.text) {
+        answer = llmResult.text;
+      }
+    } catch (err) {
+      // Graceful degradation: LLM failure → return raw results without answer
+      console.warn('General search LLM synthesis failed (graceful fallback):', (err as Error).message);
+    }
+  }
+
   return {
     type: 'general',
     source: 'Web Search',
@@ -298,6 +364,9 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     results,
     tokens: content.split(/\s+/).length,
     fetchTimeMs: Date.now() - t0,
+    ...(answer !== undefined ? { answer } : {}),
+    ...(sources.length > 0 ? { sources } : {}),
+    timing: { searchMs, peelMs, llmMs },
   };
 }
 
@@ -310,7 +379,7 @@ function getLoadingMessage(type: SearchIntent['type']): string {
     hotels: 'Looking up hotels on Google Hotels…',
     rental: 'Searching rental cars on Kayak…',
     restaurants: 'Finding restaurants on Yelp…',
-    general: 'Searching the web…',
+    general: '🔍 Searching and analyzing results...',
   };
   return msgs[type] || 'Searching…';
 }

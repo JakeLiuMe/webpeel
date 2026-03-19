@@ -45,6 +45,9 @@ interface SmartResult {
   tokens: number;
   fetchTimeMs: number;
   loadingMessage?: string;
+  answer?: string;
+  sources?: Array<{ title: string; url: string; domain: string }>;
+  timing?: { searchMs: number; peelMs: number; llmMs: number };
 }
 
 interface ResultData {
@@ -884,8 +887,16 @@ function ResultCard({
                 </ReactMarkdown>
               </div>
 
-              {/* Collapsible full page content below AI answer */}
-              {result.content && (
+              {/* Timing note for general search AI answers */}
+              {result.content && result.content.startsWith('<!-- timing:') && (() => {
+                const match = result.content.match(/<!-- timing: (.+?) -->/);
+                return match ? (
+                  <p className="text-xs text-zinc-600 mt-2">{match[1]}</p>
+                ) : null;
+              })()}
+
+              {/* Collapsible full page content below AI answer (only for Ask/URL mode, not general search) */}
+              {result.content && !result.content.startsWith('<!-- timing:') && (
                 <details className="mt-4 border-t border-zinc-800 pt-4">
                   <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-300 transition-colors select-none">
                     📄 View full page content ({result.tokens?.toLocaleString()} words)
@@ -1061,6 +1072,7 @@ export default function ReadPage() {
         const q = (intent.question || raw).toLowerCase();
         const hintKey = Object.keys(intentHints).find(k => q.includes(k));
         if (hintKey) setLoadingMessage(intentHints[hintKey]);
+        else setLoadingMessage('🔍 Searching and analyzing results...');
 
         const smartHeaders = { ...headers, 'Content-Type': 'application/json' };
         const res = await fetch(`${API_URL}/v1/search/smart`, {
@@ -1074,8 +1086,26 @@ export default function ReadPage() {
         const smart: SmartResult = json.data;
         const isGeneralSearch = smart.type === 'general';
 
-        if (isGeneralSearch && smart.results) {
-          // General fallback: render as classic search results
+        if (isGeneralSearch && smart.answer) {
+          // AI-synthesized answer: render in Ask mode (like Perplexity)
+          const totalSecs = smart.fetchTimeMs ? (smart.fetchTimeMs / 1000).toFixed(1) : undefined;
+          const sourceCount = smart.sources?.length || 0;
+          const timingNote = totalSecs ? `${sourceCount} source${sourceCount !== 1 ? 's' : ''} · ${totalSecs}s` : undefined;
+          data = {
+            detectedMode: 'ask',
+            answer: smart.answer,
+            sources: smart.sources?.map((s: any) => ({
+              title: s.title || s.url,
+              url: s.url,
+              domain: s.domain,
+              credibility: { tier: 'general' as const, score: 0.5, signals: [] },
+            })) || [],
+            fetchTimeMs: smart.fetchTimeMs,
+            // Encode timing note in content for display
+            content: timingNote ? `<!-- timing: ${timingNote} -->` : '',
+          };
+        } else if (isGeneralSearch && smart.results) {
+          // Fallback: LLM unavailable — render as classic search results
           const getDomain = (url: string) => {
             try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
           };
