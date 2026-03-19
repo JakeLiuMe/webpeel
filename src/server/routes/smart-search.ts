@@ -586,27 +586,37 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
       const llmTimer = setTimeout(() => llmAbort.abort(), 20000);
 
       try {
-        console.log(`[smart-search] LLM call starting: model=${process.env.OLLAMA_MODEL}, endpoint=${process.env.OLLAMA_URL}, prompt_len=${userMessage.length}`);
-        const llmResult = await callLLM(
-          {
-            provider: 'ollama',
-            endpoint: process.env.OLLAMA_URL,
-            apiKey: process.env.OLLAMA_SECRET,
-            model: process.env.OLLAMA_MODEL,
-          },
-          {
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage },
-            ],
-            maxTokens: 300,
-            temperature: 0.3,
-            signal: llmAbort.signal,
-          }
-        );
-        console.log(`[smart-search] LLM call completed: text_len=${llmResult.text?.length}`);
-        if (llmResult.text) {
-          answer = llmResult.text;
+        const ollamaEndpoint = (process.env.OLLAMA_URL || '').replace(/\/$/, '');
+        const ollamaModel = process.env.OLLAMA_MODEL || 'qwen3:1.7b';
+        const ollamaSecret = process.env.OLLAMA_SECRET;
+        const ollamaHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (ollamaSecret) ollamaHeaders['Authorization'] = `Bearer ${ollamaSecret}`;
+
+        console.log(`[smart-search] Direct Ollama call: model=${ollamaModel}, prompt_len=${(systemPrompt + userMessage).length}`);
+        const ollamaResp = await fetch(`${ollamaEndpoint}/api/generate`, {
+          method: 'POST',
+          headers: ollamaHeaders,
+          body: JSON.stringify({
+            model: ollamaModel,
+            prompt: `${systemPrompt}\n\n${userMessage}`,
+            stream: false,
+            think: false,
+            options: { num_predict: 300, temperature: 0.3 },
+          }),
+          signal: llmAbort.signal,
+        });
+
+        if (!ollamaResp.ok) {
+          const errText = await ollamaResp.text().catch(() => '');
+          throw new Error(`Ollama HTTP ${ollamaResp.status}: ${errText}`);
+        }
+
+        const ollamaJson = await ollamaResp.json() as any;
+        let text = String(ollamaJson?.response || '').trim();
+        text = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        console.log(`[smart-search] Ollama completed: tokens=${ollamaJson?.eval_count}, ms=${(ollamaJson?.eval_duration || 0) / 1000000}`);
+        if (text) {
+          answer = text;
         }
       } finally {
         clearTimeout(llmTimer);
