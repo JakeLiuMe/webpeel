@@ -175,3 +175,8 @@ pre code {
   outline: 2px solid oklch(0.62 0.214 275 / 0.6);
   outline-offset: 2px;
 }
+
+/* Textarea inside the dashboard search box uses parent border as focus indicator */
+textarea:focus-visible {
+  outline: none;
+}
