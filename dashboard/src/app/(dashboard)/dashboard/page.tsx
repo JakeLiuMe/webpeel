@@ -495,28 +495,34 @@ function SmartListingCard({ item, type }: { item: any; type: SmartResultType }) 
   const url = item.url || item.link || item.detailUrl || '#';
 
   if (type === 'cars') {
+    const carsUrl = item.url?.startsWith('http') ? item.url : item.url ? `https://www.cars.com${item.url}` : '#';
     return (
-      <div className="p-4 rounded-xl bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/60 transition-all">
+      <a href={carsUrl} target="_blank" rel="noopener noreferrer"
+        className="block p-4 rounded-xl bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/60 hover:border-zinc-700 transition-all cursor-pointer no-underline">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <a href={url} target="_blank" rel="noopener noreferrer"
-              className="text-sm font-medium text-[#818CF8] hover:underline line-clamp-1">
-              {item.title || item.name || item.year && `${item.year} ${item.make} ${item.model}` || 'Vehicle listing'}
-            </a>
-            <div className="flex flex-wrap gap-2 mt-1 text-xs text-zinc-400">
-              {item.price && <span className="text-emerald-400 font-medium">{typeof item.price === 'number' ? `$${item.price.toLocaleString()}` : item.price}</span>}
-              {item.mileage && <span>{typeof item.mileage === 'number' ? `${item.mileage.toLocaleString()} mi` : item.mileage}</span>}
-              {item.year && <span>{item.year}</span>}
-              {(item.make || item.model) && <span>{[item.make, item.model].filter(Boolean).join(' ')}</span>}
+            <div className="text-sm font-medium text-zinc-100 line-clamp-1">
+              {item.title || item.name || (item.year && `${item.year} ${item.make} ${item.model}`) || 'Vehicle listing'}
             </div>
-            {item.dealer && <div className="text-xs text-zinc-500 mt-1">📍 {item.dealer}</div>}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
+              {item.price && <span className="text-base font-semibold text-emerald-400">{typeof item.price === 'number' ? `$${item.price.toLocaleString()}` : item.price}</span>}
+              {item.mileage && <span className="text-xs text-zinc-400">{typeof item.mileage === 'number' ? `${item.mileage.toLocaleString()} mi` : item.mileage}</span>}
+              {item.bodyStyle && <span className="text-xs text-zinc-500">{item.bodyStyle}</span>}
+              {item.fuelType && <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400">{item.fuelType}</span>}
+            </div>
+            {(item.dealer || item.location) && (
+              <div className="flex flex-wrap items-center gap-x-2 mt-1.5 text-xs text-zinc-500">
+                {item.location && <span>📍 {item.location}</span>}
+                {item.dealer && <span>🏪 {item.dealer}</span>}
+              </div>
+            )}
           </div>
           {item.image && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={item.image} alt={item.title || 'Car'} className="w-20 h-14 object-cover rounded-lg shrink-0 bg-zinc-800" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           )}
         </div>
-      </div>
+      </a>
     );
   }
 
