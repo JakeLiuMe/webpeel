@@ -11,7 +11,7 @@
  */
 
 import type { FetchResult } from './fetcher.js';
-import type { DomainExtractResult } from './domain-extractors.js';
+import type { DomainExtractResult } from './domain-extractors-basic.js';
 
 /* ---------- public types ------------------------------------------------- */
 

@@ -1,15 +1,30 @@
 /**
- * Basic domain extraction — public/free tier.
+ * Domain extraction types and basic stub.
  *
- * Handles a few common domains with simple logic.
- * Full 55+ domain extractors are premium/server-only.
- *
- * This module is safe to include in the npm package.
- * The full `domain-extractors.ts` is compiled for the server
- * but wired in only when premium hooks are registered.
+ * Types are defined HERE (always available) so nothing depends
+ * on the proprietary domain-extractors.ts TypeScript source.
+ * The compiled domain-extractors.js ships in npm and is loaded at runtime.
  */
 
-import type { DomainExtractResult } from './domain-extractors.js';
+/** Structured result from a domain-specific extractor */
+export interface DomainExtractResult {
+  /** Canonical domain name (e.g. 'twitter.com') */
+  domain: string;
+  /** Page type within the domain (e.g. 'tweet', 'thread', 'repo', 'issue') */
+  type: string;
+  /** Domain-specific structured data */
+  structured: Record<string, any>;
+  /** Clean markdown representation of the content */
+  cleanContent: string;
+  /** Raw HTML size in characters (from the actual HTML page fetched by the extractor) */
+  rawHtmlSize?: number;
+}
+
+/** An extractor receives the raw HTML and original URL, may make API calls. */
+export type DomainExtractor = (
+  html: string,
+  url: string,
+) => Promise<DomainExtractResult | null>;
 
 /**
  * Basic domain data extractor — free tier stub.

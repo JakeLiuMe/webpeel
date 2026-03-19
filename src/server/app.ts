@@ -57,8 +57,18 @@ import { createSentryHooks } from './sentry.js';
 import { requireScope } from './middleware/scope-guard.js';
 import { createCacheWarmRouter, startCacheWarmer } from './routes/cache-warm.js';
 import { warmup, cleanup as cleanupFetcher } from '../core/fetcher.js';
-import { setExtractorRedis } from '../core/domain-extractors.js';
-import { registerPremiumHooks } from './premium/index.js';
+// Proprietary modules — loaded dynamically so the build works without TypeScript source.
+// Compiled JS ships in npm/Docker. TypeScript source is .gitignore'd (not on GitHub).
+let setExtractorRedis: ((redis: any) => void) | undefined;
+let registerPremiumHooks: (() => void) | undefined;
+try {
+  const de = await import('../core/domain-extractors.js');
+  setExtractorRedis = de.setExtractorRedis;
+} catch { /* compiled JS not available */ }
+try {
+  const ph = await import('./premium/index.js');
+  registerPremiumHooks = ph.registerPremiumHooks;
+} catch { /* compiled JS not available */ }
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -458,7 +468,7 @@ export function startServer(config: ServerConfig = {}): void {
   const port = config.port || parseInt(process.env.PORT || '3000', 10);
 
   // Activate premium strategy hooks (SWR cache, domain intelligence, race).
-  registerPremiumHooks();
+  registerPremiumHooks?.();
 
   // Inject Redis into the domain extractor cache for cross-pod cache sharing.
   // When REDIS_URL is set (multi-pod k8s deployments), all pods share one cache
@@ -477,7 +487,7 @@ export function startServer(config: ServerConfig = {}): void {
         maxRetriesPerRequest: 3,
         enableOfflineQueue: false,
       });
-      setExtractorRedis(redis);
+      setExtractorRedis?.(redis);
       log.info('Redis extractor cache initialized (shared cross-pod cache active)');
     }).catch((err: Error) => {
       log.warn('Failed to init Redis extractor cache (in-memory only)', { error: err.message });
