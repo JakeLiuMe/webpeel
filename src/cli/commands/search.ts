@@ -657,6 +657,129 @@ export function registerSearchCommands(program: Command): void {
       }
     });
 
+  // ── rental command ────────────────────────────────────────────────────────
+  program
+    .command('rental <query>')
+    .alias('car-rental')
+    .description('Search for car rentals via Kayak — e.g. "Punta Gorda FL Apr 1-3"')
+    .option('--json', 'Output as JSON')
+    .option('-s, --silent', 'Silent mode')
+    .action(async (query: string, options) => {
+      // Parse location: strip date portion from query
+      const location = query.replace(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+\d+.*/i, '').trim();
+      const encodedLocation = encodeURIComponent(location.replace(/\s+/g, '-'));
+
+      // Parse dates: try "Apr 1-3" or "Apr 1 to Apr 3" patterns
+      const year = new Date().getFullYear();
+      let pickupDate = `${year}-04-01`;
+      let returnDate = `${year}-04-03`;
+
+      const rangeMatch = query.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d+)\s*[-–to]+\s*(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+)?(\d+)/i);
+      if (rangeMatch) {
+        const months: Record<string, string> = {
+          jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+          jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+        };
+        const startMonth = months[rangeMatch[1].toLowerCase().slice(0, 3)];
+        const startDay = rangeMatch[2].padStart(2, '0');
+        const endMonth = rangeMatch[3] ? months[rangeMatch[3].toLowerCase().slice(0, 3)] : startMonth;
+        const endDay = rangeMatch[4].padStart(2, '0');
+        pickupDate = `${year}-${startMonth}-${startDay}`;
+        returnDate = `${year}-${endMonth}-${endDay}`;
+      }
+
+      const searchUrl = `https://www.kayak.com/cars/${encodedLocation}/${pickupDate}/${returnDate}?sort=price_a`;
+
+      const spinner = options.silent ? null : (await import('ora')).default(`Searching car rentals: ${query}...`).start();
+
+      try {
+        const result = await peel(searchUrl, { render: true, timeout: 40000 });
+
+        if (spinner) spinner.succeed('Car rentals loaded');
+
+        if (options.json) {
+          console.log(JSON.stringify({
+            query,
+            location,
+            pickupDate,
+            returnDate,
+            url: searchUrl,
+            content: result.content,
+            tokens: result.tokens,
+          }, null, 2));
+        } else {
+          console.log(result.content);
+        }
+
+        await cleanup();
+        process.exit(0);
+      } catch (error) {
+        if (spinner) spinner.fail('Car rental search failed');
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        await cleanup();
+        process.exit(1);
+      }
+    });
+
+  // ── cars command ──────────────────────────────────────────────────────────
+  program
+    .command('cars <query>')
+    .description('Search for cars to buy via Cars.com — e.g. "Honda Civic"')
+    .option('--zip <zip>', 'ZIP code for local search', '10001')
+    .option('--distance <miles>', 'Max distance in miles', '30')
+    .option('--max-price <price>', 'Maximum listing price')
+    .option('--min-price <price>', 'Minimum listing price')
+    .option('--json', 'Output as JSON')
+    .option('-s, --silent', 'Silent mode')
+    .action(async (query: string, options) => {
+      const zip = options.zip || '10001';
+      const distance = options.distance || '30';
+      const maxPrice = options.maxPrice || '';
+      const minPrice = options.minPrice || '';
+
+      const params = new URLSearchParams({
+        keyword: query,
+        sort: 'list_price',
+        stock_type: 'all',
+        zip,
+        maximum_distance: distance,
+      });
+      if (maxPrice) params.set('list_price_max', maxPrice);
+      if (minPrice) params.set('list_price_min', minPrice);
+
+      const url = `https://www.cars.com/shopping/results/?${params.toString()}`;
+
+      const spinner = options.silent ? null : (await import('ora')).default(`Searching cars: ${query}...`).start();
+
+      try {
+        const result = await peel(url, { timeout: 25000 });
+
+        if (spinner) spinner.succeed('Cars loaded');
+
+        if (options.json) {
+          console.log(JSON.stringify({
+            query,
+            zip,
+            distance,
+            maxPrice,
+            url,
+            content: result.content,
+            tokens: result.tokens,
+          }, null, 2));
+        } else {
+          console.log(result.content);
+        }
+
+        await cleanup();
+        process.exit(0);
+      } catch (error) {
+        if (spinner) spinner.fail('Car search failed');
+        console.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        await cleanup();
+        process.exit(1);
+      }
+    });
+
   // ── extractors command ────────────────────────────────────────────────────
   program
     .command('extractors')
