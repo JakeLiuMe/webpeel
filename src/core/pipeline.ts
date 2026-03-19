@@ -26,30 +26,37 @@ import { autoScroll as runAutoScroll, type AutoScrollOptions } from './actions.j
 import { extractStructured } from './extract.js';
 import { isPdfContentType, isDocxContentType, extractDocumentToFormat } from './documents.js';
 import { parseYouTubeUrl, getYouTubeTranscript } from './youtube.js';
-import { type DomainExtractResult } from './domain-extractors.js';
+import { type DomainExtractResult } from './domain-extractors-basic.js';
 import { extractDomainDataBasic, getDomainExtractorBasic } from './domain-extractors-basic.js';
 import { getDomainExtractHook, getDomainExtractorHook, getSPADomainsHook, getSPAPatternsHook } from './strategy-hooks.js';
 
-// Lazy-loaded full extractors — available in repo/server, absent in npm package.
-// The dynamic import avoids hard failures when domain-extractors.js is excluded from npm.
-let _fullExtractorsLoaded = false;
-let _fullExtractDomainData: ((html: string, url: string) => Promise<DomainExtractResult | null>) | null = null;
-let _fullGetDomainExtractor: ((url: string) => any) | null = null;
+// ---------------------------------------------------------------------------
+// Domain extraction — lazy-load full extractors from compiled JS
+// ---------------------------------------------------------------------------
+// The compiled domain-extractors.js (312KB) ships in the npm package.
+// TypeScript source is NOT on GitHub (proprietary, .gitignore'd).
+// If compiled JS is missing (bare repo clone without proprietary files),
+// falls back to basic stub (no domain extraction, just standard markdown).
+// Server premium hooks can override for additional caching/intelligence.
 
-async function loadFullExtractors(): Promise<void> {
-  if (_fullExtractorsLoaded) return;
-  _fullExtractorsLoaded = true;
+let _extractorsLoaded = false;
+let _extractDomainData: ((html: string, url: string) => Promise<DomainExtractResult | null>) | null = null;
+let _getDomainExtractor: ((url: string) => any) | null = null;
+
+async function loadExtractors(): Promise<void> {
+  if (_extractorsLoaded) return;
+  _extractorsLoaded = true;
   try {
     const mod = await import('./domain-extractors.js');
-    _fullExtractDomainData = mod.extractDomainData;
-    _fullGetDomainExtractor = mod.getDomainExtractor;
+    _extractDomainData = mod.extractDomainData;
+    _getDomainExtractor = mod.getDomainExtractor;
   } catch {
-    // Not available (npm package) — basic stubs will be used
+    // Compiled JS not available (bare repo clone) — basic stub will be used
   }
 }
 
-// Eagerly start loading (non-blocking)
-loadFullExtractors();
+// Start loading immediately (non-blocking)
+loadExtractors();
 import { extractReadableContent, type ReadabilityResult } from './readability.js';
 import { quickAnswer as runQuickAnswer, type QuickAnswerResult } from './quick-answer.js';
 import { Timer } from './timing.js';
@@ -78,23 +85,19 @@ const log = createLogger('pipeline');
 function hasDomainExtractor(url: string): boolean {
   const hookFn = getDomainExtractorHook();
   if (hookFn) return hookFn(url) !== null;
-  // Full extractors available (repo/server build)?
-  if (_fullGetDomainExtractor) return _fullGetDomainExtractor(url) !== null;
-  // npm package fallback — basic stubs
+  if (_getDomainExtractor) return _getDomainExtractor(url) !== null;
   return getDomainExtractorBasic(url) !== null;
 }
 
 /**
  * Run domain extraction on HTML/URL.
- * Priority: premium hook → full extractors (repo/server) → basic stub.
+ * Priority: premium hook → compiled extractors → basic stub.
  */
 async function runDomainExtract(html: string, url: string): Promise<DomainExtractResult | null> {
   const hookFn = getDomainExtractHook();
   if (hookFn) return hookFn(html, url);
-  // Full extractors available (repo/server build)?
-  await loadFullExtractors(); // Ensure loaded
-  if (_fullExtractDomainData) return _fullExtractDomainData(html, url);
-  // npm package fallback — basic stubs
+  await loadExtractors();
+  if (_extractDomainData) return _extractDomainData(html, url);
   return extractDomainDataBasic(html, url);
 }
 
@@ -354,17 +357,41 @@ export function normalizeOptions(ctx: PipelineContext): void {
     ctx.render = true;
   }
 
-  // Auto-detect SPAs that require browser rendering (no --render flag needed)
-  // Premium hook provides full SPA domain list; basic has a small default set.
+  // Auto-detect SPAs that require browser rendering (no --render flag needed).
+  // This list is NOT proprietary — every developer knows these sites are SPAs.
+  // The proprietary part is the domain EXTRACTORS (what data to pull), not this list.
+  // Premium hook can extend this for additional server-side intelligence.
   if (!ctx.render) {
     const spaDomainsHook = getSPADomainsHook();
     const spaPatternsHook = getSPAPatternsHook();
 
-    // Basic SPA defaults — minimal set for free tier
-    const DEFAULT_SPA_DOMAINS = new Set<string>([]);
-    const DEFAULT_SPA_PATTERNS: RegExp[] = [];
+    // Full SPA domain list — always available (npm + server)
+    const DEFAULT_SPA_DOMAINS = new Set([
+      // Search & travel
+      'www.google.com',
+      'flights.google.com',
+      // Travel & hospitality
+      'www.airbnb.com',
+      'www.booking.com',
+      'www.expedia.com',
+      'www.kayak.com',
+      'www.skyscanner.com',
+      'www.tripadvisor.com',
+      // Jobs
+      'www.indeed.com',
+      'www.glassdoor.com',
+      // Real estate
+      'www.zillow.com',
+      // Our own dashboard
+      'app.webpeel.dev',
+    ]);
+    const DEFAULT_SPA_PATTERNS = [
+      /google\.com\/travel/,
+      /google\.com\/maps/,
+      /google\.com\/shopping/,
+    ];
 
-    // Premium hook merges its full list; basic uses defaults
+    // Premium hook can extend with additional domains; otherwise use full default list
     const SPA_DOMAINS = spaDomainsHook ? spaDomainsHook() : DEFAULT_SPA_DOMAINS;
     const SPA_URL_PATTERNS = spaPatternsHook ? spaPatternsHook() : DEFAULT_SPA_PATTERNS;
 
