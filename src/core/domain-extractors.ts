@@ -5551,13 +5551,37 @@ async function carsComExtractor(html: string, url: string): Promise<DomainExtrac
         const mileage = v.mileage ? `${Number(v.mileage).toLocaleString()} mi` : '';
         const bodyStyle = v.bodyStyle || '';
         const fuelType = v.fuelType || '';
+        const sellerZip = v.seller?.zip || '';
         if (title && title !== 'Used  ') {
-          listings.push({ title, price, mileage, bodyStyle, fuelType, url: cardLink });
+          listings.push({ title, price, mileage, bodyStyle, fuelType, url: cardLink, sellerZip });
         }
       } catch { /* skip malformed */ }
     });
 
     if (listings.length === 0) return null; // Let pipeline handle it
+
+    // Extract dealer names from page HTML (text_style:"small", font_color:"grey")
+    const dealerPattern = /"text":"([^"]{3,50})","on_click_interactions":\[\],"text_style":"small","font_color":"grey/g;
+    const dealerNames: string[] = [];
+    let _dm: RegExpExecArray | null;
+    while ((_dm = dealerPattern.exec(html)) !== null) {
+      const name = _dm[1];
+      if (!name.match(/^\d|^Used|^New|mi\)|^Review|^\$/)) dealerNames.push(name);
+    }
+
+    // Extract locations: "City, ST (X mi)" (e.g., "Ridgefield, NJ (8 mi)")
+    const locPattern = /([A-Z][a-z]+(?:\s[A-Z][a-z]+)*,\s[A-Z]{2}\s\(\d+\s*mi\))/g;
+    const locationList: string[] = [];
+    let _lm: RegExpExecArray | null;
+    while ((_lm = locPattern.exec(html)) !== null) {
+      locationList.push(_lm[1]);
+    }
+
+    // Match dealers and locations to listings (they appear in page order)
+    for (let i = 0; i < listings.length; i++) {
+      if (i < dealerNames.length) listings[i].dealer = dealerNames[i];
+      if (i < locationList.length) listings[i].location = locationList[i];
+    }
 
     const priceRange = [minPrice && `$${minPrice}`, maxPrice && `$${maxPrice}`].filter(Boolean).join(' – ');
     const header = [
@@ -5577,9 +5601,13 @@ async function carsComExtractor(html: string, url: string): Promise<DomainExtrac
         l.price,
         l.mileage,
         l.bodyStyle,
-        l.url && `[→](https://www.cars.com${l.url})`,
       ].filter(Boolean);
-      return parts.join(' · ');
+      const line = parts.join(' · ');
+      const details: string[] = [];
+      if (l.location) details.push(`📍 ${l.location}`);
+      if (l.dealer) details.push(`🏪 ${l.dealer}`);
+      if (l.url) details.push(`🔗 [View listing](https://www.cars.com${l.url})`);
+      return line + (details.length ? '\n   ' + details.join(' · ') : '');
     });
 
     return {
