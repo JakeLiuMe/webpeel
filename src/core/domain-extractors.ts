@@ -5973,20 +5973,21 @@ async function zillowExtractor(_html: string, url: string): Promise<DomainExtrac
       const locationLabel = `${cityName}, ${stateCode}`;
 
       // Try to fetch live Redfin listings via their API
-      // Map common cities to known Redfin market IDs
-      const marketIdMap: Record<string, number> = {
-        'NY-New-York': 8, 'NY-Brooklyn': 8, 'NY-Queens': 8, 'NY-Bronx': 8,
-        'NY-Staten-Island': 8, 'NY-Manhattan': 8,
-        'CA-Los-Angeles': 4, 'CA-San-Francisco': 1, 'CA-San-Diego': 5,
-        'TX-Houston': 7, 'TX-Dallas': 24, 'TX-Austin': 22,
-        'FL-Miami': 13, 'FL-Orlando': 15, 'FL-Tampa': 11,
-        'IL-Chicago': 3, 'WA-Seattle': 16, 'MA-Boston': 10,
-        'AZ-Phoenix': 14, 'PA-Philadelphia': 12, 'GA-Atlanta': 9,
-        'CO-Denver': 6, 'MN-Minneapolis': 18, 'OR-Portland': 17,
-        'NV-Las-Vegas': 20, 'NC-Charlotte': 21, 'OH-Columbus': 23,
+      // Map common city slugs to Redfin city region IDs (region_type=6)
+      const cityRegionMap: Record<string, number> = {
+        'NY-New-York': 30749, 'NY-Brooklyn': 30749, 'NY-Queens': 30749, 'NY-Bronx': 30749,
+        'NY-Staten-Island': 30749, 'NY-Manhattan': 30749,
+        'CA-Los-Angeles': 11203, 'CA-San-Francisco': 17151, 'CA-San-Diego': 18142,
+        'CA-San-Jose': 17420,
+        'TX-Houston': 30772, 'TX-Dallas': 35799, 'TX-Austin': 30818,
+        'FL-Miami': 10201, 'FL-Orlando': 13140, 'FL-Tampa': 18280,
+        'IL-Chicago': 29470, 'WA-Seattle': 16163, 'MA-Boston': 1826,
+        'AZ-Phoenix': 14240, 'PA-Philadelphia': 13364, 'GA-Atlanta': 30756,
+        'CO-Denver': 11093, 'MN-Minneapolis': 18959, 'OR-Portland': 14941,
+        'NV-Las-Vegas': 32820, 'NC-Charlotte': 3105, 'OH-Columbus': 8528,
       };
       const marketKey = `${stateCode}-${cityForUrl}`;
-      const marketId = marketIdMap[marketKey];
+      const marketId = cityRegionMap[marketKey];
 
       if (marketId) {
         const payload = await fetchRedfinListings(marketId, 6 /* city */);
@@ -6136,32 +6137,21 @@ async function redfinExtractor(_html: string, url: string): Promise<DomainExtrac
       const cityName = citySlug.replace(/-/g, ' ');
       const locationLabel = `${cityName}, ${stateCode}`;
 
-      // No region ID — use a GIS bounding box search via the city name
-      // Try a known NYC region as a broader fallback search
-      // For now, attempt search with region_type=2 (market area)
-      // We'll make a best-effort attempt using a city name search
-      // Since Redfin's autocomplete is blocked, try common market IDs
-      const marketIdMap: Record<string, number> = {
-        'NY-New-York': 8,
-        'NY-Brooklyn': 8,
-        'NY-Queens': 8,
-        'NY-Bronx': 8,
-        'NY-Staten-Island': 8,
-        'NY-Manhattan': 8,
-        'CA-Los-Angeles': 4,
-        'CA-San-Francisco': 1,
-        'TX-Houston': 7,
-        'TX-Dallas': 24,
-        'FL-Miami': 13,
-        'IL-Chicago': 3,
-        'WA-Seattle': 16,
-        'MA-Boston': 10,
-        'AZ-Phoenix': 14,
-        'PA-Philadelphia': 12,
-        'GA-Atlanta': 9,
+      // No region ID in URL — use known Redfin city region IDs (region_type=6)
+      const cityRegionMap: Record<string, number> = {
+        'NY-New-York': 30749, 'NY-Brooklyn': 30749, 'NY-Queens': 30749, 'NY-Bronx': 30749,
+        'NY-Staten-Island': 30749, 'NY-Manhattan': 30749,
+        'CA-Los-Angeles': 11203, 'CA-San-Francisco': 17151, 'CA-San-Diego': 18142,
+        'CA-San-Jose': 17420,
+        'TX-Houston': 30772, 'TX-Dallas': 35799, 'TX-Austin': 30818,
+        'FL-Miami': 10201, 'FL-Orlando': 13140, 'FL-Tampa': 18280,
+        'IL-Chicago': 29470, 'WA-Seattle': 16163, 'MA-Boston': 1826,
+        'AZ-Phoenix': 14240, 'PA-Philadelphia': 13364, 'GA-Atlanta': 30756,
+        'CO-Denver': 11093, 'MN-Minneapolis': 18959, 'OR-Portland': 14941,
+        'NV-Las-Vegas': 32820, 'NC-Charlotte': 3105, 'OH-Columbus': 8528,
       };
       const marketKey = `${stateCode}-${citySlug}`;
-      const marketId = marketIdMap[marketKey];
+      const marketId = cityRegionMap[marketKey];
 
       if (marketId) {
         const payload = await fetchRedfinListings(marketId, 6 /* city */);
