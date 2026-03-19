@@ -27,6 +27,43 @@ const log = createLogger('fetch');
 
 /* ---------- hardcoded domain rules -------------------------------------- */
 
+/**
+ * Domains that require a residential proxy to bypass datacenter IP blocks.
+ * These sites don't just need stealth — they fingerprint the IP itself and
+ * block all cloud/datacenter ranges. Webshare residential proxy bypasses this.
+ *
+ * When no explicit proxy is set and Webshare is configured, requests to these
+ * domains skip the direct (datacenter) attempt and go straight to residential proxy.
+ */
+const RESIDENTIAL_PROXY_DOMAINS = [
+  'zillow.com',
+  'yelp.com',
+  'pinterest.com',
+  'ticketmaster.com',
+  'stubhub.com',
+  'cargurus.com',
+  'realtor.com',
+  'redfin.com',
+  'apartments.com',
+  'trulia.com',
+  'homefinder.com',
+];
+
+/**
+ * Check if a URL matches a domain that requires residential proxy.
+ * Returns true if no explicit proxy is set and Webshare env vars are available.
+ */
+function requiresResidentialProxy(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return RESIDENTIAL_PROXY_DOMAINS.some(
+      domain => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function shouldForceBrowser(url: string): DomainRecommendation | null {
   // Hashbang URLs (#!) are always JS-routed SPAs — browser rendering required
   if (url.includes('#!')) {
@@ -512,14 +549,21 @@ export async function smartFetch(
   const usePeelTLS = tls || cycle;
 
   // Build effective proxy list: explicit proxies array, or single proxy, or empty.
-  // When no explicit proxy is configured and Webshare is available, automatically
-  // add it as a fallback: try direct connection first (fast), then Webshare on block.
+  // For domains that require residential proxies (Zillow, Yelp, Pinterest, etc.),
+  // skip the direct datacenter connection entirely and go straight to Webshare.
+  // For all other domains, try direct first (fast), then Webshare as fallback.
   const effectiveProxies: (string | undefined)[] =
     proxies?.length ? proxies :
     proxy ? [proxy] :
     (() => {
       const wsUrl = getWebshareProxyUrl();
-      return wsUrl ? [undefined, wsUrl] : [undefined];
+      if (!wsUrl) return [undefined];
+      // Skip datacenter IP for known residential-proxy-required domains
+      if (requiresResidentialProxy(url)) {
+        log.debug('Residential proxy domain detected — skipping datacenter IP, using Webshare directly');
+        return [wsUrl];
+      }
+      return [undefined, wsUrl];
     })();
   const firstProxy = effectiveProxies[0];
 
