@@ -691,9 +691,11 @@ export function registerSearchCommands(program: Command): void {
                 const bp = parseFloat(String(b.price || '').replace(/[^0-9.]/g, '')) || Infinity;
                 return ap <= bp ? a : b;
               });
-              price = cheapest.price || null;
+              price = cheapest.priceStr || (cheapest.price ? `$${cheapest.price}` : null);
               airline = cheapest.airline || cheapest.carrier || null;
-              time = cheapest.time || cheapest.departure || null;
+              time = cheapest.departTime && cheapest.arriveTime 
+                ? `${cheapest.departTime} → ${cheapest.arriveTime}` 
+                : (cheapest.time || cheapest.departure || null);
             } else {
               // Extract from markdown content — look for price patterns
               const priceMatch = result.content.match(/\$(\d+)/);
