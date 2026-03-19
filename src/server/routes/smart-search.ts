@@ -26,7 +26,7 @@ import {
   type WebSearchResult,
 } from '../../core/search-provider.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
-import { callLLM } from '../../core/llm-provider.js';
+// callLLM import removed — using direct Ollama fetch for lower latency
 
 // ─── Redis client (lazy singleton for smart-search caching) ───────────────
 
