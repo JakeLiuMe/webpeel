@@ -473,8 +473,11 @@ function SmartResultCard({ smartResult }: { smartResult: SmartResult }) {
 
   // Try to use structured data first, fall back to parsed domainData listings, then raw content
   const listings: any[] = smartResult.structured?.listings
+    || smartResult.structured?.businesses
     || smartResult.domainData?.structured?.listings
+    || smartResult.domainData?.structured?.businesses
     || smartResult.domainData?.listings
+    || smartResult.domainData?.products
     || smartResult.results
     || [];
 
@@ -907,8 +910,11 @@ function ResultCard({
 
   const resultCount = result.smartResult
     ? (result.smartResult.structured?.listings?.length
+      || result.smartResult.structured?.businesses?.length
       || result.smartResult.domainData?.structured?.listings?.length
+      || result.smartResult.domainData?.structured?.businesses?.length
       || result.smartResult.domainData?.listings?.length
+      || result.smartResult.domainData?.products?.length
       || result.smartResult.results?.length)
     : result.results?.length;
 
