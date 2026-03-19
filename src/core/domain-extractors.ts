@@ -151,6 +151,9 @@ const REGISTRY: Array<{
   { match: (h) => h === 'etsy.com' || h === 'www.etsy.com', extractor: etsyExtractor },
   { match: (h) => h === 'cars.com' || h === 'www.cars.com', extractor: carsComExtractor },
   { match: (h) => h === 'ebay.com' || h === 'www.ebay.com', extractor: ebayExtractor },
+  // ── Local / Real Estate ────────────────────────────────────────────────────
+  { match: (h) => h === 'yelp.com' || h === 'www.yelp.com', extractor: yelpExtractor },
+  { match: (h) => h === 'zillow.com' || h === 'www.zillow.com', extractor: zillowExtractor },
 ];
 
 /**
@@ -3491,6 +3494,63 @@ async function bbcExtractor(html: string, url: string): Promise<DomainExtractRes
 }
 
 async function cnnExtractor(html: string, url: string): Promise<DomainExtractResult | null> {
+  try {
+    const u = new URL(url);
+
+    // For homepage — use CNN Lite which has actual headline links
+    if (u.pathname === '/' || u.pathname === '' || u.hostname === 'lite.cnn.com') {
+      const liteResp = await fetch('https://lite.cnn.com', { headers: { 'User-Agent': 'webpeel/0.21' } });
+      if (liteResp.ok) {
+        const liteHtml = await liteResp.text();
+        const headlines: string[] = [];
+        const matches = liteHtml.matchAll(/<a[^>]+href="([^"]*)"[^>]*>([^<]+)<\/a>/g);
+        for (const m of matches) {
+          const href = m[1].trim();
+          const text = m[2].trim();
+          // CNN Lite article links contain year patterns like /2026/
+          if (/\/20\d\d\//.test(href) && text.length > 10) {
+            const fullUrl = href.startsWith('http') ? href : `https://www.cnn.com${href}`;
+            headlines.push(`- [${text}](${fullUrl})`);
+          }
+        }
+        if (headlines.length > 5) {
+          return {
+            domain: 'cnn.com',
+            type: 'headlines',
+            structured: { headlines: headlines.length, source: 'cnn-lite' },
+            cleanContent: `# 📰 CNN — Top Headlines\n\n${headlines.slice(0, 20).join('\n')}\n\n---\n*Source: CNN Lite*`,
+          };
+        }
+      }
+    }
+
+    // For article pages — try CNN Lite version of the same URL
+    if (/\/20\d\d\//.test(u.pathname)) {
+      const liteUrl = `https://lite.cnn.com${u.pathname}`;
+      const liteResp = await fetch(liteUrl, { headers: { 'User-Agent': 'webpeel/0.21' } });
+      if (liteResp.ok) {
+        const liteHtml = await liteResp.text();
+        const { load } = await import('cheerio');
+        const $l = load(liteHtml);
+        const title = $l('h1').first().text().trim();
+        const paragraphs: string[] = [];
+        $l('p').each((_: any, el: any) => {
+          const text = $l(el).text().trim();
+          if (text.length > 20) paragraphs.push(text);
+        });
+        if (title && paragraphs.length > 0) {
+          return {
+            domain: 'cnn.com',
+            type: 'article',
+            structured: { title, paragraphs: paragraphs.length, source: 'cnn-lite' },
+            cleanContent: `# ${title}\n\n${paragraphs.join('\n\n')}\n\n---\n*Source: CNN*`,
+          };
+        }
+      }
+    }
+  } catch { /* fall through to standard extractor */ }
+
+  // Fallback to standard news article extractor (works if HTML has content)
   return extractNewsArticle(html, url, 'cnn.com');
 }
 
@@ -5626,6 +5686,186 @@ async function ebayExtractor(html: string, url: string): Promise<DomainExtractRe
     };
   } catch (e) {
     if (process.env.DEBUG) console.debug('[webpeel]', 'eBay extractor error:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Yelp extractor — parse JSON-LD + meta from stealth-rendered HTML
+// ---------------------------------------------------------------------------
+
+async function yelpExtractor(html: string, url: string): Promise<DomainExtractResult | null> {
+  try {
+    const { load } = await import('cheerio');
+    const $ = load(html);
+
+    // Try JSON-LD structured data first
+    const jsonLdScripts = $('script[type="application/ld+json"]');
+    let businessData: any = null;
+
+    jsonLdScripts.each((_: any, el: any) => {
+      const raw = $(el).html() || '';
+      try {
+        const parsed = JSON.parse(raw);
+        const items = Array.isArray(parsed) ? parsed : [parsed];
+        for (const item of items) {
+          const type = item['@type'];
+          if (type === 'Restaurant' || type === 'LocalBusiness' || type === 'FoodEstablishment' ||
+              type === 'BarOrPub' || type === 'CafeOrCoffeeShop') {
+            businessData = item;
+          }
+        }
+      } catch { /* ignore malformed JSON-LD */ }
+    });
+
+    // --- Business page ---
+    if (businessData) {
+      const name = businessData.name || '';
+      const rating = businessData.aggregateRating?.ratingValue;
+      const reviewCount = businessData.aggregateRating?.reviewCount;
+      const addr = businessData.address;
+      const address = addr
+        ? [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode].filter(Boolean).join(', ')
+        : '';
+      const phone = businessData.telephone || '';
+      const cuisine = businessData.servesCuisine || '';
+      const priceRange = businessData.priceRange || '';
+      const description = businessData.description || $('meta[property="og:description"]').attr('content') || '';
+      const hours = businessData.openingHours || '';
+
+      const lines = [
+        `# ⭐ Yelp: ${name}`,
+        '',
+        rating && `**Rating:** ${rating}/5 (${reviewCount} reviews)`,
+        cuisine && `**Cuisine:** ${cuisine}`,
+        priceRange && `**Price:** ${priceRange}`,
+        address && `**Address:** ${address}`,
+        phone && `**Phone:** ${phone}`,
+        hours && `**Hours:** ${Array.isArray(hours) ? hours.join(', ') : hours}`,
+        description && `\n${description.substring(0, 500)}`,
+        '',
+        `**More info:** [View on Yelp](${url})`,
+        '',
+        '---',
+        '*Source: Yelp*',
+      ].filter(Boolean);
+
+      return {
+        domain: 'yelp.com',
+        type: 'business',
+        structured: { name, rating, reviewCount, address, phone, cuisine, priceRange, description },
+        cleanContent: lines.join('\n'),
+      };
+    }
+
+    // --- Search page — parse from meta / og tags ---
+    const ogTitle = $('meta[property="og:title"]').attr('content') || '';
+    const ogDescription = $('meta[property="og:description"]').attr('content') || '';
+
+    // Try to extract listing names from heading tags
+    const listings: Array<{ name: string; url?: string }> = [];
+    $('h3, h4').each((_: any, el: any) => {
+      const text = $(el).text().trim();
+      if (text && text.length > 2 && text.length < 100) {
+        const anchor = $(el).find('a').first();
+        const href = anchor.attr('href') || '';
+        const fullHref = href.startsWith('/') ? `https://www.yelp.com${href}` : href;
+        listings.push({ name: text, url: fullHref || undefined });
+      }
+    });
+
+    if (ogTitle || listings.length > 0) {
+      const searchTerm = ogTitle.replace(/\s*-\s*Yelp$/, '').trim();
+      const lines = [
+        `# 🔍 Yelp Search: ${searchTerm || 'Results'}`,
+        ogDescription && `\n${ogDescription}`,
+        listings.length > 0 && `\n**Found ${listings.length} results:**`,
+        ...listings.slice(0, 15).map((l: any, i: number) => `${i + 1}. ${l.url ? `[${l.name}](${l.url})` : l.name}`),
+        '',
+        `**Search:** [View on Yelp](${url})`,
+        '',
+        '---',
+        '*Source: Yelp*',
+      ].filter(Boolean);
+
+      return {
+        domain: 'yelp.com',
+        type: 'search',
+        structured: { query: searchTerm, count: listings.length, listings },
+        cleanContent: lines.join('\n'),
+      };
+    }
+
+    return null;
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'Yelp extractor error:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Zillow extractor — smart fallback with helpful alternatives
+// ---------------------------------------------------------------------------
+
+async function zillowExtractor(_html: string, url: string): Promise<DomainExtractResult | null> {
+  try {
+    const u = new URL(url);
+
+    // Derive location label from the URL path
+    const rawPath = u.pathname.replace(/^\//, '').replace(/\/$/, '');
+    const location = rawPath
+      .replace(/\//g, ' ')
+      .replace(/-/g, ' ')
+      .trim();
+
+    // Parse city/state for alternative links
+    const pathParts = rawPath.split('/').filter(Boolean);
+    const cityStatePart = pathParts[0] || '';    // e.g. "new-york-ny"
+    const segments = cityStatePart.split('-');
+    const statePart = segments[segments.length - 1] || '';
+    const cityPart = segments.slice(0, -1).join('-');
+
+    // Redfin city path
+    const cityCapitalized = cityPart.split('-').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join('_');
+    const stateUpper = statePart.toUpperCase();
+    const redfinCityPath = cityCapitalized && stateUpper
+      ? `https://www.redfin.com/city/${cityCapitalized}/${stateUpper}`
+      : 'https://www.redfin.com';
+    const realtorPath = cityStatePart
+      ? `https://www.realtor.com/realestateandhomes-search/${cityStatePart}`
+      : 'https://www.realtor.com';
+
+    const cleanContent = [
+      `# 🏠 Zillow — ${location || 'Real Estate Search'}`,
+      '',
+      '> ⚠️ **Zillow blocks automated access.** WebPeel cannot retrieve live listings directly.',
+      '',
+      '**Try these alternatives that work with WebPeel:**',
+      `- [Redfin](${redfinCityPath}) — similar listings, scrape-friendly`,
+      `- [Realtor.com](${realtorPath}) — MLS-powered, often accessible`,
+      `- [Homes.com](https://www.homes.com) — newer platform, better access`,
+      '',
+      `**Direct Zillow link:** [Open Zillow](${url})`,
+      '',
+      '---',
+      '*Source: Zillow (access blocked — showing alternatives)*',
+    ].join('\n');
+
+    return {
+      domain: 'zillow.com',
+      type: 'real-estate',
+      structured: {
+        location,
+        blocked: true,
+        alternatives: [
+          { name: 'Redfin', url: redfinCityPath },
+          { name: 'Realtor.com', url: realtorPath },
+        ],
+      },
+      cleanContent,
+    };
+  } catch (e) {
+    if (process.env.DEBUG) console.debug('[webpeel]', 'Zillow extractor error:', e instanceof Error ? e.message : e);
     return null;
   }
 }
