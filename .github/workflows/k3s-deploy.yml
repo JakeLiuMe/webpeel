@@ -41,6 +41,7 @@ jobs:
       - name: Install and build
         run: |
           npm ci
+          bash scripts/generate-ci-stubs.sh
           npm run build
 
       - name: Get version
