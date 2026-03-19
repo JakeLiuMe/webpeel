@@ -1,0 +1,113 @@
+#!/bin/bash
+# npm-experience-check.sh — Verifies npm users get the FULL WebPeel experience
+#
+# Runs automatically before every version bump (via pre-publish-gate.sh).
+# Catches the exact bug from 2026-03-19: code split broke npm user experience
+# because extractors/SPA detection were routed through unregistered hooks.
+#
+# This script imports from dist/ (compiled JS) WITHOUT registering premium hooks,
+# simulating exactly what an npm user sees.
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+FAIL=0
+
+echo "🔍 npm experience check..."
+
+# 1. Domain extractors load from compiled JS (no premium hooks)
+echo -n "  Domain extractors... "
+RESULT=$(node --input-type=module -e "
+import { getDomainExtractor } from './dist/index.js';
+const sites = ['reddit.com','github.com','news.ycombinator.com','x.com','youtube.com','en.wikipedia.org','stackoverflow.com','amazon.com','yelp.com','producthunt.com'];
+let pass = 0;
+for (const s of sites) { if (getDomainExtractor('https://' + s) !== null) pass++; }
+console.log(pass);
+process.exit(0);
+" 2>/dev/null)
+if [ "$RESULT" -ge 8 ]; then
+  echo -e "${GREEN}OK${NC} ($RESULT/10 extractors available)"
+else
+  echo -e "${RED}FAIL${NC} — only $RESULT/10 extractors loaded (need ≥8)"
+  echo "  npm users won't get domain extraction. Check domain-extractors-public.ts"
+  FAIL=1
+fi
+
+# 2. SPA auto-detection has full domain list (not empty stubs)
+echo -n "  SPA detection... "
+SPA_COUNT=$(node --input-type=module -e "
+import { readFileSync } from 'fs';
+const src = readFileSync('dist/core/pipeline.js', 'utf8');
+// Count entries in DEFAULT_SPA_DOMAINS set constructor
+const match = src.match(/DEFAULT_SPA_DOMAINS\s*=\s*new\s+Set\(\[([^\]]*)\]\)/s);
+if (!match) { console.log('0'); process.exit(0); }
+const entries = match[1].split(',').filter(e => e.trim().length > 3);
+console.log(entries.length);
+process.exit(0);
+" 2>/dev/null)
+if [ "$SPA_COUNT" -ge 8 ]; then
+  echo -e "${GREEN}OK${NC} ($SPA_COUNT SPA domains in pipeline)"
+else
+  echo -e "${RED}FAIL${NC} — only $SPA_COUNT SPA domains (need ≥8)"
+  echo "  npm users won't get auto-render for Kayak/Airbnb/etc. Check pipeline.ts DEFAULT_SPA_DOMAINS"
+  FAIL=1
+fi
+
+# 3. Challenge solver available from compiled JS
+echo -n "  Challenge solver... "
+CS_OK=$(node --input-type=module -e "
+try {
+  const mod = await import('./dist/core/challenge-solver.js');
+  console.log(typeof mod.solveChallenge === 'function' ? 'yes' : 'no');
+} catch { console.log('no'); }
+process.exit(0);
+" 2>/dev/null)
+if [ "$CS_OK" = "yes" ]; then
+  echo -e "${GREEN}OK${NC}"
+else
+  echo -e "${RED}FAIL${NC} — solveChallenge not available"
+  echo "  npm users won't get CAPTCHA solving. Check challenge-solver compiled JS"
+  FAIL=1
+fi
+
+# 4. GitHub source files are gitignored (won't be pushed)
+echo -n "  Source protection... "
+EXPOSED=0
+for f in src/core/domain-extractors.ts src/core/challenge-solver.ts src/server/premium/index.ts; do
+  if git ls-files --error-unmatch "$f" 2>/dev/null | grep -q "$f"; then
+    echo ""
+    echo -e "  ${RED}WARNING:${NC} $f is tracked by git (should be .gitignore'd)"
+    EXPOSED=1
+  fi
+done
+if [ "$EXPOSED" -eq 0 ]; then
+  echo -e "${GREEN}OK${NC} (proprietary source .gitignore'd)"
+else
+  echo -e "${RED}FAIL${NC} — proprietary source tracked by git"
+  FAIL=1
+fi
+
+# 5. peel() returns content without premium hooks
+echo -n "  Basic peel()... "
+PEEL_OK=$(node --input-type=module -e "
+import { peel } from './dist/index.js';
+const r = await peel('https://example.com');
+console.log(r.tokens > 0 ? 'yes' : 'no');
+process.exit(0);
+" 2>/dev/null)
+if [ "$PEEL_OK" = "yes" ]; then
+  echo -e "${GREEN}OK${NC}"
+else
+  echo -e "${RED}FAIL${NC} — peel() returned 0 tokens"
+  FAIL=1
+fi
+
+if [ $FAIL -ne 0 ]; then
+  echo ""
+  echo -e "${RED}❌ npm experience check FAILED — version bump blocked${NC}"
+  echo "  npm users would get a broken experience. Fix before publishing."
+  exit 1
+fi
+
+echo -e "${GREEN}✅ npm experience check passed${NC}"

@@ -80,3 +80,7 @@ fi
 
 echo ""
 echo -e "${GREEN}✅ All pre-publish checks passed${NC}"
+
+# Run npm experience check — ensures npm users get the full experience
+# Added 2026-03-19 after code split broke npm user experience
+bash scripts/npm-experience-check.sh || exit 1
