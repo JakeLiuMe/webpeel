@@ -6511,38 +6511,25 @@ async function googleFlightsExtractor(_html: string, url: string): Promise<Domai
 
   // Helper: get airline booking URL
   function getAirlineBookingUrl(airline: string, from: string, to: string, dateStr: string): string {
-    // Parse date from "Sat, Apr 4" → "2026-04-04" or "04/04/2026" etc.
-    const months: Record<string, string> = { Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12' };
-    let isoDate = '';
-    let mmddDate = '';
-    const dm = dateStr.match(/(\w{3})\s+(\d{1,2})/);
-    if (dm) {
-      const mon = months[dm[1]] || '01';
-      const day = dm[2].padStart(2, '0');
-      const year = new Date().getFullYear(); // current year
-      isoDate = `${year}-${mon}-${day}`;
-      mmddDate = `${mon}/${day}/${year}`;
-    }
-
     const fromUp = from.toUpperCase();
     const toUp = to.toUpperCase();
 
-    // Deep links with pre-filled origin, destination, date, 1 passenger
+    // Airline homepages — direct booking pages (deep links don't work without session/cookies)
     const urlMap: Record<string, string> = {
-      'United':      `https://www.united.com/ual/en/us/flight-search/book-a-flight/results/rev?f=${fromUp}&t=${toUp}&d=${isoDate}&tt=1&at=1&sc=7&px=1&taxng=1&newHP=True&clm=7&st=bestmatches&tqp=A`,
-      'Delta':       `https://www.delta.com/flight-search/book-a-flight?departure=${fromUp}&arrival=${toUp}&departureDate=${mmddDate}&paxCount=1&tripType=ONE_WAY`,
-      'JetBlue':     `https://www.jetblue.com/booking/flights?from=${fromUp}&to=${toUp}&depart=${isoDate}&is498=true&is498=${true}&pax=1`,
-      'American':    `https://www.aa.com/booking/find-flights?origin=${fromUp}&destination=${toUp}&departureDate=${isoDate}&tripType=OneWay&pax=1`,
-      'Spirit':      `https://www.spirit.com/book/flights?origin=${fromUp}&destination=${toUp}&departureDate=${isoDate}&adults=1&tripType=oneWay`,
-      'Frontier':    `https://www.flyfrontier.com/booking/flights?origin=${fromUp}&destination=${toUp}&date=${isoDate}&adults=1`,
-      'Southwest':   `https://www.southwest.com/air/booking/select.html?originationAirportCode=${fromUp}&destinationAirportCode=${toUp}&departureDate=${isoDate}&adultPassengersCount=1&tripType=oneway`,
-      'Breeze':      `https://www.flybreeze.com/home?from=${fromUp}&to=${toUp}&depart=${isoDate}&pax=1`,
-      'Alaska':      `https://www.alaskaair.com/shopping/flights?A=${fromUp}&B=${toUp}&DT=${isoDate}&FT=ow&C=1`,
-      'Hawaiian':    `https://www.hawaiianairlines.com/book/results?origin=${fromUp}&destination=${toUp}&departDate=${isoDate}&adults=1&tripType=ow`,
-      'Sun Country': `https://www.suncountry.com/booking/search?from=${fromUp}&to=${toUp}&depart=${isoDate}&passengers=1`,
-      'Avelo':       `https://www.aveloair.com/book?from=${fromUp}&to=${toUp}&depart=${isoDate}`,
+      'United':      `https://www.united.com`,
+      'Delta':       `https://www.delta.com`,
+      'JetBlue':     `https://www.jetblue.com`,
+      'American':    `https://www.aa.com`,
+      'Spirit':      `https://www.spirit.com`,
+      'Frontier':    `https://www.flyfrontier.com`,
+      'Southwest':   `https://www.southwest.com`,
+      'Breeze':      `https://www.flybreeze.com`,
+      'Alaska':      `https://www.alaskaair.com`,
+      'Hawaiian':    `https://www.hawaiianairlines.com`,
+      'Sun Country': `https://www.suncountry.com`,
+      'Avelo':       `https://www.aveloair.com`,
     };
-    return urlMap[airline] || `https://www.google.com/travel/flights?q=${encodeURIComponent(`${airline} flights ${from} to ${to} ${dateStr}`)}`;
+    return urlMap[airline] || `https://www.google.com/travel/flights?q=${encodeURIComponent(`${airline} flights ${fromUp} to ${toUp} ${dateStr}`)}`;
   }
 
   // Parse route from URL
@@ -6564,12 +6551,13 @@ async function googleFlightsExtractor(_html: string, url: string): Promise<Domai
     md.push(`🕐 Depart **${f.departTime}** → Arrive **${f.arriveTime}**${f.departDate ? ` · ${f.departDate}` : ''}`);
     md.push(`🛫 ${f.fromAirport} → ${f.toAirport} · ${f.duration} · ${f.stops}`);
     if (f.bags) md.push(`🧳 ${f.bags}`);
-    md.push(`🔗 [Book on ${f.airline}](${bookingUrl})`);
+    md.push(`🔍 [See price on Google Flights](${url})`);
+    md.push(`🛒 [Book on ${f.airline}](${bookingUrl})`);
     md.push('');
   }
 
   md.push('---');
-  md.push(`📌 *Prices change frequently. [View live prices on Google Flights](${url})*`);
+  md.push(`📌 *All prices verified via [Google Flights](${url}). Click "See price" to confirm, then book directly with the airline.*`);
 
   return {
     domain: 'google.com/travel/flights',
