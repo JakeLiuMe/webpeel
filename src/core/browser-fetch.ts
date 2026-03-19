@@ -98,6 +98,12 @@ export async function browserFetch(
     waitSelector?: string;
     /** Block resource types for faster loading: 'image', 'stylesheet', 'font', 'media', 'script' */
     blockResources?: string[];
+    /**
+     * Whether the target is a Single-Page Application (Kayak, Google Flights, Expedia, etc).
+     * When true, the DOM stability check uses a longer timeout (12s) to wait for async data loads.
+     * When false (default), a shorter 3s stability window is used.
+     */
+    isSPA?: boolean;
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -125,6 +131,7 @@ export async function browserFetch(
     waitUntil: optWaitUntil,
     waitSelector,
     blockResources,
+    isSPA = false,
   } = options;
 
   // Device emulation profiles
@@ -430,11 +437,17 @@ export async function browserFetch(
       }
 
       // DOM stability check: wait for SPA hydration to settle.
-      // Polls innerText length every 500ms — if still growing, keep waiting (max 3s extra).
+      // Polls innerText length every 500ms — if still growing, keep waiting.
+      // SPAs (Kayak, Google Flights, Expedia) get a longer timeout to allow async data loads.
       {
         const stabilityStart = Date.now();
-        const MAX_STABILITY_WAIT_MS = 3000;
+        // SPA sites (Kayak, Google Flights, Expedia) need up to 12s for results to load.
+        // Normal rendered pages need just 3s extra.
+        const MAX_STABILITY_WAIT_MS = isSPA ? 12000 : 3000;
+        // SPA: must be stable for 2s (4 consecutive 500ms checks). Normal: 1s (2 checks).
+        const STABLE_CHECKS_REQUIRED = isSPA ? 4 : 2;
         const POLL_INTERVAL_MS = 500;
+        const MIN_CONTENT_LENGTH = 200; // Don't consider near-empty pages stable
         let prevLength = await page!.evaluate('document.body?.innerText?.length || 0').catch(() => 0) as number;
         let stableCount = 0;
 
@@ -442,13 +455,17 @@ export async function browserFetch(
           throwIfAborted();
           await page!.waitForTimeout(POLL_INTERVAL_MS);
           const curLength = await page!.evaluate('document.body?.innerText?.length || 0').catch(() => 0) as number;
-          if (curLength === prevLength) {
-            stableCount++;
-            if (stableCount >= 2) break; // stable for 2 consecutive checks (~1s)
-          } else {
+          if (curLength !== prevLength) {
+            // Content changed — reset stability counter
             stableCount = 0;
+          } else if (curLength >= MIN_CONTENT_LENGTH) {
+            stableCount++;
+            if (stableCount >= STABLE_CHECKS_REQUIRED) break; // stable long enough
           }
           prevLength = curLength;
+        }
+        if (isSPA) {
+          log.debug(`SPA stability check: ${Date.now() - stabilityStart}ms, length=${prevLength}`);
         }
       }
 

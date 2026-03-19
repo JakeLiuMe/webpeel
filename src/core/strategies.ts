@@ -365,6 +365,8 @@ interface BrowserStrategyOptions {
   waitUntil?: string;
   waitSelector?: string;
   blockResources?: string[];
+  /** Whether the target is a known SPA — enables longer DOM stability wait */
+  isSPA?: boolean;
 }
 
 async function fetchWithBrowserStrategy(
@@ -393,6 +395,7 @@ async function fetchWithBrowserStrategy(
     waitUntil,
     waitSelector,
     blockResources,
+    isSPA,
   } = options;
 
   try {
@@ -418,6 +421,7 @@ async function fetchWithBrowserStrategy(
       waitUntil,
       waitSelector,
       blockResources,
+      isSPA,
     });
 
     return {
@@ -718,6 +722,21 @@ export async function smartFetch(
     effectiveForceBrowser = true;
   }
 
+  // Detect SPA for smarter DOM stability wait
+  const SPA_FETCH_DOMAINS = new Set([
+    'www.google.com', 'flights.google.com', 'www.airbnb.com', 'www.booking.com',
+    'www.expedia.com', 'www.kayak.com', 'www.skyscanner.com', 'www.tripadvisor.com',
+    'www.indeed.com', 'www.glassdoor.com', 'www.zillow.com', 'app.webpeel.dev',
+  ]);
+  const SPA_FETCH_URL_PATTERNS = [
+    /google\.com\/travel/, /google\.com\/maps/, /google\.com\/shopping/,
+  ];
+  let isSPAUrl = false;
+  try {
+    const parsedHostname = new URL(url).hostname;
+    isSPAUrl = SPA_FETCH_DOMAINS.has(parsedHostname) || SPA_FETCH_URL_PATTERNS.some(p => p.test(url));
+  } catch { /* invalid URL — ignore */ }
+
   const browserOptions: BrowserStrategyOptions = {
     userAgent,
     waitMs,
@@ -739,6 +758,7 @@ export async function smartFetch(
     waitUntil,
     waitSelector,
     blockResources,
+    isSPA: isSPAUrl,
   };
 
   /* ---- Strategy: simple fetch (with optional race) --------------------- */
