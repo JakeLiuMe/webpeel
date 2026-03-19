@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { askVisionModel, detectImageCaptchaTarget, solveImageCaptcha } from '../core/challenge-solver.js';
+import { askVisionModel, detectImageCaptchaTarget, solveImageCaptcha } from '../ee/challenge-solver.js';
 
 // ── Mock fetch globally ────────────────────────────────────────────────────────
 

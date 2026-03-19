@@ -59,17 +59,16 @@ import { requireScope } from './middleware/scope-guard.js';
 import { createCacheWarmRouter, startCacheWarmer } from './routes/cache-warm.js';
 import { warmup, cleanup as cleanupFetcher } from '../core/fetcher.js';
 // Proprietary modules — loaded dynamically so the build works without TypeScript source.
-// Compiled JS ships in npm/Docker. TypeScript source is .gitignore'd (not on GitHub).
 let setExtractorRedis: ((redis: any) => void) | undefined;
 let registerPremiumHooks: (() => void) | undefined;
 try {
-  const de = await import('../core/domain-extractors.js');
+  const de = await import('../ee/domain-extractors.js');
   setExtractorRedis = de.setExtractorRedis;
-} catch { /* compiled JS not available */ }
+} catch { /* ee module not available */ }
 try {
-  const ph = await import('./premium/index.js');
+  const ph = await import('../ee/premium-hooks.js');
   registerPremiumHooks = ph.registerPremiumHooks;
-} catch { /* compiled JS not available */ }
+} catch { /* ee module not available */ }
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';

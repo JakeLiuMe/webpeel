@@ -26,37 +26,9 @@ import { autoScroll as runAutoScroll, type AutoScrollOptions } from './actions.j
 import { extractStructured } from './extract.js';
 import { isPdfContentType, isDocxContentType, extractDocumentToFormat } from './documents.js';
 import { parseYouTubeUrl, getYouTubeTranscript } from './youtube.js';
-import { type DomainExtractResult } from './domain-extractors-basic.js';
-import { extractDomainDataBasic, getDomainExtractorBasic } from './domain-extractors-basic.js';
+import { type DomainExtractResult } from '../ee/domain-extractors.js';
+import { extractDomainData, getDomainExtractor } from '../ee/domain-extractors.js';
 import { getDomainExtractHook, getDomainExtractorHook, getSPADomainsHook, getSPAPatternsHook } from './strategy-hooks.js';
-
-// ---------------------------------------------------------------------------
-// Domain extraction — lazy-load full extractors from compiled JS
-// ---------------------------------------------------------------------------
-// The compiled domain-extractors.js (312KB) ships in the npm package.
-// TypeScript source is NOT on GitHub (proprietary, .gitignore'd).
-// If compiled JS is missing (bare repo clone without proprietary files),
-// falls back to basic stub (no domain extraction, just standard markdown).
-// Server premium hooks can override for additional caching/intelligence.
-
-let _extractorsLoaded = false;
-let _extractDomainData: ((html: string, url: string) => Promise<DomainExtractResult | null>) | null = null;
-let _getDomainExtractor: ((url: string) => any) | null = null;
-
-async function loadExtractors(): Promise<void> {
-  if (_extractorsLoaded) return;
-  _extractorsLoaded = true;
-  try {
-    const mod = await import('./domain-extractors.js');
-    _extractDomainData = mod.extractDomainData;
-    _getDomainExtractor = mod.getDomainExtractor;
-  } catch {
-    // Compiled JS not available (bare repo clone) — basic stub will be used
-  }
-}
-
-// Start loading immediately (non-blocking)
-loadExtractors();
 import { extractReadableContent, type ReadabilityResult } from './readability.js';
 import { quickAnswer as runQuickAnswer, type QuickAnswerResult } from './quick-answer.js';
 import { Timer } from './timing.js';
@@ -80,25 +52,22 @@ const log = createLogger('pipeline');
 
 /**
  * Check if a URL has a domain extractor.
- * Priority: premium hook → full extractors (repo/server) → basic stub.
+ * Priority: premium hook → ee/domain-extractors.
  */
 function hasDomainExtractor(url: string): boolean {
   const hookFn = getDomainExtractorHook();
   if (hookFn) return hookFn(url) !== null;
-  if (_getDomainExtractor) return _getDomainExtractor(url) !== null;
-  return getDomainExtractorBasic(url) !== null;
+  return getDomainExtractor(url) !== null;
 }
 
 /**
  * Run domain extraction on HTML/URL.
- * Priority: premium hook → compiled extractors → basic stub.
+ * Priority: premium hook → ee/domain-extractors.
  */
 async function runDomainExtract(html: string, url: string): Promise<DomainExtractResult | null> {
   const hookFn = getDomainExtractHook();
   if (hookFn) return hookFn(html, url);
-  await loadExtractors();
-  if (_extractDomainData) return _extractDomainData(html, url);
-  return extractDomainDataBasic(html, url);
+  return extractDomainData(html, url);
 }
 
 /** Mutable context threaded through pipeline stages */
@@ -773,7 +742,7 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
     const canSolve = hasBrowserWorker || process.env.ENABLE_LOCAL_CHALLENGE_SOLVE === 'true';
     if (canSolve) {
       try {
-        const { solveChallenge } = await import('./challenge-solver.js');
+        const { solveChallenge } = await import('../ee/challenge-solver.js');
         const { detectChallenge } = await import('./challenge-detection.js');
         const rawHtml = fetchResult.html || '';
         const detectionResult = detectChallenge(rawHtml, fetchResult.statusCode);
@@ -1362,7 +1331,7 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
       const canSolve = hasBrowserWorker || process.env.ENABLE_LOCAL_CHALLENGE_SOLVE === 'true';
       if (canSolve && ctx.fetchResult?.html) {
         try {
-          const { solveChallenge } = await import('./challenge-solver.js');
+          const { solveChallenge } = await import('../ee/challenge-solver.js');
           const { detectChallenge } = await import('./challenge-detection.js');
           const rawHtml = ctx.fetchResult.html;
           const detectionResult = detectChallenge(rawHtml, ctx.fetchResult.statusCode);

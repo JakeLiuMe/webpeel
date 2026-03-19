@@ -58,7 +58,7 @@ fi
 echo -n "  Challenge solver... "
 CS_OK=$(node --input-type=module -e "
 try {
-  const mod = await import('./dist/core/challenge-solver.js');
+  const mod = await import('./dist/ee/challenge-solver.js');
   console.log(typeof mod.solveChallenge === 'function' ? 'yes' : 'no');
 } catch { console.log('no'); }
 process.exit(0);
@@ -71,20 +71,19 @@ else
   FAIL=1
 fi
 
-# 4. GitHub source files are gitignored (won't be pushed)
-echo -n "  Source protection... "
-EXPOSED=0
-for f in src/core/domain-extractors.ts src/core/challenge-solver.ts src/server/premium/index.ts; do
+# 4. ee/ source files are tracked in git (protected by Enterprise License)
+echo -n "  ee/ source tracked... "
+EE_TRACKED=0
+for f in src/ee/domain-extractors.ts src/ee/challenge-solver.ts src/ee/premium-hooks.ts; do
   if git ls-files --error-unmatch "$f" 2>/dev/null | grep -q "$f"; then
-    echo ""
-    echo -e "  ${RED}WARNING:${NC} $f is tracked by git (should be .gitignore'd)"
-    EXPOSED=1
+    EE_TRACKED=$((EE_TRACKED + 1))
   fi
 done
-if [ "$EXPOSED" -eq 0 ]; then
-  echo -e "${GREEN}OK${NC} (proprietary source .gitignore'd)"
+if [ "$EE_TRACKED" -ge 3 ]; then
+  echo -e "${GREEN}OK${NC} (ee/ source tracked under Enterprise License)"
 else
-  echo -e "${RED}FAIL${NC} — proprietary source tracked by git"
+  echo -e "${RED}FAIL${NC} — ee/ source not tracked by git ($EE_TRACKED/3 files)"
+  echo "  Run: git add src/ee/"
   FAIL=1
 fi
 

@@ -22,8 +22,7 @@ import { checkUrlSafety } from './core/safe-browsing.js';
 export * from './types.js';
 // Domain extractors — compiled JS ships in npm, TypeScript source is .gitignore'd.
 // Re-export types from the basic stub (always available), runtime functions via lazy wrapper.
-export type { DomainExtractResult, DomainExtractor } from './core/domain-extractors-basic.js';
-export { getDomainExtractor, extractDomainData } from './core/domain-extractors-public.js';
+export { getDomainExtractor, extractDomainData, type DomainExtractResult, type DomainExtractor } from './ee/domain-extractors.js';
 export { crawl, type CrawlOptions, type CrawlResult, type CrawlProgress } from './core/crawler.js';
 export { discoverSitemap, type SitemapUrl, type SitemapResult } from './core/sitemap.js';
 export { mapDomain, type MapOptions, type MapResult } from './core/map.js';

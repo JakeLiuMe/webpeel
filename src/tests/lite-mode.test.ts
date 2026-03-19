@@ -40,7 +40,7 @@ vi.mock('../core/strategies.js', () => ({
 }));
 
 // Mock domain-extractors to prevent API calls in tests
-vi.mock('../core/domain-extractors.js', () => ({
+vi.mock('../ee/domain-extractors.js', () => ({
   getDomainExtractor: vi.fn(() => null),
   extractDomainData: vi.fn(() => null),
 }));

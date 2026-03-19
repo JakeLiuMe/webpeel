@@ -17,6 +17,5 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
       - run: npm ci
-      - run: bash scripts/generate-ci-stubs.sh
       - run: npm run build
       - run: npm test

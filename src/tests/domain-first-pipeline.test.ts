@@ -31,10 +31,10 @@ vi.mock('../core/strategies.js', () => ({
   smartFetch: vi.fn(),
 }));
 
-// Mock domain-extractors-basic — we control extraction via hooks instead
-vi.mock('../core/domain-extractors-basic.js', () => ({
-  extractDomainDataBasic: vi.fn().mockResolvedValue(null),
-  getDomainExtractorBasic: vi.fn().mockReturnValue(null),
+// Mock ee/domain-extractors — we control extraction via hooks instead
+vi.mock('../ee/domain-extractors.js', () => ({
+  extractDomainData: vi.fn().mockResolvedValue(null),
+  getDomainExtractor: vi.fn().mockReturnValue(null),
 }));
 
 import { smartFetch } from '../core/strategies.js';

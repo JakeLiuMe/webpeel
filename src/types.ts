@@ -318,7 +318,7 @@ export interface PeelResult {
    */
   readability?: import('./core/readability.js').ReadabilityResult;
   /** Domain-aware structured data (Twitter, Reddit, GitHub, HN). Present when URL matches a known domain. */
-  domainData?: import('./core/domain-extractors-basic.js').DomainExtractResult;
+  domainData?: import('./ee/domain-extractors.js').DomainExtractResult;
   /** Quick answer result (when question option is set). BM25-powered, no LLM needed. */
   quickAnswer?: import('./core/quick-answer.js').QuickAnswerResult;
   /** Per-stage timing breakdown in milliseconds. */

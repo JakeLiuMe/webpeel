@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getDomainExtractor, extractDomainData, clearExtractorCache } from '../core/domain-extractors.js';
+import { getDomainExtractor, extractDomainData, clearExtractorCache } from '../ee/domain-extractors.js';
 
 // ---------------------------------------------------------------------------
 // Mock simpleFetch — we don't want real network calls
