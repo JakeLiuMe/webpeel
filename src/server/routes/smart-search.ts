@@ -1536,9 +1536,18 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
       const query = q.trim();
       const intent = detectSearchIntent(query);
 
-      // If regex couldn't classify (general), try LLM classification
-      // This catches typos, other languages, creative phrasing
-      if (intent.type === 'general' && process.env.OLLAMA_URL) {
+      // If regex returned 'general' as fallback (not from an explicit pattern match),
+      // try LLM classification to catch typos, other languages, creative phrasing.
+      // Skip LLM override if regex matched a specific pattern (comparison, local, service queries)
+      // — those were INTENTIONALLY set to 'general'.
+      const queryLower = query.toLowerCase();
+      const isExplicitGeneral = (
+        /\b(compare|vs\.?|versus|which is better|difference between)\b/.test(queryLower) ||
+        (/\b(near me|near\s+\w+|open now|open today|open on|what time|is .* open|hours|closest|nearest)\b/.test(queryLower) && /\b(buy|where|store|shop|near|close to|around)\b/.test(queryLower)) ||
+        (/\b(plumber|electrician|mechanic|dentist|doctor|lawyer|therapist|vet|salon|barber|gym|daycare)\b/.test(queryLower) && /\b(near|in|around|open|best|cheap|emergency)\b/.test(queryLower))
+      );
+
+      if (intent.type === 'general' && !isExplicitGeneral && process.env.OLLAMA_URL) {
         try {
           const llmType = await classifyIntentWithLLM(query);
           if (llmType !== 'general') {
