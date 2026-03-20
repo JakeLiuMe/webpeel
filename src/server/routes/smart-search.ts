@@ -244,7 +244,7 @@ async function callOllamaQuick(prompt: string, opts?: { maxTokens?: number; time
           'Content-Length': Buffer.byteLength(body),
           ...(ollamaSecret ? { Authorization: `Bearer ${ollamaSecret}` } : {}),
         },
-        timeout: timeoutMs,
+        // timeout removed — using explicit setTimeout timer instead (total timeout, not idle)
       };
 
       const timer = setTimeout(() => req.destroy(new Error('callOllamaQuick timeout')), timeoutMs);
@@ -260,7 +260,6 @@ async function callOllamaQuick(prompt: string, opts?: { maxTokens?: number; time
         });
       });
       req.on('error', (e) => { clearTimeout(timer); reject(e); });
-      req.on('timeout', () => { req.destroy(); reject(new Error('callOllamaQuick timeout')); });
       req.write(body);
       req.end();
     });
@@ -779,8 +778,34 @@ async function fetchYelpResults(keyword: string, location: string) {
       isClosed: b.is_closed === true,  // permanently closed
       transactions: b.transactions || [],  // ['delivery', 'pickup']
       todayHours: hours[currentDay] || 'Closed today',
+      googleMapsUrl: undefined as string | undefined,
+      googleRating: undefined as number | undefined,
+      googleReviewCount: undefined as number | undefined,
     };
   });
+
+  // Verify hours for top 3 results via Google Places (if API key available)
+  if (process.env.GOOGLE_PLACES_API_KEY) {
+    const top3 = businesses.slice(0, 3);
+    const googleResults = await Promise.allSettled(
+      top3.map((b: any) => fetchGooglePlacesHours(b.name, b.address))
+    );
+
+    for (let i = 0; i < top3.length; i++) {
+      const gResult = googleResults[i];
+      if (gResult.status === 'fulfilled' && gResult.value) {
+        const g = gResult.value;
+        // Google is more reliable for hours — prefer Google's data
+        if (g.isOpenNow !== undefined) businesses[i].isOpenNow = g.isOpenNow;
+        if (g.todayHours) businesses[i].todayHours = g.todayHours;
+        if (g.hours && Object.keys(g.hours).length > 0) businesses[i].hours = g.hours;
+        if (g.googleMapsUrl) businesses[i].googleMapsUrl = g.googleMapsUrl;
+        // Add Google rating as secondary reference
+        if (g.rating) businesses[i].googleRating = g.rating;
+        if (g.reviewCount) businesses[i].googleReviewCount = g.reviewCount;
+      }
+    }
+  }
 
   const url = `https://www.yelp.com/search?find_desc=${encodeURIComponent(keyword)}&find_loc=${encodeURIComponent(location)}`;
   return {
@@ -855,6 +880,84 @@ async function fetchYouTubeResults(keyword: string, location: string) {
   };
 }
 
+/**
+ * Verify/enhance restaurant hours using Google Places API (Text Search → Place Details).
+ * Returns null if no API key or if lookup fails (graceful degradation).
+ */
+async function fetchGooglePlacesHours(businessName: string, address: string): Promise<{
+  isOpenNow?: boolean;
+  hours?: Record<string, string>;
+  todayHours?: string;
+  rating?: number;
+  reviewCount?: number;
+  googleMapsUrl?: string;
+} | null> {
+  const GOOGLE_PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY;
+  if (!GOOGLE_PLACES_KEY) return null;
+
+  try {
+    // Step 1: Find Place from Text (legacy API — cheaper, already enabled)
+    const searchQuery = `${businessName} ${address}`;
+    const findRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(searchQuery)}&inputtype=textquery&fields=name,place_id,opening_hours,rating,user_ratings_total&key=${GOOGLE_PLACES_KEY}`,
+      { signal: AbortSignal.timeout(3000) }
+    );
+
+    if (!findRes.ok) return null;
+    const findData = await findRes.json();
+    if (findData.status !== 'OK' || !findData.candidates?.[0]) return null;
+    const candidate = findData.candidates[0];
+    const placeId = candidate.place_id;
+    if (!placeId) return null;
+
+    // Step 2: Place Details for full hours
+    const detailRes = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,opening_hours,rating,user_ratings_total,url&key=${GOOGLE_PLACES_KEY}`,
+      { signal: AbortSignal.timeout(3000) }
+    );
+
+    if (!detailRes.ok) return null;
+    const detailData = await detailRes.json();
+    if (detailData.status !== 'OK' || !detailData.result) return null;
+    const place = detailData.result;
+
+    // Parse opening hours from weekday_text
+    const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayMap: Record<string, string> = { 'Monday': 'Mon', 'Tuesday': 'Tue', 'Wednesday': 'Wed', 'Thursday': 'Thu', 'Friday': 'Fri', 'Saturday': 'Sat', 'Sunday': 'Sun' };
+    const hours: Record<string, string> = {};
+
+    if (place.opening_hours?.weekday_text) {
+      for (const desc of place.opening_hours.weekday_text) {
+        // Format: "Monday: 11:30 AM – 10:00 PM" or "Monday: Closed"
+        const colonIdx = desc.indexOf(':');
+        if (colonIdx > 0) {
+          const dayFull = desc.substring(0, colonIdx).trim();
+          const timeStr = desc.substring(colonIdx + 1).trim();
+          const shortDay = dayMap[dayFull];
+          if (shortDay) {
+            hours[shortDay] = timeStr;
+          }
+        }
+      }
+    }
+
+    const isOpenNow = place.opening_hours?.open_now;
+    const today = shortDays[new Date().getDay()];
+    const todayHours = hours[today] || undefined;
+
+    return {
+      isOpenNow: isOpenNow ?? undefined,
+      hours: Object.keys(hours).length > 0 ? hours : undefined,
+      todayHours,
+      rating: place.rating,
+      reviewCount: place.user_ratings_total,
+      googleMapsUrl: place.url,
+    };
+  } catch {
+    return null; // Graceful degradation — Google Places failure is non-fatal
+  }
+}
+
 async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearchResult> {
   const t0 = Date.now();
 
@@ -927,7 +1030,8 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
         const openStatus = b.isClosed ? ' · ⛔ Permanently Closed' : (b.isOpenNow ? ' · 🟢 Open Now' : ' · 🔴 Closed');
         const todayHours = b.todayHours && b.todayHours !== 'Closed today' ? ` · 🕐 ${b.todayHours}` : (b.todayHours === 'Closed today' ? ' · 🕐 Closed today' : '');
         const txns = b.transactions?.length > 0 ? ` · ${b.transactions.map((t: string) => t === 'delivery' ? '🚗 Delivery' : t === 'pickup' ? '📦 Pickup' : t).join(' ')}` : '';
-        contentParts.push(`${i + 1}. **${name}** ${rating} ${reviews}${price}${openStatus}${todayHours}${txns}${address ? ` — ${address}` : ''}`);
+        const mapsLink = b.googleMapsUrl ? ` · [📍 Google Maps](${b.googleMapsUrl})` : '';
+        contentParts.push(`${i + 1}. **${name}** ${rating} ${reviews}${price}${openStatus}${todayHours}${txns}${mapsLink}${address ? ` — ${address}` : ''}`);
       });
     } else if (yelpData.content) {
       contentParts.push(`## Yelp\n${yelpData.content.substring(0, 800)}`);
@@ -980,8 +1084,9 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
       const yelpLines = yelpData.businesses.slice(0, 5).map((b: any, i: number) => {
         const openStatus = b.isClosed ? 'PERMANENTLY CLOSED' : (b.isOpenNow ? 'OPEN NOW' : 'Closed right now');
         const txns = b.transactions?.length > 0 ? `Available: ${b.transactions.join(', ')}` : '';
+        const googleInfo = b.googleRating ? ` | Google: ⭐${b.googleRating} (${b.googleReviewCount} reviews)` : '';
         return `${i+1}. ${b.name} ⭐${b.rating} (${b.reviewCount?.toLocaleString()} reviews) ${b.price || ''} — ${b.address}
-   ${openStatus} | Today: ${b.todayHours || 'hours not available'} | ${txns} | Categories: ${b.categories || ''}`;
+   ${openStatus} | Today: ${b.todayHours || 'hours not available'} | ${txns} | Categories: ${b.categories || ''}${googleInfo}`;
       }).join('\n');
       const redditHint = redditData?.otherThreads?.slice(0,2).map((t: any) => t.title).join('; ') || '';
       const systemPrompt = `You are a local food expert giving personalized recommendations. For each top restaurant, explain:
@@ -1431,7 +1536,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
       const cacheKey = `smart:${intent.type}:${query.toLowerCase().trim().replace(/\s+/g, ' ')}`;
       try {
         const redis = getSmartRedis();
-        await redis.connect().catch(() => {}); // lazy connect, ignore if already connected
+        // lazyConnect: true — IoRedis auto-connects on first command; no explicit connect() needed
         const cached = await redis.get(cacheKey);
         if (cached) {
           const parsed = JSON.parse(cached) as SmartSearchResult;
@@ -1530,8 +1635,9 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
                 const yelpLines = yelpData.businesses.slice(0, 5).map((b: any, i: number) => {
                   const openStatus = b.isClosed ? 'PERMANENTLY CLOSED' : (b.isOpenNow ? 'OPEN NOW' : 'Closed right now');
                   const txns = b.transactions?.length > 0 ? `Available: ${b.transactions.join(', ')}` : '';
+                  const googleInfo = b.googleRating ? ` | Google: ⭐${b.googleRating} (${b.googleReviewCount} reviews)` : '';
                   return `${i+1}. ${b.name} ⭐${b.rating} (${b.reviewCount?.toLocaleString()} reviews) ${b.price || ''} — ${b.address}
-   ${openStatus} | Today: ${b.todayHours || 'hours not available'} | ${txns} | Categories: ${b.categories || ''}`;
+   ${openStatus} | Today: ${b.todayHours || 'hours not available'} | ${txns} | Categories: ${b.categories || ''}${googleInfo}`;
                 }).join('\n');
                 const redditHint = redditData && (redditData as any).otherThreads?.slice(0, 2).map((t: any) => t.title).join('; ') || '';
                 const systemPrompt = `You are a local food expert giving personalized recommendations. For each top restaurant, explain:
@@ -1550,6 +1656,51 @@ Be specific with names, ratings, and review counts. Write like a knowledgeable f
             }
 
             sendEvent('done', { fetchTimeMs: Date.now() - t0Stream });
+
+            // Cache the streaming result for restaurants
+            try {
+              const redis = getSmartRedis();
+              const ttl = CACHE_TTL[intent.type] || 600;
+              const yelpUrl = yelpData?.url || `https://www.yelp.com/search?find_desc=${encodeURIComponent(kw)}&find_loc=${encodeURIComponent(loc)}`;
+              const contentParts: string[] = [];
+              if (yelpData?.businesses?.length > 0) {
+                contentParts.push(`## Yelp (${yelpData.businesses.length} restaurants)`);
+                yelpData.businesses.slice(0, 10).forEach((b: any, i: number) => {
+                  const openStatus = b.isClosed ? ' · ⛔ Permanently Closed' : (b.isOpenNow ? ' · 🟢 Open Now' : ' · 🔴 Closed');
+                  contentParts.push(`${i + 1}. **${b.name}** ⭐${b.rating} (${(b.reviewCount || 0).toLocaleString()} reviews)${b.price ? ' · ' + b.price : ''}${openStatus}${b.address ? ' — ' + b.address : ''}`);
+                });
+              }
+              if (redditData) {
+                contentParts.push('');
+                contentParts.push('## Reddit Recommendations');
+                if ((redditData as any).thread) contentParts.push(`**${(redditData as any).thread.title}**`);
+              }
+              if (youtubeData && (youtubeData as any).videos?.length) {
+                contentParts.push('');
+                contentParts.push('## YouTube Reviews');
+                (youtubeData as any).videos.forEach((v: any) => contentParts.push(`🎬 [${v.title}](${v.url})`));
+              }
+              const cachedSources: Array<{ title: string; url: string; domain: string }> = [];
+              if (yelpData) cachedSources.push({ title: 'Yelp', url: yelpUrl, domain: 'yelp.com' });
+              if ((redditData as any)?.thread) cachedSources.push({ title: (redditData as any).thread.title, url: (redditData as any).thread.url, domain: 'reddit.com' });
+              if ((youtubeData as any)?.videos?.[0]) cachedSources.push({ title: (youtubeData as any).videos[0].title, url: (youtubeData as any).videos[0].url, domain: 'youtube.com' });
+              const cacheResult: SmartSearchResult = {
+                type: 'restaurants',
+                source: 'Yelp + Reddit + YouTube',
+                sourceUrl: yelpUrl,
+                content: contentParts.join('\n'),
+                title: `${kw} in ${loc}`,
+                domainData: yelpData?.domainData,
+                structured: yelpData?.domainData?.structured,
+                tokens: contentParts.join('\n').split(/\s+/).length,
+                fetchTimeMs: Date.now() - t0Stream,
+                ...(answer !== undefined ? { answer } : {}),
+                ...(cachedSources.length > 0 ? { sources: cachedSources } : {}),
+              };
+              await redis.setex(cacheKey, ttl, JSON.stringify(cacheResult));
+              console.log(`[smart-search] SSE Cache WRITE: ${cacheKey} (TTL: ${ttl}s)`);
+            } catch { /* non-fatal */ }
+
             res.end();
           } else {
             // All other intent types: run the existing handler, emit full result
@@ -1578,6 +1729,15 @@ Be specific with names, ratings, and review counts. Write like a knowledgeable f
             }
             sendEvent('result', streamResult);
             sendEvent('done', { fetchTimeMs: streamResult.fetchTimeMs });
+
+            // Cache the streaming result
+            try {
+              const redis = getSmartRedis();
+              const ttl = CACHE_TTL[intent.type] || 600;
+              await redis.setex(cacheKey, ttl, JSON.stringify(streamResult));
+              console.log(`[smart-search] SSE Cache WRITE: ${cacheKey} (TTL: ${ttl}s)`);
+            } catch { /* non-fatal */ }
+
             res.end();
           }
 
