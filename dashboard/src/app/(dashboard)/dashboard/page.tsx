@@ -1372,6 +1372,7 @@ export default function ReadPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined);
+  const [searchSteps, setSearchSteps] = useState<Array<{ label: string; status: 'loading' | 'done' | 'error'; detail?: string }>>([]);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const greeting = getGreeting();
@@ -1397,6 +1398,7 @@ export default function ReadPage() {
     setResult(null);
     setErrorMsg('');
     setLoadingMessage(undefined);
+    setSearchSteps([]);
     setAppState('loading');
     setSubmittedQuery(raw.trim());
 
@@ -1477,6 +1479,17 @@ export default function ReadPage() {
                 loadingMessage: eventData.loadingMessage,
               });
               if (eventData.loadingMessage) setLoadingMessage(eventData.loadingMessage);
+              setSearchSteps([{
+                label: `Searching for ${
+                  eventData.type === 'restaurants' ? 'restaurants' :
+                  eventData.type === 'products' ? 'products' :
+                  eventData.type === 'cars' ? 'cars' :
+                  eventData.type === 'flights' ? 'flights' :
+                  eventData.type === 'hotels' ? 'hotels' :
+                  'results'
+                }...`,
+                status: 'loading'
+              }]);
               break;
             case 'source':
               setSmartResult((prev) => ({
@@ -1489,16 +1502,46 @@ export default function ReadPage() {
                 ...(eventData.source === 'rental' ? { structured: { listings: eventData.listings } } : {}),
                 ...(eventData.source === 'products' ? { structured: { listings: eventData.listings } } : {}),
               }));
+              setSearchSteps((prev) => {
+                const updated = prev.map(s =>
+                  s.status === 'loading' && s.label.startsWith('Searching')
+                    ? {
+                        ...s,
+                        status: 'done' as const,
+                        detail: eventData.source === 'yelp' ? `Found ${eventData.businesses?.length || 0} restaurants on Yelp` :
+                                eventData.source === 'reddit' ? `Found ${eventData.otherThreads?.length || 0} Reddit discussions` :
+                                eventData.source === 'youtube' ? `Found ${eventData.videos?.length || 0} video reviews` :
+                                `Found results from ${eventData.source}`
+                      }
+                    : s
+                );
+                if (eventData.source === 'yelp') {
+                  updated.push({ label: 'Checking Google Maps for hours...', status: 'loading' });
+                } else if (eventData.source === 'reddit') {
+                  updated.push({ label: 'Reading Reddit discussions...', status: 'done', detail: `${eventData.otherThreads?.length || 0} threads` });
+                } else if (eventData.source === 'youtube') {
+                  updated.push({ label: 'Found YouTube reviews', status: 'done', detail: `${eventData.videos?.length || 0} videos` });
+                }
+                return updated;
+              });
               break;
             case 'result':
               smart = { ...eventData, loading: false };
               setSmartResult({ ...eventData, loading: false });
+              setSearchSteps((prev) => [
+                ...prev.map(s => ({ ...s, status: 'done' as const })),
+                ...(eventData.answer ? [{ label: 'AI summary generated', status: 'done' as const }] : []),
+              ]);
               break;
             case 'answer':
               setSmartResult((prev) => ({
                 ...(prev ?? { type: 'general', source: '', sourceUrl: '', content: '', tokens: 0, fetchTimeMs: 0 }),
                 answer: eventData.answer,
               }));
+              setSearchSteps((prev) => [
+                ...prev.map(s => s.status === 'loading' ? { ...s, status: 'done' as const } : s),
+                { label: 'AI summary generated', status: 'done' as const }
+              ]);
               break;
             case 'done':
               setSmartResult((prev) => ({
@@ -1508,6 +1551,7 @@ export default function ReadPage() {
                 // Ensure answer is preserved (React batching may lose the answer event)
                 answer: eventData.answer || prev?.answer,
               }));
+              setSearchSteps((prev) => prev.map(s => s.status === 'loading' ? { ...s, status: 'done' as const } : s));
               break;
             case 'error':
               setError(eventData.message || 'Search failed');
@@ -1530,6 +1574,7 @@ export default function ReadPage() {
             const cachedJson = await sseRes.json();
             const cachedSmart: SmartResult = cachedJson.data;
             if (cachedSmart) {
+              setSearchSteps([{ label: 'Results loaded from cache', status: 'done', detail: 'Instant' }]);
               const isCachedGeneral = cachedSmart.type === 'general';
               if (isCachedGeneral && cachedSmart.answer) {
                 const totalSecs = cachedSmart.fetchTimeMs ? (cachedSmart.fetchTimeMs / 1000).toFixed(1) : undefined;
@@ -1836,6 +1881,7 @@ export default function ReadPage() {
     setInput('');
     setErrorMsg('');
     setLoadingMessage(undefined);
+    setSearchSteps([]);
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
@@ -1949,6 +1995,29 @@ export default function ReadPage() {
                 Clear
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Live browsing progress steps */}
+        {(isLoading || isSuccess) && searchSteps.length > 0 && (
+          <div className="w-full max-w-2xl mx-auto mt-4 mb-0 space-y-1.5">
+            {searchSteps.map((step, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs animate-float-up">
+                {step.status === 'loading' ? (
+                  <div className="animate-spin h-3.5 w-3.5 border-2 border-zinc-600 border-t-indigo-400 rounded-full shrink-0" />
+                ) : step.status === 'done' ? (
+                  <span className="text-emerald-400 shrink-0">✓</span>
+                ) : (
+                  <span className="text-red-400 shrink-0">✗</span>
+                )}
+                <span className={step.status === 'loading' ? 'text-zinc-300' : 'text-zinc-500'}>
+                  {step.label}
+                </span>
+                {step.detail && (
+                  <span className="text-zinc-600 ml-1">— {step.detail}</span>
+                )}
+              </div>
+            ))}
           </div>
         )}
 

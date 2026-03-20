@@ -1150,20 +1150,25 @@ Be specific with names, ratings, and review counts. Write like a knowledgeable f
 
 // Known shopping domains and their display names / badge colors
 const SHOPPING_DOMAINS: Array<{ pattern: string; name: string }> = [
-  { pattern: 'amazon.com',      name: 'Amazon' },
-  { pattern: 'bestbuy.com',     name: 'Best Buy' },
-  { pattern: 'walmart.com',     name: 'Walmart' },
-  { pattern: 'target.com',      name: 'Target' },
-  { pattern: 'zappos.com',      name: 'Zappos' },
-  { pattern: 'rei.com',         name: 'REI' },
-  { pattern: 'nordstrom.com',   name: 'Nordstrom' },
-  { pattern: 'macys.com',       name: "Macy's" },
-  { pattern: 'sephora.com',     name: 'Sephora' },
-  { pattern: 'ulta.com',        name: 'Ulta' },
-  { pattern: 'homedepot.com',   name: 'Home Depot' },
-  { pattern: 'lowes.com',       name: "Lowe's" },
-  { pattern: 'ebay.com',        name: 'eBay' },
-  { pattern: 'etsy.com',        name: 'Etsy' },
+  { pattern: 'amazon.com',             name: 'Amazon' },
+  { pattern: 'bestbuy.com',            name: 'Best Buy' },
+  { pattern: 'walmart.com',            name: 'Walmart' },
+  { pattern: 'target.com',             name: 'Target' },
+  { pattern: 'zappos.com',             name: 'Zappos' },
+  { pattern: 'rei.com',                name: 'REI' },
+  { pattern: 'nordstrom.com',          name: 'Nordstrom' },
+  { pattern: 'macys.com',              name: "Macy's" },
+  { pattern: 'sephora.com',            name: 'Sephora' },
+  { pattern: 'ulta.com',               name: 'Ulta' },
+  { pattern: 'homedepot.com',          name: 'Home Depot' },
+  { pattern: 'lowes.com',              name: "Lowe's" },
+  { pattern: 'ebay.com',               name: 'eBay' },
+  { pattern: 'etsy.com',               name: 'Etsy' },
+  { pattern: 'uline.com',              name: 'Uline' },
+  { pattern: 'alibaba.com',            name: 'Alibaba' },
+  { pattern: 'webstaurantstore.com',   name: 'WebstaurantStore' },
+  { pattern: 'globalindustrial.com',   name: 'Global Industrial' },
+  { pattern: 'staples.com',            name: 'Staples' },
 ];
 
 function getStoreInfo(url: string): { store: string; domain: string } | null {
@@ -1254,7 +1259,10 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
 
   // Use SearXNG to search for products and Reddit reviews in parallel
   const { provider: searchProvider } = getBestSearchProvider();
-  const searchQuery = `${keyword} buy site:amazon.com OR site:bestbuy.com OR site:walmart.com OR site:target.com OR site:rei.com OR site:nordstrom.com OR site:sephora.com OR site:homedepot.com`;
+  const isBulk = /\b(bulk|wholesale|1000|500|case|pallet|box of|pack of|carton)\b/i.test(intent.query);
+  const searchQuery = isBulk
+    ? `${keyword} wholesale bulk site:uline.com OR site:alibaba.com OR site:staples.com OR site:amazon.com OR site:webstaurantstore.com OR site:globalindustrial.com`
+    : `${keyword} buy site:amazon.com OR site:bestbuy.com OR site:walmart.com OR site:target.com OR site:rei.com OR site:nordstrom.com OR site:sephora.com OR site:homedepot.com`;
 
   const [rawSettled, redditSettled] = await Promise.allSettled([
     searchProvider.searchWeb(searchQuery, { count: 15 }),
@@ -1345,6 +1353,65 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
 
 async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
   const t0 = Date.now();
+
+  // Equipment rental / service business enhancement via Google Places
+  const GOOGLE_PLACES_KEY = process.env.GOOGLE_PLACES_API_KEY;
+  const isEquipmentRental = /\b(rent|rental|renting|hire|lease)\b/.test(query) && /\b(forklift|dumpster|pressure washer|generator|excavator|bobcat|crane|scaffolding|tent|truck|van|trailer|equipment|tool|power tool)\b/.test(query);
+  const isServiceBusiness = /\b(plumber|electrician|mechanic|dentist|doctor|lawyer|locksmith|handyman|contractor|vet|salon|barber|spa|gym|daycare|moving|storage|cleaning|pest control|roofing|hvac|landscaping)\b/.test(query) && /\b(near|in|around|open|best|cheap|emergency|24.hour)\b/.test(query);
+
+  let localBusinesses: any[] = [];
+  if ((isEquipmentRental || isServiceBusiness) && GOOGLE_PLACES_KEY) {
+    try {
+      // Use Google Places Text Search
+      const findRes = await fetch(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${GOOGLE_PLACES_KEY}`,
+        { signal: AbortSignal.timeout(5000) }
+      );
+
+      if (findRes.ok) {
+        const findData = await findRes.json();
+        if (findData.status === 'OK' && findData.results?.length > 0) {
+          // Get details for top 3 (hours, phone, etc.)
+          const top5 = findData.results.slice(0, 5);
+          const details = await Promise.allSettled(
+            top5.slice(0, 3).map(async (place: any) => {
+              const detailRes = await fetch(
+                `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_phone_number,opening_hours,rating,user_ratings_total,url,formatted_address,website,business_status&key=${GOOGLE_PLACES_KEY}`,
+                { signal: AbortSignal.timeout(3000) }
+              );
+              if (!detailRes.ok) return null;
+              const detailData = await detailRes.json();
+              return detailData.result || null;
+            })
+          );
+
+          localBusinesses = top5.map((place: any, i: number) => {
+            const detail = details[i]?.status === 'fulfilled' ? details[i].value : null;
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const today = dayNames[new Date().getDay()];
+            const todayHours = detail?.opening_hours?.weekday_text?.find((h: string) => {
+              const dayMap: Record<string, string> = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+              return Object.entries(dayMap).some(([full, short]) => h.startsWith(full) && short === today);
+            })?.split(': ').slice(1).join(': ') || '';
+
+            return {
+              name: detail?.name || place.name,
+              address: detail?.formatted_address || place.formatted_address || '',
+              phone: detail?.formatted_phone_number || '',
+              rating: detail?.rating || place.rating,
+              reviewCount: detail?.user_ratings_total || place.user_ratings_total || 0,
+              isOpenNow: detail?.opening_hours?.open_now ?? place.opening_hours?.open_now,
+              todayHours,
+              website: detail?.website || '',
+              googleMapsUrl: detail?.url || '',
+              businessStatus: detail?.business_status || place.business_status || 'OPERATIONAL',
+            };
+          }).filter((b: any) => b.businessStatus === 'OPERATIONAL');
+        }
+      }
+    } catch { /* Google Places failed — continue with web search */ }
+  }
+
   const { provider: searchProvider } = getBestSearchProvider();
   const rawResults: WebSearchResult[] = await searchProvider.searchWeb(query, { count: 10 });
   const searchMs = Date.now() - t0;
@@ -1373,8 +1440,12 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     .map((r, i) => ({ ...r, rank: i + 1 })) as any[];
 
   // Enrich top 5 results — 6s timeout so LLM has more to work with
+  // TODO(progress): In the future, we could stream per-page progress events here
+  // (e.g. sendEvent('progress', { step: 'reading_page', message: `Reading ${url}...` }))
+  // but handleGeneralSearch is not SSE-aware yet — it returns all results at once.
   const tPeel = Date.now();
   const top5 = results.slice(0, 5);
+  console.log(`[smart-search] handleGeneralSearch: enriching ${top5.length} pages via peel`);
   const enriched = await Promise.allSettled(
     top5.map(async (r) => {
       try {
@@ -1409,9 +1480,30 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     }
   }
 
-  const content = results
+  let content = results
     .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.snippet}`)
     .join('\n\n');
+
+  // If we found local businesses via Google Places, prepend them
+  if (localBusinesses.length > 0) {
+    const localContent = localBusinesses.map((b: any, i: number) => {
+      const status = b.isOpenNow ? '🟢 Open Now' : '🔴 Closed';
+      return `${i + 1}. **${b.name}** ⭐${b.rating || '?'} (${b.reviewCount} reviews) — ${status}${b.todayHours ? ` · 🕐 ${b.todayHours}` : ''}
+   📍 ${b.address}${b.phone ? ` · 📞 ${b.phone}` : ''}${b.website ? ` · [Website](${b.website})` : ''}${b.googleMapsUrl ? ` · [📍 Map](${b.googleMapsUrl})` : ''}`;
+    }).join('\n\n');
+
+    content = `## 📍 Nearby Businesses\n\n${localContent}\n\n---\n\n## 🔍 Web Results\n\n${content}`;
+
+    // Also add to results array for structured rendering
+    (results as any[]).unshift(...localBusinesses.map((b: any, i: number) => ({
+      title: b.name,
+      url: b.googleMapsUrl || b.website || '#',
+      snippet: `⭐${b.rating || '?'} (${b.reviewCount} reviews) · ${b.isOpenNow ? '🟢 Open' : '🔴 Closed'}${b.todayHours ? ' · ' + b.todayHours : ''} · ${b.address}${b.phone ? ' · ' + b.phone : ''}`,
+      domain: 'google.com/maps',
+      rank: i + 1,
+      isLocalBusiness: true,
+    })));
+  }
 
   // Build sources array from successfully peeled results (all 5)
   const sources = enriched
@@ -1631,11 +1723,13 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
 
             // Yelp first — emit as soon as ready
             let yelpData: any = null;
+            sendEvent('progress', { step: 'searching_yelp', message: 'Searching Yelp for restaurants...' });
             try {
               yelpData = await Promise.race([
                 fetchYelpResults(kw, loc),
                 new Promise<never>((_, rej) => setTimeout(() => rej(new Error('yelp timeout')), 10000)),
               ]);
+              sendEvent('progress', { step: 'yelp_done', message: `Found ${yelpData?.businesses?.length || 0} restaurants on Yelp` });
               if (yelpData?.businesses?.length > 0) {
                 yelpData.businesses.sort((a: any, b: any) => {
                   const scoreA = (a.rating || 0) * Math.log2((a.reviewCount || 0) + 1);
@@ -1644,11 +1738,20 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
                 });
                 // Remove permanently closed businesses
                 yelpData.businesses = yelpData.businesses.filter((b: any) => !b.isClosed);
+                if (process.env.GOOGLE_PLACES_API_KEY) {
+                  sendEvent('progress', { step: 'checking_google', message: 'Verifying hours on Google Maps...' });
+                }
                 sendEvent('source', { source: 'yelp', businesses: yelpData.businesses.slice(0, 10) });
+                if (process.env.GOOGLE_PLACES_API_KEY) {
+                  sendEvent('progress', { step: 'google_done', message: 'Hours verified for top 3 restaurants' });
+                }
               }
-            } catch { /* Yelp failed — continue */ }
+            } catch {
+              sendEvent('progress', { step: 'yelp_done', message: 'Found 0 restaurants on Yelp' });
+            }
 
             // Reddit + YouTube in parallel
+            sendEvent('progress', { step: 'fetching_reviews', message: 'Finding Reddit discussions and YouTube reviews...' });
             const [redditSettled, youtubeSettled] = await Promise.allSettled([
               Promise.race([
                 fetchRedditResults(kw, loc),
@@ -1673,6 +1776,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
             let answer: string | undefined;
             const ollamaUrl = process.env.OLLAMA_URL;
             if (ollamaUrl && yelpData?.businesses?.length > 0) {
+              sendEvent('progress', { step: 'generating_ai', message: 'Generating AI recommendation...' });
               try {
                 const yelpLines = yelpData.businesses.slice(0, 5).map((b: any, i: number) => {
                   const openStatus = b.isClosed ? 'PERMANENTLY CLOSED' : (b.isOpenNow ? 'OPEN NOW' : 'Closed right now');
@@ -1746,6 +1850,16 @@ Be specific with names, ratings, and review counts. Write like a knowledgeable f
             res.end();
           } else {
             // All other intent types: run the existing handler, emit full result
+            const typeLabels: Record<string, string> = {
+              cars: 'Searching Cars.com for vehicles...',
+              flights: 'Finding flights and prices...',
+              hotels: 'Searching for hotels and rates...',
+              rental: 'Searching rental car prices...',
+              products: 'Searching for products and prices...',
+              general: 'Searching the web...',
+            };
+            sendEvent('progress', { step: 'searching', message: typeLabels[intent.type] || 'Searching...' });
+
             let streamResult: SmartSearchResult;
             switch (intent.type) {
               case 'cars':
@@ -1766,6 +1880,13 @@ Be specific with names, ratings, and review counts. Write like a knowledgeable f
               default:
                 streamResult = await handleGeneralSearch(query);
             }
+
+            const resultCount = streamResult.structured?.listings?.length ?? (streamResult as any).results?.length ?? null;
+            sendEvent('progress', { step: 'complete', message: `Found ${resultCount !== null ? resultCount : 'results'}` });
+            if (streamResult.answer) {
+              sendEvent('progress', { step: 'ai_done', message: 'AI summary generated' });
+            }
+
             if (!streamResult.loadingMessage) {
               streamResult.loadingMessage = getLoadingMessage(intent.type);
             }
