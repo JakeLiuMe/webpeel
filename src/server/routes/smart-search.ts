@@ -328,18 +328,15 @@ async function handleCarSearch(intent: SearchIntent): Promise<SmartSearchResult>
 
   const carSearchUrl = `https://www.cars.com/shopping/results/?${params.toString()}`;
 
-  // Run Cars.com peel and Reddit search in parallel
+  // Run Cars.com peel (10s cap) and Reddit search in parallel.
+  // Cars.com peel can take 25s+ with Playwright — abort at 10s and use web search fallback.
   const [carsSettled, redditSettled] = await Promise.allSettled([
-    peel(carSearchUrl, { timeout: 25000 }),
+    peel(carSearchUrl, { timeout: 10000 }),
     getBestSearchProvider().provider.searchWeb(`${keyword} reddit review reliable problems`, { count: 5 }),
   ]);
 
-  if (carsSettled.status === 'rejected') {
-    throw new Error(`Cars.com search failed: ${(carsSettled.reason as Error)?.message}`);
-  }
-
-  const result = carsSettled.value;
-  let carListings: any[] = result.domainData?.structured?.listings || [];
+  const result = carsSettled.status === 'fulfilled' ? carsSettled.value : null;
+  let carListings: any[] = result?.domainData?.structured?.listings || [];
   const redditResults = redditSettled.status === 'fulfilled' ? redditSettled.value : [];
 
   // Fallback: if Cars.com extraction failed, search for car listings via web search
@@ -380,17 +377,17 @@ async function handleCarSearch(intent: SearchIntent): Promise<SmartSearchResult>
     ? `# 🚗 Cars — ${intent.query}\n\n${carListings.map((l: any, i: number) =>
         `${i + 1}. **${l.title || l.name}** — ${l.price || 'see price'}${l.mileage ? ` · ${String(l.mileage).replace(/\s*mi$/i, '')} mi` : ''}\n   ${l.snippet || ''}`
       ).join('\n\n')}`
-    : result.content;
+    : (result?.content || `# 🚗 Cars — ${intent.query}\n\nNo listings found. Try a different search.`);
 
   return {
     type: 'cars',
     source: 'Cars.com + Reddit',
     sourceUrl: carSearchUrl,
     content,
-    title: result.title,
-    domainData: result.domainData,
-    structured: result.domainData?.structured,
-    tokens: result.tokens,
+    title: result?.title || `Cars — ${intent.query}`,
+    domainData: result?.domainData,
+    structured: result?.domainData?.structured,
+    tokens: result?.tokens || content.split(/\s+/).length,
     fetchTimeMs: Date.now() - t0,
     ...(answer !== undefined ? { answer } : {}),
     sources: [
@@ -767,26 +764,46 @@ async function fetchRedditResults(keyword: string, location: string) {
   if (results.length === 0) {
     return { source: 'reddit' as const, thread: null, otherThreads: [] };
   }
+
+  // Try to get top thread content via Reddit JSON API (200ms) — NEVER use browser peel (15s+).
+  // Reddit blocks headless browsers with 403, triggering expensive Playwright fallback.
   const topThread = results[0];
+  let threadContent: string | null = null;
+
   try {
-    const peeled = await peel(topThread.url, { timeout: 5000 });
-    return {
-      source: 'reddit' as const,
-      thread: {
-        title: topThread.title,
-        url: topThread.url,
-        content: peeled.content?.substring(0, 1000),
-        structured: peeled.domainData?.structured,
-      },
-      otherThreads: results.slice(1).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })),
-    };
+    // Reddit JSON API: append .json to any thread URL
+    const jsonUrl = topThread.url.replace(/\/?$/, '.json') + '?limit=10&sort=top';
+    const res = await fetch(jsonUrl, {
+      headers: { 'User-Agent': 'WebPeel/0.21 (+https://webpeel.dev/bot)' },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Extract OP post text
+      const op = data?.[0]?.data?.children?.[0]?.data;
+      const opText = op?.selftext?.substring(0, 500) || '';
+      // Extract top 3 comments
+      const comments = (data?.[1]?.data?.children || [])
+        .filter((c: any) => c.data?.body && c.data.score > 1)
+        .slice(0, 3)
+        .map((c: any) => c.data.body.substring(0, 200))
+        .join('\n\n');
+      threadContent = `${opText}\n\nTop comments:\n${comments}`.trim();
+    }
   } catch {
-    return {
-      source: 'reddit' as const,
-      thread: null,
-      otherThreads: results.map(r => ({ title: r.title, url: r.url, snippet: r.snippet })),
-    };
+    // JSON API failed (rate limit, etc.) — use snippet from search results instead
   }
+
+  return {
+    source: 'reddit' as const,
+    thread: {
+      title: topThread.title,
+      url: topThread.url,
+      content: threadContent || topThread.snippet || null,
+      structured: null,
+    },
+    otherThreads: results.slice(1).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })),
+  };
 }
 
 async function fetchYouTubeResults(keyword: string, location: string) {
@@ -1176,7 +1193,7 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
   const enriched = await Promise.allSettled(
     top5.map(async (r) => {
       try {
-        const peeled = await peel(r.url, { timeout: 6000, maxTokens: 2000 });
+        const peeled = await peel(r.url, { timeout: 4000, maxTokens: 2000 });
         return {
           url: r.url,
           content: peeled.content?.substring(0, 2000),
