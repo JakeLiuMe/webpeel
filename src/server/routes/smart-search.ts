@@ -195,9 +195,33 @@ export function detectSearchIntent(query: string): SearchIntent {
     return { type: 'restaurants', query: q, params: { location } };
   }
 
-  // Products: shopping intent + product category keywords
+  // Comparison queries: "compare X vs Y", "X vs Y", "X or Y which is better" → general (not products)
+  if (/\b(compare|vs\.?|versus|which is better|difference between)\b/.test(q)) {
+    return { type: 'general', query: q, params: {} };
+  }
+
+  // Local/physical queries: "where to buy X near Y", "is X open", "X near me" → general (not products)
+  // These need local search, not online shopping results
   if (
-    /\b(buy|shop|shopping|purchase|order|cheap|cheapest|best price|under \$|price|deal|discount|sale)\b/.test(q) ||
+    (/\b(near me|near\s+\w+|open now|open today|open on|what time|is .* open|hours|closest|nearest)\b/.test(q)) &&
+    (/\b(buy|where|store|shop)\b/.test(q) || /\b(near|close to|around)\b/.test(q))
+  ) {
+    return { type: 'general', query: q, params: {} };
+  }
+
+  // Service queries: "plumber", "dentist", "mechanic" + location → general (business search)
+  if (
+    /\b(plumber|electrician|mechanic|dentist|doctor|lawyer|accountant|therapist|tutor|cleaner|locksmith|handyman|contractor|vet|veterinarian|salon|barber|spa|gym|daycare|moving|storage)\b/.test(q) &&
+    /\b(near|in|around|open|best|cheap|emergency|24.hour)\b/.test(q)
+  ) {
+    return { type: 'general', query: q, params: {} };
+  }
+
+  // Products: shopping intent + product category keywords
+  // Only for actual ONLINE shopping — not "buy coke near times square"
+  if (
+    (/\b(buy|shop|shopping|purchase|order|cheap|cheapest|best price|under \$|price|deal|discount|sale)\b/.test(q) &&
+     !/\b(near|near me|close to|around|open|store|where)\b/.test(q)) ||  // exclude local queries
     /\b(shoes|sneakers|boots|sandals|heels|loafers|watch|watches|headphones|earbuds|earphones|laptop|laptops|phone|phones|iphone|android|tablet|camera|skincare|face wash|facewash|moisturizer|serum|shampoo|conditioner|sunscreen|sunblock|backpack|bag|jacket|hoodie|shirt|pants|jeans|shorts|dress|coat|glasses|sunglasses|keyboard|mouse|monitor|charger|cable|speaker|bluetooth|tv|television|mattress|pillow|sheets|towel|desk|chair|lamp|wallet|purse|handbag|belt|socks|underwear|perfume|cologne|makeup|lipstick|foundation|mascara|blush|toner)\b/.test(q)
   ) {
     return { type: 'products', query: q, params: {} };
