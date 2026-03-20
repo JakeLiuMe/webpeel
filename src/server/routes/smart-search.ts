@@ -186,7 +186,7 @@ export function detectSearchIntent(query: string): SearchIntent {
 
   // Restaurants: food/dining/cuisine + location/quality signal
   if (
-    /\b(restaurant|restaurants|food|eat|eating|dinner|lunch|pizza|sushi|burger|burgers|cafe|bar|bars|bistro|brunch|breakfast|ramen|tacos|taco|thai|chinese|italian|mexican|indian|korean|japanese|vietnamese|pho|bbq|barbecue|wings|noodles|steak|steakhouse|seafood|diner|bakery|dessert|ice cream|coffeeshop|coffee shop|pub|gastropub|buffet|deli|dim sum|curry|shawarma|falafel|gyro|bagel|donut|doughnut|waffle|pancake|oyster|lobster|crab|clam|fish)\b/.test(q) &&
+    /\b(restaurant|restaurants|food|eat|eats|eating|foodie|eatery|cuisine|dine|dining|dinner|lunch|pizza|sushi|burger|burgers|cafe|bar|bars|bistro|brunch|breakfast|ramen|tacos|taco|thai|chinese|italian|mexican|indian|korean|japanese|vietnamese|pho|bbq|barbecue|wings|noodles|steak|steakhouse|seafood|diner|bakery|dessert|ice cream|coffeeshop|coffee shop|pub|gastropub|buffet|deli|dim sum|curry|shawarma|falafel|gyro|bagel|donut|doughnut|waffle|pancake|oyster|lobster|crab|clam|fish)\b/.test(q) &&
     /\b(in|near|best|top|good|cheap|affordable|around|nearby)\b/.test(q)
   ) {
     // Try to extract location from query: "best X in [location]"
