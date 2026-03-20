@@ -576,9 +576,12 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
         .filter(Boolean)
         .join('\n\n---\n\n');
 
-      const systemPrompt = `You answer search queries using source content. Be specific: include real names, addresses, phone numbers, prices, hours from the sources. Use markdown bold and bullet points. Cite with [1], [2]. Add a 💡 Tip at the end if relevant. Be concise (150-250 words). Don't make up data.`;
+      // Keep prompt short — Qwen 1.7B takes ~2ms/token, 200 tokens = ~4s on 1 CPU
+      const systemPrompt = `Answer the query using these sources. Be specific with names/addresses/prices. Bold key facts. Cite [1][2]. Max 120 words.`;
 
-      const userMessage = `Query: ${query}\n\nSources:\n\n${sourceContent}`;
+      // Truncate source content to 800 chars total to keep prompt fast
+      const truncatedSources = sourceContent.substring(0, 800);
+      const userMessage = `Query: ${query}\n\nSources:\n${truncatedSources}`;
 
       const tLlm = Date.now();
 
@@ -598,7 +601,7 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
             prompt: `${systemPrompt}\n\n${userMessage}`,
             stream: false,
             think: false,
-            options: { num_predict: 200, temperature: 0.3 },
+            options: { num_predict: 150, temperature: 0.3 },
           });
 
           const urlObj = new URL(`${ollamaEndpoint}/api/generate`);
