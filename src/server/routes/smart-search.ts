@@ -990,7 +990,7 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
 - Practical tips (delivery/pickup, price range, best time to visit)
 Be specific with names, ratings, and review counts. Write like a knowledgeable friend, not a database. Max 200 words.`;
       const userMessage = `Query: ${intent.query}\n\nTop restaurants:\n${yelpLines}${redditHint ? '\n\nReddit mentions: ' + redditHint : ''}`;
-      const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 250, timeoutMs: 25000, temperature: 0.3 });
+      const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 150, timeoutMs: 30000, temperature: 0.3 });
       if (text) answer = text;
     } catch (err) {
       console.warn('[restaurant-search] LLM synthesis failed (graceful fallback):', (err as Error).message);
@@ -1540,7 +1540,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
 - Practical tips (delivery/pickup, price range, best time to visit)
 Be specific with names, ratings, and review counts. Write like a knowledgeable friend, not a database. Max 200 words.`;
                 const userMessage = `Query: ${intent.query}\n\nTop restaurants:\n${yelpLines}${redditHint ? '\n\nReddit mentions: ' + redditHint : ''}`;
-                const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 250, timeoutMs: 25000, temperature: 0.3 });
+                const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 150, timeoutMs: 30000, temperature: 0.3 });
                 if (text) answer = text;
               } catch { /* LLM failure — no answer */ }
             }
