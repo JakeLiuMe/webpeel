@@ -14,17 +14,55 @@ echo "  Expected version: $EXPECTED_VER"
 echo "═══════════════════════════════════════════════"
 echo ""
 
-# Helper function
+if [ -z "$API_KEY" ]; then
+  echo "  ⚠️  No API key found at ~/.webpeel/config.json"
+  echo "  Endpoint tests will fail without auth."
+  echo ""
+fi
+
+# Poll a job until completed/failed (max 30s)
+poll_job() {
+  local poll_url="$1"
+  local max_wait=30
+  local elapsed=0
+  while [ "$elapsed" -lt "$max_wait" ]; do
+    local resp=$(curl -s --max-time 10 "${API_URL}${poll_url}" -H "Authorization: Bearer $API_KEY" 2>/dev/null)
+    local status=$(echo "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','?'))" 2>/dev/null)
+    if [ "$status" = "completed" ]; then
+      echo "$resp" | python3 -c "import sys,json; d=json.load(sys.stdin); print(json.dumps(d.get('result', d)))" 2>/dev/null
+      return 0
+    elif [ "$status" = "failed" ]; then
+      echo '{"error":"job_failed"}'
+      return 1
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+  done
+  echo '{"error":"timeout"}'
+  return 1
+}
+
+# Fetch via API — handles both sync and async (job queue) responses
+fetch_url() {
+  local url="$1"
+  local initial=$(curl -s --max-time 15 "$API_URL/v1/fetch?url=$url" \
+    -H "Authorization: Bearer $API_KEY" 2>/dev/null)
+  local poll_url=$(echo "$initial" | python3 -c "import sys,json; print(json.load(sys.stdin).get('pollUrl',''))" 2>/dev/null)
+
+  if [ -n "$poll_url" ] && [ "$poll_url" != "" ]; then
+    poll_job "$poll_url"
+  else
+    echo "$initial"
+  fi
+}
+
+# Check helper
 check() {
   local label="$1"
-  local expected_method="$2"
-  local min_words="$3"
-  local url="$4"
+  local min_words="$2"
+  local url="$3"
 
-  local result=$(curl -s --max-time 15 "$API_URL/v1/fetch" \
-    -H "Authorization: Bearer $API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"url\":\"$url\"}" 2>/dev/null)
+  local result=$(fetch_url "$url")
 
   local method=$(echo "$result" | node -e "try{console.log(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).method||'?')}catch{console.log('ERR')}" 2>/dev/null)
   local words=$(echo "$result" | node -e "try{const r=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(r.content?.trim().split(/\s+/).length||0)}catch{console.log(0)}" 2>/dev/null)
@@ -59,14 +97,14 @@ echo ""
 
 # Endpoint tests
 echo "▶ Endpoint Tests"
-check "example.com"     "simple"     10  "https://example.com"
-check "github/react"    "domain-api" 20  "https://github.com/facebook/react"
-check "wikipedia/dog"   "any"        100 "https://en.wikipedia.org/wiki/Dog"
-check "npm/express"     "any"        50  "https://www.npmjs.com/package/express"
-check "hackernews"      "domain-api" 100 "https://news.ycombinator.com"
-check "arxiv"           "domain-api" 50  "https://arxiv.org/abs/2501.00001"
-check "pypi/requests"   "any"        50  "https://pypi.org/project/requests/"
-check "youtube"         "any"        50  "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+check "example.com"     10  "https://example.com"
+check "github/react"    20  "https://github.com/facebook/react"
+check "wikipedia/dog"   100 "https://en.wikipedia.org/wiki/Dog"
+check "npm/express"     50  "https://www.npmjs.com/package/express"
+check "hackernews"      100 "https://news.ycombinator.com"
+check "arxiv"           50  "https://arxiv.org/abs/2501.00001"
+check "pypi/requests"   50  "https://pypi.org/project/requests/"
+check "youtube"         50  "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 echo ""
 
 # Search test
