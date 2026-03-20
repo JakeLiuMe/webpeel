@@ -94,6 +94,28 @@ export interface SmartSearchResult {
 
 // ─── Intent Detection ──────────────────────────────────────────────────────
 
+const METRO_ZIPS: Record<string, string> = {
+  'new york': '10001', 'nyc': '10001', 'manhattan': '10001',
+  'brooklyn': '11201', 'queens': '11101', 'bronx': '10451',
+  'long island': '11501', 'nassau': '11501', 'suffolk': '11701',
+  'jersey city': '07302', 'newark': '07102',
+  'los angeles': '90001', 'la': '90001',
+  'chicago': '60601', 'houston': '77001', 'phoenix': '85001',
+  'philadelphia': '19101', 'san antonio': '78201',
+  'san diego': '92101', 'dallas': '75201', 'austin': '78701',
+  'miami': '33101', 'atlanta': '30301', 'boston': '02101',
+  'seattle': '98101', 'denver': '80201', 'portland': '97201',
+  'las vegas': '89101', 'detroit': '48201', 'minneapolis': '55401',
+  'san francisco': '94101', 'sf': '94101', 'bay area': '94101',
+  'washington dc': '20001', 'dc': '20001',
+  'tampa': '33601', 'orlando': '32801', 'charlotte': '28201',
+  'san jose': '95101', 'columbus': '43201', 'indianapolis': '46201',
+  'nashville': '37201', 'memphis': '38101', 'baltimore': '21201',
+  'milwaukee': '53201', 'sacramento': '95801', 'pittsburgh': '15201',
+  'st louis': '63101', 'kansas city': '64101', 'cleveland': '44101',
+  'raleigh': '27601', 'salt lake city': '84101',
+};
+
 export function detectSearchIntent(query: string): SearchIntent {
   const q = query.toLowerCase();
 
@@ -110,19 +132,38 @@ export function detectSearchIntent(query: string): SearchIntent {
   // Cars: vehicle name/type + buying signals
   if (
     /\b(car|cars|vehicle|sedan|suv|truck|honda|toyota|tesla|bmw|ford|chevy|chevrolet|nissan|hyundai|kia|mazda|subaru|lexus|audi|mercedes|volkswagen|jeep|dodge|ram|buick|cadillac|gmc|chrysler|acura|infiniti|volvo|porsche|mini|fiat|mitsubishi)\b/.test(q) &&
-    /\b(buy|cheap|under|budget|price|used|new|for sale|listing|deal)\b/.test(q)
+    /\b(buy|cheap|cheapest|under|budget|price|used|new|for sale|listing|deal)\b/.test(q)
   ) {
     const priceMatch = q.match(/(?:under|\$|budget|max)\s*\$?(\d[\d,]*)/);
     const priceValue = priceMatch ? priceMatch[1].replace(/,/g, '') : '';
-    // Find all 5-digit numbers, pick the one that isn't the price
-    const allZips = [...q.matchAll(/\b(\d{5})\b/g)].map(m => m[1]);
-    const finalZip = allZips.find(z => z !== priceValue) || '10001';
+    // Extract location: "in <location>" or "near <location>"
+    const locMatch = q.match(/\b(?:in|near|around)\s+([a-z\s]+?)(?:\s+(?:under|below|for|cheap|budget|\$).*)?$/i);
+    const locationText = locMatch ? locMatch[1].trim() : '';
+    // Map location to zip
+    let zip = '';
+    if (locationText) {
+      // Try exact match first, then partial
+      zip = METRO_ZIPS[locationText] || '';
+      if (!zip) {
+        for (const [metro, z] of Object.entries(METRO_ZIPS)) {
+          if (locationText.includes(metro) || metro.includes(locationText)) {
+            zip = z;
+            break;
+          }
+        }
+      }
+    }
+    // Fall back to any 5-digit zip in the query
+    if (!zip) {
+      const allZips = [...q.matchAll(/\b(\d{5})\b/g)].map(m => m[1]);
+      zip = allZips.find(z => z !== priceValue) || '10001';
+    }
     return {
       type: 'cars',
       query: q,
       params: {
         maxPrice: priceValue,
-        zip: finalZip,
+        zip,
       },
     };
   }
@@ -266,10 +307,13 @@ Category:`;
 async function handleCarSearch(intent: SearchIntent): Promise<SmartSearchResult> {
   const t0 = Date.now();
   // Build a clean keyword: strip buying signals, price amounts, and common noise words
+  // NOTE: keep "car"/"cars" — they're needed for Cars.com search!
   const keyword = intent.query
-    .replace(/\b(buy|cheap|under|budget|price|used|new|for sale|listing|deal|car|cars|best|good|find|search|looking for|want|need)\b/gi, '')
+    .replace(/\b(buy|cheap|cheapest|under|budget|price|used|new|for sale|listing|deal|best|good|find|search|looking for|want|need|in|near|around)\b/gi, '')
     .replace(/[$]\d[\d,]*/g, '')             // strip $30000, $30,000 etc.
     .replace(/\b\d{4,}\b/g, '')              // strip standalone 4+ digit numbers (prices, not model years)
+    // Remove location words that were already extracted to zip
+    .replace(/\b(long island|nassau|suffolk|manhattan|brooklyn|queens|bronx|nyc|new york|los angeles|chicago|houston|miami|boston|seattle|san francisco|washington dc)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -295,19 +339,60 @@ async function handleCarSearch(intent: SearchIntent): Promise<SmartSearchResult>
   }
 
   const result = carsSettled.value;
-  const carListings: any[] = result.domainData?.structured?.listings || [];
+  let carListings: any[] = result.domainData?.structured?.listings || [];
   const redditResults = redditSettled.status === 'fulfilled' ? redditSettled.value : [];
+
+  // Fallback: if Cars.com extraction failed, search for car listings via web search
+  if (carListings.length === 0) {
+    const { provider } = getBestSearchProvider();
+    const fallbackQuery = `${keyword || 'car'} for sale ${intent.params.zip ? `near ${intent.params.zip}` : ''} ${intent.params.maxPrice ? `under $${intent.params.maxPrice}` : ''} site:cars.com OR site:autotrader.com OR site:cargurus.com OR site:carfax.com`;
+    const searchResults = await provider.searchWeb(fallbackQuery, { count: 10 });
+
+    // Build listings from search results
+    carListings = searchResults
+      .filter(r => r.url && r.title)
+      .map(r => {
+        const price = parsePrice(r.title + ' ' + (r.snippet || ''));
+        return {
+          title: r.title?.replace(/\s*[-|].*$/, '').trim() || 'Car Listing',
+          price,
+          url: r.url,
+          snippet: r.snippet || '',
+          source: new URL(r.url).hostname.replace('www.', ''),
+        };
+      })
+      .slice(0, 8);
+  }
+
+  // AI synthesis: summarize top listings + Reddit input
+  let answer: string | undefined;
+  if (process.env.OLLAMA_URL) {
+    const listingSummary = carListings.slice(0, 5).map((l: any) =>
+      `${l.title || l.name || 'Car'}: ${l.price || 'price N/A'}, ${l.mileage || ''} miles`
+    ).join(', ');
+    const redditSnippets = redditResults.slice(0, 2).map(r => r.snippet || '').join(' ');
+    const aiPrompt = `You are a car buying advisor. The user searched: "${intent.query}". Here are the top listings: ${listingSummary || 'no listings found'}. Reddit says: ${redditSnippets || 'no community input'}. Give a 2-3 sentence recommendation about the best value. Mention specific prices and models. Max 80 words.`;
+    const aiText = await callOllamaQuick(aiPrompt, { maxTokens: 120, timeoutMs: 8000, temperature: 0.4 });
+    if (aiText && aiText.length > 20) answer = aiText;
+  }
+
+  const content = carListings.length > 0
+    ? `# 🚗 Cars — ${intent.query}\n\n${carListings.map((l: any, i: number) =>
+        `${i + 1}. **${l.title || l.name}** — ${l.price || 'see price'}${l.mileage ? ` · ${l.mileage} mi` : ''}\n   ${l.snippet || ''}`
+      ).join('\n\n')}`
+    : result.content;
 
   return {
     type: 'cars',
     source: 'Cars.com + Reddit',
     sourceUrl: carSearchUrl,
-    content: result.content,
+    content,
     title: result.title,
     domainData: result.domainData,
     structured: result.domainData?.structured,
     tokens: result.tokens,
     fetchTimeMs: Date.now() - t0,
+    ...(answer !== undefined ? { answer } : {}),
     sources: [
       { type: 'cars', url: carSearchUrl, count: carListings.length } as any,
       { type: 'reddit', threads: redditResults.map(r => ({ title: r.title, url: r.url, snippet: r.snippet })) } as any,
@@ -319,11 +404,25 @@ async function handleFlightSearch(intent: SearchIntent): Promise<SmartSearchResu
   const t0 = Date.now();
   const gfUrl = `https://www.google.com/travel/flights?q=Flights+${encodeURIComponent(intent.query)}+one+way`;
 
-  // Google Flights is an SPA — always returns skeleton HTML. Skip peel entirely.
-  // Go straight to instant fallback with direct booking links.
+  // Search for actual flight prices + Reddit tips in parallel
+  const { provider: searchProvider } = getBestSearchProvider();
+  const [flightSettled, redditSettled] = await Promise.allSettled([
+    searchProvider.searchWeb(`flights ${intent.query} cheapest price`, { count: 8 }),
+    searchProvider.searchWeb(`${intent.query} flights reddit tips cheap`, { count: 3 }),
+  ]);
+  const flightResults = flightSettled.status === 'fulfilled' ? flightSettled.value : [];
+  const redditResults = redditSettled.status === 'fulfilled' ? redditSettled.value : [];
+
+  // Build content from search results + static booking links as fallback
+  const searchSection = flightResults.length > 0
+    ? `## 🔍 Flight Results\n\n${flightResults.slice(0, 6).map((r, i) =>
+        `${i + 1}. **[${r.title}](${r.url})**\n   ${r.snippet || ''}`
+      ).join('\n\n')}\n\n`
+    : '';
+
   const content = `# ✈️ Flights — ${intent.query}
 
-*Search major booking sites for the best deals:*
+${searchSection}## 📌 Book Directly
 
 1. **[Google Flights](${gfUrl})**  
    Direct link to Google Flights search
@@ -343,15 +442,26 @@ async function handleFlightSearch(intent: SearchIntent): Promise<SmartSearchResu
 ---
 `;
 
+  // AI synthesis from search results + Reddit tips
+  let answer: string | undefined;
+  if (process.env.OLLAMA_URL) {
+    const flightInfo = flightResults.slice(0, 5).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
+    const redditSnippets = redditResults.slice(0, 2).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
+    const aiPrompt = `You are a flight booking advisor. The user searched: "${intent.query}". Here are web results about flights: ${flightInfo || 'no results found'}. Reddit tips: ${redditSnippets || 'none'}. Give a 2-3 sentence tip about finding the cheapest flights for this route. Mention booking sites and timing advice. Max 80 words.`;
+    const aiText = await callOllamaQuick(aiPrompt, { maxTokens: 130, timeoutMs: 12000, temperature: 0.4 });
+    if (aiText && aiText.length > 20) answer = aiText;
+  }
+
   return {
     type: 'flights',
     source: 'Flight Search',
     sourceUrl: gfUrl,
     content,
     title: `Flights — ${intent.query}`,
-    structured: { listings: [] },
+    structured: { listings: flightResults.slice(0, 6).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })) },
     tokens: content.split(' ').length,
     fetchTimeMs: Date.now() - t0,
+    ...(answer !== undefined ? { answer } : {}),
   };
 }
 
@@ -359,12 +469,39 @@ async function handleHotelSearch(intent: SearchIntent): Promise<SmartSearchResul
   const t0 = Date.now();
   const ghUrl = `https://www.google.com/travel/hotels?q=${encodeURIComponent(intent.query)}`;
 
-  // Google Hotels is an SPA — always returns skeleton HTML. Skip peel entirely.
-  // Go straight to instant fallback with direct booking links.
-  {
-    const content = `# 🏨 Hotels — ${intent.query}
+  // Search for actual hotel prices + Reddit tips in parallel
+  const { provider: searchProvider } = getBestSearchProvider();
+  const [hotelSettled, redditSettled] = await Promise.allSettled([
+    searchProvider.searchWeb(`hotels ${intent.query} price per night cheapest`, { count: 10 }),
+    searchProvider.searchWeb(`${intent.query} hotel reddit tips best deal`, { count: 3 }),
+  ]);
+  const hotelResults = hotelSettled.status === 'fulfilled' ? hotelSettled.value : [];
+  const redditResults = redditSettled.status === 'fulfilled' ? redditSettled.value : [];
 
-*Search major booking sites:*
+  // Parse prices and sort by price
+  const parsedHotels = hotelResults
+    .map(r => {
+      const textToSearch = `${r.title || ''} ${r.snippet || ''}`;
+      const price = parsePrice(textToSearch);
+      const priceValue = extractPriceValue(price);
+      return { ...r, price, priceValue };
+    })
+    .sort((a, b) => {
+      const aVal = a.priceValue ?? Infinity;
+      const bVal = b.priceValue ?? Infinity;
+      return aVal - bVal;
+    });
+
+  // Build content from search results + static booking links as fallback
+  const searchSection = parsedHotels.length > 0
+    ? `## 🔍 Hotel Results\n\n${parsedHotels.slice(0, 6).map((r, i) =>
+        `${i + 1}. **[${r.title}](${r.url})**${r.price ? ` — ${r.price}/night` : ''}\n   ${r.snippet || ''}`
+      ).join('\n\n')}\n\n`
+    : '';
+
+  const content = `# 🏨 Hotels — ${intent.query}
+
+${searchSection}## 📌 Book Directly
 
 1. **[Booking.com](https://www.booking.com)**  
    Largest selection, competitive prices
@@ -383,17 +520,28 @@ async function handleHotelSearch(intent: SearchIntent): Promise<SmartSearchResul
 
 ---
 `;
-    return {
-      type: 'hotels',
-      source: 'Hotel Search',
-      sourceUrl: ghUrl,
-      content,
-      title: `Hotels — ${intent.query}`,
-      structured: { listings: [] },
-      tokens: content.split(' ').length,
-      fetchTimeMs: Date.now() - t0,
-    };
+
+  // AI synthesis from search results + Reddit tips
+  let answer: string | undefined;
+  if (process.env.OLLAMA_URL) {
+    const hotelInfo = parsedHotels.slice(0, 5).map(r => `${r.title}${r.price ? `: ${r.price}/night` : ''} — ${r.snippet || ''}`).join('\n');
+    const redditSnippets = redditResults.slice(0, 2).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
+    const aiPrompt = `You are a hotel booking advisor. The user searched: "${intent.query}". Here are hotels found: ${hotelInfo || 'no results found'}. Reddit tips: ${redditSnippets || 'none'}. Give a 2-3 sentence recommendation. Mention the best value option and price if available. Max 80 words.`;
+    const aiText = await callOllamaQuick(aiPrompt, { maxTokens: 130, timeoutMs: 12000, temperature: 0.4 });
+    if (aiText && aiText.length > 20) answer = aiText;
   }
+
+  return {
+    type: 'hotels',
+    source: 'Hotel Search',
+    sourceUrl: ghUrl,
+    content,
+    title: `Hotels — ${intent.query}`,
+    structured: { listings: parsedHotels.slice(0, 6).map(r => ({ title: r.title, url: r.url, snippet: r.snippet, price: r.price })) },
+    tokens: content.split(' ').length,
+    fetchTimeMs: Date.now() - t0,
+    ...(answer !== undefined ? { answer } : {}),
+  };
 }
 
 async function handleRentalSearch(intent: SearchIntent): Promise<SmartSearchResult> {
@@ -556,14 +704,53 @@ async function handleRentalSearch(intent: SearchIntent): Promise<SmartSearchResu
 // ─── Restaurant source fetchers ───────────────────────────────────────────
 
 async function fetchYelpResults(keyword: string, location: string) {
+  const YELP_API_KEY = process.env.YELP_API_KEY;
+  if (!YELP_API_KEY) {
+    // Fallback to peel if no API key
+    const url = `https://www.yelp.com/search?find_desc=${encodeURIComponent(keyword)}&find_loc=${encodeURIComponent(location)}`;
+    const result = await peel(url, { timeout: 8000 });
+    return {
+      source: 'yelp' as const,
+      url,
+      businesses: (result.domainData?.structured?.businesses || []) as any[],
+      content: result.content,
+      domainData: result.domainData,
+    };
+  }
+
+  const params = new URLSearchParams({
+    term: keyword || 'restaurants',
+    location: location,
+    sort_by: 'rating',
+    limit: '20',
+  });
+
+  const res = await fetch(`https://api.yelp.com/v3/businesses/search?${params}`, {
+    headers: { 'Authorization': `Bearer ${YELP_API_KEY}` },
+  });
+
+  if (!res.ok) throw new Error(`Yelp API ${res.status}`);
+  const data = await res.json();
+  const businesses = (data.businesses || []).map((b: any) => ({
+    name: b.name,
+    rating: b.rating,
+    reviewCount: b.review_count,
+    address: b.location ? [b.location.address1, b.location.city, b.location.state].filter(Boolean).join(', ') : '',
+    price: b.price || '',
+    categories: (b.categories || []).map((c: any) => c.title).join(', '),
+    url: b.url || '',
+    phone: b.display_phone || '',
+    image_url: b.image_url || '',
+    distance: b.distance,
+  }));
+
   const url = `https://www.yelp.com/search?find_desc=${encodeURIComponent(keyword)}&find_loc=${encodeURIComponent(location)}`;
-  const result = await peel(url, { timeout: 8000 });
   return {
     source: 'yelp' as const,
     url,
-    businesses: (result.domainData?.structured?.businesses || []) as any[],
-    content: result.content,
-    domainData: result.domainData,
+    businesses,
+    content: '',
+    domainData: { structured: { businesses } },
   };
 }
 
@@ -630,6 +817,25 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
   const redditData = redditSettled.status === 'fulfilled' ? redditSettled.value : null;
   const youtubeData = youtubeSettled.status === 'fulfilled' ? youtubeSettled.value : null;
 
+  // Re-rank: composite score = rating * log2(reviewCount + 1)
+  // This naturally surfaces high-rated places with meaningful review volume
+  if (yelpData && yelpData.businesses.length > 0) {
+    yelpData.businesses.sort((a: any, b: any) => {
+      const scoreA = (a.rating || 0) * Math.log2((a.reviewCount || 0) + 1);
+      const scoreB = (b.rating || 0) * Math.log2((b.reviewCount || 0) + 1);
+      return scoreB - scoreA;
+    });
+
+    // For "best" queries, filter to minimum 50 reviews
+    const isBestQuery = /\b(best|top|highest rated)\b/i.test(intent.query);
+    if (isBestQuery) {
+      const filtered = yelpData.businesses.filter((b: any) => (b.reviewCount || 0) >= 50);
+      if (filtered.length >= 3) {
+        yelpData.businesses = filtered;
+      }
+    }
+  }
+
   // ── Build markdown content from all sources ──────────────────────────
   const contentParts: string[] = [];
 
@@ -641,7 +847,7 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
       businesses.slice(0, 10).forEach((b: any, i: number) => {
         const name    = b.name || b.title || 'Unknown';
         const rating  = b.rating  ? `⭐${b.rating}` : '';
-        const reviews = b.reviewCount ? `(${b.reviewCount} reviews)` : '';
+        const reviews = b.reviewCount ? `(${b.reviewCount.toLocaleString()} reviews)` : '';
         const address = b.address || b.location || '';
         const price   = b.price   ? ` · ${b.price}` : '';
         contentParts.push(`${i + 1}. **${name}** ${rating} ${reviews}${price}${address ? ` — ${address}` : ''}`);
@@ -692,7 +898,7 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
 
   if (ollamaUrl && combinedContent.length > 0) {
     try {
-      const systemPrompt = `Synthesize restaurant recommendations from multiple sources. Mention ratings, community opinions, and video reviews. Be specific with names and addresses. Max 150 words.`;
+      const systemPrompt = `Synthesize restaurant recommendations. The results are ranked by a combination of rating and review volume — restaurants with both high ratings AND many reviews rank highest. Mention specific ratings, review counts, and what makes the top picks stand out. Be specific with names. Max 150 words.`;
       const userMessage = `Query: ${intent.query}\n\nSources:\n${combinedContent.substring(0, 1200)}`;
       const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 180, timeoutMs: 20000, temperature: 0.3 });
       if (text) answer = text;
@@ -883,6 +1089,18 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
       ).join('\n\n')}`
     : `# 🛍️ Products — ${keyword}\n\nNo structured listings found. Try a more specific query.`;
 
+  // AI synthesis: recommend best value option
+  let answer: string | undefined;
+  if (process.env.OLLAMA_URL && listings.length > 0) {
+    const productInfo = listings.slice(0, 5).map(l =>
+      `${l.title}: ${l.price || 'N/A'} at ${l.store}${l.rating ? `, ${l.rating}★` : ''}`
+    ).join(', ');
+    const redditSnippets = redditResults.slice(0, 2).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
+    const aiPrompt = `You are a shopping advisor. The user wants: "${intent.query}". Products found: ${productInfo}. Reddit says: ${redditSnippets || 'no reviews'}. Recommend the best value option. Mention price and store. Max 80 words.`;
+    const aiText = await callOllamaQuick(aiPrompt, { maxTokens: 120, timeoutMs: 8000, temperature: 0.4 });
+    if (aiText && aiText.length > 20) answer = aiText;
+  }
+
   return {
     type: 'products',
     source: listings.length > 0 ? 'Shopping + Reddit' : 'Web',
@@ -892,6 +1110,7 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
     structured: { listings },
     tokens: content.split(' ').length,
     fetchTimeMs: Date.now() - t0,
+    ...(answer !== undefined ? { answer } : {}),
     sources: [
       { type: 'shopping', count: listings.length } as any,
       { type: 'reddit', threads: redditResults.slice(0, 3).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })) } as any,
@@ -928,16 +1147,23 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     })
     .map((r, i) => ({ ...r, rank: i + 1 })) as any[];
 
-  // Enrich top 2 results only — fast 5s timeout so LLM has time to run
+  // Enrich top 5 results — 6s timeout so LLM has more to work with
   const tPeel = Date.now();
-  const top2 = results.slice(0, 2);
+  const top5 = results.slice(0, 5);
   const enriched = await Promise.allSettled(
-    top2.map(async (r) => {
+    top5.map(async (r) => {
       try {
-        const peeled = await peel(r.url, { timeout: 5000, maxTokens: 1000 });
-        return { url: r.url, content: peeled.content?.substring(0, 1000), title: r.title, fetchTimeMs: peeled.elapsed };
+        const peeled = await peel(r.url, { timeout: 6000, maxTokens: 2000 });
+        return {
+          url: r.url,
+          content: peeled.content?.substring(0, 2000),
+          title: peeled.title || r.title,
+          fetchTimeMs: peeled.elapsed,
+          metadata: peeled.metadata,
+          structured: peeled.domainData?.structured,
+        };
       } catch {
-        return { url: r.url, content: null, title: r.title, fetchTimeMs: 0 };
+        return { url: r.url, content: null, title: r.title, fetchTimeMs: 0, metadata: undefined, structured: undefined };
       }
     })
   );
@@ -962,15 +1188,17 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.snippet}`)
     .join('\n\n');
 
-  // Build sources array from successfully peeled results
+  // Build sources array from successfully peeled results (all 5)
   const sources = enriched
-    .filter((s): s is PromiseFulfilledResult<{ url: string; content: string | null; title: string; fetchTimeMs: number }> =>
-      s.status === 'fulfilled' && s.value.content !== null)
-    .map((s) => ({
-      title: s.value.title,
-      url: s.value.url,
-      domain: getDomain(s.value.url),
-    }));
+    .filter((s) => s.status === 'fulfilled' && s.value.content !== null)
+    .map((s) => {
+      const v = (s as PromiseFulfilledResult<any>).value;
+      return {
+        title: v.title,
+        url: v.url,
+        domain: getDomain(v.url),
+      };
+    });
 
   // ── AI Synthesis via Qwen/Ollama ──────────────────────────────────────
   let answer: string | undefined;
@@ -985,21 +1213,22 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
         .map((s, i) => {
           if (s.status !== 'fulfilled' || !(s.value as any).content) return null;
           const v = s.value as any;
-          return `[${i + 1}] ${v.title}\nURL: ${v.url}\n\n${v.content?.substring(0, 1200) || ''}`;
+          // Include structured data if available
+          const structuredInfo = v.structured ? `\nKey data: ${JSON.stringify(v.structured).substring(0, 300)}` : '';
+          return `[${i + 1}] ${v.title}\nURL: ${v.url}${structuredInfo}\n\n${v.content?.substring(0, 1500) || ''}`;
         })
         .filter(Boolean)
         .join('\n\n---\n\n');
 
-      // Keep prompt short — Qwen 1.7B takes ~2ms/token, 200 tokens = ~4s on 1 CPU
-      const systemPrompt = `Answer the query using these sources. Be specific with names/addresses/prices. Bold key facts. Cite [1][2]. Max 120 words.`;
+      const systemPrompt = `Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources as [1], [2], etc. If sources disagree, note the difference. Max 150 words.`;
 
-      // Truncate source content to 800 chars total to keep prompt fast
-      const truncatedSources = sourceContent.substring(0, 800);
+      // Truncate source content to 2000 chars total
+      const truncatedSources = sourceContent.substring(0, 2000);
       const userMessage = `Query: ${query}\n\nSources:\n${truncatedSources}`;
 
       const tLlm = Date.now();
 
-      const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 150, timeoutMs: 20000, temperature: 0.3 });
+      const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 200, timeoutMs: 20000, temperature: 0.3 });
       console.log(`[smart-search] Ollama answered: ${text.length} chars`);
       if (text) {
         answer = text;
