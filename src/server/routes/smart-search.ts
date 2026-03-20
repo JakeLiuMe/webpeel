@@ -469,11 +469,15 @@ async function handleHotelSearch(intent: SearchIntent): Promise<SmartSearchResul
   const t0 = Date.now();
   const ghUrl = `https://www.google.com/travel/hotels?q=${encodeURIComponent(intent.query)}`;
 
+  // Extract location from query: "hotels in boston" → "boston"
+  const hotelLocMatch = intent.query.match(/\b(?:in|near|at|around)\s+(.+?)(?:\s+(?:under|below|for|cheap|\$|from|per).*)?$/i);
+  const hotelLocation = hotelLocMatch ? hotelLocMatch[1].trim() : intent.query.replace(/\b(hotel|hotels|motel|stay|accommodation|lodging|inn|resort|airbnb|hostel|book|cheap|best)\b/gi, '').trim();
+
   // Search for actual hotel prices + Reddit tips in parallel
   const { provider: searchProvider } = getBestSearchProvider();
   const [hotelSettled, redditSettled] = await Promise.allSettled([
-    searchProvider.searchWeb(`hotels ${intent.query} price per night cheapest`, { count: 10 }),
-    searchProvider.searchWeb(`${intent.query} hotel reddit tips best deal`, { count: 3 }),
+    searchProvider.searchWeb(`hotel ${hotelLocation} price per night cheapest 2025 site:kayak.com OR site:booking.com OR site:expedia.com OR site:hotels.com OR site:tripadvisor.com OR site:hoteltonight.com`, { count: 10 }),
+    searchProvider.searchWeb(`best hotel ${hotelLocation} reddit tips deal`, { count: 3 }),
   ]);
   const hotelResults = hotelSettled.status === 'fulfilled' ? hotelSettled.value : [];
   const redditResults = redditSettled.status === 'fulfilled' ? redditSettled.value : [];
