@@ -1655,7 +1655,7 @@ Be specific with names, ratings, and review counts. Write like a knowledgeable f
               sendEvent('answer', { answer });
             }
 
-            sendEvent('done', { fetchTimeMs: Date.now() - t0Stream });
+            sendEvent('done', { fetchTimeMs: Date.now() - t0Stream, answer: answer || undefined });
 
             // Cache the streaming result for restaurants
             try {

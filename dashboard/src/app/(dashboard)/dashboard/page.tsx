@@ -1502,6 +1502,8 @@ export default function ReadPage() {
                 ...(prev ?? { type: 'general', source: '', sourceUrl: '', content: '', tokens: 0, fetchTimeMs: 0 }),
                 loading: false,
                 fetchTimeMs: eventData.fetchTimeMs ?? prev?.fetchTimeMs ?? 0,
+                // Ensure answer is preserved (React batching may lose the answer event)
+                answer: eventData.answer || prev?.answer,
               }));
               break;
             case 'error':
