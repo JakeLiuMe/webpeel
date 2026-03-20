@@ -1563,7 +1563,10 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
       }
 
       // ── Cache check (before streaming — HIT skips SSE entirely) ─────────
-      const cacheKey = `smart:${intent.type}:${query.toLowerCase().trim().replace(/\s+/g, ' ')}`;
+      // Cache key includes intent type + version hash to invalidate on deploy
+      // This prevents stale intent-misrouted results during rolling deployments
+      const SMART_CACHE_VERSION = 'v5'; // bump when intent routing changes
+      const cacheKey = `smart:${SMART_CACHE_VERSION}:${intent.type}:${query.toLowerCase().trim().replace(/\s+/g, ' ')}`;
       try {
         const redis = getSmartRedis();
         // lazyConnect: true — IoRedis auto-connects on first command; no explicit connect() needed
