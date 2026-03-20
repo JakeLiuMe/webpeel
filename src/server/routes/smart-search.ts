@@ -67,6 +67,39 @@ const CACHE_TTL: Record<string, number> = {
   general: 3600,      // 60 min
 };
 
+// ─── Affiliate Tags (invisible to users, same prices) ──────────────────────
+// Configured via environment variables. Only active when the env var is set.
+const AFFILIATE_TAGS: Record<string, { param: string; value: string }> = {
+  'amazon.com':    { param: 'tag',         value: process.env.AMAZON_AFFILIATE_TAG || '' },
+  'walmart.com':   { param: 'wmlspartner', value: process.env.WALMART_AFFILIATE_ID || '' },
+  'bestbuy.com':   { param: 'ref',         value: process.env.BESTBUY_AFFILIATE_ID || '' },
+  'target.com':    { param: 'afid',        value: process.env.TARGET_AFFILIATE_ID || '' },
+  'ebay.com':      { param: 'campid',      value: process.env.EBAY_AFFILIATE_ID || '' },
+  'etsy.com':      { param: 'ref',         value: process.env.ETSY_AFFILIATE_ID || '' },
+  'booking.com':   { param: 'aid',         value: process.env.BOOKING_AFFILIATE_ID || '' },
+  'kayak.com':     { param: 'affid',       value: process.env.KAYAK_AFFILIATE_ID || '' },
+  'expedia.com':   { param: 'affcid',      value: process.env.EXPEDIA_AFFILIATE_ID || '' },
+};
+
+/**
+ * Append affiliate tracking tag to a URL if the domain has a configured affiliate program.
+ * Only adds tag if the env var is set (empty string = skip).
+ * The tag is a standard query parameter — invisible to users, same prices.
+ */
+function addAffiliateTag(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.replace('www.', '');
+    for (const [domain, config] of Object.entries(AFFILIATE_TAGS)) {
+      if ((hostname === domain || hostname.endsWith('.' + domain)) && config.value) {
+        parsed.searchParams.set(config.param, config.value);
+        return parsed.toString();
+      }
+    }
+  } catch { /* invalid URL — return as-is */ }
+  return url;
+}
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface SearchIntent {
@@ -376,7 +409,7 @@ async function handleCarSearch(intent: SearchIntent): Promise<SmartSearchResult>
         return {
           title: r.title?.replace(/\s*[-|].*$/, '').trim() || 'Car Listing',
           price,
-          url: r.url,
+          url: addAffiliateTag(r.url),
           snippet: r.snippet || '',
           source: new URL(r.url).hostname.replace('www.', ''),
         };
@@ -478,7 +511,7 @@ ${searchSection}## 📌 Book Directly
     sourceUrl: gfUrl,
     content,
     title: `Flights — ${intent.query}`,
-    structured: { listings: flightResults.slice(0, 6).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })) },
+    structured: { listings: flightResults.slice(0, 6).map(r => ({ title: r.title, url: addAffiliateTag(r.url), snippet: r.snippet })) },
     tokens: content.split(' ').length,
     fetchTimeMs: Date.now() - t0,
     ...(answer !== undefined ? { answer } : {}),
@@ -561,7 +594,7 @@ ${searchSection}## 📌 Book Directly
     sourceUrl: ghUrl,
     content,
     title: `Hotels — ${intent.query}`,
-    structured: { listings: parsedHotels.slice(0, 6).map(r => ({ title: r.title, url: r.url, snippet: r.snippet, price: r.price })) },
+    structured: { listings: parsedHotels.slice(0, 6).map(r => ({ title: r.title, url: addAffiliateTag(r.url), snippet: r.snippet, price: r.price })) },
     tokens: content.split(' ').length,
     fetchTimeMs: Date.now() - t0,
     ...(answer !== undefined ? { answer } : {}),
@@ -660,7 +693,7 @@ async function handleRentalSearch(intent: SearchIntent): Promise<SmartSearchResu
         name: r.title?.replace(/\s*[-|–—].*$/, '').trim() || `${company} Car Rental`,
         company,
         siteType: siteInfo.siteType,
-        url: r.url,
+        url: addAffiliateTag(r.url),
         snippet: r.snippet || '',
         price,
         priceValue,
@@ -1305,7 +1338,7 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
         price,
         rating,
         reviewCount,
-        url: r.url,
+        url: addAffiliateTag(r.url),
         snippet: r.snippet,
         store: storeInfo.store,
         image,
@@ -1313,7 +1346,7 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
     })
     .slice(0, 10);
 
-  const amazonUrl = `https://www.amazon.com/s?k=${encodeURIComponent(keyword)}`;
+  const amazonUrl = addAffiliateTag(`https://www.amazon.com/s?k=${encodeURIComponent(keyword)}`);
   const content = listings.length > 0
     ? `# 🛍️ Products — ${keyword}\n\n${listings.map((l, i) =>
         `${i + 1}. **${l.title}** — ${l.price || 'see price'} [${l.store}](${l.url})\n   ${l.snippet || ''}`

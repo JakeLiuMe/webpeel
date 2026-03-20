@@ -104,6 +104,9 @@ export default function DashboardLayout({
             </div>
           )}
           {children}
+          <div className="text-center py-3 text-[10px] text-zinc-700">
+            Results may include affiliate links · <a href="/terms" className="hover:text-zinc-500">Terms</a>
+          </div>
         </main>
       </div>
     </div>
