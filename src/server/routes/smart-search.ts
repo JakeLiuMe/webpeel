@@ -97,6 +97,15 @@ export interface SmartSearchResult {
 export function detectSearchIntent(query: string): SearchIntent {
   const q = query.toLowerCase();
 
+  // Car rental: "rent a car", "car rental", "rental car" — MUST be before cars/buy check
+  if (
+    /\b(rent|rental|renting)\b.*\b(car|cars|vehicle|suv)\b/.test(q) ||
+    /\b(car|cars|vehicle|suv)\s+(rent|rental|renting)\b/.test(q) ||
+    /\bcar\s+rental\b/.test(q)
+  ) {
+    return { type: 'rental', query: q, params: {} };
+  }
+
   // Cars: vehicle name/type + buying signals
   if (
     /\b(car|cars|vehicle|sedan|suv|truck|honda|toyota|tesla|bmw|ford|chevy|chevrolet|nissan|hyundai|kia|mazda|subaru|lexus|audi|mercedes|volkswagen|jeep|dodge|ram|buick|cadillac|gmc|chrysler|acura|infiniti|volvo|porsche|mini|fiat|mitsubishi)\b/.test(q) &&
@@ -131,14 +140,6 @@ export function detectSearchIntent(query: string): SearchIntent {
     /\b(in|near|at|around|cheap|best|book)\b/.test(q)
   ) {
     return { type: 'hotels', query: q, params: {} };
-  }
-
-  // Car rental: "rent a car", "car rental", "rental car"
-  if (
-    /\b(rent|rental)\b.*\b(car|vehicle|suv)\b/.test(q) ||
-    /\bcar\s+rental\b/.test(q)
-  ) {
-    return { type: 'rental', query: q, params: {} };
   }
 
   // Restaurants: food/dining/cuisine + location/quality signal
