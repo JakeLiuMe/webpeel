@@ -1114,12 +1114,12 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
 
   // AI synthesis: recommend best value option
   let answer: string | undefined;
-  if (process.env.OLLAMA_URL && listings.length > 0) {
-    const productInfo = listings.slice(0, 5).map(l =>
-      `${l.title}: ${l.price || 'N/A'} at ${l.store}${l.rating ? `, ${l.rating}★` : ''}`
-    ).join(', ');
+  if (process.env.OLLAMA_URL) {
+    const productInfo = listings.length > 0
+      ? listings.slice(0, 5).map(l => `${l.title}: ${l.price || 'N/A'} at ${l.store}${l.rating ? `, ${l.rating}★` : ''}`).join(', ')
+      : 'no specific listings found';
     const redditSnippets = redditResults.slice(0, 2).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
-    const aiPrompt = `You are a shopping advisor. The user wants: "${intent.query}". Products found: ${productInfo}. Reddit says: ${redditSnippets || 'no reviews'}. Recommend the best value option. Mention price and store. Max 80 words.`;
+    const aiPrompt = `You are a shopping advisor. The user wants: "${intent.query}". Products found: ${productInfo}. Reddit says: ${redditSnippets || 'no reviews'}. ${listings.length > 0 ? 'Recommend the best value option. Mention price and store.' : 'Give general buying advice based on Reddit and your knowledge.'} Max 80 words.`;
     const aiText = await callOllamaQuick(aiPrompt, { maxTokens: 120, timeoutMs: 15000, temperature: 0.4 });
     if (aiText && aiText.length > 20) answer = aiText;
   }
