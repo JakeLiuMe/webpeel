@@ -1484,6 +1484,39 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     .map((r: any, i: number) => `${i + 1}. **${r.title}**\n   ${r.url}\n   ${r.snippet}`)
     .join('\n\n');
 
+  // For equipment rentals, also search for pricing data
+  let pricingInfo = '';
+  if (isEquipmentRental) {
+    try {
+      const pricingResults = await searchProvider.searchWeb(`${query} cost price per day rate 2025`, { count: 5 });
+      const prices: string[] = [];
+      for (const r of pricingResults) {
+        const text = `${r.title || ''} ${r.snippet || ''}`;
+        // Extract price ranges like "$140-$160 per day" or "$210 to $1,200"
+        const priceMatches = text.match(/\$[\d,]+(?:\s*[-–to]+\s*\$[\d,]+)?(?:\s*(?:per|\/)\s*(?:day|week|month|hour))?/gi);
+        if (priceMatches) {
+          prices.push(...priceMatches.slice(0, 3));
+        }
+      }
+      if (prices.length > 0) {
+        pricingInfo = `\n\n## 💰 Typical Pricing\n${[...new Set(prices)].slice(0, 6).map(p => `- ${p}`).join('\n')}`;
+        // Also add pricing snippets to the sources for AI to reference
+        for (const r of pricingResults.slice(0, 2)) {
+          if (r.snippet?.match(/\$/)) {
+            (results as any[]).push({
+              title: r.title,
+              url: r.url,
+              snippet: r.snippet,
+              domain: getDomain(r.url),
+              content: r.snippet,
+              isPricing: true,
+            });
+          }
+        }
+      }
+    } catch { /* pricing search failed — non-fatal */ }
+  }
+
   // If we found local businesses via Google Places, prepend them
   if (localBusinesses.length > 0) {
     const localContent = localBusinesses.map((b: any, i: number) => {
@@ -1492,7 +1525,7 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
    📍 ${b.address}${b.phone ? ` · 📞 ${b.phone}` : ''}${b.website ? ` · [Website](${b.website})` : ''}${b.googleMapsUrl ? ` · [📍 Map](${b.googleMapsUrl})` : ''}`;
     }).join('\n\n');
 
-    content = `## 📍 Nearby Businesses\n\n${localContent}\n\n---\n\n## 🔍 Web Results\n\n${content}`;
+    content = `## 📍 Nearby Businesses\n\n${localContent}${pricingInfo}\n\n---\n\n## 🔍 Web Results\n\n${content}`;
 
     // Also add to results array for structured rendering
     (results as any[]).unshift(...localBusinesses.map((b: any, i: number) => ({
@@ -1537,7 +1570,7 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
         .filter(Boolean)
         .join('\n\n---\n\n');
 
-      const systemPrompt = `Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources as [1], [2], etc. If sources disagree, note the difference. Max 150 words.`;
+      const systemPrompt = `Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources as [1], [2], etc. If sources disagree, note the difference.${isEquipmentRental ? ' IMPORTANT: Include specific rental prices/rates per day or week if available in the sources. Mention the cheapest option.' : ''}${isServiceBusiness ? ' IMPORTANT: Include business hours, phone numbers, and whether they are open now.' : ''} Max 150 words.`;
 
       // Truncate source content to 2000 chars total
       const truncatedSources = sourceContent.substring(0, 2000);
