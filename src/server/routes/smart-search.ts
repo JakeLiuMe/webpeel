@@ -58,13 +58,13 @@ function getSmartRedis(): RedisType {
 
 // TTL by intent type (seconds)
 const CACHE_TTL: Record<string, number> = {
-  restaurants: 180,   // update frequently
-  cars: 300,
-  products: 300,
-  flights: 600,
-  hotels: 600,
-  rental: 600,
-  general: 600,
+  restaurants: 1800,  // 30 min
+  cars: 900,          // 15 min
+  products: 900,      // 15 min
+  flights: 600,       // 10 min
+  hotels: 600,        // 10 min
+  rental: 1800,       // 30 min
+  general: 3600,      // 60 min
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -1377,27 +1377,169 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
         (intent as any).location = location;
       }
 
-      let smartResult: SmartSearchResult;
-
-      // ── Redis cache check ─────────────────────────────────────────────────
-      const cacheKey = `smart:${intent.type}:${query.toLowerCase().trim()}`;
-      let cacheHit = false;
+      // ── Cache check (before streaming — HIT skips SSE entirely) ─────────
+      const cacheKey = `smart:${intent.type}:${query.toLowerCase().trim().replace(/\s+/g, ' ')}`;
       try {
         const redis = getSmartRedis();
+        await redis.connect().catch(() => {}); // lazy connect, ignore if already connected
         const cached = await redis.get(cacheKey);
         if (cached) {
-          const cachedData = JSON.parse(cached) as SmartSearchResult;
+          const parsed = JSON.parse(cached) as SmartSearchResult;
+          console.log(`[smart-search] Cache HIT: ${cacheKey} (${parsed.fetchTimeMs}ms original)`);
           res.setHeader('X-Intent-Type', intent.type);
-          res.setHeader('X-Source', cachedData.source);
+          res.setHeader('X-Source', parsed.source);
           res.setHeader('X-Processing-Time', '0');
           res.setHeader('X-Cache', 'HIT');
+          res.setHeader('X-Cache-Key', cacheKey);
           res.setHeader('Cache-Control', 'no-store');
-          res.json({ success: true, data: cachedData });
+          res.json({ success: true, data: parsed });
           return;
         }
-      } catch (_cacheErr) {
-        // Redis unavailable — proceed without cache
+      } catch (err) {
+        // Cache miss or Redis error — continue to live search
+        console.warn('[smart-search] Redis cache error (non-fatal):', (err as Error).message);
       }
+
+      // ── SSE Streaming path ────────────────────────────────────────────────
+      const streamRequested = req.body?.stream === true || req.body?.stream === 'true';
+
+      if (streamRequested) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no');
+
+        const sendEvent = (event: string, data: any) => {
+          res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+          if (typeof (res as any).flush === 'function') (res as any).flush();
+        };
+
+        // Emit intent immediately (<50ms) — client can show loading state right away
+        sendEvent('intent', {
+          type: intent.type,
+          query,
+          loadingMessage: getLoadingMessage(intent.type),
+        });
+
+        try {
+          const t0Stream = Date.now();
+
+          if (intent.type === 'restaurants') {
+            // Restaurant: stream each source as it arrives
+            const loc = intent.params.location || 'New York, NY';
+            const kw = intent.query
+              .replace(/\b(best|top|good|cheap|affordable|near me|near|around|in|find|search|looking for)\b/gi, '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            // Yelp first — emit as soon as ready
+            let yelpData: any = null;
+            try {
+              yelpData = await Promise.race([
+                fetchYelpResults(kw, loc),
+                new Promise<never>((_, rej) => setTimeout(() => rej(new Error('yelp timeout')), 10000)),
+              ]);
+              if (yelpData?.businesses?.length > 0) {
+                yelpData.businesses.sort((a: any, b: any) => {
+                  const scoreA = (a.rating || 0) * Math.log2((a.reviewCount || 0) + 1);
+                  const scoreB = (b.rating || 0) * Math.log2((b.reviewCount || 0) + 1);
+                  return scoreB - scoreA;
+                });
+                sendEvent('source', { source: 'yelp', businesses: yelpData.businesses.slice(0, 10) });
+              }
+            } catch { /* Yelp failed — continue */ }
+
+            // Reddit + YouTube in parallel
+            const [redditSettled, youtubeSettled] = await Promise.allSettled([
+              Promise.race([
+                fetchRedditResults(kw, loc),
+                new Promise<never>((_, rej) => setTimeout(() => rej(new Error('reddit timeout')), 8000)),
+              ]),
+              Promise.race([
+                fetchYouTubeResults(kw, loc),
+                new Promise<never>((_, rej) => setTimeout(() => rej(new Error('youtube timeout')), 5000)),
+              ]),
+            ]);
+            const redditData = redditSettled.status === 'fulfilled' ? redditSettled.value : null;
+            const youtubeData = youtubeSettled.status === 'fulfilled' ? youtubeSettled.value : null;
+
+            if (redditData) {
+              sendEvent('source', { source: 'reddit', thread: (redditData as any).thread, otherThreads: (redditData as any).otherThreads });
+            }
+            if (youtubeData && (youtubeData as any).videos?.length) {
+              sendEvent('source', { source: 'youtube', videos: (youtubeData as any).videos });
+            }
+
+            // AI synthesis (optional)
+            let answer: string | undefined;
+            const ollamaUrl = process.env.OLLAMA_URL;
+            if (ollamaUrl && yelpData?.businesses?.length > 0) {
+              try {
+                const yelpLines = yelpData.businesses.slice(0, 8).map((b: any, i: number) =>
+                  `${i+1}. ${b.name} ⭐${b.rating} (${b.reviewCount?.toLocaleString()} reviews)${b.price ? ' ' + b.price : ''}${b.address ? ' — ' + b.address : ''}`
+                ).join('\n');
+                const redditHint = redditData && (redditData as any).otherThreads?.slice(0, 2).map((t: any) => t.title).join('; ') || '';
+                const systemPrompt = `Synthesize restaurant recommendations. Results are ranked by rating × review volume. Mention specific names, ratings, and review counts. Be specific. Max 150 words.`;
+                const userMessage = `Query: ${intent.query}\n\nTop restaurants:\n${yelpLines}${redditHint ? '\n\nReddit mentions: ' + redditHint : ''}`;
+                const text = await callOllamaQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 180, timeoutMs: 25000, temperature: 0.3 });
+                if (text) answer = text;
+              } catch { /* LLM failure — no answer */ }
+            }
+
+            if (answer) {
+              sendEvent('answer', { answer });
+            }
+
+            sendEvent('done', { fetchTimeMs: Date.now() - t0Stream });
+            res.end();
+          } else {
+            // All other intent types: run the existing handler, emit full result
+            let streamResult: SmartSearchResult;
+            switch (intent.type) {
+              case 'cars':
+                streamResult = await handleCarSearch(intent);
+                break;
+              case 'flights':
+                streamResult = await handleFlightSearch(intent);
+                break;
+              case 'hotels':
+                streamResult = await handleHotelSearch(intent);
+                break;
+              case 'rental':
+                streamResult = await handleRentalSearch(intent);
+                break;
+              case 'products':
+                streamResult = await handleProductSearch(intent);
+                break;
+              default:
+                streamResult = await handleGeneralSearch(query);
+            }
+            if (!streamResult.loadingMessage) {
+              streamResult.loadingMessage = getLoadingMessage(intent.type);
+            }
+            sendEvent('result', streamResult);
+            sendEvent('done', { fetchTimeMs: streamResult.fetchTimeMs });
+            res.end();
+          }
+
+          // Track usage for streaming path too
+          const pgStoreStream = authStore as any;
+          if (req.auth?.keyInfo?.key && typeof pgStoreStream.trackUsage === 'function') {
+            if (typeof pgStoreStream.trackBurstUsage === 'function') {
+              await pgStoreStream.trackBurstUsage(req.auth.keyInfo.key);
+            }
+            if (!req.auth?.softLimited) {
+              await pgStoreStream.trackUsage(req.auth.keyInfo.key, 'search');
+            }
+          }
+        } catch (err) {
+          sendEvent('error', { message: (err as Error).message });
+          res.end();
+        }
+        return; // Don't fall through to non-streaming response
+      }
+
+      let smartResult: SmartSearchResult;
 
       switch (intent.type) {
         case 'cars':
@@ -1427,15 +1569,16 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
         smartResult.loadingMessage = getLoadingMessage(intent.type);
       }
 
-      // ── Cache result in Redis ─────────────────────────────────────────────
-      if (!cacheHit) {
-        try {
-          const redis = getSmartRedis();
-          const ttl = CACHE_TTL[intent.type] ?? 300;
-          await redis.setex(cacheKey, ttl, JSON.stringify(smartResult));
-        } catch (_cacheErr) {
-          // Redis unavailable — skip caching silently
-        }
+      // ── Cache write ───────────────────────────────────────────────────────
+      try {
+        const redis = getSmartRedis();
+        const ttl = CACHE_TTL[smartResult.type] || 600;
+        await redis.setex(cacheKey, ttl, JSON.stringify(smartResult));
+        res.setHeader('X-Cache', 'MISS');
+        res.setHeader('X-Cache-Key', cacheKey);
+        console.log(`[smart-search] Cache WRITE: ${cacheKey} (TTL: ${ttl}s)`);
+      } catch (err) {
+        console.warn('[smart-search] Redis cache write error (non-fatal):', (err as Error).message);
       }
 
       // Track usage

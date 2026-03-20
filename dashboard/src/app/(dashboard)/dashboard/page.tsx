@@ -54,6 +54,7 @@ interface SmartResult {
   tokens: number;
   fetchTimeMs: number;
   loadingMessage?: string;
+  loading?: boolean;
   answer?: string;
   // sources can be either QA citation sources ({title, url, domain}) or multi-source results
   sources?: any[];
@@ -481,6 +482,34 @@ const SMART_SOURCE_ICONS: Record<string, string> = {
 function SmartResultCard({ smartResult }: { smartResult: SmartResult }) {
   const icon = SMART_SOURCE_ICONS[smartResult.type] || '🔍';
 
+  // ── Progressive loading skeleton ─────────────────────────────────────────
+  const hasListings = !!(
+    smartResult.structured?.listings?.length ||
+    smartResult.structured?.businesses?.length ||
+    smartResult.domainData?.structured?.listings?.length ||
+    smartResult.domainData?.structured?.businesses?.length ||
+    smartResult.domainData?.listings?.length ||
+    smartResult.domainData?.products?.length ||
+    smartResult.results?.length
+  );
+
+  if (smartResult.loading && !hasListings) {
+    return (
+      <div className="space-y-3">
+        <div className="text-sm text-zinc-400 flex items-center gap-2">
+          <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-indigo-400 rounded-full" />
+          {smartResult.loadingMessage || 'Searching...'}
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="p-4 rounded-xl bg-zinc-800/40 border border-zinc-800 animate-pulse">
+            <div className="h-4 bg-zinc-700 rounded w-3/4 mb-2" />
+            <div className="h-3 bg-zinc-700/60 rounded w-1/2" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   // Try to use structured data first, fall back to parsed domainData listings, then raw content
   const listings: any[] = smartResult.structured?.listings
     || smartResult.structured?.businesses
@@ -541,6 +570,13 @@ function SmartResultCard({ smartResult }: { smartResult: SmartResult }) {
           {listings.slice(0, 10).map((item: any, i: number) => (
             <SmartListingCard key={i} item={item} type={smartResult.type} />
           ))}
+          {/* Inline spinner when still loading more results */}
+          {smartResult.loading && (
+            <div className="text-sm text-zinc-400 flex items-center gap-2 pt-1">
+              <div className="animate-spin h-4 w-4 border-2 border-zinc-500 border-t-indigo-400 rounded-full" />
+              {smartResult.loadingMessage || 'Loading more...'}
+            </div>
+          )}
         </div>
       ) : (
         /* Fall back: no structured data — show clean message */
@@ -1360,68 +1396,269 @@ export default function ReadPage() {
         if (hintKey) setLoadingMessage(intentHints[hintKey]);
         else setLoadingMessage('🔍 Searching and analyzing results...');
 
-        const smartHeaders = { ...headers, 'Content-Type': 'application/json' };
-        const res = await fetch(`${API_URL}/v1/search/smart`, {
-          method: 'POST',
-          headers: smartHeaders,
-          body: JSON.stringify({ q: intent.question || raw }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Search failed');
+        // ── SSE streaming path ───────────────────────────────────────────────
+        let usedSSE = false;
+        let smart: SmartResult | null = null;
 
-        const smart: SmartResult = json.data;
-        const isGeneralSearch = smart.type === 'general';
+        // Helper to update the in-progress smart result during SSE streaming
+        const setSmartResult = (updater: SmartResult | ((prev: SmartResult | null) => SmartResult)) => {
+          if (typeof updater === 'function') {
+            setResult((prev) => {
+              const prevSmart = (prev as any)?._sseSmartResult ?? null;
+              const next = updater(prevSmart);
+              smart = next;
+              return {
+                detectedMode: 'search',
+                smartResult: next,
+                content: next.content,
+                title: next.title || `${next.source || ''} results`,
+                tokens: next.tokens,
+                fetchTimeMs: next.fetchTimeMs,
+                _sseSmartResult: next,
+              } as any;
+            });
+          } else {
+            smart = updater;
+            setResult({
+              detectedMode: 'search',
+              smartResult: updater,
+              content: updater.content,
+              title: updater.title || `${updater.source || ''} results`,
+              tokens: updater.tokens,
+              fetchTimeMs: updater.fetchTimeMs,
+              _sseSmartResult: updater,
+            } as any);
+          }
+        };
 
-        if (isGeneralSearch && smart.answer) {
-          // AI-synthesized answer: render in Ask mode (like Perplexity)
-          const totalSecs = smart.fetchTimeMs ? (smart.fetchTimeMs / 1000).toFixed(1) : undefined;
-          const sourceCount = smart.sources?.length || 0;
-          const timingNote = totalSecs ? `${sourceCount} source${sourceCount !== 1 ? 's' : ''} · ${totalSecs}s` : undefined;
-          data = {
-            detectedMode: 'ask',
-            answer: smart.answer,
-            sources: smart.sources?.map((s: any) => ({
-              title: s.title || s.url,
-              url: s.url,
-              domain: s.domain,
-              credibility: { tier: 'general' as const, score: 0.5, signals: [] },
-            })) || [],
-            fetchTimeMs: smart.fetchTimeMs,
-            // Encode timing note in content for display
-            content: timingNote ? `<!-- timing: ${timingNote} -->` : '',
-          };
-        } else if (isGeneralSearch && smart.results) {
-          // Fallback: LLM unavailable — render as classic search results
-          const getDomain = (url: string) => {
-            try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
-          };
-          data = {
-            detectedMode: 'search',
-            results: smart.results.map((r: any) => ({
-              title: r.title || r.name || 'Untitled',
-              url: r.url || r.link || '#',
-              snippet: r.snippet || r.description || r.body || '',
-              domain: getDomain(r.url || r.link || ''),
-              content: r.content?.substring(0, 1500) || undefined,
-              wordCount: r.wordCount || (r.content ? r.content.trim().split(/\s+/).length : undefined),
-              method: r.method || undefined,
-              fetchTimeMs: r.fetchTimeMs || undefined,
-              loading: false,
-              rank: r.rank || undefined,
-              credibility: r.credibility || undefined,
-            })),
-            fetchTimeMs: smart.fetchTimeMs,
-          };
-        } else {
-          // Specialized result (cars, flights, hotels, rental, restaurants)
-          data = {
-            detectedMode: 'search',
-            smartResult: smart,
-            content: smart.content,
-            title: smart.title || `${smart.source} results`,
-            tokens: smart.tokens,
-            fetchTimeMs: smart.fetchTimeMs,
-          };
+        const setError = (message: string) => {
+          setErrorMsg(message);
+          setAppState('error');
+        };
+
+        const handleSSEEvent = (event: string, eventData: any) => {
+          switch (event) {
+            case 'intent':
+              setSmartResult({
+                type: eventData.type || 'general',
+                source: eventData.source || '',
+                sourceUrl: eventData.sourceUrl || '',
+                content: '',
+                tokens: 0,
+                fetchTimeMs: 0,
+                loading: true,
+                loadingMessage: eventData.loadingMessage,
+              });
+              if (eventData.loadingMessage) setLoadingMessage(eventData.loadingMessage);
+              break;
+            case 'source':
+              setSmartResult((prev) => ({
+                ...(prev ?? { type: 'general', source: '', sourceUrl: '', content: '', tokens: 0, fetchTimeMs: 0 }),
+                loading: true,
+                ...(eventData.source === 'yelp' ? { structured: { businesses: eventData.businesses } } : {}),
+                ...(eventData.source === 'cars' ? { structured: { listings: eventData.listings } } : {}),
+                ...(eventData.source === 'flights' ? { structured: { listings: eventData.listings } } : {}),
+                ...(eventData.source === 'hotels' ? { structured: { listings: eventData.listings } } : {}),
+                ...(eventData.source === 'rental' ? { structured: { listings: eventData.listings } } : {}),
+                ...(eventData.source === 'products' ? { structured: { listings: eventData.listings } } : {}),
+              }));
+              break;
+            case 'result':
+              smart = { ...eventData, loading: false };
+              setSmartResult({ ...eventData, loading: false });
+              break;
+            case 'answer':
+              setSmartResult((prev) => ({
+                ...(prev ?? { type: 'general', source: '', sourceUrl: '', content: '', tokens: 0, fetchTimeMs: 0 }),
+                answer: eventData.answer,
+              }));
+              break;
+            case 'done':
+              setSmartResult((prev) => ({
+                ...(prev ?? { type: 'general', source: '', sourceUrl: '', content: '', tokens: 0, fetchTimeMs: 0 }),
+                loading: false,
+                fetchTimeMs: eventData.fetchTimeMs ?? prev?.fetchTimeMs ?? 0,
+              }));
+              break;
+            case 'error':
+              setError(eventData.message || 'Search failed');
+              break;
+          }
+        };
+
+        try {
+          const sseRes = await fetch(`${API_URL}/v1/search/smart`, {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q: intent.question || raw, stream: true }),
+          });
+
+          if (sseRes.ok && sseRes.body) {
+            usedSSE = true;
+            // Show streaming results immediately (set to success so ResultCard renders)
+            setAppState('success');
+
+            const reader = sseRes.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let currentEvent = '';
+
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n');
+              buffer = lines.pop() || '';
+
+              for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                  currentEvent = line.slice(7).trim();
+                } else if (line.startsWith('data: ') && currentEvent) {
+                  try {
+                    const parsed = JSON.parse(line.slice(6));
+                    handleSSEEvent(currentEvent, parsed);
+                  } catch { /* ignore parse errors */ }
+                  currentEvent = '';
+                } else if (line === '') {
+                  // blank line resets event
+                  currentEvent = '';
+                }
+              }
+            }
+
+            // SSE stream complete — finalize
+            const finalSmartMaybe = smart as SmartResult | null;
+            if (finalSmartMaybe) {
+              const finalSmart = finalSmartMaybe;
+              const isGeneralSearch = finalSmart.type === 'general';
+
+              if (isGeneralSearch && finalSmart.answer) {
+                const totalSecs = finalSmart.fetchTimeMs ? (finalSmart.fetchTimeMs / 1000).toFixed(1) : undefined;
+                const sourceCount = finalSmart.sources?.length || 0;
+                const timingNote = totalSecs ? `${sourceCount} source${sourceCount !== 1 ? 's' : ''} · ${totalSecs}s` : undefined;
+                setResult({
+                  detectedMode: 'ask',
+                  answer: finalSmart.answer,
+                  sources: finalSmart.sources?.map((s: any) => ({
+                    title: s.title || s.url,
+                    url: s.url,
+                    domain: s.domain,
+                    credibility: { tier: 'general' as const, score: 0.5, signals: [] },
+                  })) || [],
+                  fetchTimeMs: finalSmart.fetchTimeMs,
+                  content: timingNote ? `<!-- timing: ${timingNote} -->` : '',
+                });
+              } else if (isGeneralSearch && finalSmart.results) {
+                const getDomain = (url: string) => {
+                  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+                };
+                setResult({
+                  detectedMode: 'search',
+                  results: finalSmart.results.map((r: any) => ({
+                    title: r.title || r.name || 'Untitled',
+                    url: r.url || r.link || '#',
+                    snippet: r.snippet || r.description || r.body || '',
+                    domain: getDomain(r.url || r.link || ''),
+                    content: r.content?.substring(0, 1500) || undefined,
+                    wordCount: r.wordCount || (r.content ? r.content.trim().split(/\s+/).length : undefined),
+                    method: r.method || undefined,
+                    fetchTimeMs: r.fetchTimeMs || undefined,
+                    loading: false,
+                    rank: r.rank || undefined,
+                    credibility: r.credibility || undefined,
+                  })),
+                  fetchTimeMs: finalSmart.fetchTimeMs,
+                });
+              } else {
+                setResult({
+                  detectedMode: 'search',
+                  smartResult: { ...finalSmart, loading: false },
+                  content: finalSmart.content,
+                  title: finalSmart.title || `${finalSmart.source} results`,
+                  tokens: finalSmart.tokens,
+                  fetchTimeMs: finalSmart.fetchTimeMs,
+                });
+              }
+            }
+
+            setAppState('success');
+            window.dispatchEvent(new Event('webpeel:fetch-completed'));
+            return; // Skip the rest of the try block
+          }
+        } catch (sseErr) {
+          // SSE failed — fall through to non-streaming fetch below
+          usedSSE = false;
+          setResult(null);
+          setErrorMsg('');
+          setAppState('loading');
+        }
+
+        // ── Non-streaming fallback ────────────────────────────────────────────
+        if (!usedSSE) {
+          const smartHeaders = { ...headers, 'Content-Type': 'application/json' };
+          const res = await fetch(`${API_URL}/v1/search/smart`, {
+            method: 'POST',
+            headers: smartHeaders,
+            body: JSON.stringify({ q: intent.question || raw }),
+          });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Search failed');
+
+          const smartFallback: SmartResult = json.data;
+          const isGeneralSearch = smartFallback.type === 'general';
+
+          if (isGeneralSearch && smartFallback.answer) {
+            // AI-synthesized answer: render in Ask mode (like Perplexity)
+            const totalSecs = smartFallback.fetchTimeMs ? (smartFallback.fetchTimeMs / 1000).toFixed(1) : undefined;
+            const sourceCount = smartFallback.sources?.length || 0;
+            const timingNote = totalSecs ? `${sourceCount} source${sourceCount !== 1 ? 's' : ''} · ${totalSecs}s` : undefined;
+            data = {
+              detectedMode: 'ask',
+              answer: smartFallback.answer,
+              sources: smartFallback.sources?.map((s: any) => ({
+                title: s.title || s.url,
+                url: s.url,
+                domain: s.domain,
+                credibility: { tier: 'general' as const, score: 0.5, signals: [] },
+              })) || [],
+              fetchTimeMs: smartFallback.fetchTimeMs,
+              // Encode timing note in content for display
+              content: timingNote ? `<!-- timing: ${timingNote} -->` : '',
+            };
+          } else if (isGeneralSearch && smartFallback.results) {
+            // Fallback: LLM unavailable — render as classic search results
+            const getDomain = (url: string) => {
+              try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+            };
+            data = {
+              detectedMode: 'search',
+              results: smartFallback.results.map((r: any) => ({
+                title: r.title || r.name || 'Untitled',
+                url: r.url || r.link || '#',
+                snippet: r.snippet || r.description || r.body || '',
+                domain: getDomain(r.url || r.link || ''),
+                content: r.content?.substring(0, 1500) || undefined,
+                wordCount: r.wordCount || (r.content ? r.content.trim().split(/\s+/).length : undefined),
+                method: r.method || undefined,
+                fetchTimeMs: r.fetchTimeMs || undefined,
+                loading: false,
+                rank: r.rank || undefined,
+                credibility: r.credibility || undefined,
+              })),
+              fetchTimeMs: smartFallback.fetchTimeMs,
+            };
+          } else {
+            // Specialized result (cars, flights, hotels, rental, restaurants)
+            data = {
+              detectedMode: 'search',
+              smartResult: smartFallback,
+              content: smartFallback.content,
+              title: smartFallback.title || `${smartFallback.source} results`,
+              tokens: smartFallback.tokens,
+              fetchTimeMs: smartFallback.fetchTimeMs,
+            };
+          }
         }
 
       } else if (intent.mode === 'ask') {
