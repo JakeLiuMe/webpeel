@@ -189,17 +189,20 @@
             ? (item.isOpenNow ? '<span style="color:#34d399">🟢 Open</span>' : '<span style="color:#f87171">🔴 Closed</span>')
             : '';
           const rawSnippet = item.snippet || item.address || '';
-          const snippet = rawSnippet.substring(0, 150).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const snippet = rawSnippet.substring(0, 300).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
           html += `
             <div style="padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px; transition: background 0.2s;"
               onmouseover="this.style.background='rgba(255,255,255,0.06)'"
               onmouseout="this.style.background='rgba(255,255,255,0.03)'"
             >
-              <a href="${url}" target="_blank" rel="noopener noreferrer"
-                style="font-size: 14px; font-weight: 500; color: #818CF8; text-decoration: none; font-family: inherit;">${name}</a>
-              <div style="font-size: 12px; color: #71717a; margin-top: 4px;">${rating} ${reviews} ${openStatus}</div>
-              ${snippet ? `<div style="font-size: 12px; color: #a1a1aa; margin-top: 4px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${snippet}</div>` : ''}
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <a href="${url}" target="_blank" rel="noopener noreferrer"
+                  style="font-size: 14px; font-weight: 500; color: #818CF8; text-decoration: none; font-family: inherit;">${name}</a>
+                ${openStatus}
+              </div>
+              <div style="font-size: 12px; color: #71717a; margin-top: 4px;">${rating} ${reviews}</div>
+              ${snippet ? `<div style="font-size: 12px; color: #a1a1aa; margin-top: 4px;">${snippet}</div>` : ''}
             </div>`;
         });
 
