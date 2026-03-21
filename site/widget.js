@@ -187,10 +187,19 @@
           html = '<div style="text-align: center; padding: 20px; color: #71717a; font-size: 13px;">No results found. Try a different query.</div>';
         }
 
+        // Stats bar — trust signals
+        html += `<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 16px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.06);">
+          <span style="font-size: 11px; color: #52525b;">🌐 55+ websites</span>
+          <span style="font-size: 11px; color: #52525b;">⚡ 270ms avg</span>
+          <span style="font-size: 11px; color: #52525b;">🛡️ Zero ads</span>
+          <span style="font-size: 11px; color: #52525b;">🤖 AI summaries</span>
+          <span style="font-size: 11px; color: #52525b;">📍 Google Maps verified</span>
+        </div>`;
+
         // Remaining searches counter
         const remaining = MAX_FREE_SEARCHES - getSearchCount();
         if (remaining > 0) {
-          html += `<div style="text-align: center; margin-top: 12px; font-size: 11px; color: #52525b;">
+          html += `<div style="text-align: center; margin-top: 8px; font-size: 11px; color: #52525b;">
             ${remaining} free search${remaining === 1 ? '' : 'es'} remaining &middot;
             <a href="${SIGNUP_URL}" style="color: #818CF8; text-decoration: none;">Sign up for unlimited</a>
           </div>`;
