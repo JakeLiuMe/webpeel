@@ -790,7 +790,8 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
         // Smart hints — suggest features the user might not know about
         if (!options.silent && !options.json && !options.skipDomainApi) {
           if (result.method === 'domain-api') {
-            console.error(`\x1b[33m💡 Tip: Using our ${(result as any).domainData?.domain || ''} extractor. Want the raw page instead? Add --skip-domain-api\x1b[0m`);
+            const extractorName = (result as any).domainData?.domain || new URL(url).hostname.replace('www.', '') || 'domain';
+            console.error(`\x1b[33m💡 Tip: Using our ${extractorName} extractor. Want the raw page instead? Add --skip-domain-api\x1b[0m`);
           }
         }
         if (!options.silent && !options.json && result.tokens && result.tokens < 50 && !options.render) {
