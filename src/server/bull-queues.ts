@@ -43,6 +43,7 @@ export interface FetchJobPayload {
   timeout?: number;
   lite?: boolean;
   raw?: boolean;
+  noDomainApi?: boolean;
   readable?: boolean;
   question?: string;
   // Auth context (userId for usage tracking)
