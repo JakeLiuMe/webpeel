@@ -1671,7 +1671,7 @@ async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
     (results as any[]).unshift(...localBusinesses.map((b: any, i: number) => ({
       title: b.name,
       url: b.googleMapsUrl || b.website || '#',
-      snippet: `⭐${b.rating || '?'} (${b.reviewCount} reviews) · ${b.isOpenNow ? '🟢 Open' : '🔴 Closed'}${b.todayHours ? ' · ' + b.todayHours : ''} · ${b.address}${b.phone ? ' · ' + b.phone : ''}`,
+      snippet: `⭐${b.rating || '?'} (${b.reviewCount} reviews) · ${b.isOpenNow ? '🟢 Open' : '🔴 Closed'}${b.todayHours ? ' · ' + b.todayHours : ''} · ${b.address}${b.phone ? ' · 📞 ' + b.phone : ''}${b.fuelPrices && Object.keys(b.fuelPrices).length > 0 ? ' · ⛽ ' + Object.entries(b.fuelPrices).map(([type, price]: [string, any]) => type + ': ' + price + '/gal').join(' | ') : ''}`,
       domain: 'google.com/maps',
       rank: i + 1,
       isLocalBusiness: true,
