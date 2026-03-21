@@ -271,8 +271,8 @@ export function detectSearchIntent(query: string): SearchIntent {
   // Travel/vacation/cruise/trip queries → general (not products)
   // These need travel search engines, not Amazon product listings
   if (
-    /\b(cruise|vacation|resort|all.inclusive|trip|travel|getaway|package|tour|excursion|safari|honeymoon|spring break|summer trip|ski trip)\b/.test(q) &&
-    /\b(cheap|cheapest|price|deal|best|book|ticket|package|to|in)\b/.test(q)
+    /\b(cruise|vacation|resort|all.inclusive|getaway|tour|excursion|safari|honeymoon|spring break|summer trip|ski trip)\b/.test(q) &&
+    /\b(cheap|cheapest|price|deal|book|ticket|package|to|in)\b/.test(q)
   ) {
     return { type: 'general', query: q, params: {} };
   }
