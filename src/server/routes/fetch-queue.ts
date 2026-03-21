@@ -176,7 +176,7 @@ export function createQueueFetchRouter(): Router {
       timeout: req.body.timeout,
       lite: req.body.lite,
       raw: req.body.raw,
-      noDomainApi: req.body.noDomainApi,
+      noDomainApi: req.body?.noDomainApi ?? (req.query?.noDomainApi === 'true'),
       readable: req.body.readable,
       question: req.body.question,
       userId,
