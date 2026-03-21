@@ -6295,7 +6295,11 @@
           <!-- Mobile widget removed — interactive hero-demo-widget used on all viewports -->
         </div>
 
-        <div class="hero-demo-widget" id="hero-demo-widget">
+        <!-- SEARCH WIDGET — replaces terminal demo -->
+        <div id="webpeel-search" style="grid-column: 1 / -1; width: 100%; max-width: 680px; margin: 0 auto; padding: 0 20px;"></div>
+        <script src="/widget.js"></script>
+
+        <div class="hero-demo-widget" id="hero-demo-widget" style="display:none !important;">
           <div class="hdw-chrome">
             <div class="hdw-dots">
               <span class="hdw-dot r"></span><span class="hdw-dot y"></span><span class="hdw-dot g"></span>
@@ -6315,7 +6319,7 @@
           </div>
         </div>
         <!-- Quick-pick try chips -->
-        <div class="hero-try-chips">
+        <div class="hero-try-chips" style="display:none !important;">
           <button class="hero-try-chip" data-url="https://stripe.com">Stripe</button>
           <button class="hero-try-chip" data-url="https://github.com/microsoft/vscode">GitHub</button>
           <button class="hero-try-chip" data-url="https://arxiv.org/abs/2301.00001">arXiv</button>
