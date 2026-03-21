@@ -1,29 +1,83 @@
 {
   "redirects": [
-    { "source": "/blog/webpeel-vs-firecrawl", "destination": "/blog/webpeel-vs-competitors", "statusCode": 301 },
-    { "source": "/blog/webpeel-vs-firecrawl-vs-tavily-vs-exa", "destination": "/blog/webpeel-vs-competitors", "statusCode": 301 },
-    { "source": "/blog/web-scraping-for-ai-agents", "destination": "/blog/how-webpeel-works", "statusCode": 301 }
+    {
+      "source": "/blog/webpeel-vs-firecrawl",
+      "destination": "/blog/webpeel-vs-competitors",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/webpeel-vs-firecrawl-vs-tavily-vs-exa",
+      "destination": "/blog/webpeel-vs-competitors",
+      "statusCode": 301
+    },
+    {
+      "source": "/blog/web-scraping-for-ai-agents",
+      "destination": "/blog/how-webpeel-works",
+      "statusCode": 301
+    }
   ],
   "rewrites": [
-    { "source": "/pricing", "destination": "/pricing.html" },
-    { "source": "/pricing/", "destination": "/pricing.html" },
-    { "source": "/docs", "destination": "/docs/index.html" },
-    { "source": "/docs/", "destination": "/docs/index.html" },
-    { "source": "/docs/quickstart", "destination": "/docs/quickstart.html" },
-    { "source": "/docs/quickstart/", "destination": "/docs/quickstart.html" },
-    { "source": "/status", "destination": "/status.html" },
-    { "source": "/status/", "destination": "/status.html" }
+    {
+      "source": "/pricing",
+      "destination": "/pricing.html"
+    },
+    {
+      "source": "/pricing/",
+      "destination": "/pricing.html"
+    },
+    {
+      "source": "/docs",
+      "destination": "/docs/index.html"
+    },
+    {
+      "source": "/docs/",
+      "destination": "/docs/index.html"
+    },
+    {
+      "source": "/docs/quickstart",
+      "destination": "/docs/quickstart.html"
+    },
+    {
+      "source": "/docs/quickstart/",
+      "destination": "/docs/quickstart.html"
+    },
+    {
+      "source": "/status",
+      "destination": "/status.html"
+    },
+    {
+      "source": "/status/",
+      "destination": "/status.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=()" },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "geolocation=(), microphone=(), camera=()"
+        },
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https:; media-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' https://api.webpeel.dev https://api.github.com; form-action 'self'"
@@ -33,24 +87,40 @@
     {
       "source": "/llms.txt",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
       ]
     },
     {
       "source": "/install.sh",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=300" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
       ]
     },
     {
       "source": "/install.ps1",
       "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=300" }
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=300"
+        }
       ]
     }
   ],
   "trailingSlash": false,
-  "cleanUrls": true
+  "cleanUrls": true,
+  "outputDirectory": "."
 }
