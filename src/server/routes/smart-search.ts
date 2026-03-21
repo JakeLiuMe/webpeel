@@ -86,14 +86,31 @@ const AFFILIATE_TAGS: Record<string, { param: string; value: string }> = {
  * Only adds tag if the env var is set (empty string = skip).
  * The tag is a standard query parameter — invisible to users, same prices.
  */
+// Store name mapping for /go/ redirect URLs
+const DOMAIN_TO_STORE: Record<string, string> = {
+  'amazon.com': 'amazon', 'walmart.com': 'walmart', 'bestbuy.com': 'bestbuy',
+  'target.com': 'target', 'ebay.com': 'ebay', 'etsy.com': 'etsy',
+  'booking.com': 'booking', 'kayak.com': 'kayak', 'expedia.com': 'expedia',
+};
+
+/**
+ * Convert a store URL to a cloaked /go/ redirect URL.
+ * User sees: webpeel.dev/go/amazon/dp/B0D1XD1ZV3
+ * Redirect adds affiliate tag automatically.
+ * Falls back to raw affiliate tag if API_URL not available.
+ */
 function addAffiliateTag(url: string): string {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.replace('www.', '');
-    for (const [domain, config] of Object.entries(AFFILIATE_TAGS)) {
-      if ((hostname === domain || hostname.endsWith('.' + domain)) && config.value) {
-        parsed.searchParams.set(config.param, config.value);
-        return parsed.toString();
+    
+    // Check if this domain has an affiliate program
+    for (const [domain] of Object.entries(DOMAIN_TO_STORE)) {
+      if ((hostname === domain || hostname.endsWith('.' + domain)) && AFFILIATE_TAGS[domain]?.value) {
+        // Build cloaked /go/ URL: /go?url=<original_url>
+        // The /go endpoint adds the affiliate tag during redirect
+        const apiUrl = process.env.API_URL || 'https://api.webpeel.dev';
+        return `${apiUrl}/go?url=${encodeURIComponent(url)}`;
       }
     }
   } catch { /* invalid URL — return as-is */ }

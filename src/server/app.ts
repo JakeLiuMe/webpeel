@@ -40,6 +40,7 @@ import { createYouTubeRouter } from './routes/youtube.js';
 import { createTranscriptExportRouter } from './routes/transcript-export.js';
 import { createDeepFetchRouter } from './routes/deep-fetch.js';
 import { createFeedRouter } from './routes/feed.js';
+import { createGoRouter } from './routes/go.js';
 import { createWatchRouter } from './routes/watch.js';
 import pg from 'pg';
 import { createScreenshotRouter } from './routes/screenshot.js';
@@ -265,6 +266,9 @@ export function createApp(config: ServerConfig = {}): Express {
   // Render hits /health every ~30s; rate-limiting it causes 429 → service marked as failed
   // Pass pool so /ready can check DB connectivity
   app.use(createHealthRouter(pool));
+
+  // Affiliate redirect — /go/:store/*path — public, no auth required
+  app.use(createGoRouter());
 
   // OpenAPI spec — public, no auth required
   app.get('/openapi.yaml', (_req: Request, res: Response) => {
