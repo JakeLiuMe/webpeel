@@ -662,6 +662,7 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
         headers,
         cookies: options.cookie,
         raw: options.raw || false,
+        noDomainApi: options.skipDomainApi || false,
         lite: options.lite || false,
         actions,
         maxTokens: options.maxTokens,
@@ -1265,6 +1266,7 @@ export function registerFetchCommands(program: Command): void {
     .option('--images', 'Output image URLs from the page')
     .option('--meta', 'Output only the page metadata (title, description, author, etc.)')
     .option('--raw', 'Return full page without smart content extraction')
+    .option('--skip-domain-api', 'Bypass domain-specific API extractors — force actual page scraping')
     .option('--full', 'Alias for --raw — full page content, no budget')
     .option('--lite', 'Lite mode — minimal processing, maximum speed (skip pruning, budget, metadata)')
     .option('--action <actions...>', 'Page actions before scraping (e.g., "click:.btn" "wait:2000" "scroll:bottom")')

@@ -106,6 +106,10 @@ export interface PeelOptions {
   cookies?: string[];
   /** Skip smart content extraction — return full page without stripping boilerplate */
   raw?: boolean;
+  /** Bypass domain-specific API extractors — force actual page scraping instead of API shortcuts.
+   *  Use when you want the REAL page content (e.g., AccuWeather forecasts) instead of
+   *  the domain extractor's API data (e.g., Open-Meteo weather data). */
+  noDomainApi?: boolean;
   /** Page actions to execute before extraction (auto-enables render) */
   actions?: PageAction[];
   /** Extract structured data using a JSON schema or CSS selectors */

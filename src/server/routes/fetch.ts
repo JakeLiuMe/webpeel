@@ -239,6 +239,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         exclude,
         fullPage,
         raw,
+        noDomainApi,
         lite,
         timeout,
         schema,
@@ -426,6 +427,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         exclude: exclude ? (exclude as string).split(',').map(s => s.trim()).filter(Boolean) : undefined,
         fullPage: fullPage === 'true',
         raw: raw === 'true',
+        noDomainApi: noDomainApi === 'true',
         lite: lite === 'true',
         timeout: timeout ? parseInt(timeout as string, 10) : undefined,
         captionImages: captionImages === 'true',
@@ -860,6 +862,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         exclude,
         fullPage,
         raw,
+        noDomainApi,
         lite,
         timeout,
         proxies,
@@ -904,6 +907,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         exclude?: string | string[];
         fullPage?: boolean;
         raw?: boolean;
+        noDomainApi?: boolean;
         lite?: boolean;
         timeout?: number;
         proxies?: string[];
@@ -1156,6 +1160,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
         exclude: excludeArray,
         fullPage: fullPage === true,
         raw: raw === true,
+        noDomainApi: noDomainApi === true,
         lite: lite === true,
         timeout: typeof timeout === 'number' ? timeout : undefined,
         proxies: Array.isArray(proxies) ? proxies : undefined,

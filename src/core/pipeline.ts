@@ -503,7 +503,8 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
 
   // Try API-based domain extraction first (Reddit, GitHub, HN use APIs, not HTML)
   // This avoids expensive browser fetches that often get blocked
-  if (hasDomainExtractor(ctx.url)) {
+  // Skip if noDomainApi is set — user wants raw page content, not API shortcut
+  if (hasDomainExtractor(ctx.url) && !ctx.options.noDomainApi) {
     try {
       ctx.timer.mark('domainApiFirst');
       const ddResult = await runDomainExtract('', ctx.url);
@@ -1259,7 +1260,7 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
 
   // Domain-aware structured extraction (Twitter, Reddit, GitHub, HN)
   // Fires when URL matches a known domain. Replaces content with clean markdown.
-  if (hasDomainExtractor(fetchResult.url) && !ctx.domainApiHandled) {
+  if (hasDomainExtractor(fetchResult.url) && !ctx.domainApiHandled && !ctx.options.noDomainApi) {
     try {
       ctx.timer.mark('domainExtract');
       // Try raw HTML first, then fall back to readability-processed content
