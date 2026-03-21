@@ -268,6 +268,23 @@ export function detectSearchIntent(query: string): SearchIntent {
     return { type: 'general', query: q, params: {} };
   }
 
+  // Travel/vacation/cruise/trip queries → general (not products)
+  // These need travel search engines, not Amazon product listings
+  if (
+    /\b(cruise|vacation|resort|all.inclusive|trip|travel|getaway|package|tour|excursion|safari|honeymoon|spring break|summer trip|ski trip)\b/.test(q) &&
+    /\b(cheap|cheapest|price|deal|best|book|ticket|package|to|in)\b/.test(q)
+  ) {
+    return { type: 'general', query: q, params: {} };
+  }
+
+  // Theme park / attraction tickets → general (not products)
+  if (
+    /\b(disneyland|disney world|disney cruise|universal studios|six flags|legoland|seaworld|knott|cedar point|theme park|amusement park|water park)\b/.test(q) &&
+    /\b(ticket|tickets|pass|price|cheap|deal|cheapest)\b/.test(q)
+  ) {
+    return { type: 'general', query: q, params: {} };
+  }
+
   // Products: shopping intent + product category keywords
   // Only for actual ONLINE shopping — not "buy coke near times square"
   if (
