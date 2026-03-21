@@ -158,8 +158,28 @@
             </div>`;
         }
 
-        // Results
-        const listings = (smart.structured && (smart.structured.businesses || smart.structured.listings)) || smart.results || [];
+        // Results — try structured data first, then domainData, then parse from content
+        let listings = (smart.structured && (smart.structured.businesses || smart.structured.listings))
+          || (smart.domainData && smart.domainData.structured && (smart.domainData.structured.businesses || smart.domainData.structured.listings))
+          || smart.results || [];
+        
+        // If no structured listings but we have content with markdown listings, parse them
+        if (listings.length === 0 && smart.content) {
+          const lines = smart.content.split('\n');
+          lines.forEach(function(line) {
+            const match = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*(?:—|–|-)\s*(.+)/);
+            if (match && listings.length < 8) {
+              const parts = match[2].split('·').map(function(s) { return s.trim(); });
+              listings.push({
+                title: match[1].trim(),
+                snippet: parts.join(' · '),
+                price: (parts.find(function(p) { return p.includes('$'); }) || '').trim(),
+                url: '#',
+              });
+            }
+          });
+        }
+        
         listings.slice(0, 5).forEach(function(item) {
           const name = (item.name || item.title || 'Result').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           const url = item.url || item.googleMapsUrl || '#';
