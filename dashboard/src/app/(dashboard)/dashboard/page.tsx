@@ -1371,13 +1371,21 @@ function ResultCard({
               )}
             </>
           )}
-          <button
-            onClick={onReset}
-            className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all ml-auto"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            New
-          </button>
+          <div className="flex items-center gap-3 ml-auto">
+            <div className="hidden sm:flex items-center gap-3 text-[10px] text-zinc-600">
+              <span>🌐 55+ sites</span>
+              <span>⚡ 270ms</span>
+              <span>🛡️ No ads</span>
+              <span>🤖 AI</span>
+            </div>
+            <button
+              onClick={onReset}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              New
+            </button>
+          </div>
         </div>
 
         {/* Share URL strip */}
@@ -2105,24 +2113,7 @@ export default function ReadPage() {
         </div>
       )}
 
-      {/* Stats bar — shows after results load or on empty state */}
-      <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 py-4 mt-6 border-t border-zinc-800/50">
-        <span className="text-xs text-zinc-600 flex items-center gap-1.5">
-          <span className="text-zinc-500">🌐</span> 55+ websites supported
-        </span>
-        <span className="text-xs text-zinc-600 flex items-center gap-1.5">
-          <span className="text-zinc-500">⚡</span> 270ms avg response
-        </span>
-        <span className="text-xs text-zinc-600 flex items-center gap-1.5">
-          <span className="text-zinc-500">🛡️</span> Zero ads · Zero trackers
-        </span>
-        <span className="text-xs text-zinc-600 flex items-center gap-1.5">
-          <span className="text-zinc-500">🤖</span> AI-powered summaries
-        </span>
-        <span className="text-xs text-zinc-600 flex items-center gap-1.5">
-          <span className="text-zinc-500">📍</span> Google Maps verified
-        </span>
-      </div>
+
     </div>
   );
 }
