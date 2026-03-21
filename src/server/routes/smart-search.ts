@@ -1853,19 +1853,39 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
 
   router.post('/v1/search/smart', async (req: Request, res: Response) => {
     try {
-      // Require authentication
+      // Authentication: API key OR anonymous (rate-limited by IP)
       const authId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
-      if (!authId) {
-        res.status(401).json({
-          success: false,
-          error: {
-            type: 'authentication_required',
-            message: 'API key required. Get one free at https://app.webpeel.dev',
-            docs: 'https://webpeel.dev/docs/api-reference#authentication',
-          },
-          requestId: req.requestId,
-        });
-        return;
+      const isAnonymous = !authId;
+
+      if (isAnonymous) {
+        // Rate limit anonymous users: 3 searches per day per IP
+        const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+          || req.headers['cf-connecting-ip'] as string
+          || req.socket.remoteAddress
+          || 'unknown';
+        const anonKey = `anon:smart:${clientIp}`;
+        try {
+          const redis = getSmartRedis();
+          const count = await redis.incr(anonKey);
+          if (count === 1) {
+            // Set 24-hour expiry on first request
+            await redis.expire(anonKey, 86400);
+          }
+          if (count > 3) {
+            res.status(429).json({
+              success: false,
+              error: {
+                type: 'anonymous_limit_exceeded',
+                message: 'Free search limit reached (3/day). Sign up for unlimited searches.',
+                signupUrl: 'https://app.webpeel.dev/signup',
+              },
+              requestId: req.requestId,
+            });
+            return;
+          }
+        } catch {
+          // Redis failed — allow the request (graceful degradation)
+        }
       }
 
       const { q, location, zip } = req.body as { q?: string; location?: string; zip?: string };

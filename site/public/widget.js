@@ -127,6 +127,14 @@
         });
 
         if (!res.ok) {
+          if (res.status === 429) {
+            // Server-side limit reached — show signup wall
+            localStorage.setItem(SEARCH_COUNT_KEY, String(MAX_FREE_SEARCHES));
+            document.getElementById('wp-results').style.display = 'none';
+            document.getElementById('wp-signup-wall').style.display = 'block';
+            document.getElementById('wp-examples').style.display = 'none';
+            return;
+          }
           throw new Error(`HTTP ${res.status}`);
         }
 
