@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Extract Amazon Product Data with AI in 2025</title>
+  <meta name="description" content="Learn how to scrape Amazon products API-free in 2025. Bypass bot detection, extract prices, ratings & reviews with WebPeel CLI or Python SDK — no CAPTCHAs.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webpeel.dev/blog/scrape-amazon-products-api">
+
+  <meta name="twitter:image" content="https://webpeel.dev/og-image.png">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://webpeel.dev/blog/scrape-amazon-products-api">
+  <meta property="og:title" content="How to Extract Amazon Product Data with AI in 2025">
+  <meta property="og:description" content="Extract Amazon product titles, prices, ratings, and reviews automatically — no CAPTCHAs, no blocked requests, no manual parsing.">
+  <meta property="og:image" content="https://webpeel.dev/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:creator" content="@webpeel_dev">
+
+  <meta name="keywords" content="scrape amazon products, amazon product data extraction, how to scrape amazon, amazon API alternative, extract amazon prices python">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "How to Extract Amazon Product Data with AI in 2025",
+    "description": "How to scrape Amazon products without getting blocked. Extract prices, ratings, and reviews using WebPeel CLI and Python.",
+    "author": {
+      "@type": "Person",
+      "name": "Jake Liu"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "WebPeel",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://webpeel.dev/favicon.svg"
+      }
+    },
+    "datePublished": "2026-03-22",
+    "dateModified": "2026-03-22",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://webpeel.dev/blog/scrape-amazon-products-api"
+    },
+    "keywords": ["scrape amazon products", "amazon product data extraction", "extract amazon prices python"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg: #F5F2EC; --bg-alt: #FFFFFF; --bg-dark: #1A1A18; --bg-code: #1C1C1A;
+      --surface: #FFFFFF; --surface-muted: #F5F3EF;
+      --text: #1A1A18; --text-2: #5A5A55; --text-3: #8A8A82; --text-4: #A1A1AA;
+      --accent: #5865F2; --accent-hover: #4752C4; --accent-light: #F5F3EF;
+      --border: rgba(0,0,0,0.08); --border-card: #E0DDD8; --border-light: #F0EDE8;
+      --green: #16A34A; --red: #DC2626; --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(88,101,242,0.15); }
+    .serif { font-family: 'Instrument Serif', Georgia, serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .container { max-width: 780px; margin: 0 auto; padding: 0 24px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(245,242,236,0.85); backdrop-filter: blur(12px); border-bottom: none; }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; color: var(--text); text-decoration: none; }
+    .nav-logo svg { width: 24px; height: 24px; }
+    .nav-links { display: flex; align-items: center; gap: 20px; }
+    .nav-links a { font-size: 14px; color: #A09B93; transition: color 0.15s; text-decoration: none; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 4px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn-ghost { color: var(--text-2); }
+    .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
+    .nav-links a.nav-btn-primary { background: #1A1A18; color: #FFFFFF; font-weight: 500; }
+    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
+
+    .article-header { padding: 60px 0 40px; text-align: center; border-bottom: none; }
+    .article-meta { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 14px; color: #A09B93; margin-bottom: 20px; }
+    .article-meta a { color: var(--accent); text-decoration: none; }
+    .article-meta a:hover { text-decoration: underline; }
+    h1 { font-family: 'Instrument Serif', serif; font-size: clamp(32px, 5vw, 48px); line-height: 1.15; font-weight: 400; letter-spacing: -0.02em; color: var(--text); margin-bottom: 16px; }
+    .article-description { font-size: 18px; color: var(--text-2); max-width: 640px; margin: 0 auto; line-height: 1.65; }
+
+    article { padding: 56px 0; }
+    article h2 { font-family: 'Instrument Serif', serif; font-size: 32px; font-weight: 400; margin: 46px 0 16px; letter-spacing: -0.01em; }
+    article h3 { font-size: 22px; font-weight: 500; margin: 34px 0 12px; }
+    article p { font-size: 17px; line-height: 1.7; color: var(--text-2); margin-bottom: 20px; }
+    article ul { margin: 18px 0 20px 24px; }
+    article li { font-size: 16px; line-height: 1.7; color: var(--text-2); margin-bottom: 8px; }
+    article code { font-family: 'JetBrains Mono', monospace; font-size: 14px; background: var(--border-light); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+    article pre { background: #1A1A18; color: #D4D4D8; padding: 20px; border-radius: var(--radius); overflow-x: auto; margin: 24px 0; font-size: 14px; line-height: 1.65; }
+    article pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+    .output-box { background: #0F1117; border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 20px; margin: 20px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; color: #D4D4D8; overflow-x: auto; }
+    .output-box .key { color: #9CDCFE; }
+    .output-box .string { color: #CE9178; }
+    .output-box .number { color: #B5CEA8; }
+
+    .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 28px 0; }
+    .comp-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .comp-card h4 { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+    .comp-card.manual { border-color: var(--red); }
+    .comp-card.auto { border-color: var(--green); }
+    .comp-card ul { margin-left: 18px; }
+    .comp-card li { font-size: 14px; color: var(--text-2); margin-bottom: 6px; }
+    .label-bad { display: inline-block; background: #FEF2F2; color: var(--red); font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-bottom: 10px; font-weight: 600; }
+    .label-good { display: inline-block; background: #F0FDF4; color: var(--green); font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-bottom: 10px; font-weight: 600; }
+
+    .step-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--accent); color: #fff; border-radius: 50%; font-size: 13px; font-weight: 700; margin-right: 10px; flex-shrink: 0; }
+
+    .cta-box { background: linear-gradient(135deg, #1A1A18 0%, #27272A 100%); border-radius: var(--radius); padding: 32px; margin: 40px 0; text-align: center; }
+    .cta-box h3 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 10px; }
+    .cta-box p { font-size: 15px; color: #A09B93; margin-bottom: 22px; }
+    .cta-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; background: var(--accent); color: #fff; border-radius: 6px; font-weight: 600; font-size: 15px; text-decoration: none; transition: background 0.15s; }
+    .cta-btn:hover { background: var(--accent-hover); text-decoration: none; }
+
+    .warning-box { background: #FFFBEB; border: 1px solid #F59E0B; border-radius: var(--radius); padding: 16px 20px; margin: 24px 0; }
+    .warning-box p { font-size: 15px; color: #92400E; margin: 0; }
+
+    footer { background: var(--bg-dark); color: #A09B93; border-top: none; padding: 40px 0; margin-top: 60px; }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .footer-left { font-size: 13px; color: var(--text-4); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: #A09B93; transition: color 0.15s; text-decoration: none; }
+    .footer-links a:hover { color: var(--text); }
+
+    @media (max-width: 768px) {
+      .container { padding: 0 16px; }
+      .nav-inner { padding: 0 16px; }
+      .nav-links { display: none; }
+      .article-header { padding: 40px 0 30px; }
+      h1 { font-size: 32px; }
+      article { padding: 40px 0; }
+      article h2 { font-size: 26px; margin-top: 34px; }
+      article h3 { font-size: 20px; }
+      article p, article li { font-size: 16px; }
+      .comparison-grid { grid-template-columns: 1fr; }
+      .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+      .footer-links { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#E0DDD8"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#5A5A55" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/#how">How It Works</a>
+        <a href="/playground">Playground</a>
+        <a href="/#compare">Compare</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/blog/">Blog</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
+        <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Get Started</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="article-header">
+    <div class="container">
+      <div class="article-meta">
+        <span>March 22, 2026</span>
+        <span>•</span>
+        <span>9 min read</span>
+        <span>•</span>
+        <a href="/blog/">← Back to Blog</a>
+      </div>
+      <h1>How to Extract Amazon Product Data with AI in 2025</h1>
+      <p class="article-description">Amazon blocks traditional scrapers. Here's how to extract <strong>product titles, prices, ratings, and reviews</strong> automatically — with zero CAPTCHAs and no manual HTML parsing.</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <article>
+      <p>Amazon is one of the most-scraped sites on the internet — and one of the most aggressively defended. Its bot detection runs on every request. Its page structure changes constantly. Its prices update in real-time. If you've tried scraping Amazon with requests + BeautifulSoup, you know the frustration: blocked after 5 requests, CAPTCHA walls, or empty product pages.</p>
+
+      <p>In 2025, the right approach is to let an AI-powered tool handle the hard parts. This guide shows you exactly how to extract Amazon product data reliably using WebPeel.</p>
+
+      <div class="warning-box">
+        <p>⚖️ <strong>Heads up:</strong> Amazon's Terms of Service prohibit automated data collection. Use extracted data for personal projects, research, or price comparison — not to republish Amazon's catalog at scale. Always respect robots.txt and rate limits.</p>
+      </div>
+
+      <h2>Why Scraping Amazon is Hard</h2>
+      <p>Amazon runs one of the most sophisticated bot detection systems in e-commerce. Here's what you're up against:</p>
+
+      <ul>
+        <li><strong>Bot fingerprinting:</strong> Amazon detects headless browsers by checking TLS fingerprints, browser APIs, and behavior patterns</li>
+        <li><strong>CAPTCHA walls:</strong> Triggered after just a few requests from a clean IP, especially for product pages</li>
+        <li><strong>Dynamic content:</strong> Prices, availability, and "Customers also viewed" sections are rendered via JavaScript after page load</li>
+        <li><strong>Geo-based pricing:</strong> Product data varies by region, IP, and login state</li>
+        <li><strong>Structure changes:</strong> Amazon A/B tests its page layout constantly — CSS selectors break overnight</li>
+      </ul>
+
+      <p>Traditional approaches fail because they target specific HTML selectors. When Amazon changes the layout (which it does frequently), your scraper silently starts returning empty data.</p>
+
+      <h2>The WebPeel Approach</h2>
+      <p>WebPeel uses a multi-tier escalation system: it starts with a fast HTTP request, escalates to a full browser render if the page requires JavaScript, and activates stealth mode if bot detection is triggered. The AI extraction layer then pulls structured data from the rendered page — regardless of how Amazon's HTML is structured.</p>
+
+      <p>The result: you get clean, structured JSON with the data you care about, and no CSS selectors to maintain.</p>
+
+      <h2>Step 1: CLI Quickstart (No API Key Needed)</h2>
+      <p>Install the WebPeel CLI with npx — no global install required:</p>
+
+      <pre><code>npx webpeel "https://www.amazon.com/dp/B0D1XD1ZV3" --render</code></pre>
+
+      <p>The <code>--render</code> flag forces browser rendering, which is required for Amazon's JavaScript-heavy product pages. You'll get clean markdown output within a few seconds:</p>
+
+      <div class="output-box">
+# Echo Dot (5th Gen, 2023 release) | Smart speaker with Bigger sound, Motion Detection...
+
+**Price:** $49.99
+
+**Rating:** 4.7 out of 5 stars
+
+**Reviews:** 247,891 ratings
+
+**Availability:** In Stock
+
+**Prime:** ✓ FREE delivery Tuesday, March 25
+
+## Product Details
+- Brand: Amazon
+- Color: Charcoal
+- Connectivity: Bluetooth, Wi-Fi
+- Compatible Devices: Echo, Fire TV
+
+## About this item
+- Bigger, bolder sound — Echo Dot delivers fuller highs and deeper bass...
+      </div>
+
+      <h2>Step 2: Structured Extraction with the API</h2>
+      <p>For production use, you want structured JSON rather than markdown. Use the <code>--extract</code> flag with a schema:</p>
+
+      <pre><code>npx webpeel "https://www.amazon.com/dp/B0D1XD1ZV3" \
+  --render \
+  --extract '{"title":"string","price":"string","rating":"number","review_count":"number","in_stock":"boolean","prime_eligible":"boolean"}'</code></pre>
+
+      <p>Output:</p>
+
+      <div class="output-box">
+{
+  <span class="key">"title"</span>: <span class="string">"Echo Dot (5th Gen, 2023 release) | Smart speaker with Bigger sound..."</span>,
+  <span class="key">"price"</span>: <span class="string">"$49.99"</span>,
+  <span class="key">"rating"</span>: <span class="number">4.7</span>,
+  <span class="key">"review_count"</span>: <span class="number">247891</span>,
+  <span class="key">"in_stock"</span>: <span class="number">true</span>,
+  <span class="key">"prime_eligible"</span>: <span class="number">true</span>
+}
+      </div>
+
+      <h2>Step 3: Python Integration</h2>
+      <p>Install the WebPeel Python package from PyPI:</p>
+
+      <pre><code>pip install webpeel</code></pre>
+
+      <p>Then use it in your code:</p>
+
+      <pre><code>import asyncio
+from webpeel import WebPeel
+
+async def get_amazon_product(asin: str) -> dict:
+    client = WebPeel(api_key="your_api_key")  # or set WEBPEEL_API_KEY env var
+
+    result = await client.fetch(
+        url=f"https://www.amazon.com/dp/{asin}",
+        render=True,
+        extract={
+            "title": "string",
+            "price": "string",
+            "rating": "number",
+            "review_count": "number",
+            "in_stock": "boolean",
+            "prime_eligible": "boolean",
+            "bullet_points": "list[string]"
+        }
+    )
+
+    return result.extracted
+
+# Run it
+product = asyncio.run(get_amazon_product("B0D1XD1ZV3"))
+print(f"{product['title']} — {product['price']}")
+# Echo Dot (5th Gen) — $49.99</code></pre>
+
+      <h2>Step 4: Batch Multiple Products</h2>
+      <p>Need to track 50+ products? Use batch mode:</p>
+
+      <pre><code>from webpeel import WebPeel
+import asyncio
+
+async def batch_products(asins: list[str]) -> list[dict]:
+    client = WebPeel(api_key="your_api_key")
+
+    urls = [f"https://www.amazon.com/dp/{asin}" for asin in asins]
+
+    results = await client.batch(
+        urls=urls,
+        render=True,
+        extract={"title": "string", "price": "string", "rating": "number"}
+    )
+
+    return [r.extracted for r in results]
+
+asins = ["B0D1XD1ZV3", "B07XJ8C8F5", "B09B8V1LZ3"]
+products = asyncio.run(batch_products(asins))
+
+for p in products:
+    print(f"{p['title'][:40]}... → {p['price']}")</code></pre>
+
+      <h2>BeautifulSoup vs WebPeel: Why Manual Parsing Breaks</h2>
+
+      <div class="comparison-grid">
+        <div class="comp-card manual">
+          <span class="label-bad">❌ BeautifulSoup (manual)</span>
+          <h4>Traditional approach</h4>
+          <ul>
+            <li>Find CSS selector for price element</li>
+            <li>Write HTML parser for each field</li>
+            <li>Handle JS-rendered content separately</li>
+            <li>Breaks when Amazon changes layout</li>
+            <li>Gets blocked after ~5 requests</li>
+            <li>Need to maintain selectors forever</li>
+          </ul>
+        </div>
+        <div class="comp-card auto">
+          <span class="label-good">✓ WebPeel (automatic)</span>
+          <h4>AI-powered approach</h4>
+          <ul>
+            <li>Pass the URL, define a schema</li>
+            <li>AI understands context, not selectors</li>
+            <li>Handles JS rendering automatically</li>
+            <li>Works even when layout changes</li>
+            <li>Stealth mode bypasses bot detection</li>
+            <li>Zero maintenance required</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2>How WebPeel Handles Bot Detection</h2>
+      <p>Amazon uses multiple layers of bot detection. Here's how WebPeel deals with each:</p>
+
+      <ul>
+        <li><strong>TLS fingerprinting:</strong> WebPeel's browser renders pages with a realistic fingerprint that matches real Chrome traffic</li>
+        <li><strong>JavaScript challenges:</strong> Full browser execution handles Cloudflare and Amazon's own JS-based challenges</li>
+        <li><strong>Behavioral analysis:</strong> Request timing and patterns are randomized to look human</li>
+        <li><strong>IP rotation:</strong> Managed API plans include proxy rotation to avoid rate limits</li>
+        <li><strong>CAPTCHA handling:</strong> Stealth mode uses techniques that avoid triggering CAPTCHA challenges in the first place</li>
+      </ul>
+
+      <p>The key insight: instead of trying to bypass detection after the fact, WebPeel's stealth mode is designed to never trigger it.</p>
+
+      <div class="cta-box">
+        <h3>Start Extracting Amazon Data</h3>
+        <p>Free tier includes 2,000 fetches/month. No credit card required. Works with CLI, Python, or the REST API.</p>
+        <a href="https://app.webpeel.dev/signup" class="cta-btn">Start for free →</a>
+      </div>
+
+    </article>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-left">© 2026 WebPeel. Open source under AGPL-3.0.</div>
+      <div class="footer-links">
+        <a href="https://github.com/webpeel/webpeel">GitHub</a>
+        <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="/status">Status</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/acceptable-use">Acceptable Use</a>
+        <a href="https://github.com/webpeel/webpeel/issues">Support</a>
+      </div>
+    </div>
+  </footer>
+
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build a Price Monitoring Bot in 5 Minutes with WebPeel</title>
+  <meta name="description" content="Build a price monitoring bot that tracks any product price and alerts you to changes. Step-by-step guide using WebPeel CLI — runs locally, completely free.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://webpeel.dev/blog/build-price-monitoring-bot">
+
+  <meta name="twitter:image" content="https://webpeel.dev/og-image.png">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://webpeel.dev/blog/build-price-monitoring-bot">
+  <meta property="og:title" content="Build a Price Monitoring Bot in 5 Minutes with WebPeel">
+  <meta property="og:description" content="Track product prices on any e-commerce site and get notified when they change. No server required — runs locally with WebPeel CLI.">
+  <meta property="og:image" content="https://webpeel.dev/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:creator" content="@webpeel_dev">
+
+  <meta name="keywords" content="build price monitoring bot, price tracker bot, price alert automation, web scraping price monitoring, amazon price tracker">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Build a Price Monitoring Bot in 5 Minutes with WebPeel",
+    "description": "Step-by-step guide to building a price monitoring bot for any e-commerce site using WebPeel CLI and monitor command.",
+    "author": {
+      "@type": "Person",
+      "name": "Jake Liu"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "WebPeel",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://webpeel.dev/favicon.svg"
+      }
+    },
+    "datePublished": "2026-03-22",
+    "dateModified": "2026-03-22",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://webpeel.dev/blog/build-price-monitoring-bot"
+    },
+    "keywords": ["build price monitoring bot", "price tracker bot", "web scraping price monitoring"]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --bg: #F5F2EC; --bg-alt: #FFFFFF; --bg-dark: #1A1A18; --bg-code: #1C1C1A;
+      --surface: #FFFFFF; --surface-muted: #F5F3EF;
+      --text: #1A1A18; --text-2: #5A5A55; --text-3: #8A8A82; --text-4: #A1A1AA;
+      --accent: #5865F2; --accent-hover: #4752C4; --accent-light: #F5F3EF;
+      --border: rgba(0,0,0,0.08); --border-card: #E0DDD8; --border-light: #F0EDE8;
+      --green: #16A34A; --red: #DC2626; --radius: 12px;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.65; -webkit-font-smoothing: antialiased; }
+    ::selection { background: rgba(88,101,242,0.15); }
+    .serif { font-family: 'Instrument Serif', Georgia, serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .container { max-width: 780px; margin: 0 auto; padding: 0 24px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    nav { position: sticky; top: 0; z-index: 100; background: rgba(245,242,236,0.85); backdrop-filter: blur(12px); border-bottom: none; }
+    .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 15px; color: var(--text); text-decoration: none; }
+    .nav-logo svg { width: 24px; height: 24px; }
+    .nav-links { display: flex; align-items: center; gap: 20px; }
+    .nav-links a { font-size: 14px; color: #A09B93; transition: color 0.15s; text-decoration: none; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .nav-btn { display: inline-flex; align-items: center; padding: 7px 16px; border-radius: 4px; font-size: 13px; font-weight: 500; transition: all 0.15s; letter-spacing: 0.01em; }
+    .nav-btn-ghost { color: var(--text-2); }
+    .nav-btn-ghost:hover { color: var(--text); background: var(--border-light); }
+    .nav-links a.nav-btn-primary { background: #1A1A18; color: #FFFFFF; font-weight: 500; }
+    .nav-links a.nav-btn-primary:hover { background: #27272A; color: #FFFFFF; box-shadow: 0 0 0 3px rgba(24,24,27,0.25); }
+
+    .article-header { padding: 60px 0 40px; text-align: center; border-bottom: none; }
+    .article-meta { display: flex; align-items: center; justify-content: center; gap: 16px; font-size: 14px; color: #A09B93; margin-bottom: 20px; }
+    .article-meta a { color: var(--accent); text-decoration: none; }
+    .article-meta a:hover { text-decoration: underline; }
+    h1 { font-family: 'Instrument Serif', serif; font-size: clamp(32px, 5vw, 48px); line-height: 1.15; font-weight: 400; letter-spacing: -0.02em; color: var(--text); margin-bottom: 16px; }
+    .article-description { font-size: 18px; color: var(--text-2); max-width: 640px; margin: 0 auto; line-height: 1.65; }
+
+    article { padding: 56px 0; }
+    article h2 { font-family: 'Instrument Serif', serif; font-size: 32px; font-weight: 400; margin: 46px 0 16px; letter-spacing: -0.01em; }
+    article h3 { font-size: 22px; font-weight: 500; margin: 34px 0 12px; }
+    article p { font-size: 17px; line-height: 1.7; color: var(--text-2); margin-bottom: 20px; }
+    article ul { margin: 18px 0 20px 24px; }
+    article li { font-size: 16px; line-height: 1.7; color: var(--text-2); margin-bottom: 8px; }
+    article code { font-family: 'JetBrains Mono', monospace; font-size: 14px; background: var(--border-light); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+    article pre { background: #1A1A18; color: #D4D4D8; padding: 20px; border-radius: var(--radius); overflow-x: auto; margin: 24px 0; font-size: 14px; line-height: 1.65; }
+    article pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+
+    .step-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin: 20px 0; }
+    .step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+    .step-num { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: var(--accent); color: #fff; border-radius: 50%; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+    .step-header h3 { font-size: 20px; font-weight: 600; margin: 0; }
+    .step-card p { font-size: 16px; color: var(--text-2); margin-bottom: 12px; }
+    .step-card p:last-child { margin-bottom: 0; }
+
+    .output-box { background: #0F1117; border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 20px; margin: 16px 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; line-height: 1.7; color: #D4D4D8; overflow-x: auto; }
+    .diff-add { color: #4EC9B0; }
+    .diff-remove { color: #F48771; }
+    .diff-header { color: #9CDCFE; }
+
+    .use-cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin: 24px 0; }
+    .use-case { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+    .use-case .emoji { font-size: 28px; margin-bottom: 8px; display: block; }
+    .use-case h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .use-case p { font-size: 13px; color: var(--text-3); margin: 0; }
+
+    .cta-box { background: linear-gradient(135deg, #1A1A18 0%, #27272A 100%); border-radius: var(--radius); padding: 32px; margin: 40px 0; text-align: center; }
+    .cta-box h3 { font-size: 22px; font-weight: 600; color: #fff; margin-bottom: 10px; }
+    .cta-box p { font-size: 15px; color: #A09B93; margin-bottom: 22px; }
+    .cta-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; background: var(--accent); color: #fff; border-radius: 6px; font-weight: 600; font-size: 15px; text-decoration: none; transition: background 0.15s; }
+    .cta-btn:hover { background: var(--accent-hover); text-decoration: none; }
+
+    .info-box { background: var(--accent-light); border: 1px solid rgba(88,101,242,0.2); border-radius: var(--radius); padding: 16px 20px; margin: 20px 0; }
+    .info-box p { font-size: 15px; color: #3730A3; margin: 0; }
+
+    footer { background: var(--bg-dark); color: #A09B93; border-top: none; padding: 40px 0; margin-top: 60px; }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .footer-left { font-size: 13px; color: var(--text-4); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 13px; color: #A09B93; transition: color 0.15s; text-decoration: none; }
+    .footer-links a:hover { color: var(--text); }
+
+    @media (max-width: 768px) {
+      .container { padding: 0 16px; }
+      .nav-inner { padding: 0 16px; }
+      .nav-links { display: none; }
+      .article-header { padding: 40px 0 30px; }
+      h1 { font-size: 32px; }
+      article { padding: 40px 0; }
+      article h2 { font-size: 26px; margin-top: 34px; }
+      article h3 { font-size: 20px; }
+      article p, article li { font-size: 16px; }
+      .use-cases { grid-template-columns: 1fr 1fr; }
+      .footer-inner { flex-direction: column; gap: 16px; text-align: center; }
+      .footer-links { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <svg viewBox="0 0 32 32"><rect width="32" height="32" fill="#18181B" rx="7"/><path d="M6 3h14l7 7v18a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3z" fill="#FFF" fill-opacity=".95"/><path d="M20 3v5a2 2 0 002 2h5" fill="#E0DDD8"/><path d="M8 16h10" stroke="#18181B" stroke-width="2.5" stroke-linecap="round"/><path d="M8 21h14" stroke="#5A5A55" stroke-width="2.5" stroke-linecap="round"/></svg>
+        WebPeel
+      </a>
+      <div class="nav-links">
+        <a href="/#how">How It Works</a>
+        <a href="/playground">Playground</a>
+        <a href="/#compare">Compare</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/blog/">Blog</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/docs/">Docs</a>
+        <a href="https://app.webpeel.dev" class="nav-btn nav-btn-ghost">Dashboard</a>
+        <a href="https://app.webpeel.dev/signup" class="nav-btn nav-btn-primary">Get Started</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="article-header">
+    <div class="container">
+      <div class="article-meta">
+        <span>March 22, 2026</span>
+        <span>•</span>
+        <span>8 min read</span>
+        <span>•</span>
+        <a href="/blog/">← Back to Blog</a>
+      </div>
+      <h1>Build a Price Monitoring Bot in 5 Minutes with WebPeel</h1>
+      <p class="article-description">Track product prices on any e-commerce site and get notified the moment they drop. <strong>Runs locally, no server required</strong>, completely free.</p>
+    </div>
+  </div>
+
+  <div class="container">
+    <article>
+      <p>Price monitoring used to require a full stack: a server, a database, a cron job, and a CSS selector that breaks every time the retailer updates their page. Today, you can build a working price tracker in under 5 minutes using the WebPeel CLI — and run it on your laptop with no cloud infrastructure needed.</p>
+
+      <p>This guide walks through the complete setup: installation, monitoring a product URL, detecting changes, and wiring up notifications.</p>
+
+      <h2>What You Can Monitor</h2>
+
+      <div class="use-cases">
+        <div class="use-case">
+          <span class="emoji">🛒</span>
+          <h4>Amazon products</h4>
+          <p>Track prices, deals, and availability</p>
+        </div>
+        <div class="use-case">
+          <span class="emoji">👟</span>
+          <h4>Sneakers & apparel</h4>
+          <p>GOAT, StockX, Nike, Adidas</p>
+        </div>
+        <div class="use-case">
+          <span class="emoji">✈️</span>
+          <h4>Flight prices</h4>
+          <p>Google Flights, Kayak, Expedia</p>
+        </div>
+        <div class="use-case">
+          <span class="emoji">🏠</span>
+          <h4>Real estate</h4>
+          <p>Zillow listings, rental prices</p>
+        </div>
+        <div class="use-case">
+          <span class="emoji">💻</span>
+          <h4>Tech & electronics</h4>
+          <p>Best Buy, Newegg, B&H Photo</p>
+        </div>
+        <div class="use-case">
+          <span class="emoji">🎮</span>
+          <h4>Games & collectibles</h4>
+          <p>Steam sales, eBay listings</p>
+        </div>
+      </div>
+
+      <h2>Step 1: Install WebPeel CLI</h2>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-num">1</div>
+          <h3>Install in 10 seconds</h3>
+        </div>
+        <p>No global install required. Use npx to run WebPeel directly:</p>
+        <pre><code>npx webpeel --version</code></pre>
+        <p>Or install globally for faster repeat use:</p>
+        <pre><code>npm install -g webpeel
+webpeel --version  # 1.x.x</code></pre>
+      </div>
+
+      <h2>Step 2: Start Monitoring a URL</h2>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-num">2</div>
+          <h3>Monitor a product URL</h3>
+        </div>
+        <p>The <code>webpeel monitor</code> command watches a URL for changes on a schedule. Here's how to monitor an Amazon product price every hour:</p>
+        <pre><code>webpeel monitor https://www.amazon.com/dp/B0D1XD1ZV3 \
+  --selector ".a-price-whole" \
+  --interval 3600 \
+  --label "Echo Dot 5th Gen"</code></pre>
+        <p>Options explained:</p>
+        <ul>
+          <li><code>--selector</code>: CSS selector for the element to watch (optional — omit to watch the full page)</li>
+          <li><code>--interval 3600</code>: Check every 3600 seconds (1 hour)</li>
+          <li><code>--label</code>: Human-readable name for this monitor</li>
+        </ul>
+        <p>First run output:</p>
+        <div class="output-box">
+[2026-03-22 14:00:00] ✓ Monitor started: Echo Dot 5th Gen
+[2026-03-22 14:00:02] ✓ Baseline captured: "$49"
+[2026-03-22 14:00:02] ✓ Next check in 3600s (15:00:02)
+        </div>
+      </div>
+
+      <h2>Step 3: Detect Changes</h2>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-num">3</div>
+          <h3>See what changed</h3>
+        </div>
+        <p>When a change is detected, WebPeel shows a diff of exactly what changed:</p>
+        <div class="output-box">
+<span class="diff-header">[2026-03-22 16:00:05] ⚡ CHANGE DETECTED: Echo Dot 5th Gen</span>
+<span class="diff-header">URL: https://www.amazon.com/dp/B0D1XD1ZV3</span>
+
+<span class="diff-remove">- $49</span>
+<span class="diff-add">+ $34.99</span>
+
+<span class="diff-header">Price dropped: $49.00 → $34.99 (-28.6%)</span>
+        </div>
+        <p>The diff output works on any page content — not just prices. You can monitor stock availability, review counts, specification changes, or any text on the page.</p>
+      </div>
+
+      <h2>Step 4: Get Notified</h2>
+      <p>WebPeel monitor outputs structured JSON when a change occurs, so you can pipe it into any notification system:</p>
+
+      <h3>Email via curl + mailgun</h3>
+      <pre><code>webpeel monitor https://www.amazon.com/dp/B0D1XD1ZV3 \
+  --selector ".a-price-whole" \
+  --interval 3600 \
+  --json | while IFS= read -r line; do
+    if echo "$line" | grep -q '"changed":true'; then
+      PRICE=$(echo "$line" | jq -r '.current')
+      curl -s -X POST https://api.mailgun.net/v3/YOUR_DOMAIN/messages \
+        -u "api:YOUR_MAILGUN_KEY" \
+        -F from="alerts@yourdomain.com" \
+        -F to="you@email.com" \
+        -F subject="Price alert: Echo Dot dropped to $PRICE" \
+        -F text="The price changed. Check it now: https://amazon.com/dp/B0D1XD1ZV3"
+    fi
+  done</code></pre>
+
+      <h3>Slack webhook notification</h3>
+      <pre><code>webpeel monitor https://www.amazon.com/dp/B0D1XD1ZV3 \
+  --selector ".a-price-whole" \
+  --interval 3600 \
+  --on-change "curl -s -X POST https://hooks.slack.com/services/YOUR/WEBHOOK/URL \
+    -H 'Content-type: application/json' \
+    -d '{\"text\": \"Price dropped! Echo Dot is now \$WEBPEEL_NEW_VALUE\"}'"</code></pre>
+
+      <div class="info-box">
+        <p>💡 The <code>--on-change</code> flag runs a shell command whenever a change is detected. WebPeel injects these env vars: <code>$WEBPEEL_NEW_VALUE</code>, <code>$WEBPEEL_OLD_VALUE</code>, <code>$WEBPEEL_URL</code>, <code>$WEBPEEL_LABEL</code>.</p>
+      </div>
+
+      <h3>Discord notification</h3>
+      <pre><code>webpeel monitor https://www.amazon.com/dp/B0D1XD1ZV3 \
+  --extract '{"price":"string","title":"string"}' \
+  --interval 3600 \
+  --on-change 'curl -s -X POST "https://discord.com/api/webhooks/YOUR/WEBHOOK" \
+    -H "Content-Type: application/json" \
+    -d "{\"content\": \"🔔 Price alert! \\\"$WEBPEEL_LABEL\\\" is now $WEBPEEL_NEW_VALUE\"}"'</code></pre>
+
+      <h2>Real Example: Monitor an Amazon Product</h2>
+      <p>Here's a complete, production-ready monitor script that tracks an Amazon product and sends a Slack alert when the price drops below a threshold:</p>
+
+      <pre><code>#!/bin/bash
+# price-monitor.sh — monitors an Amazon product and alerts on price drops
+# Usage: ./price-monitor.sh
+
+PRODUCT_URL="https://www.amazon.com/dp/B0D1XD1ZV3"
+SLACK_WEBHOOK="https://hooks.slack.com/services/YOUR/WEBHOOK"
+TARGET_PRICE=40  # Alert when price drops below $40
+CHECK_INTERVAL=3600  # 1 hour
+
+notify_slack() {
+  local message="$1"
+  curl -s -X POST "$SLACK_WEBHOOK" \
+    -H "Content-Type: application/json" \
+    -d "{\"text\": \"$message\"}"
+}
+
+echo "Starting price monitor for Echo Dot..."
+
+webpeel monitor "$PRODUCT_URL" \
+  --render \
+  --extract '{"price_numeric":"number","price_display":"string","title":"string"}' \
+  --interval $CHECK_INTERVAL \
+  --json | while IFS= read -r event; do
+
+    if echo "$event" | jq -e '.changed == true' > /dev/null 2>&1; then
+      CURRENT_PRICE=$(echo "$event" | jq -r '.extracted.price_numeric')
+      DISPLAY_PRICE=$(echo "$event" | jq -r '.extracted.price_display')
+      TITLE=$(echo "$event" | jq -r '.extracted.title' | cut -c1-50)
+
+      echo "[$(date)] Price changed: $DISPLAY_PRICE"
+
+      # Alert if below target
+      if (( $(echo "$CURRENT_PRICE < $TARGET_PRICE" | bc -l) )); then
+        notify_slack "🔥 Price drop! \"$TITLE...\" is now $DISPLAY_PRICE (was above \$$TARGET_PRICE). Buy now: $PRODUCT_URL"
+      fi
+    fi
+  done</code></pre>
+
+      <h2>Advanced: Monitor Multiple Products</h2>
+      <p>To monitor multiple products at once, use a config file:</p>
+
+      <pre><code># monitors.json
+[
+  {
+    "url": "https://www.amazon.com/dp/B0D1XD1ZV3",
+    "label": "Echo Dot 5th Gen",
+    "interval": 3600,
+    "selector": ".a-price-whole"
+  },
+  {
+    "url": "https://www.amazon.com/dp/B07XJ8C8F5",
+    "label": "AirPods Pro",
+    "interval": 7200,
+    "selector": ".a-price-whole"
+  },
+  {
+    "url": "https://www.bestbuy.com/site/apple-macbook-air/6525066.p",
+    "label": "MacBook Air M3",
+    "interval": 14400,
+    "extract": {"price": "string"}
+  }
+]</code></pre>
+
+      <pre><code>webpeel monitor --config monitors.json --on-change "./notify.sh"</code></pre>
+
+      <h2>Running the Monitor 24/7</h2>
+      <p>To keep the monitor running even after you close your terminal, use a simple process manager:</p>
+
+      <pre><code># With pm2 (Node.js process manager)
+npm install -g pm2
+pm2 start "webpeel monitor --config monitors.json" --name price-monitor
+pm2 save  # Restart on system reboot</code></pre>
+
+      <pre><code># Or as a cron job (check every hour at :00)
+crontab -e
+# Add:
+0 * * * * webpeel fetch "https://www.amazon.com/dp/B0D1XD1ZV3" --render --extract '{"price":"string"}' >> ~/price-log.json 2>&1</code></pre>
+
+      <div class="cta-box">
+        <h3>WebPeel Monitor is Free</h3>
+        <p>Runs locally, no server required. 2,000 fetches/month on the free tier — more than enough for personal price tracking. No credit card needed.</p>
+        <a href="https://app.webpeel.dev/signup" class="cta-btn">Try it free →</a>
+      </div>
+
+    </article>
+  </div>
+
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-left">© 2026 WebPeel. Open source under AGPL-3.0.</div>
+      <div class="footer-links">
+        <a href="https://github.com/webpeel/webpeel">GitHub</a>
+        <a href="https://app.webpeel.dev">Dashboard</a>
+        <a href="/status">Status</a>
+        <a href="/changelog">Changelog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/acceptable-use">Acceptable Use</a>
+        <a href="https://github.com/webpeel/webpeel/issues">Support</a>
+      </div>
+    </div>
+  </footer>
+
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+</body>
+</html>
