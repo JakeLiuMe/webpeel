@@ -125,6 +125,7 @@ export function createJobsRouter(jobQueue: IJobQueue, authStore: AuthStore): Rou
                 sendSSE(res, 'page', {
                   url: pageResult.url,
                   content: pageResult.markdown,
+                  tokens: pageResult.tokens ?? 0,
                   metadata: {
                     title: pageResult.title,
                     depth: pageResult.depth,

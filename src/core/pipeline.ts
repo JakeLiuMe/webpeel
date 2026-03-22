@@ -1155,17 +1155,22 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
   // Also skip if selector was used — user explicitly chose content, don't override with readability
   if (options.readable && isHTML && fetchResult.html && !ctx.readabilityResult && !ctx.selector) {
     ctx.timer.mark('readability');
-    const readResult = extractReadableContent(fetchResult.html, fetchResult.url);
+    try {
+      const readResult = extractReadableContent(fetchResult.html, fetchResult.url);
+      ctx.readabilityResult = readResult;
+      ctx.content = readResult.content;
+      ctx.metadata = {
+        ...ctx.metadata,
+        title: readResult.title || ctx.metadata?.title,
+        author: readResult.author || undefined,
+        publishedDate: readResult.date || undefined,
+      };
+      ctx.title = readResult.title || ctx.title;
+    } catch (readErr) {
+      // Readability can crash on complex DOMs (e.g. Amazon) — gracefully fall back to standard content
+      log.debug('Readability failed, using standard content:', (readErr as Error).message);
+    }
     ctx.timer.end('readability');
-    ctx.readabilityResult = readResult;
-    ctx.content = readResult.content;
-    ctx.metadata = {
-      ...ctx.metadata,
-      title: readResult.title || ctx.metadata?.title,
-      author: readResult.author || undefined,
-      publishedDate: readResult.date || undefined,
-    };
-    ctx.title = readResult.title || ctx.title;
   }
 
   // Extract images if requested
