@@ -44,6 +44,7 @@ import { registerInteractCommands } from './cli/commands/interact.js';
 import { registerAuthCommands } from './cli/commands/auth.js';
 import { registerScreenshotCommands } from './cli/commands/screenshot.js';
 import { registerJobsCommands } from './cli/commands/jobs.js';
+import { registerMonitorCommands } from './cli/commands/monitor.js';
 
 // ── Early silent/log-level detection (must happen before any async module code) ──
 // Set WEBPEEL_LOG_LEVEL early so logger checks see it when async IIFEs fire.
@@ -96,6 +97,7 @@ registerInteractCommands(program);
 registerAuthCommands(program);
 registerScreenshotCommands(program);
 registerJobsCommands(program);
+registerMonitorCommands(program);
 
 // ── Parse ─────────────────────────────────────────────────────────────────────
 program.parse();
