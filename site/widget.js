@@ -16,12 +16,131 @@
     return count;
   }
 
-  // Create the widget HTML
+  // ─── Utility: HTML escape ───────────────────────────────────────────────────
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ─── Utility: Clean and truncate snippet text ───────────────────────────────
+  function cleanSnippet(text, maxLen) {
+    if (!text) return '';
+    // Add space after period before capital letter (e.g. "Value.Check" → "Value. Check")
+    var cleaned = text.replace(/\.([A-Z])/g, '. $1');
+    // Strip excessive whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    // Remove consecutive duplicate phrases (3+ word blocks)
+    cleaned = cleaned.replace(/(\b(?:\w+\s){3,}\w+)\s+\1/gi, '$1');
+    if (cleaned.length <= maxLen) return cleaned;
+    // Truncate without splitting mid-word
+    var truncated = cleaned.substring(0, maxLen);
+    var lastSpace = truncated.lastIndexOf(' ');
+    return (lastSpace > maxLen * 0.6 ? truncated.substring(0, lastSpace) : truncated) + '...';
+  }
+
+  // ─── Render: product / car listing cards ────────────────────────────────────
+  function renderListingCards(listings) {
+    return listings.slice(0, 4).map(function(item) {
+      var title = esc(item.title || item.name || 'Result');
+      var url = esc(item.url || '#');
+      var price = item.price
+        ? '<span style="color:#34d399;font-weight:600;font-size:13px;white-space:nowrap;">' + esc(item.price) + '</span>'
+        : '';
+      var source = item.source
+        ? '<span style="background:rgba(255,255,255,0.06);color:#71717a;font-size:10px;padding:2px 8px;border-radius:20px;white-space:nowrap;">' + esc(item.source) + '</span>'
+        : '';
+      var meta = (price || source)
+        ? '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;">' + price + source + '</div>'
+        : '';
+      var snippet = cleanSnippet(item.snippet || '', 120);
+      var snippetHtml = snippet
+        ? '<div class="wp-snippet" style="font-size:13px;color:#a1a1aa;line-height:1.5;margin-top:6px;">' + esc(snippet) + '</div>'
+        : '';
+      return '<div style="padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:8px;transition:background 0.2s;" '
+        + 'onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" '
+        + 'onmouseout="this.style.background=\'rgba(255,255,255,0.03)\'">'
+        + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">'
+        + '<a href="' + url + '" target="_blank" rel="noopener noreferrer" '
+        + 'class="wp-title-link" style="font-size:14px;font-weight:500;color:#818CF8;text-decoration:none;line-height:1.4;">' + title + '</a>'
+        + meta
+        + '</div>'
+        + snippetHtml
+        + '</div>';
+    }).join('');
+  }
+
+  // ─── Render: business / restaurant cards ────────────────────────────────────
+  function renderBusinessCards(businesses) {
+    return businesses.slice(0, 4).map(function(item) {
+      var name = esc(item.name || 'Business');
+      var url = esc(item.url || item.googleMapsUrl || '#');
+      var ratingStars = item.rating !== undefined
+        ? '<span style="color:#fbbf24;font-size:13px;">⭐</span><span style="color:#e4e4e7;font-size:13px;font-weight:500;margin-left:2px;">' + item.rating + '</span>'
+        : '';
+      var reviews = item.reviewCount
+        ? '<span style="color:#71717a;font-size:12px;">(' + Number(item.reviewCount).toLocaleString() + ')</span>'
+        : '';
+      var openStatus = item.isOpenNow !== undefined
+        ? (item.isOpenNow
+          ? '<span style="color:#34d399;font-size:12px;">● Open</span>'
+          : '<span style="color:#f87171;font-size:12px;">● Closed</span>')
+        : '';
+      var address = item.address
+        ? '<div style="font-size:12px;color:#71717a;margin-top:4px;">' + esc(item.address) + '</div>'
+        : '';
+      var metaRow = (ratingStars || reviews)
+        ? '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' + ratingStars + reviews + '</div>'
+        : '';
+      return '<div style="padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:8px;transition:background 0.2s;" '
+        + 'onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" '
+        + 'onmouseout="this.style.background=\'rgba(255,255,255,0.03)\'">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">'
+        + '<a href="' + url + '" target="_blank" rel="noopener noreferrer" '
+        + 'class="wp-title-link" style="font-size:14px;font-weight:500;color:#818CF8;text-decoration:none;">' + name + '</a>'
+        + openStatus
+        + '</div>'
+        + metaRow
+        + address
+        + '</div>';
+    }).join('');
+  }
+
+  // ─── Render: source attribution row ─────────────────────────────────────────
+  function renderSourceRow(sources) {
+    if (!sources || !sources.length) return '';
+    var domains = [];
+    sources.forEach(function(s) {
+      var addDomain = function(urlStr) {
+        try {
+          var h = new URL(urlStr).hostname.replace(/^www\./, '');
+          if (h && domains.indexOf(h) === -1) domains.push(h);
+        } catch (e) {}
+      };
+      if (s.url) addDomain(s.url);
+      if (s.threads) {
+        s.threads.forEach(function(t) { if (t.url) addDomain(t.url); });
+      }
+    });
+    var uniq = domains.slice(0, 6);
+    if (!uniq.length) return '';
+    var pills = uniq.map(function(d) {
+      return '<span style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;">'
+        + '<img src="https://www.google.com/s2/favicons?domain=' + esc(d) + '&sz=12" width="12" height="12" '
+        + 'style="border-radius:2px;opacity:0.55;vertical-align:middle;" onerror="this.style.display=\'none\'">'
+        + '<span>' + esc(d) + '</span>'
+        + '</span>';
+    }).join('<span style="color:#3f3f46;margin:0 1px;"> · </span>');
+    return '<div style="margin-top:10px;font-size:11px;color:#52525b;display:flex;flex-wrap:wrap;align-items:center;gap:4px;line-height:1.8;">'
+      + '<span style="color:#3f3f46;">Sources:</span>'
+      + pills
+      + '</div>';
+  }
+
+  // ─── Create the widget HTML ──────────────────────────────────────────────────
   function createWidget(containerId) {
-    const container = document.getElementById(containerId);
+    var container = document.getElementById(containerId);
     if (!container) return;
 
-    const examples = [
+    var examples = [
       '🍕 best pizza in Manhattan',
       '⛽ cheapest gas near me',
       '🎧 best Sony headphones',
@@ -29,61 +148,57 @@
       '🏨 hotel in Boston under $150'
     ];
 
-    const exampleButtons = examples.map(q =>
-      `<button type="button" class="wp-example-btn" data-query="${q}"
-        style="padding: 6px 14px; font-size: 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);
-               background: rgba(255,255,255,0.03); color: #a1a1aa; cursor: pointer; white-space: nowrap;
-               transition: all 0.2s; font-family: inherit;"
-        onmouseover="this.style.borderColor='rgba(129,140,248,0.3)';this.style.color='#e4e4e7'"
-        onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.color='#a1a1aa'"
-      >${q}</button>`
-    ).join('');
+    var exampleButtons = examples.map(function(q) {
+      return '<button type="button" class="wp-example-btn" data-query="' + esc(q) + '"'
+        + ' style="padding: 6px 14px; font-size: 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);'
+        + ' background: rgba(255,255,255,0.03); color: #a1a1aa; cursor: pointer; white-space: nowrap;'
+        + ' transition: all 0.2s; font-family: inherit;"'
+        + ' onmouseover="this.style.borderColor=\'rgba(129,140,248,0.3)\';this.style.color=\'#e4e4e7\'"'
+        + ' onmouseout="this.style.borderColor=\'rgba(255,255,255,0.08)\';this.style.color=\'#a1a1aa\'"'
+        + '>' + q + '</button>';
+    }).join('');
 
-    container.innerHTML = `
-      <div id="wp-widget" style="max-width: 640px; margin: 0 auto; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; box-sizing: border-box;">
-        <form id="wp-search-form" style="position: relative;">
-          <input id="wp-search-input" type="text"
-            placeholder="Search anything — restaurants, products, flights, gas prices..."
-            style="width: 100%; padding: 16px 52px 16px 20px; font-size: 16px; border-radius: 16px;
-                   border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
-                   color: #e4e4e7; outline: none; backdrop-filter: blur(8px);
-                   transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box;
-                   font-family: inherit;"
-            onfocus="this.style.borderColor='#818CF8';this.style.boxShadow='0 0 0 3px rgba(129,140,248,0.15)'"
-            onblur="this.style.borderColor='rgba(255,255,255,0.1)';this.style.boxShadow='none'"
-          />
-          <button type="submit" id="wp-search-btn"
-            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-                   width: 36px; height: 36px; border-radius: 10px; border: none;
-                   background: #818CF8; color: white; cursor: pointer; display: flex;
-                   align-items: center; justify-content: center; font-size: 18px;
-                   transition: background 0.2s; flex-shrink: 0;"
-            onmouseover="this.style.background='#6366F1'"
-            onmouseout="this.style.background='#818CF8'"
-          >→</button>
-        </form>
-
-        <div id="wp-examples" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; justify-content: center;">
-          ${exampleButtons}
-        </div>
-
-        <div id="wp-results" style="margin-top: 20px; display: none;"></div>
-
-        <div id="wp-signup-wall" style="display: none; text-align: center; padding: 40px 20px;
-             background: rgba(129,140,248,0.05); border: 1px solid rgba(129,140,248,0.2);
-             border-radius: 16px; margin-top: 20px;">
-          <h3 style="color: #e4e4e7; font-size: 20px; margin: 0 0 8px; font-family: inherit;">You've used your 3 free searches</h3>
-          <p style="color: #a1a1aa; font-size: 14px; margin: 0 0 20px; font-family: inherit;">Sign up for free to get 500 searches/week + AI summaries</p>
-          <a href="${SIGNUP_URL}"
-            style="display: inline-block; padding: 12px 32px; background: #818CF8; color: white;
-                   border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px;
-                   transition: background 0.2s; font-family: inherit;"
-            onmouseover="this.style.background='#6366F1'"
-            onmouseout="this.style.background='#818CF8'"
-          >Sign Up Free →</a>
-        </div>
-      </div>
-    `;
+    container.innerHTML = '\
+      <div id="wp-widget" style="max-width: 640px; margin: 0 auto; font-family: \'Inter\', -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif; box-sizing: border-box;">\
+        <form id="wp-search-form" style="position: relative;">\
+          <input id="wp-search-input" type="text"\
+            placeholder="Search anything — restaurants, products, flights, gas prices..."\
+            style="width: 100%; padding: 16px 52px 16px 20px; font-size: 16px; border-radius: 16px;\
+                   border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);\
+                   color: #e4e4e7; outline: none; backdrop-filter: blur(8px);\
+                   transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box;\
+                   font-family: inherit;"\
+            onfocus="this.style.borderColor=\'#818CF8\';this.style.boxShadow=\'0 0 0 3px rgba(129,140,248,0.15)\'"\
+            onblur="this.style.borderColor=\'rgba(255,255,255,0.1)\';this.style.boxShadow=\'none\'"\
+          />\
+          <button type="submit" id="wp-search-btn"\
+            style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);\
+                   width: 36px; height: 36px; border-radius: 10px; border: none;\
+                   background: #818CF8; color: white; cursor: pointer; display: flex;\
+                   align-items: center; justify-content: center; font-size: 18px;\
+                   transition: background 0.2s; flex-shrink: 0;"\
+            onmouseover="this.style.background=\'#6366F1\'"\
+            onmouseout="this.style.background=\'#818CF8\'"\
+          >→</button>\
+        </form>\
+        <div id="wp-examples" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; justify-content: center;">\
+          ' + exampleButtons + '\
+        </div>\
+        <div id="wp-results" style="margin-top: 20px; display: none;"></div>\
+        <div id="wp-signup-wall" style="display: none; text-align: center; padding: 40px 20px;\
+             background: rgba(129,140,248,0.05); border: 1px solid rgba(129,140,248,0.2);\
+             border-radius: 16px; margin-top: 20px;">\
+          <h3 style="color: #e4e4e7; font-size: 20px; margin: 0 0 8px; font-family: inherit;">You\'ve used your 3 free searches</h3>\
+          <p style="color: #a1a1aa; font-size: 14px; margin: 0 0 20px; font-family: inherit;">Sign up for free to get 500 searches/week + AI summaries</p>\
+          <a href="' + SIGNUP_URL + '"\
+            style="display: inline-block; padding: 12px 32px; background: #818CF8; color: white;\
+                   border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px;\
+                   transition: background 0.2s; font-family: inherit;"\
+            onmouseover="this.style.background=\'#6366F1\'"\
+            onmouseout="this.style.background=\'#818CF8\'"\
+          >Sign Up Free →</a>\
+        </div>\
+      </div>';
 
     // Mobile responsiveness: swap placeholder, adjust padding & gap on small screens
     function applyMobileStyles() {
@@ -120,10 +235,10 @@
     // Search handler
     document.getElementById('wp-search-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      const query = document.getElementById('wp-search-input').value.trim();
+      var query = document.getElementById('wp-search-input').value.trim();
       if (!query) return;
 
-      const count = getSearchCount();
+      var count = getSearchCount();
       if (count >= MAX_FREE_SEARCHES) {
         document.getElementById('wp-results').style.display = 'none';
         document.getElementById('wp-signup-wall').style.display = 'block';
@@ -132,18 +247,19 @@
       }
 
       incrementSearchCount();
-      const resultsDiv = document.getElementById('wp-results');
+      var resultsDiv = document.getElementById('wp-results');
       resultsDiv.style.display = 'block';
-      resultsDiv.innerHTML = `
-        <div style="text-align: center; padding: 30px; color: #a1a1aa;">
-          <style>@keyframes wp-spin{to{transform:rotate(360deg)}}</style>
-          <div style="display: inline-block; width: 24px; height: 24px; border: 2px solid #52525b; border-top-color: #818CF8; border-radius: 50%; animation: wp-spin 0.6s linear infinite;"></div>
-          <p style="margin-top: 12px; font-size: 13px; font-family: inherit;">Searching...</p>
-        </div>
-      `;
+      resultsDiv.innerHTML = '\
+        <div style="text-align: center; padding: 30px; color: #a1a1aa;">\
+          <style>@keyframes wp-spin{to{transform:rotate(360deg)}}</style>\
+          <div style="display: inline-block; width: 24px; height: 24px; border: 2px solid #52525b; border-top-color: #818CF8; border-radius: 50%; animation: wp-spin 0.6s linear infinite;"></div>\
+          <p style="margin-top: 12px; font-size: 13px; font-family: inherit;">Searching...</p>\
+        </div>';
+
+      var startTime = Date.now();
 
       try {
-        const res = await fetch(`${API_URL}/v1/search/smart`, {
+        var res = await fetch(API_URL + '/v1/search/smart', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ q: query }),
@@ -151,123 +267,127 @@
 
         if (!res.ok) {
           if (res.status === 429) {
-            // Server-side limit reached — show signup wall
             localStorage.setItem(SEARCH_COUNT_KEY, String(MAX_FREE_SEARCHES));
             document.getElementById('wp-results').style.display = 'none';
             document.getElementById('wp-signup-wall').style.display = 'block';
             document.getElementById('wp-examples').style.display = 'none';
             return;
           }
-          throw new Error(`HTTP ${res.status}`);
+          throw new Error('HTTP ' + res.status);
         }
 
-        const data = await res.json();
-        const smart = data.data || data;
+        var data = await res.json();
+        var smart = data.data || data;
+        var elapsed = Date.now() - startTime;
+        var elapsedStr = elapsed < 10000 ? (elapsed / 1000).toFixed(1) + 's' : '~2s avg';
 
-        let html = '';
+        // Mobile style toggle helper (for responsive card text)
+        var isMobile = window.innerWidth <= 480;
 
-        // AI Answer
+        var html = '';
+
+        // ── Mobile-responsive card styles (injected once) ──────────────────
+        html += '<style>'
+          + '@media(max-width:480px){'
+          + '.wp-title-link{font-size:13px !important}'
+          + '.wp-snippet{font-size:12px !important}'
+          + '.wp-card{padding:12px !important}'
+          + '}'
+          + '</style>';
+
+        // ── 1. AI Summary card ─────────────────────────────────────────────
         if (smart.answer) {
-          const safeAnswer = smart.answer
+          var safeAnswer = smart.answer
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e4e4e7">$1</strong>')
             .replace(/\n/g, '<br>');
-          html += `
-            <div style="padding: 16px; border-radius: 12px; background: rgba(129,140,248,0.08); border: 1px solid rgba(129,140,248,0.15); margin-bottom: 16px;">
-              <div style="font-size: 11px; color: #818CF8; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">✨ AI Summary</div>
-              <div style="font-size: 14px; color: #d4d4d8; line-height: 1.6;">${safeAnswer}</div>
-            </div>`;
+          html += '<div style="padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
+            + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
+            + '<div style="font-size:14px;color:#d4d4d8;line-height:1.65;">' + safeAnswer + '</div>'
+            + '</div>';
         }
 
-        // Results — try structured data first, then domainData, then parse from content
-        let listings = (smart.structured && (smart.structured.businesses || smart.structured.listings))
-          || (smart.domainData && smart.domainData.structured && (smart.domainData.structured.businesses || smart.domainData.structured.listings))
-          || smart.results || [];
-        
-        // If no structured listings but we have content with markdown listings, parse them
-        if (listings.length === 0 && smart.content) {
-          const lines = smart.content.split('\n');
-          lines.forEach(function(line) {
-            const match = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*(?:—|–|-)\s*(.+)/);
-            if (match && listings.length < 8) {
-              const parts = match[2].split('·').map(function(s) { return s.trim(); });
-              listings.push({
-                title: match[1].trim(),
-                snippet: parts.join(' · '),
-                price: (parts.find(function(p) { return p.includes('$'); }) || '').trim(),
-                url: '#',
-              });
-            }
-          });
-        }
-        
-        listings.slice(0, 5).forEach(function(item) {
-          const name = (item.name || item.title || 'Result').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-          const url = item.url || item.googleMapsUrl || '#';
-          const rating = item.rating ? `⭐ ${item.rating}` : '';
-          const reviews = item.reviewCount ? `(${item.reviewCount} reviews)` : '';
-          const openStatus = item.isOpenNow !== undefined
-            ? (item.isOpenNow ? '<span style="color:#34d399">🟢 Open</span>' : '<span style="color:#f87171">🔴 Closed</span>')
-            : '';
-          const rawSnippet = item.snippet || item.address || '';
-          const snippet = rawSnippet.substring(0, 300).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // ── 2. Structured listings or businesses ───────────────────────────
+        var structured = smart.structured
+          || (smart.domainData && smart.domainData.structured)
+          || {};
 
-          html += `
-            <div style="padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); margin-bottom: 8px; transition: background 0.2s;"
-              onmouseover="this.style.background='rgba(255,255,255,0.06)'"
-              onmouseout="this.style.background='rgba(255,255,255,0.03)'"
-            >
-              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                <a href="${url}" target="_blank" rel="noopener noreferrer"
-                  style="font-size: 14px; font-weight: 500; color: #818CF8; text-decoration: none; font-family: inherit;">${name}</a>
-                ${openStatus}
-              </div>
-              <div style="font-size: 12px; color: #71717a; margin-top: 4px;">${rating} ${reviews}</div>
-              ${snippet ? `<div style="font-size: 12px; color: #a1a1aa; margin-top: 4px;">${snippet}</div>` : ''}
-            </div>`;
-        });
+        var listings = structured.listings || [];
+        var businesses = structured.businesses || [];
+        var hasStructured = listings.length > 0 || businesses.length > 0;
 
-        if (!html) {
-          html = '<div style="text-align: center; padding: 20px; color: #71717a; font-size: 13px;">No results found. Try a different query.</div>';
+        if (businesses.length > 0) {
+          html += renderBusinessCards(businesses);
+        } else if (listings.length > 0) {
+          html += renderListingCards(listings);
+        } else if (!hasStructured) {
+          // ── 4. Fallback: parse from content markdown ───────────────────
+          var fallbackListings = [];
+          if (smart.content) {
+            var lines = smart.content.split('\n');
+            lines.forEach(function(line) {
+              var match = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*(?:—|–|-)\s*(.+)/);
+              if (match && fallbackListings.length < 4) {
+                var parts = match[2].split('·').map(function(s) { return s.trim(); });
+                fallbackListings.push({
+                  title: match[1].trim(),
+                  snippet: cleanSnippet(parts.join(' · '), 120),
+                  price: (parts.find(function(p) { return p.indexOf('$') !== -1; }) || '').trim(),
+                  url: '#',
+                });
+              }
+            });
+          }
+          if (fallbackListings.length > 0) {
+            html += renderListingCards(fallbackListings);
+          } else if (smart.results && smart.results.length > 0) {
+            html += renderListingCards(smart.results);
+          }
         }
 
-        // Stats bar — trust signals
-        html += `<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 16px; padding: 12px 0; border-top: 1px solid rgba(255,255,255,0.06);">
-          <span style="font-size: 11px; color: #52525b;">🌐 55+ websites</span>
-          <span style="font-size: 11px; color: #52525b;">⚡ 270ms avg</span>
-          <span style="font-size: 11px; color: #52525b;">🛡️ Zero ads</span>
-          <span style="font-size: 11px; color: #52525b;">🤖 AI summaries</span>
-          <span style="font-size: 11px; color: #52525b;">📍 Google Maps verified</span>
-        </div>`;
+        // ── 3. Source attribution row ──────────────────────────────────────
+        if (smart.sources && smart.sources.length) {
+          html += renderSourceRow(smart.sources);
+        }
+
+        if (!smart.answer && !hasStructured && !smart.content) {
+          html += '<div style="text-align:center;padding:20px;color:#71717a;font-size:13px;">No results found. Try a different query.</div>';
+        }
+
+        // ── 5. Stats bar (simplified — no Google Maps claim) ───────────────
+        html += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);">'
+          + '<span style="font-size:11px;color:#52525b;">⚡ ' + elapsedStr + '</span>'
+          + '<span style="font-size:11px;color:#52525b;">🛡️ Zero ads</span>'
+          + '<span style="font-size:11px;color:#52525b;">🤖 AI-powered</span>'
+          + '</div>';
 
         // Remaining searches counter
-        const remaining = MAX_FREE_SEARCHES - getSearchCount();
+        var remaining = MAX_FREE_SEARCHES - getSearchCount();
         if (remaining > 0) {
-          html += `<div style="text-align: center; margin-top: 8px; font-size: 11px; color: #52525b;">
-            ${remaining} free search${remaining === 1 ? '' : 'es'} remaining &middot;
-            <a href="${SIGNUP_URL}" style="color: #818CF8; text-decoration: none;">Sign up for unlimited</a>
-          </div>`;
+          html += '<div style="text-align:center;margin-top:8px;font-size:11px;color:#52525b;">'
+            + remaining + ' free search' + (remaining === 1 ? '' : 'es') + ' remaining &middot; '
+            + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;text-decoration:none;">Sign up for unlimited</a>'
+            + '</div>';
         } else {
-          // Last search used — show signup nudge
+          // Last search used — show signup nudge after 3s
           setTimeout(function() {
             document.getElementById('wp-results').style.display = 'none';
             document.getElementById('wp-signup-wall').style.display = 'block';
             document.getElementById('wp-examples').style.display = 'none';
           }, 3000);
-          html += `<div style="text-align: center; margin-top: 12px; font-size: 11px; color: #818CF8;">
-            That was your last free search!
-            <a href="${SIGNUP_URL}" style="color: #818CF8; font-weight: 600; text-decoration: underline;">Sign up free →</a>
-          </div>`;
+          html += '<div style="text-align:center;margin-top:12px;font-size:11px;color:#818CF8;">'
+            + 'That was your last free search! '
+            + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;font-weight:600;text-decoration:underline;">Sign up free →</a>'
+            + '</div>';
         }
 
         resultsDiv.innerHTML = html;
       } catch (err) {
-        resultsDiv.innerHTML = `
-          <div style="text-align: center; padding: 20px; color: #f87171; font-size: 13px; font-family: inherit;">
-            Search failed. <a href="${SIGNUP_URL}" style="color: #818CF8;">Try the full app →</a>
-          </div>`;
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#f87171;font-size:13px;font-family:inherit;">'
+          + 'Search failed. <a href="' + SIGNUP_URL + '" style="color:#818CF8;">Try the full app →</a>'
+          + '</div>';
       }
     });
   }
