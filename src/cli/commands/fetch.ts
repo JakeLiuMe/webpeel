@@ -6,6 +6,7 @@ import type { Command } from 'commander';
 import ora from 'ora';
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { getProfilePath, loadStorageState, touchProfile } from '../../core/profiles.js';
+import { shouldForceBrowser } from '../../core/strategies.js';
 import { peel, cleanup } from '../../index.js';
 import type { PeelOptions, PeelResult, PageAction } from '../../types.js';
 import { checkUsage, showUsageFooter, loadConfig } from '../../cli-auth.js';
@@ -741,14 +742,18 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
       const fetchApiKey = fetchCfg.apiKey || process.env.WEBPEEL_API_KEY;
       const fetchApiUrl = process.env.WEBPEEL_API_URL || 'https://api.webpeel.dev';
 
-      // Features that require a local browser and cannot be delegated to the remote API
+      // Features that require a local browser and cannot be delegated to the remote API.
+      // Also include domains (like amazon.com) that require stealth/browser rendering —
+      // the remote API won't render them correctly without special flags, so route locally.
+      const domainNeedsLocalBrowser = !!(shouldForceBrowser(url));
       const needsLocalBrowser = !!(
         peelOptions.screenshot ||
         peelOptions.actions?.length ||
         peelOptions.profileDir ||
         peelOptions.headed ||
         peelOptions.storageState ||
-        peelOptions.cloaked
+        peelOptions.cloaked ||
+        domainNeedsLocalBrowser
       );
 
       let result: any;

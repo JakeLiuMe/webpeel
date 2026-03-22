@@ -87,6 +87,8 @@ export interface CrawlResult {
   title: string;
   /** Markdown content */
   markdown: string;
+  /** Token count for this page's content */
+  tokens: number;
   /** All links found on this page (absolute URLs) */
   links: string[];
   /** Depth level (0 = starting URL) */
@@ -380,6 +382,7 @@ export async function crawl(
         url: result.url,
         title: result.title,
         markdown: result.content,
+        tokens: result.tokens ?? 0,
         links: result.links,
         depth,
         parent,
@@ -454,6 +457,7 @@ export async function crawl(
         url,
         title: '',
         markdown: '',
+        tokens: 0,
         links: [],
         depth,
         parent,

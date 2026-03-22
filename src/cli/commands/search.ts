@@ -557,7 +557,20 @@ export function registerSearchCommands(program: Command): void {
         }
 
         if (options.json) {
-          console.log(JSON.stringify({ pages: results, count: results.length }, null, 2));
+          const totalTokens = results.reduce((sum, r) => sum + (r.tokens ?? 0), 0);
+          const pages = results.map(r => ({
+            url: r.url,
+            title: r.title,
+            tokens: r.tokens ?? 0,
+            content: r.markdown,
+            depth: r.depth,
+            parent: r.parent,
+            links: r.links,
+            elapsed: r.elapsed,
+            ...(r.error ? { error: r.error } : {}),
+            ...(r.fingerprint ? { fingerprint: r.fingerprint } : {}),
+          }));
+          console.log(JSON.stringify({ pages, totalPages: results.length, totalTokens }, null, 2));
         } else {
           results.forEach((result, i) => {
             console.log(`\n${'='.repeat(60)}`);

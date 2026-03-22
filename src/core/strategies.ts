@@ -64,7 +64,7 @@ function requiresResidentialProxy(url: string): boolean {
   }
 }
 
-function shouldForceBrowser(url: string): DomainRecommendation | null {
+export function shouldForceBrowser(url: string): DomainRecommendation | null {
   // Hashbang URLs (#!) are always JS-routed SPAs — browser rendering required
   if (url.includes('#!')) {
     return { mode: 'browser' };
