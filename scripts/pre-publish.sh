@@ -86,7 +86,9 @@ fi
 step "Version sanity"
 PKG_VERSION=$(node -p "require('./package.json').version")
 DOCKER_VERSION=$(grep "webpeel@" Dockerfile.api | grep -o "[0-9]*\.[0-9]*\.[0-9]*" | head -1)
-if [ "$PKG_VERSION" = "$DOCKER_VERSION" ]; then
+if [ -z "$DOCKER_VERSION" ]; then
+  pass "Dockerfile.api has no pinned version (uses latest build)"
+elif [ "$PKG_VERSION" = "$DOCKER_VERSION" ]; then
   pass "package.json ($PKG_VERSION) matches Dockerfile.api ($DOCKER_VERSION)"
 else
   fail "Version mismatch: package.json=$PKG_VERSION, Dockerfile.api=$DOCKER_VERSION"
