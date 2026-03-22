@@ -144,6 +144,9 @@ const CONTENT_PATTERNS = [
   /\bblog/,
   /\bpage-?content/,
   /\bcontent-?area/,
+  // Wikipedia/MediaWiki data tables — always content, never chrome
+  /\bwikitable\b/,
+  /\bmw-parser-output\b/,
 ];
 
 function isChromeBySemantic(el: Element, $: cheerio.CheerioAPI): boolean {

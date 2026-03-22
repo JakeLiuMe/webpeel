@@ -266,7 +266,13 @@ function cleanHTML(html: string): string {
     const hasRolePresentation = $table.attr('role') === 'presentation';
     const hasNestedTable = $table.find('table').length > 0;
     const hasTh = $table.find('th').length > 0;
-    const isLayoutTable = hasBorder || hasCellpadding || hasBgcolor || hasRolePresentation || hasNestedTable || !hasTh;
+    // Count rows and columns to distinguish data tables from layout tables.
+    const rowCount = $table.find('tr').length;
+    const maxCols = Math.max(0, ...$table.find('tr').toArray().map(r => $(r).children('td, th').length));
+    // Keep data tables: those with 3+ rows OR 3+ columns are likely real data
+    // even if they lack <th>. Only strip tables that are clearly decorative.
+    const isDataBySize = rowCount >= 3 || maxCols >= 3;
+    const isLayoutTable = (hasBorder || hasCellpadding || hasBgcolor || hasRolePresentation || hasNestedTable || !hasTh) && !isDataBySize;
     if (!isLayoutTable) return;
     // Extract: links (as list items) + non-empty text from each <td>
     const lines: string[] = [];
@@ -334,7 +340,9 @@ function cleanHTML(html: string): string {
       const theadRow = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
       const tbodyRows: string[] = [];
 
-      for (let r = startIdx; r < dataRows.length; r++) {
+      const ROW_CAP = 50;
+      const totalDataRows = dataRows.length - startIdx;
+      for (let r = startIdx; r < dataRows.length && (r - startIdx) < ROW_CAP; r++) {
         const cells: string[] = [];
         $(dataRows[r]).children('td, th').each((_j, td) => {
           const span = parseInt($(td).attr('colspan') || '1', 10);
@@ -345,6 +353,9 @@ function cleanHTML(html: string): string {
         while (cells.length < headers.length) cells.push('');
         tbodyRows.push(`<tr>${cells.slice(0, headers.length).map(c => `<td>${c}</td>`).join('')}</tr>`);
       }
+      if (totalDataRows > ROW_CAP) {
+        tbodyRows.push(`<tr><td colspan="${headers.length}">... (${ROW_CAP} of ${totalDataRows} rows shown)</td></tr>`);
+      }
 
       $table.replaceWith(`<table><thead>${theadRow}</thead><tbody>${tbodyRows.join('')}</tbody></table>`);
       return;
@@ -353,7 +364,9 @@ function cleanHTML(html: string): string {
     // Wide tables or no headers: convert to HTML list so Turndown handles it properly
     // (never put pre-formatted markdown inside a div — Turndown will escape it)
     const liItems: string[] = [];
-    for (let r = startIdx; r < dataRows.length; r++) {
+    const ROW_CAP_LIST = 50;
+    const totalListRows = dataRows.length - startIdx;
+    for (let r = startIdx; r < dataRows.length && (r - startIdx) < ROW_CAP_LIST; r++) {
       const cells: string[] = [];
       $(dataRows[r]).children('td, th').each((_j, td) => {
         const span = parseInt($(td).attr('colspan') || '1', 10);
@@ -371,6 +384,9 @@ function cleanHTML(html: string): string {
           liItems.push(`<li>${cells.filter(Boolean).join(' &middot; ')}</li>`);
         }
       }
+    }
+    if (totalListRows > ROW_CAP_LIST) {
+      liItems.push(`<li><em>... (${ROW_CAP_LIST} of ${totalListRows} rows shown)</em></li>`);
     }
 
     if (liItems.length > 0) {
