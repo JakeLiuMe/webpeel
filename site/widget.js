@@ -39,7 +39,7 @@
 
   // ─── Render: product / car listing cards ────────────────────────────────────
   function renderListingCards(listings) {
-    return listings.slice(0, 4).map(function(item) {
+    return dedupeByName(listings).slice(0, 4).map(function(item) {
       var title = esc(item.title || item.name || 'Result');
       var url = esc(item.url || '#');
       var rawPrice = (item.price || '').replace(/^from\s+/i, '').trim();
@@ -69,9 +69,35 @@
     }).join('');
   }
 
+  // ─── Deduplicate by name (keep first occurrence) ─────────────────────────────
+  function dedupeByName(items) {
+    var seen = {};
+    return items.filter(function(item) {
+      var key = (item.name || item.title || '').toLowerCase().trim();
+      if (!key || seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
   // ─── Render: business / restaurant cards ────────────────────────────────────
-  function renderBusinessCards(businesses) {
-    return businesses.slice(0, 4).map(function(item) {
+  function renderBusinessCards(businesses, answerText) {
+    // Parse price levels from AI summary (e.g. "Olio e Più ... $$$")
+    var priceLevels = {};
+    if (answerText) {
+      var priceMatches = answerText.match(/([A-Za-zÀ-ÿ'''&\- ]{3,})\s+[⭐★]\s*[\d.]+[^$\n]*(\${1,4})/g);
+      if (priceMatches) {
+        priceMatches.forEach(function(m) {
+          var nameMatch = m.match(/^([A-Za-zÀ-ÿ'''&\- ]{3,})\s+[⭐★]/);
+          var priceMatch = m.match(/(\${1,4})$/);
+          if (nameMatch && priceMatch) {
+            priceLevels[nameMatch[1].trim().toLowerCase()] = priceMatch[1];
+          }
+        });
+      }
+    }
+
+    return dedupeByName(businesses).slice(0, 4).map(function(item) {
       var name = esc(item.name || 'Business');
       var url = esc(item.url || item.googleMapsUrl || '#');
       var ratingStars = item.rating !== undefined
@@ -79,6 +105,11 @@
         : '';
       var reviews = item.reviewCount
         ? '<span style="color:#71717a;font-size:12px;">(' + Number(item.reviewCount).toLocaleString() + ')</span>'
+        : '';
+      // Price level from AI summary
+      var pl = priceLevels[(item.name || '').toLowerCase().trim()] || item.priceLevel || '';
+      var pricePill = pl
+        ? '<span style="color:#34d399;font-weight:600;font-size:12px;">' + esc(pl) + '</span>'
         : '';
       var openStatus = item.isOpenNow !== undefined
         ? (item.isOpenNow
@@ -88,8 +119,8 @@
       var address = item.address
         ? '<div style="font-size:12px;color:#71717a;margin-top:4px;">' + esc(item.address) + '</div>'
         : '';
-      var metaRow = (ratingStars || reviews)
-        ? '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' + ratingStars + reviews + '</div>'
+      var metaRow = (ratingStars || reviews || pricePill)
+        ? '<div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' + ratingStars + reviews + pricePill + '</div>'
         : '';
       return '<div style="padding:16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:8px;transition:background 0.2s;text-align:center;" '
         + 'onmouseover="this.style.background=\'rgba(255,255,255,0.06)\'" '
@@ -320,7 +351,7 @@
         var hasStructured = listings.length > 0 || businesses.length > 0;
 
         if (businesses.length > 0) {
-          html += renderBusinessCards(businesses);
+          html += renderBusinessCards(businesses, smart.answer || '');
         } else if (listings.length > 0) {
           html += renderListingCards(listings);
         } else if (!hasStructured) {
