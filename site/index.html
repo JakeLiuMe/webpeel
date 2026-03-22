@@ -81,7 +81,7 @@
       --text-lg: 24px;    /* card titles, section intros */
 
       /* Sizes — aggressive scale like Linear/Resend */
-      --text-hero: clamp(44px, 7vw, 82px);
+      --text-hero: clamp(44px, 4.8vw, 66px);
       --text-h2: clamp(48px, 7vw, 72px);
       --text-h3: clamp(20px, 2.5vw, 28px);
       --text-stat: clamp(48px, 6vw, 80px);
@@ -6523,6 +6523,59 @@
   .price-features li,
   .footer-tagline {
     line-height: 1.7 !important;
+  }
+
+  /* 16. SECTION DIVIDERS — remove harsh borders, use bg alternation */
+  .how-section,
+  .pricing-section,
+  .faq-section {
+    border-top: none !important;
+    box-shadow: none !important;
+  }
+  .demo-section,
+  .why-section,
+  .final-cta {
+    border-top: none !important;
+  }
+  .footer {
+    border-top: none !important;
+  }
+  .footer-bottom {
+    border-top: 1px solid rgba(255,255,255,0.03) !important;
+  }
+  .how-section         { background: #0a0a0f !important; }
+  .feat-cards-section  { background: #09090B !important; }
+  .why-section         { background: #0a0a0f !important; }
+  .pricing-section     { background: #09090B !important; }
+  .faq-section         { background: #0a0a0f !important; }
+  .final-cta           { background: #09090B !important; }
+
+  /* 17. HERO TITLE — consolidate, size, spacing */
+  .hero-kicker {
+    display: none !important;
+  }
+  .hero-eyebrow {
+    margin-bottom: 36px !important;
+  }
+  .hero h1 {
+    max-width: 820px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    margin-bottom: 24px !important;
+  }
+  .hero h1 .accent {
+    display: inline !important;
+  }
+  .hero-grid .hero-content {
+    max-width: 820px !important;
+  }
+  @media (min-width: 1024px) {
+    .hero h1 {
+      font-size: var(--text-hero) !important;
+    }
+  }
+  .hero-sub {
+    max-width: 520px !important;
   }
 
   </style>
