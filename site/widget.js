@@ -87,7 +87,7 @@
     if (answerText) {
       // Strip markdown bold markers for parsing
       var cleanAnswer = answerText.replace(/\*\*/g, '');
-      var priceRe = /\d+\.\s*([A-Za-zÀ-ÿ'''&\-. ]+?)\s+[⭐★]\s*[\d.]+\s*[—–\-]\s*(\${1,4})/g;
+      var priceRe = /\d+\.\s*([A-Za-zÀ-ÿ'''&\-. ]+?)\s+(?:\[\d+\]\s*)?[⭐★]\s*[\d.]+\s*[—–\-]\s*(\${1,4})/g;
       var pm;
       while ((pm = priceRe.exec(cleanAnswer)) !== null) {
         priceLevels[pm[1].trim().toLowerCase()] = pm[2];
@@ -103,8 +103,17 @@
       var reviews = item.reviewCount
         ? '<span style="color:#71717a;font-size:12px;">(' + Number(item.reviewCount).toLocaleString() + ')</span>'
         : '';
-      // Price level from AI summary
-      var pl = priceLevels[(item.name || '').toLowerCase().trim()] || item.priceLevel || '';
+      // Price level from AI summary (fuzzy match: "Da Andrea" matches "Da Andrea - Chelsea")
+      var itemNameLower = (item.name || '').toLowerCase().trim();
+      var pl = priceLevels[itemNameLower] || item.priceLevel || '';
+      if (!pl) {
+        for (var plKey in priceLevels) {
+          if (itemNameLower.indexOf(plKey) === 0 || plKey.indexOf(itemNameLower) === 0) {
+            pl = priceLevels[plKey];
+            break;
+          }
+        }
+      }
       var pricePill = pl
         ? '<span style="color:#34d399;font-weight:600;font-size:12px;">' + esc(pl) + '</span>'
         : '';
@@ -327,10 +336,13 @@
         // ── 1. AI Summary card ─────────────────────────────────────────────
         if (smart.answer) {
           var safeAnswer = smart.answer
+            .replace(/Sources?:\s*\n(\[\d+\].*\n?)*/gi, '')
+            .trim()
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e4e4e7">$1</strong>')
+            .replace(/\[(\d+)\]/g, '<sup style="color:#818CF8;font-size:10px;font-weight:600;cursor:default;">[$1]</sup>')
             .replace(/\n/g, '<br>');
           html += '<div style="padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
             + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
