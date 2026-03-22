@@ -7,7 +7,18 @@ set -euo pipefail
 CLI="node dist/cli.js"
 PASS=0
 FAIL=0
+SKIP=0
 TESTS=0
+
+# Detect CI environment — skip network-dependent tests
+IS_CI="${CI:-${GITHUB_ACTIONS:-false}}"
+HAS_API_KEY=$(node -e "try{console.log(require(require('os').homedir()+'/.webpeel/config.json').apiKey?'true':'false')}catch{console.log('false')}" 2>/dev/null)
+
+skip() {
+  TESTS=$((TESTS + 1))
+  SKIP=$((SKIP + 1))
+  echo "  ⏭️  $1 (skipped — no API key in CI)"
+}
 
 check() {
   TESTS=$((TESTS + 1))
@@ -29,46 +40,63 @@ check() {
 echo "CLI DX Test — New User Experience"
 echo "═══════════════════════════════════"
 
-# ── Verb-first aliases ──
+# ── Verb-first aliases (requires network + API key) ──
 echo ""
 echo "▸ Verb-first aliases"
 
-for verb in fetch get scrape peel; do
-  RESULT=$($CLI $verb "https://example.com" --silent --json 2>&1 || true)
-  check "webpeel $verb <url>" "$RESULT" "example.com"
-done
+if [ "$HAS_API_KEY" = "true" ]; then
+  for verb in fetch get scrape peel; do
+    RESULT=$($CLI $verb "https://example.com" --silent --json 2>&1 || true)
+    check "webpeel $verb <url>" "$RESULT" "example.com"
+  done
+else
+  for verb in fetch get scrape peel; do skip "webpeel $verb <url>"; done
+fi
 
-# ── --format flag ──
+# ── --format flag (requires network) ──
 echo ""
 echo "▸ --format flag"
 
-RESULT=$($CLI "https://example.com" --format text --silent 2>&1 || true)
-check "--format text returns plain text" "$RESULT" "Example Domain"
+if [ "$HAS_API_KEY" = "true" ]; then
+  RESULT=$($CLI "https://example.com" --format text --silent 2>&1 || true)
+  check "--format text returns plain text" "$RESULT" "Example Domain"
 
-RESULT=$($CLI "https://example.com" --format html --silent 2>&1 || true)
-check "--format html returns HTML" "$RESULT" "<html\|DOCTYPE\|<head"
+  RESULT=$($CLI "https://example.com" --format html --silent 2>&1 || true)
+  check "--format html returns HTML" "$RESULT" "<html\|DOCTYPE\|<head"
 
-RESULT=$($CLI "https://example.com" --format json --silent 2>&1 || true)
-check "--format json returns JSON object" "$RESULT" '"url"'
+  RESULT=$($CLI "https://example.com" --format json --silent 2>&1 || true)
+  check "--format json returns JSON object" "$RESULT" '"url"'
 
-RESULT=$($CLI "https://example.com" --format markdown --silent 2>&1 || true)
-check "--format markdown returns content" "$RESULT" "Example Domain"
+  RESULT=$($CLI "https://example.com" --format markdown --silent 2>&1 || true)
+  check "--format markdown returns content" "$RESULT" "Example Domain"
+else
+  skip "--format text returns plain text"
+  skip "--format html returns HTML"
+  skip "--format json returns JSON object"
+  skip "--format markdown returns content"
+fi
 
 RESULT=$($CLI "https://example.com" --format bogus --silent 2>&1 || true)
 check "--format bogus shows error" "$RESULT" "Unknown format"
 
-# ── Backward compat ──
+# ── Backward compat (requires network) ──
 echo ""
 echo "▸ Backward compatibility"
 
-RESULT=$($CLI "https://example.com" --json --silent 2>&1 || true)
-check "old --json flag" "$RESULT" '"url"'
+if [ "$HAS_API_KEY" = "true" ]; then
+  RESULT=$($CLI "https://example.com" --json --silent 2>&1 || true)
+  check "old --json flag" "$RESULT" '"url"'
 
-RESULT=$($CLI "https://example.com" --text --silent 2>&1 || true)
-check "old --text flag" "$RESULT" "Example Domain"
+  RESULT=$($CLI "https://example.com" --text --silent 2>&1 || true)
+  check "old --text flag" "$RESULT" "Example Domain"
 
-RESULT=$($CLI "https://example.com" --html --silent 2>&1 || true)
-check "old --html flag" "$RESULT" "<html\|DOCTYPE\|<head"
+  RESULT=$($CLI "https://example.com" --html --silent 2>&1 || true)
+  check "old --html flag" "$RESULT" "<html\|DOCTYPE\|<head"
+else
+  skip "old --json flag"
+  skip "old --text flag"
+  skip "old --html flag"
+fi
 
 # ── Smart error messages ──
 echo ""
@@ -86,9 +114,15 @@ echo "▸ Doctor command"
 
 RESULT=$($CLI doctor 2>&1 || true)
 check "doctor shows version" "$RESULT" "Version"
-check "doctor checks API health" "$RESULT" "API Health\|healthy\|Health"
-check "doctor checks API key" "$RESULT" "API Key\|Valid\|Key"
-check "doctor runs fetch test" "$RESULT" "Fetch Test\|fetch\|Test"
+if [ "$HAS_API_KEY" = "true" ]; then
+  check "doctor checks API health" "$RESULT" "API Health\|healthy\|Health"
+  check "doctor checks API key" "$RESULT" "API Key\|Valid\|Key"
+  check "doctor runs fetch test" "$RESULT" "Fetch Test\|fetch\|Test"
+else
+  skip "doctor checks API health"
+  skip "doctor checks API key"
+  skip "doctor runs fetch test"
+fi
 
 # ── read subcommand NOT broken ──
 echo ""
@@ -100,7 +134,7 @@ check "'read' subcommand still works (not eaten by verb alias)" "$RESULT" "Read 
 # ── Results ──
 echo ""
 echo "═══════════════════════════════════"
-echo "  Results: $PASS passed  $FAIL failed  ($TESTS total)"
+echo "  Results: $PASS passed  $FAIL failed  $SKIP skipped  ($TESTS total)"
 echo "═══════════════════════════════════"
 
 if [ $FAIL -gt 0 ]; then
