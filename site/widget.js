@@ -85,15 +85,12 @@
     // Parse price levels from AI summary (e.g. "Olio e Più ... $$$")
     var priceLevels = {};
     if (answerText) {
-      var priceMatches = answerText.match(/([A-Za-zÀ-ÿ'''&\- ]{3,})\s+[⭐★]\s*[\d.]+[^$\n]*(\${1,4})/g);
-      if (priceMatches) {
-        priceMatches.forEach(function(m) {
-          var nameMatch = m.match(/^([A-Za-zÀ-ÿ'''&\- ]{3,})\s+[⭐★]/);
-          var priceMatch = m.match(/(\${1,4})$/);
-          if (nameMatch && priceMatch) {
-            priceLevels[nameMatch[1].trim().toLowerCase()] = priceMatch[1];
-          }
-        });
+      // Strip markdown bold markers for parsing
+      var cleanAnswer = answerText.replace(/\*\*/g, '');
+      var priceRe = /\d+\.\s*([A-Za-zÀ-ÿ'''&\-. ]+?)\s+[⭐★]\s*[\d.]+\s*[—–\-]\s*(\${1,4})/g;
+      var pm;
+      while ((pm = priceRe.exec(cleanAnswer)) !== null) {
+        priceLevels[pm[1].trim().toLowerCase()] = pm[2];
       }
     }
 
