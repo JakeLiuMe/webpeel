@@ -31,6 +31,7 @@ import {
 } from '../../core/screenshot.js';
 import type { AuthStore } from '../auth-store.js';
 import { validateUrlForSSRF, SSRFError } from '../middleware/url-validator.js';
+import { checkAndSendDualAlert } from '../email-service.js';
 import { normalizeActions } from '../../core/actions.js';
 
 // ── Module-level helpers ──────────────────────────────────────────────────────
@@ -107,6 +108,9 @@ function trackUsageAndLog(
       [req.auth.keyInfo.accountId, endpoint, url, 'stealth', elapsed, 200,
         req.ip || req.socket.remoteAddress, req.get('user-agent')],
     ).catch(() => {});
+
+    // Automatic dual-threshold usage alerts (80% and 90%)
+    checkAndSendDualAlert(pgStore.pool, req.auth.keyInfo.accountId).catch(() => {});
   }
 }
 

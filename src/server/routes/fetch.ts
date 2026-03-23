@@ -14,7 +14,7 @@ import { validateUrlForSSRF, SSRFError } from '../middleware/url-validator.js';
 import { wantsEnvelope, successResponse } from '../utils/response.js';
 import { getSchemaTemplate } from '../../core/schema-templates.js';
 import { quickAnswer } from '../../core/quick-answer.js';
-import { sendUsageAlertEmail } from '../email-service.js';
+import { sendUsageAlertEmail, checkAndSendDualAlert } from '../email-service.js';
 import { extractLinks } from '../../core/links.js';
 import type { FetchErrorType } from '../../types.js';
 
@@ -51,15 +51,24 @@ function classifyFetchError(err: any): FetchErrorType {
 }
 
 // ── Helper: build a clean, user-facing error message from a peel() error ─────
-function buildFetchErrorMessage(err: any): { type: FetchErrorType; message: string; hint?: string } {
+function buildFetchErrorMessage(err: any): { type: FetchErrorType; message: string; hint?: string; docs?: string } {
   const type = classifyFetchError(err);
   const hints: Record<FetchErrorType, string | undefined> = {
     timeout: 'Try increasing timeout with ?timeout=20000, or use render=true for JS-heavy sites.',
-    blocked: 'This site blocks automated requests. Try render=true or stealth=true.',
+    blocked: 'Site blocked the request. Try adding render=true or stealth mode.',
     not_found: 'Verify the URL is correct and the site is accessible.',
     server_error: 'The target site returned a server error. Try again later.',
     network: 'Could not connect to the target URL. Verify the URL is correct and the site is online.',
     unknown: undefined,
+  };
+
+  const docsLinks: Record<FetchErrorType, string> = {
+    timeout: 'https://webpeel.dev/docs/errors#timeout',
+    blocked: 'https://webpeel.dev/docs/errors#blocked',
+    not_found: 'https://webpeel.dev/docs/errors#not-found',
+    server_error: 'https://webpeel.dev/docs/errors#server-error',
+    network: 'https://webpeel.dev/docs/errors#network',
+    unknown: 'https://webpeel.dev/docs/errors',
   };
 
   // Sanitize message: strip HTML chars, truncate
@@ -68,15 +77,15 @@ function buildFetchErrorMessage(err: any): { type: FetchErrorType; message: stri
     .trim();
 
   const messages: Record<FetchErrorType, string> = {
-    timeout: `The website took too long to respond. Try with render=true or stealth=true for JavaScript-heavy sites.`,
-    blocked: `This website is blocking automated access (bot protection detected).`,
+    timeout: `Request timed out. Try increasing the timeout parameter or use render=true for JavaScript-heavy sites.`,
+    blocked: `Site blocked the request. Try adding render=true or stealth mode to bypass bot protection.`,
     not_found: `The URL could not be reached — the domain may not exist or the page was not found.`,
     server_error: `The target website returned a server error while processing the request.`,
     network: `Could not reach this website. The server may be down or the URL may be incorrect.`,
     unknown: safeMsg,
   };
 
-  return { type, message: messages[type] || safeMsg, hint: hints[type] };
+  return { type, message: messages[type] || safeMsg, hint: hints[type], docs: docsLinks[type] };
 }
 
 // ── Helper: extractive summarizer (TF-IDF-like sentence scoring) ─────────────
@@ -310,8 +319,9 @@ export function createFetchRouter(authStore: AuthStore): Router {
             success: false,
             error: {
               type: 'forbidden_url',
-              message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
-              docs: 'https://webpeel.dev/docs/api-reference#fetch',
+              message: 'This URL is blocked for security. Localhost, private networks, and non-HTTP URLs are not allowed.',
+              hint: 'See docs for allowed URL formats.',
+              docs: 'https://webpeel.dev/docs/errors#forbidden-url',
             },
             requestId: req.requestId,
           });
@@ -624,6 +634,10 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
       // Check usage alert (fire-and-forget, never block the response)
       if (req.auth?.keyInfo?.accountId && typeof pgStore.pool !== 'undefined') {
+        // Automatic dual-threshold alerts (80% and 90%)
+        checkAndSendDualAlert(pgStore.pool, req.auth.keyInfo.accountId).catch(() => {});
+
+        // Legacy: user-configured single-threshold alert
         try {
           const alertResult = await checkAndTriggerAlert(pgStore, req.auth.keyInfo.accountId);
           if (alertResult.shouldSendAlert && alertResult.usagePercent !== undefined) {
@@ -768,7 +782,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
       const requestUrl = req.query.url as string;
       if (err.code || err.name === 'TimeoutError' || err.name === 'BlockedError' || err.name === 'NetworkError' || err.name === 'WebPeelError') {
         // WebPeelError from core library - safe to expose with helpful context
-        const { type, message, hint } = buildFetchErrorMessage(err);
+        const { type, message, hint, docs } = buildFetchErrorMessage(err);
         const statusCode = type === 'timeout' ? 504
           : type === 'blocked' ? 403
           : type === 'not_found' ? 404
@@ -782,7 +796,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
             message,
             url: requestUrl,
             ...(hint ? { hint } : {}),
-            docs: 'https://webpeel.dev/docs/api-reference#errors',
+            docs: docs || 'https://webpeel.dev/docs/errors',
           },
           requestId: req.requestId,
         });
@@ -795,7 +809,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
             type: 'unknown',
             message: 'An unexpected error occurred while fetching the URL. If this persists, check https://webpeel.dev/status',
             url: requestUrl,
-            docs: 'https://webpeel.dev/docs/api-reference#errors',
+            docs: 'https://webpeel.dev/docs/errors',
           },
           requestId: req.requestId,
         });
@@ -976,8 +990,9 @@ export function createFetchRouter(authStore: AuthStore): Router {
             success: false,
             error: {
               type: 'forbidden_url',
-              message: 'Cannot fetch localhost, private networks, or non-HTTP URLs',
-              docs: 'https://webpeel.dev/docs/api-reference#fetch',
+              message: 'This URL is blocked for security. Localhost, private networks, and non-HTTP URLs are not allowed.',
+              hint: 'See docs for allowed URL formats.',
+              docs: 'https://webpeel.dev/docs/errors#forbidden-url',
             },
             requestId: req.requestId,
           });
@@ -1337,6 +1352,11 @@ export function createFetchRouter(authStore: AuthStore): Router {
         } else if (!isSoftLimited) {
           await pgStore.trackUsage(req.auth.keyInfo.key, fetchType);
         }
+
+        // Automatic dual-threshold alerts (80% and 90%) — POST route
+        if (req.auth?.keyInfo?.accountId) {
+          checkAndSendDualAlert(pgStore.pool, req.auth.keyInfo.accountId).catch(() => {});
+        }
       }
 
       // Cache result (skip extraction results — they depend on user's LLM keys)
@@ -1454,7 +1474,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
       const postUrl = req.body?.url as string;
       if (err.code || err.name === 'TimeoutError' || err.name === 'BlockedError' || err.name === 'NetworkError' || err.name === 'WebPeelError') {
-        const { type, message, hint } = buildFetchErrorMessage(err);
+        const { type, message, hint, docs } = buildFetchErrorMessage(err);
         const statusCode = type === 'timeout' ? 504
           : type === 'blocked' ? 403
           : type === 'not_found' ? 404
@@ -1468,7 +1488,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
             message,
             url: postUrl,
             ...(hint ? { hint } : {}),
-            docs: 'https://webpeel.dev/docs/api-reference#errors',
+            docs: docs || 'https://webpeel.dev/docs/errors',
           },
           requestId: req.requestId,
         });
@@ -1479,7 +1499,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
             type: 'unknown',
             message: 'An unexpected error occurred. If this persists, check https://webpeel.dev/status',
             url: postUrl,
-            docs: 'https://webpeel.dev/docs/api-reference#errors',
+            docs: 'https://webpeel.dev/docs/errors',
           },
           requestId: req.requestId,
         });

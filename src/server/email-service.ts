@@ -12,6 +12,7 @@
  */
 
 import nodemailer from 'nodemailer';
+import type { Pool as PgPool } from 'pg';
 
 function createTransport() {
   const host = process.env.EMAIL_SMTP_HOST;
@@ -93,4 +94,127 @@ function buildUsageAlertHtml(params: UsageAlertEmailParams): string {
   </div>
 </body>
 </html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Dual-threshold automatic alert system (80% and 90%)
+// ---------------------------------------------------------------------------
+
+/** Week string in "YYYY-Www" format, consistent with pg-auth-store */
+function getCurrentWeek(): string {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const weekNum = Math.ceil(
+    ((now.getTime() - jan4.getTime()) / 86400000 + jan4.getUTCDay() + 1) / 7
+  );
+  return `${year}-W${String(weekNum).padStart(2, '0')}`;
+}
+
+/** Returns true if the timestamp is within the current ISO week */
+function isSentThisWeek(ts: Date | null): boolean {
+  if (!ts) return false;
+  const now = new Date();
+  // Start of current week (Monday 00:00 UTC)
+  const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon...
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const weekStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysToMonday));
+  return ts >= weekStart;
+}
+
+export interface UsageAlertCheckResult {
+  /**
+   * Which threshold was crossed (80 | 90), or null if no alert to send.
+   * Priority: 90 > 80 (only one alert per call).
+   */
+  threshold: 80 | 90 | null;
+  usagePercent: number;
+  used: number;
+  total: number;
+  userEmail: string;
+  userName?: string;
+  userTier: string;
+  /** Custom alert email if set, otherwise falls back to userEmail */
+  alertEmail: string;
+}
+
+/**
+ * Check whether a usage alert should be sent for a given user and,
+ * if so, return the alert details plus automatically update the
+ * `alert_sent_80_at` / `alert_sent_90_at` column.
+ *
+ * Thresholds are **automatic** (80% and 90%) and work independently of
+ * the user-configured `alert_threshold` system.
+ *
+ * Call this fire-and-forget style after each successful API request:
+ *   ```ts
+ *   checkAndSendDualAlert(pool, userId).catch(() => {});
+ *   ```
+ */
+export async function checkAndSendDualAlert(
+  pool: PgPool,
+  userId: string
+): Promise<void> {
+  try {
+    const currentWeek = getCurrentWeek();
+
+    const result = await pool.query(
+      `SELECT u.email, u.name, u.tier, u.alert_email,
+              u.alert_sent_80_at, u.alert_sent_90_at,
+              u.weekly_limit,
+              COALESCE(SUM(wu.total_count), 0) AS total_used,
+              u.weekly_limit + COALESCE(MAX(wu.rollover_credits), 0) AS total_available
+       FROM users u
+       LEFT JOIN api_keys ak ON ak.user_id = u.id
+       LEFT JOIN weekly_usage wu ON wu.api_key_id = ak.id AND wu.week = $2
+       WHERE u.id = $1
+       GROUP BY u.id, u.email, u.name, u.tier, u.alert_email,
+                u.alert_sent_80_at, u.alert_sent_90_at, u.weekly_limit`,
+      [userId, currentWeek]
+    );
+
+    const row = result.rows[0];
+    if (!row) return;
+
+    const used = parseInt(row.total_used, 10) || 0;
+    const total = parseInt(row.total_available, 10) || row.weekly_limit || 999;
+    const usagePercent = total > 0 ? Math.round((used / total) * 100) : 0;
+    const alertEmail: string = row.alert_email || row.email;
+
+    const sharedParams = {
+      toEmail: alertEmail,
+      userName: row.name || undefined,
+      used,
+      total,
+      tier: row.tier as string,
+    };
+
+    // Check 90% threshold first (higher priority)
+    if (usagePercent >= 90 && !isSentThisWeek(row.alert_sent_90_at ? new Date(row.alert_sent_90_at) : null)) {
+      const sent = await sendUsageAlertEmail({ ...sharedParams, usagePercent: 90 });
+      if (sent) {
+        await pool.query(
+          'UPDATE users SET alert_sent_90_at = NOW() WHERE id = $1',
+          [userId]
+        );
+        console.log(`[alert] Sent 90% usage alert to ${alertEmail} (user ${userId})`);
+      }
+      return; // Only one alert per call
+    }
+
+    // Check 80% threshold (lower priority — don't send if already sent 90%)
+    if (usagePercent >= 80 && !isSentThisWeek(row.alert_sent_80_at ? new Date(row.alert_sent_80_at) : null)) {
+      const sent = await sendUsageAlertEmail({ ...sharedParams, usagePercent: 80 });
+      if (sent) {
+        await pool.query(
+          'UPDATE users SET alert_sent_80_at = NOW() WHERE id = $1',
+          [userId]
+        );
+        console.log(`[alert] Sent 80% usage alert to ${alertEmail} (user ${userId})`);
+      }
+    }
+  } catch (err) {
+    // Never let alert errors surface to callers
+    console.warn('[alert] checkAndSendDualAlert failed:', err);
+  }
 }

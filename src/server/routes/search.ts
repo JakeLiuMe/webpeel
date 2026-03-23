@@ -17,6 +17,7 @@ import {
   type WebSearchResult,
 } from '../../core/search-provider.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
+import { checkAndSendDualAlert } from '../email-service.js';
 
 interface SearchResult {
   title: string;
@@ -439,6 +440,11 @@ export function createSearchRouter(authStore: AuthStore): Router {
         } else if (!isSoftLimited) {
           // Normal weekly usage tracking
           await pgStore.trackUsage(req.auth.keyInfo.key, 'search');
+        }
+
+        // Automatic dual-threshold alerts (80% and 90%)
+        if (req.auth?.keyInfo?.accountId && typeof pgStore.pool !== 'undefined') {
+          checkAndSendDualAlert(pgStore.pool, req.auth.keyInfo.accountId).catch(() => {});
         }
       }
 
