@@ -1,0 +1,139 @@
+{
+  "info": {
+    "name": "WebPeel API",
+    "description": "Web extraction API for AI agents. Fetch, search, crawl, screenshot, and research — one API call.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://api.webpeel.dev", "type": "string" },
+    { "key": "api_key", "value": "YOUR_API_KEY", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{api_key}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Fetch",
+      "item": [
+        {
+          "name": "GET Fetch URL",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/fetch?url=https://example.com&format=markdown", "host": ["{{base_url}}"], "path": ["v1", "fetch"], "query": [{ "key": "url", "value": "https://example.com" }, { "key": "format", "value": "markdown" }] },
+            "description": "Fetch and extract clean, AI-ready content from any URL."
+          }
+        },
+        {
+          "name": "POST Fetch with Render",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/v1/fetch", "host": ["{{base_url}}"], "path": ["v1", "fetch"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://example.com\",\n  \"render\": true,\n  \"format\": \"markdown\"\n}" },
+            "description": "Fetch with browser rendering for JS-heavy sites."
+          }
+        },
+        {
+          "name": "POST Fetch with LLM Extract",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/v1/fetch", "host": ["{{base_url}}"], "path": ["v1", "fetch"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://example.com/about\",\n  \"extract\": {\n    \"schema\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"company\": { \"type\": \"string\" },\n        \"founded\": { \"type\": \"number\" }\n      }\n    }\n  },\n  \"llmProvider\": \"openai\",\n  \"llmApiKey\": \"sk-...\"\n}" },
+            "description": "Extract structured JSON using an LLM with your own API key (BYOK)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "GET Web Search",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/search?q=latest+AI+news&count=5", "host": ["{{base_url}}"], "path": ["v1", "search"], "query": [{ "key": "q", "value": "latest AI news" }, { "key": "count", "value": "5" }] },
+            "description": "Search the web. Free DuckDuckGo or Brave (BYOK)."
+          }
+        },
+        {
+          "name": "POST Smart Search",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/v1/search/smart", "host": ["{{base_url}}"], "path": ["v1", "search", "smart"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"q\": \"best pizza in Manhattan\"\n}" },
+            "description": "AI-powered smart search with structured results, ratings, and prices."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Screenshot",
+      "item": [
+        {
+          "name": "POST Screenshot",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/v1/screenshot", "host": ["{{base_url}}"], "path": ["v1", "screenshot"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"url\": \"https://example.com\",\n  \"fullPage\": true,\n  \"width\": 1280,\n  \"format\": \"png\"\n}" },
+            "description": "Take a full-page screenshot with custom viewport."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Answer",
+      "item": [
+        {
+          "name": "POST Answer with Citations",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/v1/answer", "host": ["{{base_url}}"], "path": ["v1", "answer"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"question\": \"What is MCP and why does it matter for AI agents?\",\n  \"llmProvider\": \"openai\",\n  \"llmApiKey\": \"sk-...\",\n  \"maxSources\": 5\n}" },
+            "description": "Ask a question, search the web, get an LLM answer with inline [1][2] citations."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent",
+      "item": [
+        {
+          "name": "POST Research Agent",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/v1/agent", "host": ["{{base_url}}"], "path": ["v1", "agent"] },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"prompt\": \"Compare the top 3 AI coding assistants in 2025\",\n  \"llmApiKey\": \"sk-...\",\n  \"depth\": \"thorough\",\n  \"maxSources\": 10\n}" },
+            "description": "Autonomous research agent — plans queries, fetches sources, synthesizes structured answers."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Account",
+      "item": [
+        {
+          "name": "GET Usage",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/v1/usage", "host": ["{{base_url}}"], "path": ["v1", "usage"] },
+            "description": "Get current week usage, limits, and burst quota."
+          }
+        },
+        {
+          "name": "DELETE Account (GDPR)",
+          "request": {
+            "method": "DELETE",
+            "url": { "raw": "{{base_url}}/v1/account", "host": ["{{base_url}}"], "path": ["v1", "account"] },
+            "description": "Delete your account and all associated data (GDPR compliance)."
+          }
+        }
+      ]
+    }
+  ]
+}
