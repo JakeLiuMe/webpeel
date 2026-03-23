@@ -34,10 +34,27 @@ class WebPeelLoader {
     const response = await fetch(`${this.apiUrl}/v1/fetch?${params.toString()}`, {
       headers: this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {},
     });
-    if (!response.ok) {
+    if (!response.ok && response.status !== 202) {
       throw new Error(`WebPeel fetch failed: ${response.status} ${response.statusText}`);
     }
-    const data = await response.json() as Record<string, unknown>;
+    let data = await response.json() as Record<string, unknown>;
+    
+    // Handle async job queue (202 Accepted with jobId)
+    if (data.jobId && data.pollUrl) {
+      const pollUrl = `${this.apiUrl}${data.pollUrl}`;
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        const pollResp = await fetch(pollUrl, {
+          headers: this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {},
+        });
+        const pollData = await pollResp.json() as Record<string, unknown>;
+        if (pollData.status === 'completed' || pollData.content) {
+          data = (pollData.result as Record<string, unknown>) || (pollData.data as Record<string, unknown>) || pollData;
+          break;
+        }
+        if (pollData.status === 'failed') throw new Error(`WebPeel job failed: ${pollData.error || 'unknown'}`);
+      }
+    }
     return [{
       pageContent: (data.content as string) || '',
       metadata: {
