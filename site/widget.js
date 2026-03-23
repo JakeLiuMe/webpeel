@@ -337,6 +337,275 @@
     });
 
     // Search handler
+    // ─── Render: final results HTML from a smart result object ──────────────────
+    function renderFinalHTML(smart, answerText, elapsed) {
+      var elapsedStr = elapsed < 10000 ? (elapsed / 1000).toFixed(1) + 's' : '~2s avg';
+      var html = '<style>'
+        + '@keyframes wp-spin{to{transform:rotate(360deg)}}'
+        + '@media(max-width:480px){.wp-title-link{font-size:13px !important}.wp-snippet{font-size:12px !important}.wp-card{padding:12px !important}}'
+        + '</style>';
+
+      // ── AI Summary card ──────────────────────────────────────────────────
+      var resolvedAnswer = answerText || smart.answer || '';
+      if (resolvedAnswer) {
+        var safeAnswer = resolvedAnswer
+          .replace(/Sources?:\s*\n(\[\d+\].*\n?)*/gi, '')
+          .trim()
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e4e4e7">$1</strong>')
+          .replace(/\[(\d+)\]/g, '<sup style="color:#818CF8;font-size:10px;font-weight:600;cursor:default;">[$1]</sup>')
+          .replace(/\n/g, '<br>');
+        html += '<div style="padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
+          + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
+          + '<div style="font-size:14px;color:#d4d4d8;line-height:1.65;">' + safeAnswer + '</div>'
+          + '</div>';
+      }
+
+      // ── Structured listings or businesses ────────────────────────────────
+      var structured = smart.structured
+        || (smart.domainData && smart.domainData.structured)
+        || {};
+
+      var listings = structured.listings || [];
+      var businesses = structured.businesses || [];
+      var hasStructured = listings.length > 0 || businesses.length > 0;
+
+      if (businesses.length > 0) {
+        html += renderBusinessCards(businesses, resolvedAnswer);
+      } else if (listings.length > 0) {
+        html += renderListingCards(listings);
+      } else if (!hasStructured) {
+        var fallbackListings = [];
+        if (smart.content) {
+          var lines = smart.content.split('\n');
+          lines.forEach(function(line) {
+            var match = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*(?:—|–|-)\s*(.+)/);
+            if (match && fallbackListings.length < 4) {
+              var parts = match[2].split('·').map(function(s) { return s.trim(); });
+              fallbackListings.push({
+                title: match[1].trim(),
+                snippet: cleanSnippet(parts.join(' · '), 120),
+                price: (parts.find(function(p) { return p.indexOf('$') !== -1; }) || '').trim(),
+                url: '#',
+              });
+            }
+          });
+        }
+        if (fallbackListings.length > 0) {
+          html += renderListingCards(fallbackListings);
+        } else if (smart.results && smart.results.length > 0) {
+          html += renderListingCards(smart.results);
+        }
+      }
+
+      // ── Source attribution row ────────────────────────────────────────────
+      if (smart.sources && smart.sources.length) {
+        html += renderSourceRow(smart.sources);
+      }
+
+      if (!resolvedAnswer && !hasStructured && !smart.content) {
+        html += '<div style="text-align:center;padding:20px;color:#71717a;font-size:13px;">No results found. Try a different query.</div>';
+      }
+
+      // ── Stats bar ────────────────────────────────────────────────────────
+      html += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);">'
+        + '<span style="font-size:11px;color:#52525b;">⚡ ' + elapsedStr + '</span>'
+        + '<span style="font-size:11px;color:#52525b;">🛡️ Zero ads</span>'
+        + '<span style="font-size:11px;color:#52525b;">🤖 AI-powered</span>'
+        + '</div>';
+
+      // ── Remaining searches counter ────────────────────────────────────────
+      var remaining = MAX_FREE_SEARCHES - getSearchCount();
+      if (remaining > 0) {
+        html += '<div style="text-align:center;margin-top:8px;font-size:11px;color:#52525b;">'
+          + remaining + ' free search' + (remaining === 1 ? '' : 'es') + ' remaining &middot; '
+          + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;text-decoration:none;">Sign up for unlimited</a>'
+          + '</div>';
+      } else {
+        setTimeout(function() {
+          document.getElementById('wp-results').style.display = 'none';
+          document.getElementById('wp-signup-wall').style.display = 'block';
+          document.getElementById('wp-examples').style.display = 'none';
+        }, 3000);
+        html += '<div style="text-align:center;margin-top:12px;font-size:11px;color:#818CF8;">'
+          + 'That was your last free search! '
+          + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;font-weight:600;text-decoration:underline;">Sign up free →</a>'
+          + '</div>';
+      }
+
+      return html;
+    }
+
+    // ─── SSE streaming search ────────────────────────────────────────────────
+    async function doSSESearch(query, resultsDiv, startTime) {
+      // Show streaming skeleton immediately
+      resultsDiv.innerHTML = '<style>'
+        + '@keyframes wp-spin{to{transform:rotate(360deg)}}'
+        + '@keyframes wp-blink{50%{opacity:0}}'
+        + '#wp-stream-text::after{content:"▊";animation:wp-blink 0.7s infinite;color:#818CF8;}'
+        + '#wp-stream-text.wp-done::after{content:"";animation:none;}'
+        + '@media(max-width:480px){.wp-title-link{font-size:13px !important}.wp-snippet{font-size:12px !important}.wp-card{padding:12px !important}}'
+        + '</style>'
+        + '<div id="wp-stream-status" style="text-align:center;padding:20px 0;color:#a1a1aa;">'
+        + '<div style="display:inline-block;width:20px;height:20px;border:2px solid #52525b;border-top-color:#818CF8;border-radius:50%;animation:wp-spin 0.6s linear infinite;vertical-align:middle;margin-right:8px;"></div>'
+        + '<span id="wp-stream-msg" style="font-size:13px;font-family:inherit;">Searching...</span>'
+        + '</div>'
+        + '<div id="wp-stream-answer" style="display:none;padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
+        + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
+        + '<div id="wp-stream-text" style="font-size:14px;color:#d4d4d8;line-height:1.65;min-height:20px;"></div>'
+        + '</div>'
+        + '<div id="wp-stream-listings"></div>'
+        + '<div id="wp-stream-footer"></div>';
+
+      var res = await fetch(API_URL + '/v1/search/smart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+        body: JSON.stringify({ q: query, stream: true }),
+      });
+
+      if (!res.ok) {
+        if (res.status === 429) return '429';
+        throw new Error('HTTP ' + res.status);
+      }
+
+      var reader = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+
+      // Accumulated state
+      var smartResult = null;
+      var collectedAnswer = '';
+      var collectedSources = [];
+      var collectedBusinesses = [];
+      var pendingEventName = '';
+
+      function setStatus(msg) {
+        var el = document.getElementById('wp-stream-msg');
+        if (el) el.textContent = msg;
+      }
+
+      function showAnswerWord(word) {
+        var answerDiv = document.getElementById('wp-stream-answer');
+        var textEl = document.getElementById('wp-stream-text');
+        if (!textEl) return;
+        if (answerDiv && answerDiv.style.display === 'none') answerDiv.style.display = 'block';
+        // Hide status once answer starts showing
+        var statusEl = document.getElementById('wp-stream-status');
+        if (statusEl) statusEl.style.display = 'none';
+        textEl.textContent += word;
+      }
+
+      // Typewriter: reveal text word-by-word with a small delay between words
+      function typewriterReveal(text) {
+        var answerDiv = document.getElementById('wp-stream-answer');
+        var textEl = document.getElementById('wp-stream-text');
+        if (!textEl) return Promise.resolve();
+        if (answerDiv) answerDiv.style.display = 'block';
+        var statusEl = document.getElementById('wp-stream-status');
+        if (statusEl) statusEl.style.display = 'none';
+
+        // Strip existing text (in case partial content was set)
+        textEl.textContent = '';
+        var words = text.split(' ');
+        var i = 0;
+        return new Promise(function(resolve) {
+          function next() {
+            if (i >= words.length) { resolve(); return; }
+            textEl.textContent += (i > 0 ? ' ' : '') + words[i];
+            i++;
+            setTimeout(next, 18);
+          }
+          next();
+        });
+      }
+
+      function processEvent(evName, dataStr) {
+        var event;
+        try { event = JSON.parse(dataStr); } catch (e) { return; }
+
+        if (evName === 'intent') {
+          if (event.loadingMessage) setStatus(event.loadingMessage);
+        } else if (evName === 'progress') {
+          if (event.message) setStatus(event.message);
+        } else if (evName === 'source') {
+          // Restaurants: Yelp businesses arrive early — show them immediately
+          if (event.source === 'yelp' && event.businesses && event.businesses.length > 0) {
+            collectedBusinesses = event.businesses;
+            var listingsDiv = document.getElementById('wp-stream-listings');
+            if (listingsDiv) {
+              listingsDiv.innerHTML = renderBusinessCards(event.businesses.slice(0, 4), '');
+            }
+          } else if (event.source === 'reddit' && event.thread) {
+            collectedSources.push({ title: event.thread.title || 'Reddit', url: event.thread.url || 'https://reddit.com', domain: 'reddit.com' });
+          } else if (event.source === 'youtube' && event.videos && event.videos[0]) {
+            collectedSources.push({ title: event.videos[0].title || 'YouTube', url: event.videos[0].url || 'https://youtube.com', domain: 'youtube.com' });
+          }
+        } else if (evName === 'answer') {
+          collectedAnswer = event.answer || '';
+        } else if (evName === 'result') {
+          // Non-restaurant full result
+          smartResult = event;
+          if (event.answer) collectedAnswer = event.answer;
+        }
+        // 'done' is handled after the read loop
+      }
+
+      // Read the SSE stream
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete last line
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li];
+          if (line.startsWith('event: ')) {
+            pendingEventName = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            processEvent(pendingEventName, line.slice(6));
+            pendingEventName = '';
+          } else if (line === '') {
+            pendingEventName = '';
+          }
+        }
+      }
+
+      // Stream done — run typewriter on answer, then render final state
+      var elapsed = Date.now() - startTime;
+
+      if (collectedAnswer) {
+        await typewriterReveal(collectedAnswer.replace(/Sources?:\s*\n(\[\d+\].*\n?)*/gi, '').trim());
+        // Remove cursor when typewriter completes
+        var textEl = document.getElementById('wp-stream-text');
+        if (textEl) textEl.className = 'wp-done';
+      }
+
+      // Build final smart object for renderFinalHTML
+      var finalSmart = smartResult || {};
+      if (collectedBusinesses.length > 0) {
+        finalSmart = finalSmart || {};
+        if (!finalSmart.structured) finalSmart.structured = {};
+        if (!finalSmart.structured.businesses) finalSmart.structured.businesses = collectedBusinesses;
+      }
+      if (collectedSources.length > 0) {
+        // Prepend yelp source if we had businesses
+        var allSources = [];
+        if (collectedBusinesses.length > 0) {
+          allSources.push({ title: 'Yelp', url: 'https://yelp.com', domain: 'yelp.com' });
+        }
+        allSources = allSources.concat(collectedSources);
+        finalSmart.sources = finalSmart.sources || allSources;
+      }
+
+      // Render the full final HTML
+      var finalHTML = renderFinalHTML(finalSmart, collectedAnswer, elapsed);
+      resultsDiv.innerHTML = finalHTML;
+
+      return 'ok';
+    }
+
     document.getElementById('wp-search-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       var query = document.getElementById('wp-search-input').value.trim();
@@ -355,14 +624,32 @@
       renderHistory();
       var resultsDiv = document.getElementById('wp-results');
       resultsDiv.style.display = 'block';
+
+      var startTime = Date.now();
+
+      // ── SSE streaming path (modern browsers) ────────────────────────────
+      if (typeof ReadableStream !== 'undefined') {
+        try {
+          var streamStatus = await doSSESearch(query, resultsDiv, startTime);
+          if (streamStatus === '429') {
+            localStorage.setItem(SEARCH_COUNT_KEY, String(MAX_FREE_SEARCHES));
+            document.getElementById('wp-results').style.display = 'none';
+            document.getElementById('wp-signup-wall').style.display = 'block';
+            document.getElementById('wp-examples').style.display = 'none';
+          }
+          return;
+        } catch (streamErr) {
+          // SSE failed — fall through to non-streaming path
+        }
+      }
+
+      // ── Non-streaming fallback ───────────────────────────────────────────
       resultsDiv.innerHTML = '\
         <div style="text-align: center; padding: 30px; color: #a1a1aa;">\
           <style>@keyframes wp-spin{to{transform:rotate(360deg)}}</style>\
           <div style="display: inline-block; width: 24px; height: 24px; border: 2px solid #52525b; border-top-color: #818CF8; border-radius: 50%; animation: wp-spin 0.6s linear infinite;"></div>\
           <p style="margin-top: 12px; font-size: 13px; font-family: inherit;">Searching...</p>\
         </div>';
-
-      var startTime = Date.now();
 
       try {
         var res = await fetch(API_URL + '/v1/search/smart', {
@@ -385,114 +672,8 @@
         var data = await res.json();
         var smart = data.data || data;
         var elapsed = Date.now() - startTime;
-        var elapsedStr = elapsed < 10000 ? (elapsed / 1000).toFixed(1) + 's' : '~2s avg';
 
-        // Mobile style toggle helper (for responsive card text)
-        var isMobile = window.innerWidth <= 480;
-
-        var html = '';
-
-        // ── Mobile-responsive card styles (injected once) ──────────────────
-        html += '<style>'
-          + '@media(max-width:480px){'
-          + '.wp-title-link{font-size:13px !important}'
-          + '.wp-snippet{font-size:12px !important}'
-          + '.wp-card{padding:12px !important}'
-          + '}'
-          + '</style>';
-
-        // ── 1. AI Summary card ─────────────────────────────────────────────
-        if (smart.answer) {
-          var safeAnswer = smart.answer
-            .replace(/Sources?:\s*\n(\[\d+\].*\n?)*/gi, '')
-            .trim()
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e4e4e7">$1</strong>')
-            .replace(/\[(\d+)\]/g, '<sup style="color:#818CF8;font-size:10px;font-weight:600;cursor:default;">[$1]</sup>')
-            .replace(/\n/g, '<br>');
-          html += '<div style="padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
-            + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
-            + '<div style="font-size:14px;color:#d4d4d8;line-height:1.65;">' + safeAnswer + '</div>'
-            + '</div>';
-        }
-
-        // ── 2. Structured listings or businesses ───────────────────────────
-        var structured = smart.structured
-          || (smart.domainData && smart.domainData.structured)
-          || {};
-
-        var listings = structured.listings || [];
-        var businesses = structured.businesses || [];
-        var hasStructured = listings.length > 0 || businesses.length > 0;
-
-        if (businesses.length > 0) {
-          html += renderBusinessCards(businesses, smart.answer || '');
-        } else if (listings.length > 0) {
-          html += renderListingCards(listings);
-        } else if (!hasStructured) {
-          // ── 4. Fallback: parse from content markdown ───────────────────
-          var fallbackListings = [];
-          if (smart.content) {
-            var lines = smart.content.split('\n');
-            lines.forEach(function(line) {
-              var match = line.match(/^\d+\.\s+\*\*(.+?)\*\*\s*(?:—|–|-)\s*(.+)/);
-              if (match && fallbackListings.length < 4) {
-                var parts = match[2].split('·').map(function(s) { return s.trim(); });
-                fallbackListings.push({
-                  title: match[1].trim(),
-                  snippet: cleanSnippet(parts.join(' · '), 120),
-                  price: (parts.find(function(p) { return p.indexOf('$') !== -1; }) || '').trim(),
-                  url: '#',
-                });
-              }
-            });
-          }
-          if (fallbackListings.length > 0) {
-            html += renderListingCards(fallbackListings);
-          } else if (smart.results && smart.results.length > 0) {
-            html += renderListingCards(smart.results);
-          }
-        }
-
-        // ── 3. Source attribution row ──────────────────────────────────────
-        if (smart.sources && smart.sources.length) {
-          html += renderSourceRow(smart.sources);
-        }
-
-        if (!smart.answer && !hasStructured && !smart.content) {
-          html += '<div style="text-align:center;padding:20px;color:#71717a;font-size:13px;">No results found. Try a different query.</div>';
-        }
-
-        // ── 5. Stats bar (simplified — no Google Maps claim) ───────────────
-        html += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:16px;padding:12px 0;border-top:1px solid rgba(255,255,255,0.06);">'
-          + '<span style="font-size:11px;color:#52525b;">⚡ ' + elapsedStr + '</span>'
-          + '<span style="font-size:11px;color:#52525b;">🛡️ Zero ads</span>'
-          + '<span style="font-size:11px;color:#52525b;">🤖 AI-powered</span>'
-          + '</div>';
-
-        // Remaining searches counter
-        var remaining = MAX_FREE_SEARCHES - getSearchCount();
-        if (remaining > 0) {
-          html += '<div style="text-align:center;margin-top:8px;font-size:11px;color:#52525b;">'
-            + remaining + ' free search' + (remaining === 1 ? '' : 'es') + ' remaining &middot; '
-            + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;text-decoration:none;">Sign up for unlimited</a>'
-            + '</div>';
-        } else {
-          // Last search used — show signup nudge after 3s
-          setTimeout(function() {
-            document.getElementById('wp-results').style.display = 'none';
-            document.getElementById('wp-signup-wall').style.display = 'block';
-            document.getElementById('wp-examples').style.display = 'none';
-          }, 3000);
-          html += '<div style="text-align:center;margin-top:12px;font-size:11px;color:#818CF8;">'
-            + 'That was your last free search! '
-            + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;font-weight:600;text-decoration:underline;">Sign up free →</a>'
-            + '</div>';
-        }
-
-        resultsDiv.innerHTML = html;
+        resultsDiv.innerHTML = renderFinalHTML(smart, smart.answer || '', elapsed);
       } catch (err) {
         resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#f87171;font-size:13px;font-family:inherit;">'
           + 'Search failed. <a href="' + SIGNUP_URL + '" style="color:#818CF8;">Try the full app →</a>'

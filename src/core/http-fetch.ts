@@ -776,6 +776,12 @@ export async function simpleFetch(
       const isDocx = contentTypeLower.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document') || urlLower.endsWith('.docx');
       const isBinaryDoc = isPdf || isDocx;
 
+      // Support image types for OCR text extraction.
+      const IMAGE_URL_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.tiff', '.tif', '.bmp'];
+      const isImage =
+        contentTypeLower.startsWith('image/') ||
+        IMAGE_URL_EXTS.some(ext => urlLower.endsWith(ext));
+
       // Accept a wide range of text-based content, plus supported binary documents.
       const ALLOWED_TYPES = [
         'text/html', 'application/xhtml+xml',
@@ -790,6 +796,7 @@ export async function simpleFetch(
 
       const isAllowed =
         !contentTypeLower ||
+        isImage ||
         ALLOWED_TYPES.some(t => contentTypeLower.includes(t)) ||
         // Many servers mislabel docs as octet-stream; allow when URL implies a supported document.
         (contentTypeLower.includes('application/octet-stream') && isBinaryDoc);
@@ -842,20 +849,21 @@ export async function simpleFetch(
       }
 
       const buffer = Buffer.from(combined);
-      const html = isBinaryDoc ? '' : new TextDecoder().decode(combined);
+      const isBinaryOrImage = isBinaryDoc || isImage;
+      const html = isBinaryOrImage ? '' : new TextDecoder().decode(combined);
 
       // For HTML content, check for suspiciously small responses (bot blocks)
       // Non-HTML content (JSON, text, XML) can legitimately be short
-      const isHtmlContent = !isBinaryDoc && (contentTypeLower.includes('html') || contentTypeLower.includes('xhtml'));
+      const isHtmlContent = !isBinaryOrImage && (contentTypeLower.includes('html') || contentTypeLower.includes('xhtml'));
       if (isHtmlContent && (!html || html.length < 100)) {
         throw new BlockedError('Empty or suspiciously small response. Site may require JavaScript.');
       }
 
-      if (!isBinaryDoc && !html) {
+      if (!isBinaryOrImage && !html) {
         throw new NetworkError('Empty response body');
       }
 
-      if (isBinaryDoc && buffer.length === 0) {
+      if (isBinaryOrImage && buffer.length === 0) {
         throw new NetworkError('Empty response body');
       }
 
@@ -888,7 +896,7 @@ export async function simpleFetch(
 
       return {
         html,
-        buffer: isBinaryDoc ? buffer : undefined,
+        buffer: isBinaryOrImage ? buffer : undefined,
         url: currentUrl,
         statusCode: response.status,
         contentType,

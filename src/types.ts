@@ -290,8 +290,8 @@ export interface PeelResult {
   links: string[];
   /** Estimated token count (rough: content.length / 4) */
   tokens: number;
-  /** Method used: 'simple' | 'browser' | 'stealth' | 'cycle' | 'cloaked' | 'peeltls' | 'cf-worker' | 'google-cache' */
-  method: 'simple' | 'browser' | 'stealth' | 'cycle' | 'cloaked' | 'peeltls' | 'cf-worker' | 'google-cache';
+  /** Method used: 'simple' | 'browser' | 'stealth' | 'cycle' | 'cloaked' | 'peeltls' | 'cf-worker' | 'google-cache' | 'ocr' */
+  method: 'simple' | 'browser' | 'stealth' | 'cycle' | 'cloaked' | 'peeltls' | 'cf-worker' | 'google-cache' | 'ocr';
   /** Time elapsed in milliseconds */
   elapsed: number;
   /** Base64-encoded screenshot (PNG), only if screenshot option was set */

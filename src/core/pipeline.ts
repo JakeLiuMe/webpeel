@@ -108,7 +108,7 @@ export interface PipelineContext {
   fetchResult?: any; // FetchResult from strategies.ts
 
   // ---- Set by content type detection ----
-  contentType: 'document' | 'html' | 'json' | 'xml' | 'text';
+  contentType: 'document' | 'html' | 'json' | 'xml' | 'text' | 'image';
 
   // ---- Set by parsing ----
   content: string;
@@ -788,12 +788,19 @@ export function detectContentType(ctx: PipelineContext): void {
   const isDocument = isPdfContentType(ct) || isDocxContentType(ct) ||
     urlLower.endsWith('.pdf') || urlLower.endsWith('.docx');
 
-  const isHTML = !isDocument && (ct.includes('html') || ct.includes('xhtml') || (!ct && fetchResult.html.trimStart().startsWith('<')));
-  const isJSON = !isDocument && ct.includes('json');
-  const isXML = !isDocument && (ct.includes('xml') || ct.includes('rss') || ct.includes('atom'));
-  const isPlainText = !isDocument && (ct.includes('text/plain') || ct.includes('text/markdown') || ct.includes('text/csv') || ct.includes('text/css') || ct.includes('javascript'));
+  // Check for image types (for OCR text extraction)
+  const IMAGE_URL_EXTS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.tiff', '.tif', '.bmp'];
+  const isImage = !isDocument && (
+    ct.startsWith('image/') ||
+    IMAGE_URL_EXTS.some(ext => urlLower.endsWith(ext))
+  );
 
-  ctx.contentType = isDocument ? 'document' : isHTML ? 'html' : isJSON ? 'json' : isXML ? 'xml' : isPlainText ? 'text' : 'html';
+  const isHTML = !isDocument && !isImage && (ct.includes('html') || ct.includes('xhtml') || (!ct && fetchResult.html.trimStart().startsWith('<')));
+  const isJSON = !isDocument && !isImage && ct.includes('json');
+  const isXML = !isDocument && !isImage && (ct.includes('xml') || ct.includes('rss') || ct.includes('atom'));
+  const isPlainText = !isDocument && !isImage && (ct.includes('text/plain') || ct.includes('text/markdown') || ct.includes('text/csv') || ct.includes('text/css') || ct.includes('javascript'));
+
+  ctx.contentType = isImage ? 'image' : isDocument ? 'document' : isHTML ? 'html' : isJSON ? 'json' : isXML ? 'xml' : isPlainText ? 'text' : 'html';
 
   // Flag when the server returned pre-rendered markdown — no HTML parsing needed
   if (ct.includes('text/markdown')) {
@@ -826,7 +833,23 @@ export async function parseContent(ctx: PipelineContext): Promise<void> {
     ctx.timer.end('captionImages');
   }
 
-  if (contentType === 'document' && hasBuffer) {
+  if (contentType === 'image' && hasBuffer) {
+    // === OCR pipeline — extract text from images using Tesseract.js ===
+    ctx.timer.mark('ocr');
+    const { extractTextFromImage } = await import('./ocr.js');
+    const ocrText = await extractTextFromImage(fetchResult.buffer!);
+    ctx.timer.end('ocr');
+
+    if (ocrText.length > 0) {
+      ctx.content = `# OCR Text Extraction\n\n${ocrText}`;
+    } else {
+      ctx.content = '# OCR Text Extraction\n\n*(No text detected in image)*';
+    }
+    ctx.title = '';
+    ctx.metadata = { url: fetchResult.url, title: '' };
+    ctx.quality = ocrText.length > 10 ? 0.8 : 0.1;
+
+  } else if (contentType === 'document' && hasBuffer) {
     // Document parsing pipeline (PDF/DOCX)
     // 'clean' maps to 'markdown' for extraction; cleanForAI is applied in buildResult
     const docFormat = format === 'clean' ? 'markdown' : format;
@@ -1718,7 +1741,7 @@ export function buildResult(ctx: PipelineContext): PeelResult {
     metadata: ctx.metadata,
     links: ctx.links,
     tokens,
-    method: fetchResult.method === 'cached' ? 'simple' : fetchResult.method,
+    method: ctx.contentType === 'image' ? 'ocr' : fetchResult.method === 'cached' ? 'simple' : fetchResult.method,
     elapsed,
     screenshot: ctx.screenshotBase64,
     contentType: ctx.contentType,
