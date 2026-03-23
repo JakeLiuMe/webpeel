@@ -349,13 +349,31 @@
       var resolvedAnswer = answerText || smart.answer || '';
       if (resolvedAnswer) {
         var safeAnswer = resolvedAnswer
-          .replace(/Sources?:\s*\n(\[\d+\].*\n?)*/gi, '')
+var rawAnswer = smart.answer;
+        // Extract source URLs from Sources: section before stripping it
+        var citationUrls = {};
+        var sourcesMatch = rawAnswer.match(/Sources?:\s*\n([\s\S]*?)$/i);
+        if (sourcesMatch) {
+          var sourceLines = sourcesMatch[1].split('\n');
+          sourceLines.forEach(function(line) {
+            var m = line.match(/\[(\d+)\]\s*(https?:\/\/\S+)/);
+            if (m) citationUrls[m[1]] = m[2];
+          });
+        }
+        var safeAnswer = rawAnswer
+          .replace(/Sources?:\s*\n[\s\S]*$/i, '')
           .trim()
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#e4e4e7">$1</strong>')
-          .replace(/\[(\d+)\]/g, '<sup style="color:#818CF8;font-size:10px;font-weight:600;cursor:default;">[$1]</sup>')
+          .replace(/\[(\d+)\]/g, function(match, num) {
+            var url = citationUrls[num];
+            if (url) {
+              return '<a href="' + url.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" target="_blank" rel="noopener noreferrer" style="color:#818CF8;font-size:10px;font-weight:600;text-decoration:none;cursor:pointer;vertical-align:super;" title="' + url.replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '">[' + num + ']</a>';
+            }
+            return '<sup style="color:#818CF8;font-size:10px;font-weight:600;">[' + num + ']</sup>';
+          })
           .replace(/\n/g, '<br>');
         html += '<div style="padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
           + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
