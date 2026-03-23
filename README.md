@@ -16,6 +16,8 @@
   <strong>The web data platform for AI agents — fetch, search, crawl, extract, monitor, screenshot, and research any URL.</strong>
 </p>
 
+[![webpeel MCP server](https://glama.ai/mcp/servers/webpeel/webpeel/badges/card.svg)](https://glama.ai/mcp/servers/webpeel/webpeel)
+
 ---
 
 ## Quick Start
