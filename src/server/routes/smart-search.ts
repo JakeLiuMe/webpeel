@@ -1346,6 +1346,8 @@ const SHOPPING_DOMAINS: Array<{ pattern: string; name: string }> = [
   { pattern: 'etsy.com',               name: 'Etsy' },
   { pattern: 'tcgplayer.com',          name: 'TCGPlayer' },
   { pattern: 'cardmarket.com',         name: 'Cardmarket' },
+  { pattern: 'mercari.com',            name: 'Mercari' },
+  { pattern: 'facebook.com',           name: 'Facebook Marketplace' },
   { pattern: 'uline.com',              name: 'Uline' },
   { pattern: 'alibaba.com',            name: 'Alibaba' },
   { pattern: 'webstaurantstore.com',   name: 'WebstaurantStore' },
@@ -1452,16 +1454,18 @@ async function handleProductSearch(intent: SearchIntent): Promise<SmartSearchRes
   let redditResults: WebSearchResult[];
 
   if (isCollectible) {
-    const [tcgSettled, ebaySettled, amazonSettled, redditSettled] = await Promise.allSettled([
-      searchProvider.searchWeb(`${keyword} price site:tcgplayer.com`, { count: 5 }),
-      searchProvider.searchWeb(`${keyword} price site:ebay.com sold`, { count: 5 }),
-      searchProvider.searchWeb(`${keyword} price site:amazon.com`, { count: 3 }),
+    const [tcgSettled, ebaySettled, etsySettled, fbAmazonSettled, redditSettled] = await Promise.allSettled([
+      searchProvider.searchWeb(`${keyword} price site:tcgplayer.com`, { count: 4 }),
+      searchProvider.searchWeb(`${keyword} price site:ebay.com sold`, { count: 4 }),
+      searchProvider.searchWeb(`${keyword} price site:etsy.com OR site:mercari.com`, { count: 3 }),
+      searchProvider.searchWeb(`${keyword} price site:facebook.com/marketplace OR site:amazon.com`, { count: 3 }),
       searchProvider.searchWeb(`${keyword} cheapest reddit where to buy`, { count: 3 }),
     ]);
     rawResults = [
       ...(tcgSettled.status === 'fulfilled' ? tcgSettled.value : []),
       ...(ebaySettled.status === 'fulfilled' ? ebaySettled.value : []),
-      ...(amazonSettled.status === 'fulfilled' ? amazonSettled.value : []),
+      ...(etsySettled.status === 'fulfilled' ? etsySettled.value : []),
+      ...(fbAmazonSettled.status === 'fulfilled' ? fbAmazonSettled.value : []),
     ];
     redditResults = redditSettled.status === 'fulfilled' ? redditSettled.value : [];
   } else if (isGrocery) {
