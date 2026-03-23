@@ -581,6 +581,9 @@
         var textEl = document.getElementById('wp-stream-text');
         if (textEl) textEl.className = 'wp-done';
       }
+      // Hide the status spinner when stream completes (even without AI answer)
+      var statusFinal = document.getElementById('wp-stream-status');
+      if (statusFinal) statusFinal.style.display = 'none';
 
       // Build final smart object for renderFinalHTML
       var finalSmart = smartResult || {};
