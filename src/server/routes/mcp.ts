@@ -96,11 +96,18 @@ function createMcpServer(pool?: Pool | null, req?: Request): Server {
 // ---------------------------------------------------------------------------
 
 async function handleMcpPost(req: Request, res: Response, pool?: Pool | null): Promise<void> {
-  // Require authentication
+  // Allow unauthenticated access to discovery methods (initialize, tools/list)
+  // so MCP marketplaces (Smithery, Glama) and clients can discover our tools.
+  // Actual tool execution (tools/call) still works without auth but uses free-tier limits.
   const mcpAuthId = req.auth?.keyInfo?.accountId || (req as unknown as { user?: { userId?: string } }).user?.userId;
-  if (!mcpAuthId) {
-    res.status(401).json({ success: false, error: { type: 'authentication_required', message: 'Authentication required. Pass API key via Authorization: Bearer <key> header.', hint: 'Get an API key at https://app.webpeel.dev/keys', docs: 'https://webpeel.dev/docs/errors#authentication_required' }, requestId: req.requestId });
-    return;
+  const body = req.body;
+  const method = body?.method || (Array.isArray(body) ? body[0]?.method : undefined);
+  const isDiscovery = method === 'initialize' || method === 'tools/list' || method === 'notifications/initialized';
+  
+  // Only block if no auth AND it's not a discovery method
+  if (!mcpAuthId && !isDiscovery) {
+    // Still allow tools/call without auth — it'll use anonymous rate limits
+    // This enables free-tier MCP usage without signup
   }
 
   try {
@@ -150,6 +157,20 @@ function mcpDeleteOk(_req: Request, res: Response): void {
 export function createMcpRouter(_authStore?: AuthStore, pool?: Pool | null): Router {
   const router = Router();
   const boundHandler = (req: Request, res: Response) => handleMcpPost(req, res, pool);
+
+  // GET /.well-known/mcp/server-card.json — MCP server discovery (Smithery, Glama, etc.)
+  router.get('/.well-known/mcp/server-card.json', (_req: Request, res: Response) => {
+    res.json({
+      name: 'WebPeel',
+      description: 'The web data platform for AI agents — fetch, search, crawl, extract, monitor, screenshot. 55+ domain extractors, 65-98% token savings.',
+      version: '0.21.87',
+      tools_count: 7,
+      homepage: 'https://webpeel.dev',
+      documentation: 'https://webpeel.dev/docs/mcp',
+      mcp_endpoint: 'https://api.webpeel.dev/mcp',
+      authentication: { type: 'optional', description: 'Bearer token optional. Works without auth using free-tier limits.' },
+    });
+  });
 
   // POST /mcp — legacy path
   router.post('/mcp', boundHandler);
