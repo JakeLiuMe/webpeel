@@ -1,7 +1,7 @@
 {
   "name": "webpeel",
   "version": "0.21.87",
-  "description": "Fast web fetcher for AI agents - stealth mode, crawl mode, page actions, structured extraction, PDF parsing, smart escalation from simple HTTP to headless browser",
+  "description": "The web data platform for AI agents — fetch, search, crawl, extract, monitor, screenshot. 55+ domain extractors, 65-98% token savings, MCP server included. One API call.",
   "author": "Jake Liu",
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -98,7 +98,21 @@
     "web-to-markdown",
     "headless-browser",
     "web-scraping",
-    "firecrawl-alternative"
+    "firecrawl-alternative",
+    "crawl4ai-alternative",
+    "web-data",
+    "token-efficiency",
+    "rag",
+    "web-search",
+    "screenshot",
+    "content-extraction",
+    "web-crawler",
+    "site-crawler",
+    "pdf-extraction",
+    "youtube-transcript",
+    "cloudflare-bypass",
+    "stealth-browser",
+    "structured-data"
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

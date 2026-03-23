@@ -1,10 +1,71 @@
-# WebPeel — The Web Data API for AI
+# WebPeel — The Web Data Platform for AI Agents
 
-> Fetch, search, extract, and understand any webpage with one API call.
+> Fetch, search, crawl, extract, monitor, screenshot, and research any URL. One API call. 65-98% token savings.
 
-## What is WebPeel?
+## Capabilities
 
-WebPeel turns any webpage into clean, structured data optimized for LLMs. It handles JavaScript rendering, anti-bot bypasses, and 55+ domain-specific extractors automatically.
+- **Fetch**: Extract clean markdown from any URL. Auto-handles JS rendering, Cloudflare, CAPTCHAs, and anti-bot protection.
+- **Search**: Web search with structured results and AI summaries. Smart search with intent detection for restaurants, products, flights, hotels.
+- **Crawl**: Crawl entire sites (up to 100 pages) with dedup and rate limiting. Returns all URLs or full content.
+- **Extract**: Schema-based structured data extraction (JSON schema → JSON output). Built-in schemas for product, article, recipe, job, event, and more.
+- **Monitor**: Track pages for changes. Returns diffs when content updates. CSS selector support for targeting specific sections.
+- **Screenshot**: Full-page screenshots with device emulation (mobile, tablet, desktop). Supports visual diff comparison.
+- **Research**: Autonomous research agent that plans queries, fetches multiple sources, synthesizes answers with citations.
+- **YouTube**: Full video transcripts with timestamps, 50+ languages supported.
+- **PDF**: Extract real text from PDFs — no OCR needed for text-based PDFs.
+- **Feed**: RSS/Atom feed discovery and parsing. Auto-discovers feeds from any URL.
+- **Act**: Browser automation — click buttons, fill forms, interact with dynamic pages, then extract content.
+
+## API Endpoints
+
+- GET /v1/fetch?url={url} — Fetch and extract content as markdown
+- POST /v1/fetch — Fetch with options (render, stealth, actions, extract schema)
+- GET /v1/search?q={query} — Web search with structured results
+- POST /v1/search/smart — AI-powered smart search with intent detection
+- POST /v1/screenshot — Take full-page screenshot (mobile/tablet/desktop)
+- POST /v1/answer — Q&A with citations (BYOK)
+- POST /v1/agent — Autonomous research agent (BYOK)
+- POST /v1/crawl — Crawl a site, returns all pages
+- POST /v1/extract — Schema-based structured data extraction
+- GET /v1/feed?url={url} — Discover and parse RSS/Atom feeds
+- POST /v1/monitor — Watch a URL for changes
+
+## MCP Server
+
+WebPeel includes an MCP server for Claude, Cursor, VS Code, and other AI tools. Install once, use everywhere:
+
+```json
+{
+  "mcpServers": {
+    "webpeel": {
+      "command": "npx",
+      "args": ["-y", "webpeel", "mcp"]
+    }
+  }
+}
+```
+
+### MCP Tools
+- **webpeel** — Smart natural-language web tool. Describe what you want in plain English.
+- **webpeel_read** — Fetch any URL as clean markdown. Handles web pages, YouTube transcripts, and PDFs.
+- **webpeel_see** — Take screenshots. Supports design analysis and visual diff comparison.
+- **webpeel_find** — Web search or site map discovery. Pass query= to search, url= to map a domain.
+- **webpeel_extract** — Extract structured JSON from any URL. Pass fields or a full JSON schema.
+- **webpeel_monitor** — Watch a URL for changes. Returns diffs on subsequent calls.
+- **webpeel_act** — Browser automation. Click, type, scroll, then extract content.
+
+## Token Efficiency
+
+WebPeel reduces web content by 65-98% compared to raw HTML, saving massive LLM costs:
+- BBC News: 98% reduction (100K → 2,050 tokens)
+- Wikipedia: 86% reduction
+- Python docs: 65% reduction
+- GitHub repos: 80%+ reduction
+
+## 55+ Domain Extractors
+
+Structured data without browser rendering for major sites:
+Amazon, Reddit, GitHub, Wikipedia, YouTube, LinkedIn, arXiv, StackOverflow, npm, PyPI, Yelp, Google Maps, Best Buy, Walmart, Target, Etsy, Medium, Substack, IMDb, Rotten Tomatoes, Hacker News, Product Hunt, TechCrunch, and 30+ more.
 
 ## Quick Start
 
@@ -12,96 +73,40 @@ WebPeel turns any webpage into clean, structured data optimized for LLMs. It han
 # Install
 npm install webpeel
 
-# Fetch any URL
+# Fetch any page
 npx webpeel "https://example.com"
 
+# With JS rendering (for SPAs, React apps)
+npx webpeel "https://example.com" --render
+
+# Screenshot
+npx webpeel "https://example.com" --screenshot
+
 # Search the web
-npx webpeel search "best restaurants in NYC"
+npx webpeel search "best AI frameworks 2024"
+
+# Extract structured data
+npx webpeel "https://amazon.com/dp/..." --schema product --json
 
 # API
 curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
   -H "Authorization: Bearer YOUR_KEY"
 ```
 
-## Core Features
-
-### Fetch (`/v1/fetch` or CLI `webpeel fetch`)
-- Any URL → clean markdown, HTML, text, or JSON
-- 55+ domain extractors (Amazon, Reddit, YouTube, Yelp, GitHub, etc.)
-- JavaScript rendering with `--render` or `render=true`
-- Anti-bot bypass with `--stealth` or `stealth=true`
-- Screenshot capture with `--screenshot`
-- Structured data extraction with `--schema product` (9 built-in schemas)
-- Custom JSON schema: `--schema '{"price":"number","title":"string"}'`
-- Bypass domain extractors: `--skip-domain-api` or `noDomainApi=true`
-
-### Search (`/v1/search` or CLI `webpeel search`)
-- Web search with structured results
-- Fetch + summarize top results
-
-### Smart Search (`/v1/search/smart`)
-- AI-powered intent detection (restaurants, products, flights, hotels, cars, rentals)
-- Real-time data: Yelp ratings, Google Places hours, fuel prices, flight costs
-- AI synthesis via Qwen on Ollama
-- SSE streaming for progressive results
-
-### Feed (`/v1/feed`)
-- RSS/Atom feed discovery and parsing
-- Auto-discovers feeds from any URL
-
-### Extract (`/v1/extract`)
-- Structured data extraction with JSON schema
-- No LLM needed for built-in schemas (BM25 extraction)
-- Schemas: product, article, listing, contact, event, recipe, job, business, review
-
-### Watch (CLI `webpeel watch`)
-- Scheduled page monitoring with change detection
-- Cron-style intervals
-
-### MCP Server
-- 18 tools for Claude, Cursor, VS Code
-- `npx webpeel mcp` to start
-- Tools: fetch, search, screenshot, extract, map, crawl, and more
-
-## Common Use Cases
-
-### "I want to scrape a page but it's blocked"
-```bash
-webpeel fetch "https://example.com" --stealth
-```
-
-### "I want the REAL page, not WebPeel's API shortcut"
-```bash
-webpeel fetch "https://accuweather.com/..." --skip-domain-api
-```
-
-### "I want structured JSON, not markdown"
-```bash
-webpeel fetch "https://amazon.com/dp/..." --schema product --json
-```
-
-### "I want to search and get AI-summarized results"
-```bash
-curl -X POST "https://api.webpeel.dev/v1/search/smart" \
-  -H "Authorization: Bearer KEY" \
-  -d '{"q":"best restaurants in manhattan"}'
-```
-
-### "I want to monitor a page for changes"
-```bash
-webpeel watch "https://example.com/pricing" --interval 3600
-```
-
 ## Pricing
-- Free: 500 requests/week
+
+Free tier: 2,000 fetches/month, no credit card required.
+
+- Free: 2,000 requests/month
 - Starter: $9/month — 10,000 requests
 - Pro: $49/month — 100,000 requests
 - Enterprise: Custom
 
 ## Links
-- Docs: https://webpeel.dev/docs
-- Dashboard: https://app.webpeel.dev
-- API Reference: https://webpeel.dev/docs/api
-- GitHub: https://github.com/webpeel/webpeel
-- npm: https://www.npmjs.com/package/webpeel
-- PyPI: https://pypi.org/project/webpeel/
+
+Docs: https://webpeel.dev/docs
+API Reference: https://webpeel.dev/docs/api-reference
+Dashboard: https://app.webpeel.dev
+GitHub: https://github.com/webpeel/webpeel
+npm: https://www.npmjs.com/package/webpeel
+PyPI: https://pypi.org/project/webpeel/

@@ -9,10 +9,12 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel',
     description:
-      "Your complete web toolkit. Describe what you want in plain language. " +
-      "Examples: 'read https://stripe.com', 'screenshot bbc.com on mobile', " +
-      "'find best AI frameworks', 'extract prices from stripe.com/pricing', " +
-      "'watch stripe.com/pricing for changes'",
+      "Your complete web toolkit — fetch, search, screenshot, extract, monitor, and interact with any website. " +
+      "Handles JS rendering, Cloudflare, CAPTCHAs, and 55+ domain extractors automatically. 65-98% token savings. " +
+      "Describe what you want in plain English. " +
+      "Examples: 'read https://stripe.com/pricing', 'screenshot bbc.com on mobile', " +
+      "'search for best AI frameworks 2024', 'extract product prices from amazon.com/dp/...', " +
+      "'watch stripe.com/pricing for price changes', 'get YouTube transcript from youtu.be/...'",
     annotations: {
       title: 'WebPeel Smart Web Tool',
       readOnlyHint: true,
@@ -34,8 +36,11 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel_read',
     description:
-      'Read any URL and return clean markdown. Handles web pages, YouTube videos, and PDFs ' +
-      'automatically. Use question= for Q&A about the page, summary=true for a summary.',
+      'Fetch any URL and return clean, LLM-optimized markdown. 65-98% fewer tokens than raw HTML. ' +
+      'Automatically handles: web pages, YouTube transcripts (with timestamps), PDFs, ' +
+      'JS-rendered SPAs, Cloudflare-protected sites, and 55+ domain-specific extractors (Amazon, Reddit, GitHub, etc.). ' +
+      'Use render=true for JavaScript-heavy sites. Use question= for instant Q&A (no LLM needed). ' +
+      'Use summary=true for a short summary. Use budget=N to distill to N tokens.',
     annotations: {
       title: 'Read Web Page',
       readOnlyHint: true,
@@ -83,8 +88,11 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel_see',
     description:
-      "See any page visually. Returns a screenshot. Use mode='design' for design analysis, " +
-      "mode='compare' with compare_url for visual comparison.",
+      "Capture a screenshot of any web page. Returns the page as an image for visual inspection. " +
+      "Supports mobile, tablet, and desktop viewports. " +
+      "Use mode='design' for AI-powered design analysis and suggestions. " +
+      "Use mode='compare' with compare_url to diff two pages visually. " +
+      "Use full_page=true to capture the entire scrollable page.",
     annotations: {
       title: 'See Page Visually',
       readOnlyHint: true,
@@ -132,8 +140,11 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel_find',
     description:
-      'Find anything on the web. Pass a query to search, or a url to discover all pages on ' +
-      "that domain. Use depth='deep' for multi-source research.",
+      "Search the web or discover all pages on a site. " +
+      "Pass query= to search the web and get ranked results with titles, URLs, and snippets. " +
+      "Pass url= to map/crawl a domain and discover all its pages. " +
+      "Use depth='deep' for multi-source research that synthesizes answers from multiple pages. " +
+      "Smart search detects intent for restaurants, products, flights, hotels, and more.",
     annotations: {
       title: 'Find on the Web',
       readOnlyHint: true,
@@ -163,8 +174,11 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel_extract',
     description:
-      "Extract structured data from any URL. Pass fields=['price','title'] for specific data, " +
-      'or omit for auto-detection. Returns typed JSON.',
+      "Extract structured JSON data from any URL. No LLM needed for built-in schemas. " +
+      "Pass fields=['price','title','description'] to extract specific named fields. " +
+      "Pass schema={...} with a full JSON schema for custom structured output. " +
+      "Built-in schemas: product, article, recipe, job, event, contact, business, review, listing. " +
+      "Works on Amazon, Yelp, LinkedIn, job boards, e-commerce sites, and any web page.",
     annotations: {
       title: 'Extract Structured Data',
       readOnlyHint: true,
@@ -195,8 +209,11 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel_monitor',
     description:
-      'Watch a URL for changes. Returns diff on subsequent calls. ' +
-      'Add webhook= for persistent monitoring with notifications.',
+      "Track a web page for content changes over time. Call once to take a snapshot, call again to get a diff. " +
+      "Use selector= to monitor a specific CSS element (e.g. a price, a status badge). " +
+      "Use webhook= for persistent monitoring with automatic notifications when content changes. " +
+      "Use interval= to set how frequently to check ('1h', '30m', '1d'). " +
+      "Ideal for: price tracking, job listing changes, release monitoring, competitor updates.",
     annotations: {
       title: 'Monitor URL for Changes',
       readOnlyHint: false,
@@ -228,8 +245,12 @@ export const toolDefinitions: Tool[] = [
   {
     name: 'webpeel_act',
     description:
-      'Interact with a web page. Click buttons, fill forms, navigate. ' +
-      'Returns screenshot + extracted content after actions complete.',
+      "Automate interactions with any web page using a real browser. " +
+      "Click buttons, fill forms, select dropdowns, scroll, wait for elements, and press keys. " +
+      "Returns extracted content and optionally a screenshot after all actions complete. " +
+      "Use for: logging into sites, submitting forms, navigating multi-step flows, " +
+      "interacting with dynamic content that requires user input. " +
+      "Actions: click, type, fill, scroll, wait, press, hover, select.",
     annotations: {
       title: 'Act on Web Page',
       readOnlyHint: false,

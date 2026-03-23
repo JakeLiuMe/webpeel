@@ -22,8 +22,10 @@ export function cleanConcatenatedTitle(title: string): string {
     const [, part1, part2] = match;
     // Both parts should be reasonably long to be separate titles
     if (part1.length > 10 && part2.length > 10) {
-      // Return the longer/more specific part (usually the second one is the page-specific title)
-      return part2.length >= part1.length ? part2 : part1;
+      // Prefer the second part — it's typically the page-specific title
+      // (e.g. "The Performance of Open Source Software" + "High Performance Networking in Chrome"
+      //  → the second part is the chapter/page title, the first is the site/book title)
+      return part2;
     }
   }
   return title;
