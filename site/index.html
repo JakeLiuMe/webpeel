@@ -6538,12 +6538,24 @@
   .faq-section,
   .demo-section,
   .why-section,
-  .final-cta {
+  .final-cta,
+  .feat-cards-section {
     background-image: none !important;
   }
   .hero,
   section.hero {
     background: #050507 !important;
+  }
+  /* Kill section ::after gradient lines */
+  .demo-section::after,
+  .how-section::after,
+  .why-section::after,
+  .pricing-section::after,
+  .hero::before,
+  .hero::after,
+  .hero-grid::before,
+  .hero-grid::after {
+    display: none !important;
   }
 
   /* 16. SECTION DIVIDERS — remove harsh borders, use bg alternation */
