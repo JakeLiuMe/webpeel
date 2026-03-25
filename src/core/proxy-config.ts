@@ -38,11 +38,12 @@ export interface ProxyConfig {
 
 /** Monthly proxy bandwidth limits per tier (in bytes). */
 export const PROXY_TIER_LIMITS: Record<string, number> = {
-  free:       0,                          // No proxy for free tier — direct only
-  pro:        500  * 1024 * 1024,         // 500 MB/month
-  max:        2    * 1024 * 1024 * 1024,  // 2 GB/month
+  free:       50   * 1024 * 1024,         // 50 MB/month (~25 stealth loads, ~$0.15 cost)
+  starter:    200  * 1024 * 1024,         // 200 MB/month
+  pro:        1    * 1024 * 1024 * 1024,  // 1 GB/month
+  max:        5    * 1024 * 1024 * 1024,  // 5 GB/month
   admin:      Infinity,                   // Unlimited
-  enterprise: 5    * 1024 * 1024 * 1024,  // 5 GB/month
+  enterprise: 10   * 1024 * 1024 * 1024,  // 10 GB/month
 };
 
 // ── In-memory per-user proxy bandwidth tracking ───────────────────────────────
