@@ -25,6 +25,28 @@ export interface ProxyConfig {
   password: string;
 }
 
+// ── Proxy health tracking ─────────────────────────────────────────────────────
+// When the proxy returns 402 (bandwidth limit) or repeated failures,
+// stop trying for a cooldown period instead of failing every request.
+let proxyDisabledUntil = 0;
+const PROXY_COOLDOWN_MS = 5 * 60 * 1000; // 5 min cooldown after exhaustion
+
+/** Mark the proxy as exhausted (e.g., 402 bandwidth limit). */
+export function markProxyExhausted(reason?: string): void {
+  proxyDisabledUntil = Date.now() + PROXY_COOLDOWN_MS;
+  console.error(`[webpeel:proxy] Proxy disabled for ${PROXY_COOLDOWN_MS / 1000}s — ${reason || 'exhausted'}`);
+}
+
+/** Check if the proxy is currently available (not in cooldown). */
+export function isProxyAvailable(): boolean {
+  return Date.now() >= proxyDisabledUntil;
+}
+
+/** Get proxy state for health endpoint. */
+export function getProxyState(): { available: boolean; disabledUntil: number; cooldownMs: number } {
+  return { available: isProxyAvailable(), disabledUntil: proxyDisabledUntil, cooldownMs: PROXY_COOLDOWN_MS };
+}
+
 /**
  * Get a random Webshare residential proxy config.
  * Returns null if the proxy is not configured (env vars missing or slots = 0).
@@ -40,6 +62,9 @@ export function getWebshareProxy(): ProxyConfig | null {
   const slots = parseInt(process.env.WEBSHARE_PROXY_SLOTS || '0', 10);
 
   if (!host || !user || !pass || slots <= 0) return null;
+
+  // Skip if proxy is in cooldown (bandwidth exhausted, etc.)
+  if (!isProxyAvailable()) return null;
 
   // Webshare backbone proxy: slot routing via username suffix, fixed base port.
   // Format: user-SLOT:pass@host:basePort (e.g. argtnlhz-1:pass@p.webshare.io:10000)

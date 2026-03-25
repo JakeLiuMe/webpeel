@@ -13,6 +13,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { fetchCache, searchCache } from '../../core/fetch-cache.js';
 import { browserCircuitBreaker } from '../../core/circuit-breaker.js';
+import { getProxyState } from '../../core/proxy-config.js';
 import type pg from 'pg';
 
 // Memory threshold for readiness degradation (90% of 1GB pod limit)
@@ -58,6 +59,7 @@ export function createHealthRouter(pool?: pg.Pool | null): Router {
         external: Math.round(mem.external / 1024 / 1024),
       },
       browser: browserCircuitBreaker.getState(),
+      proxy: getProxyState(),
       cache: {
         fetch: {
           size: fetchStats.size,

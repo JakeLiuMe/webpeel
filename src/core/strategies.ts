@@ -14,6 +14,7 @@ import { BlockedError, NetworkError } from '../types.js';
 import { getWebshareProxyUrl } from './proxy-config.js';
 import { detectChallenge } from './challenge-detection.js';
 import { browserCircuitBreaker } from './circuit-breaker.js';
+import { markProxyExhausted } from './proxy-config.js';
 import {
   getStrategyHooks,
   type StrategyResult,
@@ -460,6 +461,11 @@ async function fetchWithBrowserStrategy(
       errMsg.includes('crashed');
     if (isInfraError) {
       browserCircuitBreaker.recordFailure(error as Error);
+      // ERR_TUNNEL specifically means proxy is dead (402 bandwidth, connection refused)
+      // Disable proxy for 5 minutes so subsequent requests go direct instead of failing
+      if (errMsg.includes('ERR_TUNNEL')) {
+        markProxyExhausted('ERR_TUNNEL_CONNECTION_FAILED — proxy bandwidth likely exhausted');
+      }
     }
 
     // If browser gets blocked, try stealth as fallback (unless already stealth)
