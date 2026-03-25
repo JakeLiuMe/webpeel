@@ -96,23 +96,26 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GHCR_PAT is a long-lived PAT for K8s image pulls.
+          # DO NOT use GITHUB_TOKEN here — it expires after the workflow run,
+          # causing ImagePullBackOff when pods restart later.
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: root
           key: ${{ secrets.HETZNER_SSH_KEY }}
-          envs: GH_TOKEN
+          envs: GHCR_PAT
           script: |
             VERSION="${{ needs.build-and-push.outputs.version }}"
             NS="webpeel"
 
             echo "Deploying v${VERSION} to K3s..."
 
-            # Ensure GHCR pull secret exists (for private packages)
+            # Ensure GHCR pull secret exists with long-lived PAT
             kubectl create secret docker-registry ghcr-pull-secret \
               --docker-server=ghcr.io \
-              --docker-username=github-actions \
-              --docker-password="${GH_TOKEN}" \
+              --docker-username=JakeLiuMe \
+              --docker-password="${GHCR_PAT}" \
               -n ${NS} --dry-run=client -o yaml | kubectl apply -f -
 
             # Patch deployments to use pull secret
