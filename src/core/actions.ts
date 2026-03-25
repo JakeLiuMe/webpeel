@@ -33,6 +33,10 @@ export interface AutoScrollResult {
   finalHeight: number;
   /** Whether the page content grew during scrolling */
   contentGrew: boolean;
+  /** Whether a virtual/inner scrollable container was found and used */
+  scrollContainerFound?: boolean;
+  /** Total number of DOM mutations detected during scrolling */
+  mutationsDetected?: number;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -146,13 +150,81 @@ export function normalizeActions(input?: unknown): PageAction[] | undefined {
 }
 
 /**
+ * Check if an error message indicates the execution context was destroyed.
+ * This happens on SPAs (like Polymarket) when scrolling triggers navigation.
+ */
+function isContextDestroyedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes('Execution context was destroyed') ||
+    msg.includes('Target closed') ||
+    msg.includes('frame was detached') ||
+    msg.includes('Session closed')
+  );
+}
+
+/**
+ * Detect the most likely scrollable container on the page.
+ * Returns a CSS selector string for the container, or null if only window scrolling is needed.
+ *
+ * Looks for elements with overflow-y: auto|scroll whose scrollHeight > clientHeight,
+ * preferring the largest such element. Used by autoScroll and scrollThrough.
+ */
+export async function detectScrollContainer(page: Page): Promise<string | null> {
+  try {
+    return await page.evaluate(() => {
+      const candidates: Array<{ selector: string; scrollable: number }> = [];
+
+      const elements = document.querySelectorAll('*');
+      for (const el of Array.from(elements)) {
+        // Skip body/html (that's the default window scroll)
+        if (el === document.body || el === document.documentElement) continue;
+
+        const style = window.getComputedStyle(el);
+        const overflowY = style.overflowY;
+        if (overflowY !== 'auto' && overflowY !== 'scroll') continue;
+
+        const scrollable = el.scrollHeight - el.clientHeight;
+        if (scrollable < 100) continue; // Must have meaningful scrollable space
+
+        // Build a reasonable selector
+        let selector = el.tagName.toLowerCase();
+        if (el.id) {
+          selector = `#${CSS.escape(el.id)}`;
+        } else if (el.className && typeof el.className === 'string') {
+          const cls = el.className.trim().split(/\s+/)[0];
+          if (cls) selector = `${el.tagName.toLowerCase()}.${CSS.escape(cls)}`;
+        }
+
+        candidates.push({ selector, scrollable });
+      }
+
+      if (candidates.length === 0) return null;
+
+      // Sort by most scrollable content and return the best candidate
+      candidates.sort((a, b) => b.scrollable - a.scrollable);
+      return candidates[0].selector;
+    });
+  } catch {
+    // Context may be gone — safe to ignore
+    return null;
+  }
+}
+
+/**
  * Intelligently scroll the page to load all lazy/infinite-scroll content.
  *
- * Scrolls to the bottom repeatedly, detecting height changes to determine
- * when new content has loaded. Stops when:
- * - Page height is stable for 2 consecutive checks
+ * Improvements over the basic version:
+ * 1. Detects virtual/inner scroll containers (Polymarket, React virtualized lists)
+ * 2. Uses MutationObserver to detect DOM additions (not just height changes)
+ * 3. Gracefully handles execution context destruction (SPA navigation)
+ * 4. Stability requires BOTH no height change AND no DOM mutations
+ *
+ * Stops when:
+ * - Height is stable AND no DOM mutations for 2 consecutive checks
  * - maxScrolls limit is reached
  * - Total timeout is exceeded
+ * - Execution context is destroyed (SPA navigation)
  */
 export async function autoScroll(page: Page, options: AutoScrollOptions = {}): Promise<AutoScrollResult> {
   const {
@@ -166,13 +238,104 @@ export async function autoScroll(page: Page, options: AutoScrollOptions = {}): P
   let scrollCount = 0;
   let stableCount = 0;
   const stableThreshold = 2;
+  let totalMutations = 0;
+  let scrollContainerFound = false;
 
-  const getHeight = (): Promise<number> =>
-    page.evaluate('document.body.scrollHeight') as Promise<number>;
+  // ── Step 1: Detect the actual scrollable container ─────────────────────────
+  // Use || null to normalize undefined (returned by test mocks) to null.
+  const containerSelector = (await detectScrollContainer(page)) || null;
+  scrollContainerFound = containerSelector !== null;
+
+  // ── Step 2: Get initial height (body or container) ─────────────────────────
+  const getHeight = async (): Promise<number> => {
+    try {
+      if (containerSelector) {
+        const h = await page.evaluate((sel: string) => {
+          const el = document.querySelector(sel);
+          return el ? el.scrollHeight : document.body.scrollHeight;
+        }, containerSelector);
+        return (h as number) || 0;
+      }
+      // Use string form for backward compatibility with test mocks
+      return ((await page.evaluate('document.body.scrollHeight')) as number) || 0;
+    } catch (err) {
+      if (isContextDestroyedError(err)) return -1; // Sentinel: context gone
+      throw err;
+    }
+  };
+
+  // ── Step 3: Set up MutationObserver inside the page ─────────────────────────
+  // We store a mutation count in window.__wpMutationCount so we can poll it.
+  const setupObserver = async (): Promise<void> => {
+    try {
+      await page.evaluate(() => {
+        (window as any).__wpMutationCount = 0;
+        const observer = new MutationObserver((mutations) => {
+          (window as any).__wpMutationCount += mutations.reduce(
+            (sum, m) => sum + m.addedNodes.length,
+            0
+          );
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        (window as any).__wpMutationObserver = observer;
+      });
+    } catch {
+      // If we can't set up the observer, we'll fall back to height-only detection
+    }
+  };
+
+  const getMutationCount = async (): Promise<number> => {
+    try {
+      const count = await page.evaluate(() => (window as any).__wpMutationCount ?? 0);
+      return typeof count === 'number' ? count : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const resetMutationCount = async (): Promise<void> => {
+    try {
+      await page.evaluate(() => { (window as any).__wpMutationCount = 0; });
+    } catch {
+      // Ignore
+    }
+  };
+
+  // ── Step 4: Perform the scroll function ────────────────────────────────────
+  const scrollToBottom = async (): Promise<void> => {
+    try {
+      if (containerSelector) {
+        await page.evaluate((sel: string) => {
+          const el = document.querySelector(sel);
+          if (el) {
+            el.scrollTop = el.scrollHeight;
+          } else {
+            window.scrollTo(0, document.body.scrollHeight);
+          }
+        }, containerSelector);
+      } else {
+        // Use string form for backward compatibility with test mocks
+        await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+      }
+    } catch (err) {
+      if (!isContextDestroyedError(err)) throw err;
+      // Context destroyed — will be caught in main loop
+    }
+  };
+
+  // ── Main loop ──────────────────────────────────────────────────────────────
+  await setupObserver();
+  await resetMutationCount();
 
   const initialHeight = await getHeight();
+  if (initialHeight === -1) {
+    // Context was already destroyed before we started
+    return { scrollCount: 0, finalHeight: 0, contentGrew: false, scrollContainerFound, mutationsDetected: 0 };
+  }
+
   let lastHeight = initialHeight;
   let finalHeight = initialHeight;
+  let lastMutationCount = 0;
 
   while (scrollCount < maxScrolls) {
     // Check timeout
@@ -180,8 +343,16 @@ export async function autoScroll(page: Page, options: AutoScrollOptions = {}): P
       break;
     }
 
-    // Scroll to bottom
-    await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
+    // Scroll to bottom (with error recovery)
+    try {
+      await scrollToBottom();
+    } catch (err) {
+      if (isContextDestroyedError(err)) {
+        // SPA navigation destroyed the context — stop gracefully
+        break;
+      }
+      throw err;
+    }
     scrollCount++;
 
     // Wait for new content
@@ -191,7 +362,7 @@ export async function autoScroll(page: Page, options: AutoScrollOptions = {}): P
       await sleep(waitMs);
     }
 
-    // Optionally wait for a specific selector (use remaining total time, not scrollDelay)
+    // Optionally wait for a specific selector
     if (waitForSelector) {
       const selectorTimeout = Math.max(0, timeout - (Date.now() - startTime));
       if (selectorTimeout > 0) {
@@ -199,18 +370,37 @@ export async function autoScroll(page: Page, options: AutoScrollOptions = {}): P
       }
     }
 
-    // Check if page grew
-    const currentHeight = await getHeight();
+    // Check height (with error recovery)
+    let currentHeight: number;
+    try {
+      currentHeight = await getHeight();
+      if (currentHeight === -1) break; // Context destroyed
+    } catch (err) {
+      if (isContextDestroyedError(err)) break;
+      throw err;
+    }
     finalHeight = currentHeight;
 
-    if (currentHeight <= lastHeight) {
+    // Check mutation count
+    const currentMutations = await getMutationCount();
+    const mutationsSinceLastCheck = currentMutations - lastMutationCount;
+    totalMutations += mutationsSinceLastCheck;
+
+    // Stability check: stable = no height growth AND no new DOM mutations
+    const heightStable = currentHeight <= lastHeight;
+    const mutationsStable = mutationsSinceLastCheck === 0;
+
+    if (heightStable && mutationsStable) {
       stableCount++;
       if (stableCount >= stableThreshold) {
         break;
       }
     } else {
       stableCount = 0;
-      lastHeight = currentHeight;
+      if (!heightStable) lastHeight = currentHeight;
+      lastMutationCount = currentMutations;
+      await resetMutationCount();
+      lastMutationCount = 0;
     }
   }
 
@@ -218,6 +408,8 @@ export async function autoScroll(page: Page, options: AutoScrollOptions = {}): P
     scrollCount,
     finalHeight,
     contentGrew: finalHeight > initialHeight,
+    scrollContainerFound,
+    mutationsDetected: totalMutations,
   };
 }
 

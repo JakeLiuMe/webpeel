@@ -39,6 +39,96 @@ import { createLogger } from './logger.js';
 
 const log = createLogger('browser');
 
+// ── Execution context error detection ─────────────────────────────────────────
+
+/**
+ * Check if an error indicates the page execution context was destroyed.
+ * This happens on SPAs (like Polymarket) when scrolling triggers navigation.
+ */
+function isContextDestroyedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return (
+    msg.includes('Execution context was destroyed') ||
+    msg.includes('Target closed') ||
+    msg.includes('frame was detached') ||
+    msg.includes('Session closed')
+  );
+}
+
+/**
+ * Resilient scrollThrough helper — scrolls from top to bottom to trigger
+ * IntersectionObservers, lazy loading, and animations.
+ *
+ * Handles SPAs gracefully: if the execution context is destroyed during scroll
+ * (e.g., Polymarket navigation), logs a warning and stops — does NOT throw.
+ *
+ * Also tries inner scrollable containers (virtual scroll) before falling back
+ * to window.scrollTo.
+ */
+async function resilientScrollThrough(page: Page, delayMs = 250): Promise<void> {
+  try {
+    // Use shared container detection from actions module
+    const { detectScrollContainer } = await import('./actions.js');
+    const containerSelector = (await detectScrollContainer(page)) || null;
+
+    if (containerSelector) {
+      // Scroll inner container
+      try {
+        const scrollHeight = await page.evaluate((sel: string) => {
+          const el = document.querySelector(sel);
+          return el ? el.scrollHeight : document.body.scrollHeight;
+        }, containerSelector) as number;
+        const vh = await page.evaluate(() => window.innerHeight) as number;
+
+        for (let y = 0; y < scrollHeight; y += Math.round(vh * 0.75)) {
+          await page.evaluate(([sel, sy]: [string, number]) => {
+            const el = document.querySelector(sel);
+            if (el) el.scrollTop = sy;
+          }, [containerSelector, y] as [string, number]);
+          await page.waitForTimeout(delayMs);
+        }
+        await page.evaluate((sel: string) => {
+          const el = document.querySelector(sel);
+          if (el) el.scrollTop = el.scrollHeight;
+        }, containerSelector);
+        await page.waitForTimeout(Math.round(delayMs * 1.6));
+        await page.evaluate((sel: string) => {
+          const el = document.querySelector(sel);
+          if (el) el.scrollTop = 0;
+        }, containerSelector);
+        await page.waitForTimeout(Math.round(delayMs * 2.4));
+        return;
+      } catch (innerErr) {
+        if (isContextDestroyedError(innerErr)) {
+          log.warn('Execution context destroyed during inner container scroll — continuing with captured content');
+          return;
+        }
+        // Fall through to window scroll
+      }
+    }
+
+    // Window-level scroll (standard path)
+    const scrollHeight = await page.evaluate(() => document.body.scrollHeight) as number;
+    const viewportHeight = await page.evaluate(() => window.innerHeight) as number;
+
+    for (let y = 0; y < scrollHeight; y += Math.round(viewportHeight * 0.75)) {
+      await page.evaluate((sy: number) => window.scrollTo({ top: sy, behavior: 'instant' }), y);
+      await page.waitForTimeout(delayMs);
+    }
+    await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
+    await page.waitForTimeout(Math.round(delayMs * 1.6));
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await page.waitForTimeout(Math.round(delayMs * 2.4));
+  } catch (err) {
+    if (isContextDestroyedError(err)) {
+      log.warn('Execution context destroyed during scrollThrough — continuing with captured content');
+      return;
+    }
+    // Re-throw unexpected errors
+    throw err;
+  }
+}
+
 // ── Concurrency state (owned by this module) ─────────────────────────────────
 
 let activePagesCount = 0;
@@ -942,19 +1032,7 @@ export async function browserScreenshot(
 
       // Scroll through the page to trigger IntersectionObservers, lazy loading, animations
       if (scrollThrough) {
-        const scrollHeight = await page!.evaluate(() => document.body.scrollHeight);
-        const viewportHeight = await page!.evaluate(() => window.innerHeight);
-        // Scroll down in viewport-sized chunks
-        for (let y = 0; y < scrollHeight; y += Math.round(viewportHeight * 0.75)) {
-          await page!.evaluate((sy: number) => window.scrollTo({ top: sy, behavior: 'instant' }), y);
-          await page!.waitForTimeout(250);
-        }
-        // Hit absolute bottom
-        await page!.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
-        await page!.waitForTimeout(400);
-        // Scroll back to top for the final capture
-        await page!.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-        await page!.waitForTimeout(600);
+        await resilientScrollThrough(page!, 250);
       }
 
       if (actions && actions.length > 0) {
@@ -1457,16 +1535,7 @@ export async function browserAudit(
     async (page) => {
       // Scroll through to trigger lazy content
       if (scrollThrough) {
-        const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
-        const vh = await page.evaluate(() => window.innerHeight);
-        for (let y = 0; y < scrollHeight; y += Math.round(vh * 0.75)) {
-          await page.evaluate((sy: number) => window.scrollTo({ top: sy, behavior: 'instant' }), y);
-          await page.waitForTimeout(200);
-        }
-        await page.evaluate(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }));
-        await page.waitForTimeout(300);
-        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-        await page.waitForTimeout(400);
+        await resilientScrollThrough(page, 200);
       }
 
       // Get metadata for all matching elements
@@ -1644,14 +1713,7 @@ export async function browserViewports(
         await page.waitForTimeout(500); // Wait for reflow
 
         if (scrollThrough) {
-          const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
-          const vh = await page.evaluate(() => window.innerHeight);
-          for (let y = 0; y < scrollHeight; y += Math.round(vh * 0.75)) {
-            await page.evaluate((sy: number) => window.scrollTo({ top: sy, behavior: 'instant' }), y);
-            await page.waitForTimeout(150);
-          }
-          await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-          await page.waitForTimeout(300);
+          await resilientScrollThrough(page, 150);
         }
 
         const buf = await page.screenshot({
