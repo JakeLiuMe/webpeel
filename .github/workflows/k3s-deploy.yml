@@ -111,14 +111,19 @@ jobs:
 
             echo "Deploying v${VERSION} to K3s..."
 
-            # Ensure GHCR pull secret exists with long-lived PAT
+            # ── GHCR auth (two layers for resilience) ──────────────────────
+            # Layer 1: K3s containerd registries.yaml (survives pod restarts,
+            #          node reboots, everything — the permanent fix).
+            #          Uses GHCR_PAT from GitHub repo secrets (long-lived PAT).
+            printf 'mirrors:\n  ghcr.io:\n    endpoint:\n      - "https://ghcr.io"\nconfigs:\n  "ghcr.io":\n    auth:\n      username: JakeLiuMe\n      password: %s\n' "${GHCR_PAT}" > /etc/rancher/k3s/registries.yaml
+
+            # Layer 2: K8s imagePullSecret (backup, refreshed every deploy)
             kubectl create secret docker-registry ghcr-pull-secret \
               --docker-server=ghcr.io \
               --docker-username=JakeLiuMe \
               --docker-password="${GHCR_PAT}" \
               -n ${NS} --dry-run=client -o yaml | kubectl apply -f -
 
-            # Patch deployments to use pull secret
             kubectl patch deployment api -n ${NS} --type=json \
               -p='[{"op":"add","path":"/spec/template/spec/imagePullSecrets","value":[{"name":"ghcr-pull-secret"}]}]' 2>/dev/null || true
             kubectl patch deployment worker -n ${NS} --type=json \
