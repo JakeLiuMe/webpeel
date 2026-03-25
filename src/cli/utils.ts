@@ -294,7 +294,9 @@ export async function fetchViaApi(url: string, options: PeelOptions, apiKey: str
   }
 
   // Map API response to PeelResult shape that the CLI already handles
+  // Spread all API fields first, then override with normalized names
   return {
+    ...data,
     url: data.url || url,
     title: data.metadata?.title || data.title || '',
     content: data.content || '',
