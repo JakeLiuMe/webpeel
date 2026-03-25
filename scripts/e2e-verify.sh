@@ -17,7 +17,7 @@ for arg in "$@"; do
 done
 
 API_URL="${POSITIONAL[0]:-https://api.webpeel.dev}"
-API_KEY="${POSITIONAL[1]:-${WEBPEEL_API_KEY:-wp_live_c3b96132838b06d1e9ecb69f540f8381}}"
+API_KEY="${POSITIONAL[1]:-${WEBPEEL_API_KEY:-wp_live_5cf7c8362fdb0adb12619286091d76e7}}"
 
 # ── Colors ──────────────────────────────────────────
 RED='\033[0;31m'
