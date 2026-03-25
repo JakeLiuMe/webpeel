@@ -247,6 +247,12 @@ export interface PeelOptions {
    */
   noEscalate?: boolean;
   /**
+   * Per-user proxy context for bandwidth enforcement.
+   * When set, proxy usage is checked against the user's tier limit before each proxy attempt.
+   * Used internally by the API server — not exposed via CLI.
+   */
+  proxyContext?: { userId?: string; tier?: string };
+  /**
    * Enhance images that lack alt text with heuristic-generated descriptions.
    * Uses filename analysis, URL path segments, and nearby heading/paragraph context.
    * No LLM key required — purely text-based heuristics.

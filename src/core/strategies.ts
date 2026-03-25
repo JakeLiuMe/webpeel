@@ -11,7 +11,7 @@ import { simpleFetch, browserFetch, retryFetch, type FetchResult } from './fetch
 import { getCached, setCached as setBasicCache } from './cache.js';
 import { resolveAndCache } from './dns-cache.js';
 import { BlockedError, NetworkError } from '../types.js';
-import { getWebshareProxyUrl } from './proxy-config.js';
+import { getWebshareProxyUrl, canUseProxy, recordProxyBytes } from './proxy-config.js';
 import { detectChallenge } from './challenge-detection.js';
 import { browserCircuitBreaker } from './circuit-breaker.js';
 import { markProxyExhausted } from './proxy-config.js';
@@ -343,6 +343,11 @@ export interface StrategyOptions {
    * Use for Q&A/search workloads where speed matters more than JS-rendered content.
    */
   noEscalate?: boolean;
+  /**
+   * Per-user proxy context for bandwidth enforcement.
+   * When set, proxy usage is checked against the user's tier limit before each proxy attempt.
+   */
+  proxyContext?: { userId?: string; tier?: string };
 }
 
 /* ---------- browser-level fetch helper ---------------------------------- */
@@ -605,6 +610,7 @@ export async function smartFetch(
     tls = false,
     noEscalate = false,
     location,
+    proxyContext,
   } = options;
   const usePeelTLS = tls || cycle;
 
@@ -612,10 +618,16 @@ export async function smartFetch(
   // For domains that require residential proxies (Zillow, Yelp, Pinterest, etc.),
   // skip the direct datacenter connection entirely and go straight to Webshare.
   // For all other domains, try direct first (fast), then Webshare as fallback.
+  //
+  // Tier enforcement: if proxyContext is set and the user is over their limit (or free tier),
+  // skip Webshare entirely so they run direct-only.
+  const userCanProxy = !proxyContext?.userId || canUseProxy(proxyContext.userId, proxyContext.tier || 'free');
+
   const effectiveProxies: (string | undefined)[] =
     proxies?.length ? proxies :
     proxy ? [proxy] :
     (() => {
+      if (!userCanProxy) return [undefined]; // Tier limit reached — direct only
       const wsUrl = getWebshareProxyUrl();
       if (!wsUrl) return [undefined];
       // Skip datacenter IP for known residential-proxy-required domains
@@ -740,7 +752,7 @@ export async function smartFetch(
         // Background revalidation — fire-and-forget
         void (async () => {
           try {
-            const fresh = await simpleFetch(url, userAgent, timeoutMs, undefined, undefined, firstProxy);
+            const fresh = await simpleFetch(url, userAgent, timeoutMs, undefined, undefined, firstProxy, proxyContext);
             if (!looksLikeShellPage(fresh)) {
               hooks.setCache?.(url, { ...fresh, method: 'simple' as const });
             }
@@ -833,6 +845,7 @@ export async function smartFetch(
           headers,
           simpleAbortController.signal,
           firstProxy,
+          proxyContext,
         ),
       3,
     ).then((result) => {
@@ -1035,6 +1048,7 @@ export async function smartFetch(
         },
         undefined,
         firstProxy,
+        proxyContext,
       );
 
       const headersChallengeCheck = detectChallenge(headersResult.html, headersResult.statusCode);
@@ -1271,6 +1285,14 @@ export async function smartFetch(
         hooks.setCache?.(url, finalResult) ?? setBasicCache(url, finalResult);
       }
       recordMethod(finalResult.method);
+
+      // Record estimated proxy bandwidth for browser fetches that used a proxy
+      if (currentProxy && proxyContext?.userId && !finalResult.challengeDetected) {
+        // Estimate bytes: use HTML length as proxy for page size (rough but fast)
+        const estimatedBytes = finalResult.html?.length ?? (2 * 1024 * 1024); // fallback 2MB
+        recordProxyBytes(proxyContext.userId, estimatedBytes);
+      }
+
       return finalResult;
     } catch (e) {
       lastError = e;

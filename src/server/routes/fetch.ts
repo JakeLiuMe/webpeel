@@ -6,6 +6,7 @@ import { Router, Request, Response } from 'express';
 import '../types.js'; // Augments Express.Request with requestId
 import { peel } from '../../index.js';
 import type { PeelOptions, PageAction, InlineExtractParam, InlineLLMProvider } from '../../types.js';
+import { proxyContextStorage, getProxyUsage } from '../../core/proxy-config.js';
 import { normalizeActions } from '../../core/actions.js';
 import { extractInlineJson } from '../../core/extract-inline.js';
 import { LRUCache } from 'lru-cache';
@@ -501,9 +502,13 @@ export function createFetchRouter(authStore: AuthStore): Router {
         }
       }
 
-      // Fetch content
+      // Fetch content — wrap in proxy context so tier limits are enforced automatically
       const startTime = Date.now();
-      const result = await peel(url, options);
+      const userTier = req.auth?.tier || req.auth?.keyInfo?.tier || 'free';
+      const result = await proxyContextStorage.run(
+        { userId: userId ?? undefined, tier: userTier },
+        () => peel(url, options),
+      );
       const elapsed = Date.now() - startTime;
 
       // --- BM25 Schema Template Extraction (GET, no LLM needed) ---
@@ -710,6 +715,14 @@ export function createFetchRouter(authStore: AuthStore): Router {
       res.setHeader('X-Credits-Used', '1');
       res.setHeader('X-Processing-Time', elapsed.toString());
       res.setHeader('X-Fetch-Type', fetchType);
+
+      // Proxy bandwidth usage headers — let users track their proxy consumption
+      if (userId) {
+        const proxyStats = getProxyUsage(userId, userTier);
+        res.setHeader('X-Proxy-Bytes-Used', proxyStats.used.toString());
+        res.setHeader('X-Proxy-Bytes-Remaining', proxyStats.remaining === -1 ? 'unlimited' : proxyStats.remaining.toString());
+        res.setHeader('X-Proxy-Limit', proxyStats.limit === -1 ? 'unlimited' : proxyStats.limit.toString());
+      }
 
       // Method + cost headers — customers can see what tier they're using
       res.setHeader('X-Method', result.method || 'simple');
@@ -1218,9 +1231,13 @@ export function createFetchRouter(authStore: AuthStore): Router {
         }
       }
 
-      // --- Fetch content -------------------------------------------------------
+      // --- Fetch content — wrap in proxy context so tier limits are enforced automatically
       const startTime = Date.now();
-      const result = await peel(url, options);
+      const postUserTier = req.auth?.tier || req.auth?.keyInfo?.tier || 'free';
+      const result = await proxyContextStorage.run(
+        { userId: postUserId ?? undefined, tier: postUserTier },
+        () => peel(url, options),
+      );
       const elapsed = Date.now() - startTime;
 
       // --- BM25 Schema Template Extraction (POST, no LLM needed) ---
@@ -1384,6 +1401,14 @@ export function createFetchRouter(authStore: AuthStore): Router {
       res.setHeader('X-Credits-Used', '1');
       res.setHeader('X-Processing-Time', elapsed.toString());
       res.setHeader('X-Fetch-Type', fetchType);
+
+      // Proxy bandwidth usage headers — let users track their proxy consumption
+      if (postUserId) {
+        const postProxyStats = getProxyUsage(postUserId, postUserTier);
+        res.setHeader('X-Proxy-Bytes-Used', postProxyStats.used.toString());
+        res.setHeader('X-Proxy-Bytes-Remaining', postProxyStats.remaining === -1 ? 'unlimited' : postProxyStats.remaining.toString());
+        res.setHeader('X-Proxy-Limit', postProxyStats.limit === -1 ? 'unlimited' : postProxyStats.limit.toString());
+      }
 
       // Method + cost headers — customers can see what tier they're using
       res.setHeader('X-Method', result.method || 'simple');

@@ -16,6 +16,15 @@
  *   slot N → port (WEBSHARE_PROXY_PORT + N - 1), username: USER-US-N
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+/**
+ * Request-scoped proxy context — set once per request by the API route handler,
+ * automatically available to all downstream calls (pipeline → smartFetch → simpleFetch)
+ * without needing to thread the param through every function signature.
+ */
+export const proxyContextStorage = new AsyncLocalStorage<{ userId?: string; tier?: string }>();
+
 export interface ProxyConfig {
   /** Proxy server URL in the format "http://host:port" */
   server: string;
@@ -23,6 +32,68 @@ export interface ProxyConfig {
   username: string;
   /** Proxy password */
   password: string;
+}
+
+// ── Per-tier proxy bandwidth limits ──────────────────────────────────────────
+
+/** Monthly proxy bandwidth limits per tier (in bytes). */
+export const PROXY_TIER_LIMITS: Record<string, number> = {
+  free:       0,                          // No proxy for free tier — direct only
+  pro:        500  * 1024 * 1024,         // 500 MB/month
+  max:        2    * 1024 * 1024 * 1024,  // 2 GB/month
+  admin:      Infinity,                   // Unlimited
+  enterprise: 5    * 1024 * 1024 * 1024,  // 5 GB/month
+};
+
+// ── In-memory per-user proxy bandwidth tracking ───────────────────────────────
+// Key: userId or apiKeyHash, Value: { bytes: number, month: string (YYYY-MM) }
+// Resets naturally on pod restart — this is a soft limit, not billing.
+const proxyUsage = new Map<string, { bytes: number; month: string }>();
+
+function getCurrentMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Record proxy bandwidth used by a specific user. */
+export function recordProxyBytes(userId: string, bytes: number): void {
+  if (bytes <= 0) return;
+  const month = getCurrentMonth();
+  const existing = proxyUsage.get(userId);
+  if (existing && existing.month === month) {
+    existing.bytes += bytes;
+  } else {
+    proxyUsage.set(userId, { bytes, month });
+  }
+}
+
+/** Check if a user can use proxy (under their tier's monthly limit). */
+export function canUseProxy(userId: string, tier: string): boolean {
+  const limit = PROXY_TIER_LIMITS[tier] ?? PROXY_TIER_LIMITS.free;
+  if (limit === Infinity) return true;
+  if (limit === 0) return false;
+
+  const month = getCurrentMonth();
+  const usage = proxyUsage.get(userId);
+  if (!usage || usage.month !== month) return true; // new month = reset
+  return usage.bytes < limit;
+}
+
+/** Get proxy usage stats for a user (for account info / headers). */
+export function getProxyUsage(
+  userId: string,
+  tier: string,
+): { used: number; limit: number; remaining: number; percentUsed: number } {
+  const limit = PROXY_TIER_LIMITS[tier] ?? 0;
+  const month = getCurrentMonth();
+  const usage = proxyUsage.get(userId);
+  const used = usage && usage.month === month ? usage.bytes : 0;
+  return {
+    used,
+    limit:       limit === Infinity ? -1 : limit,
+    remaining:   limit === Infinity ? -1 : Math.max(0, limit - used),
+    percentUsed: limit === Infinity ? 0 : limit === 0 ? 100 : Math.round((used / limit) * 100),
+  };
 }
 
 // ── Proxy health tracking ─────────────────────────────────────────────────────
@@ -49,7 +120,9 @@ export function getProxyState(): { available: boolean; disabledUntil: number; co
 
 /**
  * Get a random Webshare residential proxy config.
- * Returns null if the proxy is not configured (env vars missing or slots = 0).
+ * Returns null if the proxy is not configured (env vars missing or slots = 0),
+ * if the proxy is in cooldown, or if the current request's user has exhausted
+ * their tier-based bandwidth limit (checked via AsyncLocalStorage context).
  *
  * Uses random slot selection across all available US slots for even load
  * distribution — same approach as youtube.ts proxyRequestSlotted().
@@ -65,6 +138,12 @@ export function getWebshareProxy(): ProxyConfig | null {
 
   // Skip if proxy is in cooldown (bandwidth exhausted, etc.)
   if (!isProxyAvailable()) return null;
+
+  // Skip if the current request's user has exceeded their tier limit
+  const reqCtx = proxyContextStorage.getStore();
+  if (reqCtx?.userId && !canUseProxy(reqCtx.userId, reqCtx.tier || 'free')) {
+    return null;
+  }
 
   // Webshare backbone proxy: slot routing via username suffix, fixed base port.
   // Format: user-SLOT:pass@host:basePort (e.g. argtnlhz-1:pass@p.webshare.io:10000)

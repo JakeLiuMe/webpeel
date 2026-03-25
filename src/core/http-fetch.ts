@@ -11,7 +11,7 @@ import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first');
 
 import { getHttpUA, getSecCHUA, getSecCHUAPlatform } from './user-agents.js';
-import { getWebshareProxyUrl } from './proxy-config.js';
+import { getWebshareProxyUrl, canUseProxy, recordProxyBytes } from './proxy-config.js';
 import { fetch as undiciFetch, Agent, ProxyAgent, type Response } from 'undici';
 import { TimeoutError, BlockedError, NetworkError, WebPeelError } from '../types.js';
 import { getCached } from './cache.js';
@@ -622,7 +622,8 @@ export async function simpleFetch(
   timeoutMs: number = 30000,
   customHeaders?: Record<string, string>,
   abortSignal?: AbortSignal,
-  proxy?: string
+  proxy?: string,
+  proxyContext?: { userId?: string; tier?: string }
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
   validateUrl(url);
@@ -759,11 +760,17 @@ export async function simpleFetch(
           }
           // Try proxy as last resort before giving up (only for proxy-preferred domains)
           if (retried && !proxy && shouldUseProxy(url)) {
+            // Check if the user's tier allows proxy usage
+            if (proxyContext?.userId && !canUseProxy(proxyContext.userId, proxyContext.tier || 'free')) {
+              throw new BlockedError(
+                `HTTP ${response.status}: Site blocks direct access. Proxy bandwidth limit reached for your plan. Upgrade for more proxy bandwidth.`
+              );
+            }
             const proxyUrl = getWebshareProxyUrl();
             if (proxyUrl) {
               log.debug(`HTTP ${response.status} after UA retry; retrying via proxy`);
               // Recursive call with proxy — single attempt, no further fallback
-              return simpleFetch(url, userAgent, timeoutMs, customHeaders, abortSignal, proxyUrl);
+              return simpleFetch(url, userAgent, timeoutMs, customHeaders, abortSignal, proxyUrl, proxyContext);
             }
           }
           throw new BlockedError(
@@ -903,6 +910,16 @@ export async function simpleFetch(
       if (etag) responseHeaders['etag'] = etag;
       const cacheControl = response.headers.get('cache-control');
       if (cacheControl) responseHeaders['cache-control'] = cacheControl;
+
+      // Record proxy bandwidth consumed (fire-and-forget, zero-cost fast path)
+      if (effectiveProxy && proxyContext?.userId) {
+        // Use Content-Length if present; fall back to actual buffer/body size
+        const clHeader = response.headers.get('content-length');
+        const bodyBytes = clHeader ? parseInt(clHeader, 10) : totalSize;
+        if (bodyBytes > 0) {
+          recordProxyBytes(proxyContext.userId, bodyBytes);
+        }
+      }
 
       return {
         html,
