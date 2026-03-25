@@ -1,72 +1,105 @@
-# WebPeel — Fast web data for AI agents
+# WebPeel — Web data for AI agents
 
-> Open source web fetcher, scraper, and data extractor. One call to fetch any URL as clean markdown, extract structured data, or search the web.
+> Fetch any URL as clean markdown. Auto-handles JS rendering, anti-bot, 55+ domain extractors. One call.
 
-## Quick Start
+## Install & Quick Start
 
-npm install webpeel
-npx webpeel "https://example.com"
+npm install -g webpeel
+webpeel "https://example.com"             # Static pages — instant
+webpeel "https://polymarket.com" --render  # JS/React/SPA sites — uses browser
+webpeel "https://cloudflare-site.com" --stealth  # Anti-bot protected sites
+
+## IMPORTANT: When to use --render
+
+Most sites work without flags. Use --render (-r) for JavaScript-heavy sites:
+- React, Vue, Angular, Next.js, Svelte apps
+- SPAs: Polymarket, Airbnb, Booking.com, Zillow, Indeed, Expedia
+- Any page where content loads AFTER page render
+- If you get empty/sparse content, retry with --render
+
+Many popular SPAs auto-detect and render automatically (no flag needed):
+Twitter/X, Reddit, YouTube, Amazon, GitHub, Polymarket, and 50+ more.
+
+## CLI Commands
+
+webpeel <url>                    Fetch URL as clean markdown
+webpeel <url> --render           Fetch with browser rendering (JS sites)
+webpeel <url> --stealth          Anti-bot bypass (Cloudflare, Vercel)
+webpeel <url> --json             Full JSON output with metadata
+webpeel <url> --clean            AI-optimized (no URLs/noise)
+webpeel <url> -q "question"      Ask a question about the page (no LLM needed)
+webpeel <url> --scroll-extract   Scroll to load lazy/infinite content first
+webpeel search "query"           Web search via DuckDuckGo
+webpeel search "query" --site ebay   Site-specific search
+webpeel screenshot <url>         Take a screenshot
+webpeel screenshot <url> --full-page  Full-page screenshot
+webpeel crawl <url>              Crawl site pages
+webpeel map <url>                Discover site URLs
+webpeel batch <file>             Batch fetch from file
+webpeel mcp                      Start MCP server for AI tools
 
 ## API
 
 POST https://api.webpeel.dev/v1/fetch
-Content-Type: application/json
 Authorization: Bearer wp_live_YOUR_KEY
+Content-Type: application/json
 
-{
-  "url": "https://example.com",
-  "format": "markdown"
-}
+{"url": "https://example.com", "format": "markdown"}
 
-## CLI Commands
+# With browser rendering:
+{"url": "https://polymarket.com", "format": "markdown", "render": true}
 
-webpeel <url>                    Fetch URL as markdown
-webpeel <url> --json             Fetch as JSON with metadata
-webpeel <url> --clean            AI-optimized output (no URLs)
-webpeel <url> -q "question?"     Quick answer from page content
-webpeel search "query"           Web search
-webpeel search "query" --site ebay   Site-specific search
-webpeel crawl <url>              Crawl site pages
-webpeel map <url>                Discover site URLs
-webpeel batch <file>             Batch fetch URLs
-webpeel pipe <url>               Pipe-friendly JSON (no UI)
-webpeel mcp                      Start MCP server
+# With stealth mode:
+{"url": "https://protected-site.com", "format": "markdown", "stealth": true}
 
-## Key Features
+## Domain Extractors (no browser needed — instant)
 
-- Domain-first extraction: Reddit, GitHub, Wikipedia, Twitter/X, HN, YouTube, ArXiv, StackOverflow, NPM — instant via API, no browser
-- Smart content extraction: BM25 scoring, budget distillation, JSON-LD parsing
-- Quick answers: Ask questions about any page (no LLM needed)
-- Anti-bot handling: Stealth mode, proxy rotation, graceful degradation
-- Format options: markdown, text, html, clean (AI-optimized)
-- MCP server: 7 tools for AI agent integration
-- Site search: Search eBay, Amazon, GitHub, and 20+ sites with structured output
+55+ sites return structured data automatically via their APIs:
+Amazon, Reddit, GitHub, Twitter/X, YouTube, Wikipedia, HN, ArXiv,
+StackOverflow, NPM, PyPI, Spotify, IMDb, ESPN, eBay, Zillow,
+Polymarket, Kalshi, LinkedIn, Medium, Substack, and more.
 
-## Formats
+Example: webpeel "https://github.com/webpeel/webpeel" returns structured
+repo data (stars, description, languages) — no scraping needed.
 
-| Format | Flag | Use Case |
-|--------|------|----------|
-| markdown | (default) | General use, documentation |
-| text | --text | Plain text, no formatting |
-| html | --html | Raw HTML preservation |
-| clean | --clean | AI consumption (no URL noise) |
-| json | --json | Programmatic access with metadata |
+## MCP Integration (for AI agents)
 
-## MCP Integration
-
-Add to your MCP config:
+Add to your AI tool config (Claude, Cursor, Windsurf, etc.):
 {
   "mcpServers": {
     "webpeel": {
       "command": "npx",
-      "args": ["-y", "webpeel", "mcp"]
+      "args": ["webpeel", "mcp"]
     }
   }
 }
 
-## Links
+Provides tools: webpeel (smart router), webpeel_read, webpeel_search,
+webpeel_screenshot, webpeel_crawl, webpeel_map, webpeel_extract, webpeel_monitor.
 
-- Docs: https://webpeel.dev/docs
-- API: https://api.webpeel.dev
-- GitHub: https://github.com/webpeel/webpeel
-- npm: https://www.npmjs.com/package/webpeel
+## Programmatic (Node.js)
+
+import { peel } from 'webpeel';
+
+// Static page
+const result = await peel('https://example.com');
+console.log(result.content);  // Clean markdown
+
+// JS-rendered SPA
+const spa = await peel('https://polymarket.com/@user', { render: true });
+
+// With auto-scroll for infinite content
+const full = await peel('https://imgur.com/gallery', {
+  render: true,
+  autoScroll: true,
+});
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Empty/sparse content | Add --render (site needs JavaScript) |
+| Blocked by Cloudflare | Add --stealth |
+| Only partial content | Add --scroll-extract (loads lazy content) |
+| Need all data from SPA | Check if domain extractor exists (instant API data) |
+| Rate limited (429) | Wait and retry, or use --stealth |
