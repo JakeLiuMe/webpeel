@@ -1171,55 +1171,43 @@ async function handleRestaurantSearch(intent: SearchIntent, requestLanguage?: st
     .replace(/\s+/g, ' ')
     .trim();
 
-  // ── Try localSearch() as primary source when Google Places key is available ──
-  // localSearch() handles international queries better (language/country params)
-  // and aggregates Google Places + Yelp data in one call.
-  let googlePlacesData: any = null;
-  if (process.env.GOOGLE_PLACES_API_KEY) {
-    try {
-      const localResponse = await Promise.race([
-        localSearch({
-          query: keyword || intent.query,
-          location,
-          language: requestLanguage,
-          limit: 10,
-        }),
-        new Promise<null>((_, rej) => setTimeout(() => rej(new Error('local search timeout')), 8000)),
-      ]);
-      if (localResponse && localResponse.results.length > 0) {
-        googlePlacesData = localResponse;
-        console.log(`[smart-search] localSearch() returned ${localResponse.results.length} results from ${localResponse.source}`);
-      }
-    } catch (err) {
-      console.warn('[smart-search] localSearch() failed, falling back to Yelp:', (err as Error).message);
-    }
-  }
+  // ── Run ALL data sources in parallel for speed ──────────────────────────
+  // Previously sequential: localSearch → Yelp → Reddit+YouTube = 20-30s
+  // Now parallel: everything races at once = 8-10s max
+  const hasPlacesKey = !!process.env.GOOGLE_PLACES_API_KEY;
 
-  // Launch Yelp first (fast API, ~500ms) — it has the main data for AI synthesis.
-  // Reddit/YouTube run in parallel alongside Ollama so slow Reddit peel (can hit 403→browser→15s)
-  // doesn't delay the AI summary past the 30s server timeout.
-  // Skip Yelp if Google Places data already provides sufficient results.
-  const skipYelp = googlePlacesData && googlePlacesData.results.length >= 5;
-
-  const yelpSettled = skipYelp
-    ? { status: 'fulfilled' as const, value: null as any }
-    : await Promise.race([
-        fetchYelpResults(keyword, location).then(v => ({ status: 'fulfilled' as const, value: v })),
-        new Promise<{ status: 'rejected'; reason: string }>(res => setTimeout(() => res({ status: 'rejected', reason: 'timeout' }), 10000)),
-      ]);
-  const yelpData = yelpSettled.status === 'fulfilled' ? yelpSettled.value : null;
-
-  // Reddit + YouTube run concurrently (best-effort, capped at 8s)
-  const [redditSettled, youtubeSettled] = await Promise.allSettled([
+  const [localSearchSettled, yelpSettled, redditSettled, youtubeSettled] = await Promise.allSettled([
+    // Google Places (primary when key available)
+    hasPlacesKey
+      ? Promise.race([
+          localSearch({ query: keyword || intent.query, location, language: requestLanguage, limit: 10 }),
+          new Promise<null>((_, rej) => setTimeout(() => rej(new Error('local search timeout')), 8000)),
+        ])
+      : Promise.resolve(null),
+    // Yelp (secondary / fallback)
+    Promise.race([
+      fetchYelpResults(keyword, location).then(v => v),
+      new Promise<null>((_, rej) => setTimeout(() => rej(new Error('yelp timeout')), 8000)),
+    ]),
+    // Reddit (best-effort supplementary)
     Promise.race([
       fetchRedditResults(keyword, location),
-      new Promise<null>((_, rej) => setTimeout(() => rej(new Error('reddit timeout')), 8000)),
+      new Promise<null>((_, rej) => setTimeout(() => rej(new Error('reddit timeout')), 6000)),
     ]),
+    // YouTube (best-effort supplementary)
     Promise.race([
       fetchYouTubeResults(keyword, location),
       new Promise<null>((_, rej) => setTimeout(() => rej(new Error('youtube timeout')), 5000)),
     ]),
   ]);
+
+  const googlePlacesData = localSearchSettled.status === 'fulfilled' ? localSearchSettled.value : null;
+  if (googlePlacesData && googlePlacesData.results?.length > 0) {
+    console.log(`[smart-search] localSearch() returned ${googlePlacesData.results.length} results from ${googlePlacesData.source}`);
+  }
+  // Skip Yelp data if Google Places already has enough results
+  const skipYelp = googlePlacesData && googlePlacesData.results?.length >= 5;
+  const yelpData = (!skipYelp && yelpSettled.status === 'fulfilled') ? yelpSettled.value : null;
 
   const redditData = redditSettled.status === 'fulfilled' ? redditSettled.value : null;
   const youtubeData = youtubeSettled.status === 'fulfilled' ? youtubeSettled.value : null;
