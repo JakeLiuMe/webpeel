@@ -104,10 +104,11 @@ export async function redditExtractor(_html: string, url: string): Promise<Domai
   // Subreddit with any sort/filter: /r/sub, /r/sub/, /r/sub/hot, /r/sub/top, /r/sub/new, /r/sub/rising
   const isSubreddit = /^\/r\/[^/]+\/?$/.test(path) || /^\/r\/[^/]+\/(hot|new|top|rising|controversial|best)\/?$/.test(path);
   const isUser = /^\/(u|user)\/[^/]+/.test(path);
+  const isSearch = /\/search\/?/.test(path);
   // Home/popular/all pages
   const isHomeListing = /^\/(hot|new|top|rising|controversial|best|popular|all)\/?$/.test(path) || path === '/' || path === '';
 
-  const type = isPost || isGallery ? 'post' : isSubreddit ? 'subreddit' : isUser ? 'user' : isHomeListing ? 'listing' : 'listing';
+  const type = isPost || isGallery ? 'post' : isSearch ? 'search' : isSubreddit ? 'subreddit' : isUser ? 'user' : isHomeListing ? 'listing' : 'listing';
 
   if (isGallery) {
     // Gallery posts: fetch the gallery JSON and extract the post data
@@ -274,6 +275,155 @@ ${structured.flair ? `**Flair:** ${structured.flair}` : ''}
 ${commentsMd || '*No comments found.*'}`;
 
     return { domain, type, structured, cleanContent };
+  }
+
+  if (isSearch) {
+    const subredditMatch = path.match(/\/r\/([^/]+)\/search/);
+    const subredditName = subredditMatch ? subredditMatch[1] : null;
+
+    // Extract search params from URL
+    const q = urlObj.searchParams.get('q') || '';
+    const sort = urlObj.searchParams.get('sort') || 'relevance';
+    const t = urlObj.searchParams.get('t') || 'all';
+    const after = urlObj.searchParams.get('after') || '';
+    const searchType = urlObj.searchParams.get('type') || '';
+
+    if (!q) {
+      return {
+        domain,
+        type: 'search',
+        structured: { error: 'No search query provided' },
+        cleanContent: '## ❌ No Search Query\n\nProvide a search query: /r/subreddit/search?q=your+query',
+      };
+    }
+
+    // Build JSON search URL
+    const searchParams = new URLSearchParams({
+      q,
+      sort,
+      t,
+      limit: '25',
+      raw_json: '1',
+    });
+    if (subredditName) searchParams.set('restrict_sr', 'on');
+    if (after) searchParams.set('after', after);
+    if (searchType) searchParams.set('type', searchType);
+
+    const jsonUrl = subredditName
+      ? `https://www.reddit.com/r/${subredditName}/search.json?${searchParams}`
+      : `https://www.reddit.com/search.json?${searchParams}`;
+
+    let data: any;
+    try {
+      data = await fetchJsonWithRetry(jsonUrl, REDDIT_UA);
+    } catch {
+      return {
+        domain,
+        type: 'search',
+        structured: { error: 'Search failed', query: q },
+        cleanContent: `## ❌ Reddit Search Failed\n\nCould not search for "${q}". Reddit may be rate-limiting.`,
+      };
+    }
+
+    // Handle comment search (type=comment returns t1 children)
+    if (searchType === 'comment') {
+      if (!data?.data?.children) {
+        return {
+          domain,
+          type: 'search',
+          structured: { query: q, comments: [], resultCount: 0 },
+          cleanContent: `## 🔍 Reddit Comment Search: "${q}"\n\nNo results found.`,
+        };
+      }
+
+      const comments = data.data.children
+        .filter((c: any) => c.kind === 't1')
+        .map((c: any) => parseRedditComment(c, 0))
+        .filter(Boolean);
+
+      const afterCursor = data.data.after || null;
+      const scope = subredditName ? `r/${subredditName}` : 'all of Reddit';
+
+      const structured: Record<string, any> = {
+        query: q,
+        scope,
+        sort,
+        timeFilter: t,
+        resultCount: comments.length,
+        comments,
+        after: afterCursor,
+        hasMore: !!afterCursor,
+      };
+
+      const commentsMd = comments.map((c: any, i: number) =>
+        `### ${i + 1}. **${c.author}** (score: ${c.score})\n${c.text.slice(0, 400)}${c.text.length > 400 ? '...' : ''}`
+      ).join('\n\n---\n\n');
+
+      const paginationNote = afterCursor
+        ? `\n\n*Page has more results. Add \`&after=${afterCursor}\` to get the next page.*`
+        : '';
+
+      const cleanContent = `## 🔍 Reddit Comment Search: "${q}" in ${scope}\n*Sorted by ${sort} | Time: ${t} | ${comments.length} results*\n\n${commentsMd}${paginationNote}`;
+
+      return { domain, type: 'search', structured, cleanContent };
+    }
+
+    if (!data?.data?.children) {
+      return {
+        domain,
+        type: 'search',
+        structured: { query: q, posts: [], resultCount: 0 },
+        cleanContent: `## 🔍 Reddit Search: "${q}"\n\nNo results found.`,
+      };
+    }
+
+    const posts = data.data.children
+      .filter((c: any) => c.kind === 't3')
+      .map((c: any) => {
+        const d = c.data;
+        return {
+          title: d.title || '',
+          author: `u/${d.author || '[deleted]'}`,
+          score: d.score ?? 0,
+          commentCount: d.num_comments ?? 0,
+          selftext: d.selftext || '',
+          subreddit: `r/${d.subreddit || ''}`,
+          url: `https://reddit.com${d.permalink}`,
+          created: unixToIso(d.created_utc),
+          flair: d.link_flair_text || null,
+          isNsfw: d.over_18 || false,
+        };
+      });
+
+    const afterCursor = data.data.after || null;
+    const scope = subredditName ? `r/${subredditName}` : 'all of Reddit';
+
+    const structured: Record<string, any> = {
+      query: q,
+      scope,
+      sort,
+      timeFilter: t,
+      resultCount: posts.length,
+      posts,
+      after: afterCursor, // pagination cursor
+      hasMore: !!afterCursor,
+    };
+
+    // Build clean markdown with full post text (not just snippets!)
+    const postsMd = posts.map((p: any, i: number) => {
+      const selftext = p.selftext
+        ? `\n${p.selftext.slice(0, 500)}${p.selftext.length > 500 ? '...' : ''}`
+        : '';
+      return `### ${i + 1}. ${p.title}\n**${p.author}** in ${p.subreddit} | ↑ ${p.score} | 💬 ${p.commentCount} comments${p.flair ? ` | ${p.flair}` : ''}\n*${p.created}*${selftext}\n[Read full thread →](${p.url})`;
+    }).join('\n\n---\n\n');
+
+    const paginationNote = afterCursor
+      ? `\n\n*Page has more results. Add \`&after=${afterCursor}\` to get the next page.*`
+      : '';
+
+    const cleanContent = `## 🔍 Reddit Search: "${q}" in ${scope}\n*Sorted by ${sort} | Time: ${t} | ${posts.length} results*\n\n${postsMd}${paginationNote}`;
+
+    return { domain, type: 'search', structured, cleanContent };
   }
 
   if (isSubreddit) {
