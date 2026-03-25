@@ -370,6 +370,8 @@ interface BrowserStrategyOptions {
   blockResources?: string[];
   /** Whether the target is a known SPA — enables longer DOM stability wait */
   isSPA?: boolean;
+  /** Language preferences to pass to browser (navigator.languages + locale) */
+  languages?: string[];
 }
 
 async function fetchWithBrowserStrategy(
@@ -400,6 +402,7 @@ async function fetchWithBrowserStrategy(
     waitSelector,
     blockResources,
     isSPA,
+    languages,
   } = options;
 
   try {
@@ -427,6 +430,7 @@ async function fetchWithBrowserStrategy(
       waitSelector,
       blockResources,
       isSPA,
+      languages,
     });
 
     return {
@@ -567,6 +571,7 @@ export async function smartFetch(
     cycle = false,
     tls = false,
     noEscalate = false,
+    location,
   } = options;
   const usePeelTLS = tls || cycle;
 
@@ -778,6 +783,7 @@ export async function smartFetch(
     waitSelector,
     blockResources,
     isSPA: isSPAUrl,
+    languages: location?.languages,
   };
 
   /* ---- Strategy: simple fetch (with optional race) --------------------- */

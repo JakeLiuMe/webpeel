@@ -127,6 +127,10 @@ export { sanitizeForLLM, type SanitizeResult } from './core/prompt-guard.js';
 export { getSourceCredibility, type SourceCredibility } from './core/source-credibility.js';
 export { verifyDomain, type DomainVerification } from './core/domain-verify.js';
 export { checkUrlSafety, type SafeBrowsingResult } from './core/safe-browsing.js';
+export { checkThreatFeeds, type ThreatFeedResult } from './core/threat-feeds.js';
+export { detectLanguageFromUrl, buildAcceptLanguageHeader } from './core/language-detect.js';
+export { localSearch, type LocalSearchOptions, type LocalSearchResult, type LocalSearchResponse } from './core/local-search.js';
+export { getBusinessIntel, type BusinessIntel } from './core/business-intel.js';
 
 /**
  * Fetch and extract content from a URL

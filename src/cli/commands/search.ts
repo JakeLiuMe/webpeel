@@ -56,6 +56,10 @@ export function registerSearchCommands(program: Command): void {
     .option('-s, --silent', 'Silent mode')
     .option('--proxy <url>', 'Proxy URL for requests (http://host:port, socks5://user:pass@host:port)')
     .option('--fetch', 'Also fetch and include content from each result URL')
+    .option('--local', 'Local business search via Google Places / Yelp (requires API key)')
+    .option('--location <location>', 'Location for local search (e.g. "Shibuya, Tokyo", "35.6595,139.7004")')
+    .option('--language <lang>', 'Language code for local search results (e.g. "ja", "fr")')
+    .option('--country <code>', 'ISO 3166-1 alpha-2 country code for local search (e.g. "JP", "FR")')
     .option('--agent', 'Agent mode: sets --json, --silent, and --budget 4000 (override with --budget N)')
     .action(async (query: string, options) => {
       // --agent sets sensible defaults for AI agents; explicit flags override
@@ -165,6 +169,51 @@ export function registerSearchCommands(program: Command): void {
             console.error('\nError: Unknown error occurred');
           }
           await cleanup();
+          process.exit(1);
+        }
+      }
+
+      // ── --local: local business search via Google Places / Yelp ─────────
+      if (options.local) {
+        const spinner = isSilent ? null : ora('Searching local businesses...').start();
+        try {
+          const { localSearch } = await import('../../core/local-search.js');
+          const localResults = await localSearch({
+            query,
+            location: options.location as string | undefined,
+            language: options.language as string | undefined,
+            country: options.country as string | undefined,
+            limit: count,
+          });
+
+          if (spinner) spinner.succeed(`Found ${localResults.results.length} results (${localResults.source})`);
+
+          if (isJson) {
+            await writeStdout(JSON.stringify(localResults, null, 2) + '\n');
+          } else {
+            if (localResults.results.length === 0) {
+              await writeStdout('No local results found.\n');
+            } else {
+              await writeStdout(`\n📍 Local results for "${query}"${localResults.location ? ` near ${localResults.location}` : ''}\n`);
+              await writeStdout(`Source: ${localResults.source}\n\n`);
+              for (const [i, r] of localResults.results.entries()) {
+                const rating  = r.rating   ? `⭐${r.rating}` : '';
+                const reviews = r.reviewCount ? `(${r.reviewCount.toLocaleString()})` : '';
+                const price   = r.priceLevel !== undefined ? ` · ${'$'.repeat(Math.max(1, r.priceLevel))}` : '';
+                const open    = r.isOpen === true ? ' · 🟢 Open' : r.isOpen === false ? ' · 🔴 Closed' : '';
+                await writeStdout(`${i + 1}. ${r.name} ${rating} ${reviews}${price}${open}\n`);
+                if (r.address) await writeStdout(`   ${r.address}\n`);
+                if (r.googleMapsUrl) await writeStdout(`   ${r.googleMapsUrl}\n`);
+                await writeStdout('\n');
+              }
+            }
+          }
+
+          process.exit(0);
+        } catch (err) {
+          if (spinner) spinner.fail('Local search failed');
+          console.error(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          console.error('Hint: Set GOOGLE_PLACES_API_KEY or YELP_API_KEY environment variable for local search.');
           process.exit(1);
         }
       }

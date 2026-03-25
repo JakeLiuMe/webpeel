@@ -832,6 +832,44 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
         }
       }
 
+      // Trust & safety warnings — shown prominently in non-JSON mode
+      if (!options.silent && !options.json) {
+        const trustData = result.trust;
+        const sbData = result.safeBrowsing;
+
+        // Unsafe: safe browsing threats detected
+        const allThreats = [
+          ...(sbData?.threats ?? []),
+          ...(trustData?.threatFeeds?.threats ?? []),
+        ].filter((t, i, a) => a.indexOf(t) === i);
+
+        if (sbData && !sbData.safe && allThreats.length > 0) {
+          console.error(`\x1b[31m🚨 UNSAFE — Threats detected: ${allThreats.join(', ')}\x1b[0m`);
+        } else if (trustData?.threatFeeds && !trustData.threatFeeds.safe && trustData.threatFeeds.threats.length > 0) {
+          console.error(`\x1b[31m🚨 UNSAFE — Threat feeds flagged: ${trustData.threatFeeds.threats.join(', ')}\x1b[0m`);
+          if (trustData.threatFeeds.details) {
+            console.error(`\x1b[31m   ${trustData.threatFeeds.details}\x1b[0m`);
+          }
+        } else if (trustData && trustData.score < 0.5) {
+          // Low trust score
+          const tier = trustData.source?.tier ?? 'unknown';
+          const label = trustData.source?.label ?? '';
+          const reason = tier === 'suspicious'
+            ? 'Domain shows suspicious signals'
+            : tier === 'new'
+            ? 'Domain has limited verifiable presence'
+            : label || 'Low credibility domain';
+          console.error(`\x1b[33m⚠️  Low trust score (${trustData.score.toFixed(2)}) — ${reason}\x1b[0m`);
+        }
+
+        // Show any trust warnings
+        if (trustData?.warnings && trustData.warnings.length > 0) {
+          for (const warn of trustData.warnings) {
+            console.error(`\x1b[33m⚠️  ${warn}\x1b[0m`);
+          }
+        }
+      }
+
       // Show metadata header
       const pageTitle = result.metadata?.title || result.title;
       if (!options.silent && !options.json && pageTitle) {

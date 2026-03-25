@@ -379,6 +379,19 @@ export interface PeelResult {
       detectedPatterns: string[];
       strippedCount: number;
     };
+    /** Google Safe Browsing + local blocklist result */
+    safeBrowsing?: {
+      safe: boolean;
+      threats: string[];
+      source: 'google-api' | 'local-blocklist' | 'unchecked';
+    };
+    /** Community threat intelligence feeds (URLhaus, PhishTank, OpenPhish) */
+    threatFeeds?: {
+      safe: boolean;
+      threats: string[];
+      source: 'urlhaus' | 'phishtank' | 'openphish' | 'none';
+      details?: string;
+    };
     /** Overall trust score 0-1 (composite of source + content safety) */
     score: number;
     /** Human-readable safety warnings */
@@ -395,11 +408,18 @@ export interface PeelResult {
     startOffset: number;
     endOffset: number;
   }>;
-  /** Safe Browsing check result */
+  /** Safe Browsing check result (Google API + local blocklist + community threat feeds) */
   safeBrowsing?: {
     safe: boolean;
     threats: string[];
     source: 'google-api' | 'local-blocklist' | 'unchecked';
+    /** Community threat intelligence feed results (URLhaus, PhishTank, OpenPhish) */
+    threatFeeds?: {
+      safe: boolean;
+      threats: string[];
+      source: 'urlhaus' | 'phishtank' | 'openphish' | 'none';
+      details?: string;
+    };
   };
 }
 

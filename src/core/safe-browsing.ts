@@ -2,12 +2,19 @@
  * Domain safety check using Google Safe Browsing Lookup API v4.
  * Free: 10,000 lookups/day.
  * Falls back to a local blocklist when no API key is configured.
+ * Also checks community threat feeds (URLhaus, PhishTank, OpenPhish) for known threats.
  */
+
+import { checkThreatFeeds, type ThreatFeedResult } from './threat-feeds.js';
+
+export type { ThreatFeedResult };
 
 export interface SafeBrowsingResult {
   safe: boolean;
   threats: string[]; // e.g. ['MALWARE', 'SOCIAL_ENGINEERING', 'PHISHING']
   source: 'google-api' | 'local-blocklist' | 'unchecked';
+  /** Community threat feed check result (URLhaus, PhishTank, OpenPhish) */
+  threatFeeds?: ThreatFeedResult;
 }
 
 // Known brands commonly impersonated in phishing
@@ -191,7 +198,10 @@ async function checkGoogleSafeBrowsing(
  * Flow:
  * 1. If SAFE_BROWSING_API_KEY (or passed apiKey) is set, race Google API vs 2s timeout.
  *    Falls back to local blocklist on timeout or error.
- * 2. Without an API key, use local heuristic blocklist only.
+ * 2. Run community threat feeds (URLhaus, PhishTank, OpenPhish) in parallel.
+ * 3. Without an API key, use local heuristic blocklist only.
+ *
+ * If ANY source flags the URL as unsafe, the overall result is safe: false.
  *
  * @param url    The URL to check
  * @param apiKey Google Safe Browsing API key (optional). Falls back to SAFE_BROWSING_API_KEY env var.
@@ -199,19 +209,37 @@ async function checkGoogleSafeBrowsing(
 export async function checkUrlSafety(url: string, apiKey?: string): Promise<SafeBrowsingResult> {
   const key = apiKey ?? process.env.SAFE_BROWSING_API_KEY;
 
-  if (key) {
-    // Race: Google API with 2s timeout, fallback to local
-    const timeoutResult: SafeBrowsingResult = checkLocalBlocklist(url);
-    const googleResult = await Promise.race([
-      checkGoogleSafeBrowsing(url, key),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
-    ]);
+  // Run Google Safe Browsing + community threat feeds in parallel
+  const [baseResult, threatFeedsResult] = await Promise.all([
+    (async (): Promise<SafeBrowsingResult> => {
+      if (key) {
+        // Race: Google API with 2s timeout, fallback to local
+        const timeoutResult: SafeBrowsingResult = checkLocalBlocklist(url);
+        const googleResult = await Promise.race([
+          checkGoogleSafeBrowsing(url, key),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+        ]);
+        if (googleResult !== null) return googleResult;
+        // API timed out or errored — use local blocklist result
+        return timeoutResult;
+      }
+      // No API key — local blocklist only
+      return checkLocalBlocklist(url);
+    })(),
+    checkThreatFeeds(url),
+  ]);
 
-    if (googleResult !== null) return googleResult;
-    // API timed out or errored — use local blocklist result
-    return timeoutResult;
-  }
+  // Merge: if threat feeds found threats, combine into final result
+  const allThreats = [
+    ...baseResult.threats,
+    ...threatFeedsResult.threats,
+  ];
+  const isUnsafe = !baseResult.safe || !threatFeedsResult.safe;
 
-  // No API key — local blocklist only
-  return checkLocalBlocklist(url);
+  return {
+    safe: !isUnsafe,
+    threats: [...new Set(allThreats)],
+    source: baseResult.source,
+    threatFeeds: threatFeedsResult,
+  };
 }

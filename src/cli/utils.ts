@@ -669,6 +669,8 @@ export async function outputResult(result: PeelResult, options: any, extra: Outp
     if ((result as any).focusQuery) output.focusQuery = (result as any).focusQuery;
     if ((result as any).focusReduction) output.focusReduction = (result as any).focusReduction;
     if ((result as any).extracted) output.extracted = (result as any).extracted;
+    if (result.trust) output.trust = result.trust;
+    if (result.safeBrowsing) output.safeBrowsing = result.safeBrowsing;
     if (extra.cached) output.cached = true;
     if (extra.truncated) output.truncated = true;
     if (extra.totalAvailable !== undefined) output.totalAvailable = extra.totalAvailable;

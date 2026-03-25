@@ -44,6 +44,7 @@ import type { DesignAnalysis } from './design-analysis.js';
 import { createLogger } from './logger.js';
 import type { SafeBrowsingResult } from './safe-browsing.js';
 import { detectAuthWall } from './auth-detection.js';
+import { buildAcceptLanguageHeader, detectLanguageFromUrl } from './language-detect.js';
 
 const log = createLogger('pipeline');
 
@@ -282,7 +283,24 @@ export function normalizeOptions(ctx: PipelineContext): void {
   ctx.exclude = exclude;
   ctx.includeTags = includeTags;
   ctx.excludeTags = excludeTags;
-  ctx.headers = headers;
+  // Inject Accept-Language header when location.languages is specified,
+  // or auto-detect from URL TLD when no languages are explicitly set.
+  // This ensures both HTTP and browser requests use the correct language.
+  {
+    const langs = opts.location?.languages;
+    if (langs && langs.length > 0) {
+      const acceptLang = buildAcceptLanguageHeader(langs);
+      ctx.headers = { 'Accept-Language': acceptLang, ...headers };
+    } else {
+      const detectedLang = detectLanguageFromUrl(ctx.url);
+      if (detectedLang) {
+        const acceptLang = buildAcceptLanguageHeader([detectedLang]);
+        ctx.headers = { 'Accept-Language': acceptLang, ...headers };
+      } else {
+        ctx.headers = headers;
+      }
+    }
+  }
   ctx.cookies = cookies;
   ctx.raw = raw;
   ctx.actions = actions;
@@ -400,7 +418,7 @@ export async function handleYouTube(ctx: PipelineContext): Promise<PeelResult | 
   const ytStartTime = Date.now();
   try {
     const transcript = await getYouTubeTranscript(ctx.url, {
-      language: (ctx.options as any).language ?? 'en',
+      language: (ctx.options as any).language ?? ctx.options.location?.languages?.[0]?.split('-')[0] ?? 'en',
     });
 
     // Format view count
@@ -543,7 +561,7 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
           title: ddResult.structured?.title || ctx.title,
           description: ddResult.structured?.description || ddResult.structured?.extract || '',
           wordCount: domainWordCount,
-          language: ddResult.structured?.language || 'en',
+          language: ddResult.structured?.language || ctx.options.location?.languages?.[0]?.split('-')[0] || 'en',
         } as any;
         ctx.domainApiHandled = true;
         return; // Skip browser fetch entirely
@@ -614,7 +632,7 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
           ctx.title = ddResult.structured?.title || '';
           ctx.quality = 0.90;
           const fallbackWordCount = ddResult.cleanContent.split(/\s+/).filter(Boolean).length;
-          ctx.metadata = { ...(ctx.metadata || {}), title: ddResult.structured?.title || ctx.title, wordCount: fallbackWordCount, language: 'en' } as any;
+          ctx.metadata = { ...(ctx.metadata || {}), title: ddResult.structured?.title || ctx.title, wordCount: fallbackWordCount, language: ddResult.structured?.language || ctx.options.location?.languages?.[0]?.split('-')[0] || 'en' } as any;
           ctx.domainApiHandled = true;
           return;
         }
@@ -1678,6 +1696,9 @@ export function buildResult(ctx: PipelineContext): PeelResult {
     headers: dv.headers ? { hsts: dv.headers.hsts, csp: dv.headers.csp, server: dv.headers.server } : null,
   } : undefined;
 
+  // Include safe browsing data in trust object
+  const sb = ctx.safeBrowsingResult;
+
   const trust: PeelResult['trust'] = {
     source: {
       tier: credibility.tier,
@@ -1693,6 +1714,17 @@ export function buildResult(ctx: PipelineContext): PeelResult {
       detectedPatterns: sanitizeResult.detectedPatterns,
       strippedCount: sanitizeResult.strippedChars,
     },
+    ...(sb ? {
+      safeBrowsing: { safe: sb.safe, threats: sb.threats, source: sb.source },
+    } : {}),
+    ...(sb?.threatFeeds ? {
+      threatFeeds: {
+        safe: sb.threatFeeds.safe,
+        threats: sb.threatFeeds.threats,
+        source: sb.threatFeeds.source,
+        ...(sb.threatFeeds.details ? { details: sb.threatFeeds.details } : {}),
+      },
+    } : {}),
     score: trustScore,
     warnings: trustWarnings,
   };

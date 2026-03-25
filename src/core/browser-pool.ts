@@ -160,7 +160,8 @@ export function getRandomViewport(): { width: number; height: number } {
  * 2. Patches `navigator.userAgentData.brands` to include "Google Chrome"
  *    (Chrome for Testing only ships "Chromium" which is a known detection signal).
  */
-export async function applyStealthScripts(page: Page): Promise<void> {
+export async function applyStealthScripts(page: Page, languages?: string[]): Promise<void> {
+  const langList = languages && languages.length > 0 ? languages : ['en-US', 'en'];
   // 1. Hide Playwright's __pwInitScripts marker
   // Uses string form to avoid TypeScript DOM-lib requirements (tsconfig has no DOM lib).
   await page.addInitScript(`
@@ -237,13 +238,11 @@ export async function applyStealthScripts(page: Page): Promise<void> {
     });
   `);
 
-  // 5. Fake navigator.languages
-  await page.addInitScript(`
-    Object.defineProperty(navigator, 'languages', {
-      get: () => ['en-US', 'en'],
-      configurable: true,
-    });
-  `);
+  // 5. Fake navigator.languages (use provided language preferences or default to en-US)
+  const langJson = JSON.stringify(langList);
+  await page.addInitScript(
+    `Object.defineProperty(navigator, 'languages', { get: () => ${langJson}, configurable: true });`
+  );
 
   // 6. Fake window.chrome object (missing in headless = detected)
   await page.addInitScript(`

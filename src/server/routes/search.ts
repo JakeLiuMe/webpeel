@@ -18,6 +18,7 @@ import {
 } from '../../core/search-provider.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
 import { checkAndSendDualAlert } from '../email-service.js';
+import { localSearch } from '../../core/local-search.js';
 
 interface SearchResult {
   title: string;
@@ -31,6 +32,11 @@ interface SearchResult {
     label: string;
     signals?: string[];
     warnings?: string[];
+  };
+  /** Lightweight trust score (heuristic-only for unscraped, full pipeline for scraped) */
+  trust?: {
+    score: number;   // 0-1 normalized composite score
+    tier: 'official' | 'established' | 'community' | 'new' | 'suspicious';
   };
 }
 
@@ -83,7 +89,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
       // scrapeResults=true: fetches full page content for each result (like Firecrawl's scrape_options).
       // Adds `content` field to each result. Significantly increases response time and credits used.
       // Documented in OpenAPI spec under /v1/search parameters.
-      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location } = req.query;
+      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location, local, language } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---
       const providerParam = (req.query.provider as string || '').toLowerCase() || 'auto';
@@ -121,6 +127,62 @@ export function createSearchRouter(authStore: AuthStore): Router {
       const tbsStr = (tbs as string) || '';
       const countryStr = (country as string) || '';
       const locationStr = (location as string) || '';
+      const languageStr = (language as string) || '';
+      const isLocalSearch = local === 'true' || local === '1';
+
+      // ── Local search shortcut ─────────────────────────────────────────────
+      // When local=true, route through Google Places / Yelp instead of web search.
+      if (isLocalSearch) {
+        const localStartTime = Date.now();
+        try {
+          const localResponse = await localSearch({
+            query: q,
+            location: locationStr || undefined,
+            country: countryStr || undefined,
+            language: languageStr || undefined,
+            limit: resultCount,
+          });
+
+          const localElapsed = Date.now() - localStartTime;
+
+          // Track usage
+          const pgStoreLocal = authStore as any;
+          if (req.auth?.keyInfo?.key && typeof pgStoreLocal.trackUsage === 'function') {
+            await pgStoreLocal.trackUsage(req.auth.keyInfo.key, 'search').catch(() => {});
+          }
+
+          res.setHeader('X-Cache', 'MISS');
+          res.setHeader('X-Cache-Status', 'MISS');
+          res.setHeader('X-Credits-Used', '1');
+          res.setHeader('X-Processing-Time', localElapsed.toString());
+          res.setHeader('X-Fetch-Type', 'local-search');
+          res.setHeader('X-Local-Source', localResponse.source);
+          res.setHeader('Cache-Control', 'no-store');
+
+          res.json({
+            success: true,
+            data: {
+              local: localResponse.results,
+              source: localResponse.source,
+              query: localResponse.query,
+              location: localResponse.location,
+            },
+          });
+          return;
+        } catch (localErr) {
+          console.error('[search] Local search error:', localErr);
+          res.status(500).json({
+            success: false,
+            error: {
+              type: 'local_search_failed',
+              message: 'Local search failed. Ensure GOOGLE_PLACES_API_KEY or YELP_API_KEY is configured.',
+              hint: 'Set GOOGLE_PLACES_API_KEY env var for best results. Without API keys, uses scraping fallback.',
+            },
+            requestId: req.requestId,
+          });
+          return;
+        }
+      }
 
       // Build cache key (include all parameters)
       const enrichCount = enrich ? Math.min(Math.max(parseInt(enrich as string, 10) || 0, 0), 5) : 0;
@@ -231,6 +293,13 @@ export function createSearchRouter(authStore: AuthStore): Router {
                 maxTokens: 2000,
               });
               result.content = peelResult.content;
+              // Attach full trust score from pipeline
+              if (peelResult.trust) {
+                result.trust = {
+                  score: peelResult.trust.score,
+                  tier: peelResult.trust.source.tier,
+                };
+              }
             } catch (error) {
               result.content = `[Failed to scrape: ${(error as Error).message}]`;
             }
@@ -291,7 +360,12 @@ export function createSearchRouter(authStore: AuthStore): Router {
         results = results
           .map(r => {
             const cred = getSourceCredibility(r.url);
-            return { ...r, credibility: cred };
+            // Add lightweight trust score (heuristic only, no network) if not already set by scraper
+            const trust = r.trust ?? {
+              score: Math.round(Math.max(0, Math.min(100, cred.score))) / 100,
+              tier: cred.tier,
+            };
+            return { ...r, credibility: cred, trust };
           })
           .sort((a, b) => {
             const aTier = tierOrder[a.credibility?.tier || 'new'] ?? 3;

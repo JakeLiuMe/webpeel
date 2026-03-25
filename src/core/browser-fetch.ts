@@ -196,6 +196,8 @@ export async function browserFetch(
      * When false (default), a shorter 3s stability window is used.
      */
     isSPA?: boolean;
+    /** Language preferences for browser navigator.languages and locale (e.g. ['ja', 'en']) */
+    languages?: string[];
   } = {}
 ): Promise<FetchResult> {
   // SECURITY: Validate URL to prevent SSRF
@@ -225,6 +227,7 @@ export async function browserFetch(
     waitSelector,
     blockResources,
     isSPA = false,
+    languages,
   } = options;
 
   // Device emulation profiles (with deviceScaleFactor for crisp screenshots)
@@ -317,6 +320,7 @@ export async function browserFetch(
     }
 
     if (!page) {
+      const effectiveLocale = (languages && languages.length > 0) ? languages[0] : 'en-US';
       const pageOptions = {
         userAgent: validatedUserAgent,
         // viewport: null lets the browser use its natural window size (set via --window-size),
@@ -324,7 +328,7 @@ export async function browserFetch(
         viewport: null as null,
         ...(stealth
           ? {
-              locale: 'en-US',
+              locale: effectiveLocale,
               timezoneId: 'America/New_York',
               javaScriptEnabled: true,
             }
@@ -359,7 +363,7 @@ export async function browserFetch(
         });
         ownedContext = await ownedBrowser.newContext({
           userAgent: validatedUserAgent || getRandomUserAgent(),
-          locale: 'en-US',
+          locale: effectiveLocale,
           timezoneId: 'America/New_York',
           javaScriptEnabled: true,
           viewport: { width: effectiveViewportWidth || vp.width, height: effectiveViewportHeight || vp.height },
@@ -394,7 +398,7 @@ export async function browserFetch(
           }
         }
       }
-      await applyStealthScripts(page);
+      await applyStealthScripts(page, languages);
       // Apply supplemental stealth patches (canvas noise, connection API, battery, etc.)
       // These go beyond what puppeteer-extra-plugin-stealth provides.
       if (stealth) {

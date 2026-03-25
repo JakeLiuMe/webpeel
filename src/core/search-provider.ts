@@ -45,6 +45,13 @@ export interface WebSearchOptions {
   country?: string;
   /** Location/region for geo-targeting */
   location?: string;
+  /**
+   * Locale for search results (e.g. 'jp-jp' for Japanese, 'fr-fr' for French).
+   * In DuckDuckGo, maps to the `kl` parameter.
+   * In SearXNG, maps to the `language` parameter.
+   * Falls back to 'en-US' when not provided.
+   */
+  locale?: string;
   /** Optional AbortSignal */
   signal?: AbortSignal;
 }
@@ -418,7 +425,8 @@ export class StealthSearchProvider implements SearchProvider {
    * Scrape DuckDuckGo HTML endpoint with stealth browser.
    * Uses the warm shared stealth browser (new context per call) for speed.
    */
-  private async scrapeDDG(query: string, count: number): Promise<WebSearchResult[]> {
+  private async scrapeDDG(query: string, count: number, options?: WebSearchOptions): Promise<WebSearchResult[]> {
+    const locale = options?.locale ?? 'en-US';
     let ctx: import('playwright').BrowserContext | undefined;
     try {
       const browser = await getStealthBrowser();
@@ -428,7 +436,7 @@ export class StealthSearchProvider implements SearchProvider {
       const proxy = getWebshareProxy();
       ctx = await browser.newContext({
         userAgent: getRandomUserAgent(),
-        locale: 'en-US',
+        locale,
         timezoneId: 'America/New_York',
         ...(proxy ? { proxy: { server: proxy.server, username: proxy.username, password: proxy.password } } : {}),
       });
@@ -494,7 +502,8 @@ export class StealthSearchProvider implements SearchProvider {
    * Scrape Bing web search with stealth browser.
    * Selectors: li.b_algo for result containers.
    */
-  private async scrapeBing(query: string, count: number): Promise<WebSearchResult[]> {
+  private async scrapeBing(query: string, count: number, options?: WebSearchOptions): Promise<WebSearchResult[]> {
+    const locale = options?.locale ?? 'en-US';
     let ctx: import('playwright').BrowserContext | undefined;
     try {
       const browser = await getStealthBrowser();
@@ -504,7 +513,7 @@ export class StealthSearchProvider implements SearchProvider {
       const proxy = getWebshareProxy();
       ctx = await browser.newContext({
         userAgent: getRandomUserAgent(),
-        locale: 'en-US',
+        locale,
         timezoneId: 'America/New_York',
         ...(proxy ? { proxy: { server: proxy.server, username: proxy.username, password: proxy.password } } : {}),
       });
@@ -581,7 +590,8 @@ export class StealthSearchProvider implements SearchProvider {
    * Uses the warm shared stealth browser (new context per call) for speed.
    * Tries multiple selector patterns since Ecosia updates their HTML frequently.
    */
-  private async scrapeEcosia(query: string, count: number): Promise<WebSearchResult[]> {
+  private async scrapeEcosia(query: string, count: number, options?: WebSearchOptions): Promise<WebSearchResult[]> {
+    const locale = options?.locale ?? 'en-US';
     let ctx: import('playwright').BrowserContext | undefined;
     try {
       const browser = await getStealthBrowser();
@@ -591,7 +601,7 @@ export class StealthSearchProvider implements SearchProvider {
       const proxy = getWebshareProxy();
       ctx = await browser.newContext({
         userAgent: getRandomUserAgent(),
-        locale: 'en-US',
+        locale,
         timezoneId: 'America/New_York',
         ...(proxy ? { proxy: { server: proxy.server, username: proxy.username, password: proxy.password } } : {}),
       });
@@ -660,9 +670,9 @@ export class StealthSearchProvider implements SearchProvider {
 
     // Launch all three engines in parallel; ignore individual engine failures
     const [ddgOutcome, bingOutcome, ecosiaOutcome] = await Promise.allSettled([
-      this.scrapeDDG(query, count),
-      this.scrapeBing(query, count),
-      this.scrapeEcosia(query, count),
+      this.scrapeDDG(query, count, options),
+      this.scrapeBing(query, count, options),
+      this.scrapeEcosia(query, count, options),
     ]);
 
     const allResults: WebSearchResult[] = [];
@@ -755,7 +765,7 @@ export class DuckDuckGoProvider implements SearchProvider {
   }
 
   private buildSearchUrl(query: string, options: WebSearchOptions): string {
-    const { tbs, country, location } = options;
+    const { tbs, country, location, locale } = options;
 
     const params = new URLSearchParams();
     params.set('q', query);
@@ -766,7 +776,10 @@ export class DuckDuckGoProvider implements SearchProvider {
       params.set('df', tbs);
     }
 
-    if (country || location) {
+    // DuckDuckGo locale (kl parameter): locale takes priority, then country/location
+    if (locale) {
+      params.set('kl', locale.toLowerCase());
+    } else if (country || location) {
       const region = (country || location || '').toLowerCase();
       if (region) params.set('kl', region);
     }
@@ -1195,6 +1208,7 @@ export class DuckDuckGoProvider implements SearchProvider {
           count: options.count ?? 10,
           signal: options.signal,
           timeoutMs: 5000,
+          ...(options.locale ? { language: options.locale } : {}),
         });
         if (searxResults.length > 0) {
           providerStats.record('searxng', true);
@@ -1484,7 +1498,8 @@ export class GoogleSearchProvider implements SearchProvider {
    * Strategy A: peel() with stealth rendering (consistent with StealthSearchProvider).
    * Strategy B: direct playwright-extra launch (if peel returns no results).
    */
-  private async scrapeGoogleStealth(query: string, count: number): Promise<WebSearchResult[]> {
+  private async scrapeGoogleStealth(query: string, count: number, options?: WebSearchOptions): Promise<WebSearchResult[]> {
+    const locale = options?.locale ?? 'en-US';
     // Strategy A: peel() + cheerio parse
     try {
       const { peel } = await import('../index.js');
@@ -1586,7 +1601,7 @@ export class GoogleSearchProvider implements SearchProvider {
         userAgent:
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         viewport: { width: 1280, height: 720 },
-        locale: 'en-US',
+        locale,
       });
       page = await context.newPage();
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15_000 });
@@ -1657,7 +1672,7 @@ export class GoogleSearchProvider implements SearchProvider {
 
     // No API key — fall back to stealth browser scraping
     if (!apiKey || !cx) {
-      return this.scrapeGoogleStealth(query, count);
+      return this.scrapeGoogleStealth(query, count, options);
     }
 
     // Custom Search JSON API path

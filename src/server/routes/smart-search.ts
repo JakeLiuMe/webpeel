@@ -26,6 +26,7 @@ import {
   type WebSearchResult,
 } from '../../core/search-provider.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
+import { localSearch } from '../../core/local-search.js';
 // callLLM import removed — using direct Ollama fetch for lower latency
 
 // ─── Redis client (lazy singleton for smart-search caching) ───────────────
@@ -1161,7 +1162,7 @@ async function fetchGooglePlacesHours(businessName: string, address: string): Pr
   }
 }
 
-async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearchResult> {
+async function handleRestaurantSearch(intent: SearchIntent, requestLanguage?: string): Promise<SmartSearchResult> {
   const t0 = Date.now();
 
   const location = intent.params.location || 'New York, NY';
@@ -1170,13 +1171,42 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
     .replace(/\s+/g, ' ')
     .trim();
 
+  // ── Try localSearch() as primary source when Google Places key is available ──
+  // localSearch() handles international queries better (language/country params)
+  // and aggregates Google Places + Yelp data in one call.
+  let googlePlacesData: any = null;
+  if (process.env.GOOGLE_PLACES_API_KEY) {
+    try {
+      const localResponse = await Promise.race([
+        localSearch({
+          query: keyword || intent.query,
+          location,
+          language: requestLanguage,
+          limit: 10,
+        }),
+        new Promise<null>((_, rej) => setTimeout(() => rej(new Error('local search timeout')), 8000)),
+      ]);
+      if (localResponse && localResponse.results.length > 0) {
+        googlePlacesData = localResponse;
+        console.log(`[smart-search] localSearch() returned ${localResponse.results.length} results from ${localResponse.source}`);
+      }
+    } catch (err) {
+      console.warn('[smart-search] localSearch() failed, falling back to Yelp:', (err as Error).message);
+    }
+  }
+
   // Launch Yelp first (fast API, ~500ms) — it has the main data for AI synthesis.
   // Reddit/YouTube run in parallel alongside Ollama so slow Reddit peel (can hit 403→browser→15s)
   // doesn't delay the AI summary past the 30s server timeout.
-  const yelpSettled = await Promise.race([
-    fetchYelpResults(keyword, location).then(v => ({ status: 'fulfilled' as const, value: v })),
-    new Promise<{ status: 'rejected'; reason: string }>(res => setTimeout(() => res({ status: 'rejected', reason: 'timeout' }), 10000)),
-  ]);
+  // Skip Yelp if Google Places data already provides sufficient results.
+  const skipYelp = googlePlacesData && googlePlacesData.results.length >= 5;
+
+  const yelpSettled = skipYelp
+    ? { status: 'fulfilled' as const, value: null as any }
+    : await Promise.race([
+        fetchYelpResults(keyword, location).then(v => ({ status: 'fulfilled' as const, value: v })),
+        new Promise<{ status: 'rejected'; reason: string }>(res => setTimeout(() => res({ status: 'rejected', reason: 'timeout' }), 10000)),
+      ]);
   const yelpData = yelpSettled.status === 'fulfilled' ? yelpSettled.value : null;
 
   // Reddit + YouTube run concurrently (best-effort, capped at 8s)
@@ -1218,6 +1248,24 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
 
   // ── Build markdown content from all sources ──────────────────────────
   const contentParts: string[] = [];
+
+  // Google Places section (shown first when available — higher quality data)
+  if (googlePlacesData && googlePlacesData.results.length > 0) {
+    const priceLevelStr = (lvl?: number) => lvl !== undefined ? '$'.repeat(Math.max(1, lvl)) : '';
+    contentParts.push(`## Google Places (${googlePlacesData.results.length} results)`);
+    googlePlacesData.results.slice(0, 10).forEach((b: any, i: number) => {
+      const name     = b.name || 'Unknown';
+      const rating   = b.rating    ? `⭐${b.rating}` : '';
+      const reviews  = b.reviewCount ? `(${b.reviewCount.toLocaleString()} reviews)` : '';
+      const price    = b.priceLevel !== undefined ? ` · ${priceLevelStr(b.priceLevel)}` : '';
+      const openStatus = b.isOpen === true ? ' · 🟢 Open Now' : (b.isOpen === false ? ' · 🔴 Closed' : '');
+      const todayHours = b.hours?.length > 0 ? ` · 🕐 ${b.hours[0]}` : '';
+      const mapsLink = b.googleMapsUrl ? ` · [📍 Maps](${b.googleMapsUrl})` : '';
+      const addr     = b.address || '';
+      contentParts.push(`${i + 1}. **${name}** ${rating} ${reviews}${price}${openStatus}${todayHours}${mapsLink}${addr ? ` — ${addr}` : ''}`);
+    });
+    contentParts.push('');
+  }
 
   // Yelp section
   if (yelpData) {
@@ -1272,6 +1320,7 @@ async function handleRestaurantSearch(intent: SearchIntent): Promise<SmartSearch
 
   // ── Build sources array for dashboard tabs ────────────────────────────
   const sources: Array<{ title: string; url: string; domain: string }> = [];
+  if (googlePlacesData) sources.push({ title: 'Google Places', url: `https://maps.google.com/?q=${encodeURIComponent(keyword + ' ' + location)}`, domain: 'google.com' });
   if (yelpData)    sources.push({ title: 'Yelp',    url: yelpData.url,                     domain: 'yelp.com' });
   if (redditData?.thread) sources.push({ title: redditData.thread.title, url: redditData.thread.url, domain: 'reddit.com' });
   if (youtubeData?.videos[0]) sources.push({ title: youtubeData.videos[0].title, url: youtubeData.videos[0].url, domain: 'youtube.com' });
@@ -1306,21 +1355,34 @@ Be specific. Max 200 words.
     }
   }
 
-  // If Yelp completely failed and others also failed, surface an error
-  if (!yelpData && !redditData && !youtubeData) {
+  // If ALL sources completely failed, surface an error
+  if (!googlePlacesData && !yelpData && !redditData && !youtubeData) {
     throw new Error('All restaurant sources failed');
   }
 
   const yelpUrl = yelpData?.url || `https://www.yelp.com/search?find_desc=${encodeURIComponent(keyword)}&find_loc=${encodeURIComponent(location)}`;
 
+  // Build source label based on what we actually used
+  const sourceLabel = [
+    googlePlacesData ? 'Google Places' : null,
+    yelpData ? 'Yelp' : null,
+    redditData ? 'Reddit' : null,
+    youtubeData ? 'YouTube' : null,
+  ].filter(Boolean).join(' + ') || 'Yelp + Reddit + YouTube';
+
+  // Merge structured data: prefer Google Places, fall back to Yelp
+  const structuredData = googlePlacesData
+    ? { businesses: googlePlacesData.results, googlePlaces: true }
+    : yelpData?.domainData?.structured;
+
   return {
     type: 'restaurants',
-    source: 'Yelp + Reddit + YouTube',
+    source: sourceLabel,
     sourceUrl: yelpUrl,
     content: combinedContent,
     title: `${keyword} in ${location}`,
-    domainData: yelpData?.domainData,
-    structured: yelpData?.domainData?.structured,
+    domainData: googlePlacesData ? { structured: structuredData } : yelpData?.domainData,
+    structured: structuredData,
     tokens: combinedContent.split(/\s+/).length,
     fetchTimeMs: Date.now() - t0,
     ...(answer !== undefined ? { answer } : {}),
@@ -2163,7 +2225,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
         }
       }
 
-      const { q, location, zip } = req.body as { q?: string; location?: string; zip?: string };
+      const { q, location, zip, language: reqLanguage } = req.body as { q?: string; location?: string; zip?: string; language?: string };
 
       if (!q || typeof q !== 'string' || !q.trim()) {
         res.status(400).json({
@@ -2493,7 +2555,7 @@ Be specific. Max 200 words.
           smartResult = await handleRentalSearch(intent);
           break;
         case 'restaurants':
-          smartResult = await handleRestaurantSearch(intent);
+          smartResult = await handleRestaurantSearch(intent, reqLanguage);
           break;
         case 'products':
           smartResult = await handleProductSearch(intent);
