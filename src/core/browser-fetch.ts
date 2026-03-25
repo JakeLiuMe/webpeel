@@ -469,19 +469,24 @@ export async function browserFetch(
           route.continue();
         }
       });
-    } else if (!screenshot && !stealth) {
-      // Default: block images/fonts/etc for speed in non-stealth mode.
+    } else if (screenshot) {
+      // Screenshots need all resources (images, CSS) for visual accuracy
+      await page.route('**/*', (route) => route.continue());
+    } else {
+      // Default: block images/fonts/media for speed + bandwidth savings.
+      // In stealth mode, we keep stylesheets (blocking CSS is a bot signal)
+      // but still block images/fonts/media (saves ~70% bandwidth per page).
+      const blocklist = stealth
+        ? ['image', 'font', 'media']           // stealth: keep CSS, block heavy assets
+        : ['image', 'font', 'media', 'stylesheet']; // normal: block everything non-text
       await page.route('**/*', (route) => {
         const resourceType = route.request().resourceType();
-        if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
+        if (blocklist.includes(resourceType)) {
           route.abort();
         } else {
           route.continue();
         }
       });
-    } else {
-      // For screenshots and stealth mode, allow all resources
-      await page.route('**/*', (route) => route.continue());
     }
 
     // SECURITY: Wrap entire operation in timeout

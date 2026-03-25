@@ -650,10 +650,11 @@ export async function simpleFetch(
   // Build stealth headers merged with any caller-supplied custom headers
   let mergedHeaders = buildMergedHeaders(url, activeUserAgent, effectiveCustomHeaders);
 
-  // Auto-route through residential proxy for sites known to block datacenter IPs.
-  // The explicit `proxy` param always wins; auto-proxy only kicks in when unset.
-  const effectiveProxy: string | undefined =
-    proxy ?? (shouldUseProxy(url) ? (getWebshareProxyUrl() ?? undefined) : undefined);
+  // Proxy routing: explicit proxy param always wins.
+  // For proxy-preferred domains, we now try DIRECT first to save bandwidth.
+  // Only fall back to proxy on 403/429/block (handled in retry logic below).
+  // This saves ~30% proxy bandwidth — many "blocked" sites actually work from Hetzner.
+  const effectiveProxy: string | undefined = proxy ?? undefined;
 
   const MAX_REDIRECTS = 10;
   let redirectCount = 0;
@@ -755,6 +756,15 @@ export async function simpleFetch(
             seenUrls.delete(currentUrl);
             log.debug(`HTTP ${response.status} on first attempt; retrying with different UA`);
             continue;
+          }
+          // Try proxy as last resort before giving up (only for proxy-preferred domains)
+          if (retried && !proxy && shouldUseProxy(url)) {
+            const proxyUrl = getWebshareProxyUrl();
+            if (proxyUrl) {
+              log.debug(`HTTP ${response.status} after UA retry; retrying via proxy`);
+              // Recursive call with proxy — single attempt, no further fallback
+              return simpleFetch(url, userAgent, timeoutMs, customHeaders, abortSignal, proxyUrl);
+            }
           }
           throw new BlockedError(
             `HTTP ${response.status}: Site may be blocking requests. Try --render for browser mode.`

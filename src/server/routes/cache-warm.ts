@@ -146,7 +146,7 @@ export function createCacheWarmRouter(pool: pg.Pool | null): Router {
  *
  * Only started if ENABLE_CACHE_WARM=true.
  */
-export function startCacheWarmer(pool: pg.Pool | null, intervalMs = 120_000): void {
+export function startCacheWarmer(pool: pg.Pool | null, intervalMs = 900_000): void { // 15 min (was 2 min — saves 7.5x bandwidth)
   log.info('Cache warmer started', { intervalMs });
 
   const runWarm = async () => {
