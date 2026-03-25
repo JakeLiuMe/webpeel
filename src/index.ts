@@ -177,6 +177,56 @@ export async function peel(url: string, options: PeelOptions = {}): Promise<Peel
     const result = buildResult(ctx);
     // Attach safe browsing result
     result.safeBrowsing = sbResult;
+
+    // ── Auto-render escalation (post-processing) ────────────────────────
+    // If final content is thin and we did NOT use browser rendering,
+    // retry with render=true. This catches SPAs that return enough SSR
+    // HTML to pass the fetch-time thin-content check but produce sparse
+    // extracted content (e.g. React shells with nav chrome only).
+    // Only escalate when: (a) not already rendered, (b) not explicitly
+    // opted out (noEscalate), (c) not a domain-extracted result, (d) HTML
+    // content type, (e) not a retry already.
+    const contentTokens = result.tokens ?? Math.ceil((result.content?.length ?? 0) / 4);
+    const wasRendered = ctx.render || options.render;
+    const hasDomainData = !!ctx.domainData;
+    const isHtml = (ctx.fetchResult?.contentType || '').includes('html');
+    const noEscalate = !!(options as any).noEscalate;
+    const isRetry = !!(options as any)._autoRenderRetry;
+    // Don't escalate when user explicitly limited output size
+    const hasTokenBudget = !!(options.budget || (options as any).maxTokens);
+    // Don't escalate if browser/stealth was already used — can't go higher
+    const fetchMethod = ctx.fetchResult?.method ?? '';
+    const alreadyBrowserOrStealth = fetchMethod === 'browser' || fetchMethod === 'stealth' ||
+      fetchMethod === 'browser-with-wait' || wasRendered;
+
+    if (
+      contentTokens < 80 &&
+      !alreadyBrowserOrStealth &&
+      !hasDomainData &&
+      isHtml &&
+      !noEscalate &&
+      !isRetry &&
+      !hasTokenBudget &&
+      result.content &&
+      result.content.length < 400
+    ) {
+      // Retry with render — this is a one-shot escalation, not a loop
+      const retryResult = await peel(url, {
+        ...options,
+        render: true,
+        noCache: true,
+        _autoRenderRetry: true,
+      } as any);
+      // Only use the retry if it produced more content
+      if ((retryResult.tokens ?? 0) > contentTokens) {
+        retryResult.warnings = [
+          ...(retryResult.warnings || []),
+          'Auto-escalated to browser rendering (initial fetch produced sparse content)',
+        ];
+        return retryResult;
+      }
+    }
+
     return result;
   } catch (error) {
     // Clean up browser resources on error
