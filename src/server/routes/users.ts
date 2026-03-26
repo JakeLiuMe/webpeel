@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pg from 'pg';
 import { PostgresAuthStore } from '../pg-auth-store.js';
+import { sendPasswordResetEmail } from '../email-service.js';
 
 const { Pool } = pg;
 
@@ -644,6 +645,99 @@ export function createUserRouter(): Router {
         },
         requestId: crypto.randomUUID(),
       });
+    }
+  });
+
+  /**
+   * POST /v1/auth/forgot-password
+   * Request a password reset email. Always returns success to prevent email enumeration.
+   */
+  router.post('/v1/auth/forgot-password', async (req: Request, res: Response) => {
+    const { email } = req.body;
+    // Always return success (prevent email enumeration)
+    res.json({ success: true, message: 'If an account exists, a reset link has been sent.' });
+
+    // Background: check if user exists, generate token, send email
+    if (!email || typeof email !== 'string') return;
+
+    try {
+      const userResult = await pool.query('SELECT id, email FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+      if (userResult.rows.length === 0) return; // User doesn't exist — silently ignore
+
+      const user = userResult.rows[0];
+
+      // Generate a secure random token
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      // Invalidate any existing tokens for this user
+      await pool.query('UPDATE password_reset_tokens SET used = true WHERE user_id = $1 AND used = false', [user.id]);
+
+      // Store hashed token
+      await pool.query(
+        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [user.id, tokenHash, expiresAt]
+      );
+
+      // Send email
+      const resetUrl = `https://app.webpeel.dev/reset-password?token=${token}`;
+      await sendPasswordResetEmail(user.email, resetUrl);
+    } catch (err) {
+      console.error('[auth] forgot-password error:', err);
+    }
+  });
+
+  /**
+   * POST /v1/auth/reset-password
+   * Reset a user's password using a valid reset token.
+   */
+  router.post('/v1/auth/reset-password', async (req: Request, res: Response) => {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Token and password are required.' } });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Password must be at least 8 characters.' } });
+    }
+
+    try {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+      const result = await pool.query(
+        'SELECT id, user_id, expires_at, used FROM password_reset_tokens WHERE token_hash = $1',
+        [tokenHash]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(400).json({ success: false, error: { type: 'invalid_token', message: 'Invalid or expired reset link.' } });
+      }
+
+      const resetToken = result.rows[0];
+
+      if (resetToken.used) {
+        return res.status(400).json({ success: false, error: { type: 'token_used', message: 'This reset link has already been used.' } });
+      }
+
+      if (new Date(resetToken.expires_at) < new Date()) {
+        return res.status(400).json({ success: false, error: { type: 'token_expired', message: 'This reset link has expired. Please request a new one.' } });
+      }
+
+      // Hash new password using same method as registration
+      const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+      // Update password
+      await pool.query('UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2', [passwordHash, resetToken.user_id]);
+
+      // Mark token as used
+      await pool.query('UPDATE password_reset_tokens SET used = true WHERE id = $1', [resetToken.id]);
+
+      return res.json({ success: true, message: 'Password has been reset successfully.' });
+    } catch (err) {
+      console.error('[auth] reset-password error:', err);
+      return res.status(500).json({ success: false, error: { type: 'server_error', message: 'Failed to reset password.' } });
     }
   });
 

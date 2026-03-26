@@ -218,3 +218,52 @@ export async function checkAndSendDualAlert(
     console.warn('[alert] checkAndSendDualAlert failed:', err);
   }
 }
+
+/**
+ * Send password reset email with a secure reset link.
+ */
+export async function sendPasswordResetEmail(toEmail: string, resetUrl: string): Promise<boolean> {
+  const transport = createTransport();
+  if (!transport) {
+    console.warn('[email] SMTP not configured. Password reset email not sent to:', toEmail);
+    console.warn('[email] Reset URL:', resetUrl); // Log so admin can manually share
+    return false;
+  }
+
+  const from = process.env.EMAIL_FROM || process.env.EMAIL_SMTP_USER;
+
+  try {
+    await transport.sendMail({
+      from: `WebPeel <${from}>`,
+      to: toEmail,
+      subject: 'Reset your WebPeel password',
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="color: #f4f4f5; font-size: 24px; margin: 0;">WebPeel</h1>
+          </div>
+          <div style="background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 32px;">
+            <h2 style="color: #f4f4f5; font-size: 20px; margin: 0 0 16px;">Reset your password</h2>
+            <p style="color: #a1a1aa; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
+              We received a request to reset your WebPeel password. Click the button below to create a new password. This link expires in 1 hour.
+            </p>
+            <a href="${resetUrl}" style="display: inline-block; background: #5865F2; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">
+              Reset Password
+            </a>
+            <p style="color: #71717a; font-size: 12px; margin: 24px 0 0;">
+              If you didn't request this, you can safely ignore this email.
+            </p>
+          </div>
+          <p style="color: #52525b; font-size: 11px; text-align: center; margin-top: 24px;">
+            © ${new Date().getFullYear()} WebPeel · <a href="https://webpeel.dev" style="color: #52525b;">webpeel.dev</a>
+          </p>
+        </div>
+      `,
+    });
+    console.log('[email] Password reset email sent to:', toEmail);
+    return true;
+  } catch (err) {
+    console.error('[email] Failed to send password reset email:', err);
+    return false;
+  }
+}
