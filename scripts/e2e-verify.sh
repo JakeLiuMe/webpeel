@@ -755,6 +755,89 @@ CS_INJ_DET=$(py_eval "$INJECT_FILE" "str(d.get('result',{}).get('trust',{}).get(
   && pass "injectionDetected=false on clean page (httpbin)" \
   || fail "injectionDetected=false on clean page (got: '$CS_INJ_DET')"
 
+# SECTION 7: Infrastructure Health (circuit breaker, memory, DB)
+section "7. Infrastructure Health"
+
+  HEALTH=$(curl -sf --max-time 10 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/health")
+
+  # Memory reported
+  MEM_RSS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('memory',{}).get('rss',0))" 2>/dev/null)
+  [[ "$MEM_RSS" -gt 0 ]] && pass "health reports memory RSS (${MEM_RSS}MB)" || fail "health missing memory.rss"
+
+  # Circuit breaker state
+  CB_STATE=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('browser',{}).get('state',''))" 2>/dev/null)
+  [[ -n "$CB_STATE" ]] && pass "health reports browser circuit breaker (state: $CB_STATE)" || fail "health missing browser.state"
+
+  # DB check via /ready
+  READY=$(curl -sf --max-time 10 "${API_URL}/ready")
+  DB_OK=$(echo "$READY" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('checks',{}).get('database',{}).get('ok',''))" 2>/dev/null)
+  [[ "$DB_OK" == "True" ]] && pass "DB connectivity OK" || fail "DB check failed"
+
+  DB_MS=$(echo "$READY" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('checks',{}).get('database',{}).get('latencyMs',999))" 2>/dev/null)
+  [[ "$DB_MS" -lt 100 ]] && pass "DB latency < 100ms (${DB_MS}ms)" || fail "DB latency too high (${DB_MS}ms)"
+
+# SECTION 8: Search Engines & Vertical Search
+section "8. Search & Vertical Endpoints"
+
+  # News search (via SearXNG)
+  NEWS_RESP=$(curl -sf --max-time 30 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/search/news?q=AI&count=3" 2>/dev/null || echo '{}')
+  NEWS_OK=$(echo "$NEWS_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('success',''))" 2>/dev/null)
+  [[ "$NEWS_OK" == "True" ]] && pass "GET /v1/search/news returns success" || fail "GET /v1/search/news failed"
+
+  NEWS_COUNT=$(echo "$NEWS_RESP" | python3 -c "import sys,json; print(len(json.loads(sys.stdin.read()).get('data',{}).get('results',[])))" 2>/dev/null)
+  [[ "$NEWS_COUNT" -gt 0 ]] && pass "news returned $NEWS_COUNT results" || fail "news returned 0 results (SearXNG may be down)"
+
+  # Images search
+  IMG_RESP=$(curl -sf --max-time 30 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/search/images?q=sunset&count=3" 2>/dev/null || echo '{}')
+  IMG_OK=$(echo "$IMG_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('success',''))" 2>/dev/null)
+  [[ "$IMG_OK" == "True" ]] && pass "GET /v1/search/images returns success" || fail "GET /v1/search/images failed"
+
+  # Videos search
+  VID_RESP=$(curl -sf --max-time 30 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/search/videos?q=tutorial&count=3" 2>/dev/null || echo '{}')
+  VID_OK=$(echo "$VID_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('success',''))" 2>/dev/null)
+  [[ "$VID_OK" == "True" ]] && pass "GET /v1/search/videos returns success" || fail "GET /v1/search/videos failed"
+
+  # Shopping search
+  SHOP_RESP=$(curl -sf --max-time 30 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/search/shopping?q=laptop&count=3" 2>/dev/null || echo '{}')
+  SHOP_OK=$(echo "$SHOP_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('success',''))" 2>/dev/null)
+  [[ "$SHOP_OK" == "True" ]] && pass "GET /v1/search/shopping returns success" || fail "GET /v1/search/shopping failed"
+
+  # Cross-verify
+  VERIFY_RESP=$(curl -sf --max-time 30 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/search/verify?q=OpenAI&engines=duckduckgo,baidu" 2>/dev/null || echo '{}')
+  VERIFY_OK=$(echo "$VERIFY_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('success',''))" 2>/dev/null)
+  [[ "$VERIFY_OK" == "True" ]] && pass "GET /v1/search/verify returns success" || fail "GET /v1/search/verify failed"
+
+  VERIFY_CONF=$(echo "$VERIFY_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('data',{}).get('confidence',''))" 2>/dev/null)
+  [[ -n "$VERIFY_CONF" ]] && pass "cross-verify confidence score: $VERIFY_CONF" || fail "cross-verify missing confidence"
+
+# SECTION 9: Trust & Safety
+section "9. Trust Score in Fetch Response"
+
+  # Fetch a known site and check trust fields
+  TRUST_JOB=$(curl -sf --max-time 15 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/fetch?url=https://en.wikipedia.org/wiki/Earth")
+  TRUST_POLL=$(echo "$TRUST_JOB" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('pollUrl',''))" 2>/dev/null)
+  if [[ -n "$TRUST_POLL" ]]; then
+    sleep 5
+    TRUST_RESULT=$(curl -sf --max-time 15 -H "Authorization: Bearer ${API_KEY}" "${API_URL}${TRUST_POLL}")
+    TRUST_SCORE=$(echo "$TRUST_RESULT" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('result',d).get('trust',{}).get('score',''))" 2>/dev/null)
+    [[ -n "$TRUST_SCORE" ]] && pass "fetch response includes trust.score ($TRUST_SCORE)" || fail "trust.score missing from fetch response"
+
+    TRUST_SB=$(echo "$TRUST_RESULT" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('result',d).get('trust',{}).get('safeBrowsing',{}).get('source',''))" 2>/dev/null)
+    [[ -n "$TRUST_SB" ]] && pass "trust.safeBrowsing.source present ($TRUST_SB)" || fail "trust.safeBrowsing missing"
+
+    TRUST_TF=$(echo "$TRUST_RESULT" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('result',d).get('trust',{}).get('threatFeeds',{}).get('source',''))" 2>/dev/null)
+    [[ -n "$TRUST_TF" ]] && pass "trust.threatFeeds.source present ($TRUST_TF)" || fail "trust.threatFeeds missing"
+  else
+    fail "fetch job did not return pollUrl"
+  fi
+
+# SECTION 10: Local Search (Google Places)
+section "10. Local Search"
+
+  LOCAL_RESP=$(curl -sf --max-time 15 -H "Authorization: Bearer ${API_KEY}" "${API_URL}/v1/search?q=pizza&local=true&location=Manhattan+NYC" 2>/dev/null || echo '{}')
+  LOCAL_OK=$(echo "$LOCAL_RESP" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('success',''))" 2>/dev/null)
+  [[ "$LOCAL_OK" == "True" ]] && pass "GET /v1/search?local=true returns success" || fail "local search failed"
+
 # ══════════════════════════════════════════════════════
 # FINAL SUMMARY
 # ══════════════════════════════════════════════════════
