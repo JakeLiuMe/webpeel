@@ -45,7 +45,7 @@ export function registerSearchCommands(program: Command): void {
     .description('Search the web (DuckDuckGo by default, or use --site for site-specific search)')
     .option('-n, --count <n>', 'Number of results (1-10)', '5')
     .option('--top <n>', 'Limit results (alias for --count)')
-    .option('--provider <provider>', 'Search provider: duckduckgo (default) or brave')
+    .option('--provider <provider>', 'Search provider: duckduckgo (default), brave, google, baidu, yandex, naver, yahoo_japan')
     .option('--search-api-key <key>', 'API key for the search provider (or env WEBPEEL_BRAVE_API_KEY)')
     .option('--site <site>', 'Search a specific site (e.g. ebay, amazon, github). Run "webpeel sites" for full list.')
     .option('--json', 'Output as JSON')
@@ -236,6 +236,8 @@ export function registerSearchCommands(program: Command): void {
         const searchParams = new URLSearchParams({ q: query });
         searchParams.set('limit', String(Math.min(Math.max(count, 1), 10)));
         if (options.budget) searchParams.set('budget', String(options.budget));
+        if (options.provider) searchParams.set('provider', options.provider);
+        if (options.searchApiKey) searchParams.set('searchApiKey', options.searchApiKey);
 
         const searchRes = await fetch(`${searchApiUrl}/v1/search?${searchParams}`, {
           headers: { Authorization: `Bearer ${searchApiKey}` },
