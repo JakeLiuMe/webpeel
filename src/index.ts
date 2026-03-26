@@ -43,7 +43,8 @@ export {
   type WebSearchResult,
   type WebSearchOptions,
 } from './core/search-provider.js';
-export { BaiduSearchProvider, YandexSearchProvider } from './core/search-engines.js';
+export { BaiduSearchProvider, YandexSearchProvider, NaverSearchProvider, YahooJapanSearchProvider } from './core/search-engines.js';
+export { crossVerifySearch, type CrossVerifyResult } from './core/cross-verify.js';
 export {
   answerQuestion,
   type AnswerRequest,

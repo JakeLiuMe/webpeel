@@ -60,6 +60,96 @@ export class BaiduSearchProvider implements SearchProvider {
   }
 }
 
+// ── Naver Search (Korea) ──────────────────────────────────────────────────
+
+export class NaverSearchProvider implements SearchProvider {
+  readonly id = 'naver' as SearchProviderId;
+  readonly requiresApiKey = false;
+
+  async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
+    const { count = 10 } = options;
+    const params = new URLSearchParams({
+      query: query,
+      where: 'web',
+    });
+    const url = `https://search.naver.com/search.naver?${params}`;
+
+    try {
+      const response = await simpleFetch(
+        url,
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        15000,
+      );
+      if (!response.html) return [];
+
+      const $ = load(response.html);
+      const results: WebSearchResult[] = [];
+
+      // Naver web result selectors
+      $('.total_wrap, .api_txt_lines, .web_type_ann').each((_, elem) => {
+        const el = $(elem);
+        const title = el.find('.total_tit a, .api_txt_lines a, .link_tit').first().text().trim();
+        const href = el.find('a[href^="http"]').first().attr('href') || '';
+        const snippet = el.find('.dsc_txt, .api_txt_lines .desc, .total_dsc').first().text().trim();
+
+        if (title && href && !href.includes('naver.com/search')) {
+          results.push({ title, url: href, snippet });
+        }
+      });
+
+      return results.slice(0, count);
+    } catch {
+      return [];
+    }
+  }
+}
+
+// ── Yahoo Japan Search ────────────────────────────────────────────────────
+
+export class YahooJapanSearchProvider implements SearchProvider {
+  readonly id = 'yahoo_japan' as SearchProviderId;
+  readonly requiresApiKey = false;
+
+  async searchWeb(query: string, options: WebSearchOptions): Promise<WebSearchResult[]> {
+    const { count = 10 } = options;
+    const params = new URLSearchParams({
+      p: query,
+      n: String(Math.min(count, 50)),
+      ei: 'UTF-8',
+    });
+    const url = `https://search.yahoo.co.jp/search?${params}`;
+
+    try {
+      const response = await simpleFetch(
+        url,
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        15000,
+      );
+      if (!response.html) return [];
+
+      const $ = load(response.html);
+      const results: WebSearchResult[] = [];
+
+      // Yahoo Japan result selectors
+      $('.algo, .dd, #web .w').each((_, elem) => {
+        const el = $(elem);
+        const title = el.find('h3 a, .hd a, .sw-Card__title').first().text().trim();
+        const href = el.find('a[href^="http"]').first().attr('href') || '';
+        const snippet = el.find('.sw-Card__description, p, .fc-falcon').first().text().trim();
+
+        // Filter Yahoo internal links
+        if (title && href && !href.includes('yahoo.co.jp/search') && !href.includes('cache.yahoofs')) {
+          results.push({ title, url: href, snippet });
+        }
+      });
+
+      return results.slice(0, count);
+    } catch {
+      return [];
+    }
+  }
+}
+
 // ── Yandex Search ──────────────────────────────────────────────────────────
 
 export class YandexSearchProvider implements SearchProvider {

@@ -22,7 +22,7 @@ import { searchViaSearXNG } from './searxng-provider.js';
 
 const log = createLogger('search');
 
-export type SearchProviderId = 'duckduckgo' | 'brave' | 'stealth' | 'google' | 'baidu' | 'yandex';
+export type SearchProviderId = 'duckduckgo' | 'brave' | 'stealth' | 'google' | 'baidu' | 'yandex' | 'naver' | 'yahoo_japan';
 
 export interface WebSearchResult {
   title: string;

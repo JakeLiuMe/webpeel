@@ -16,7 +16,8 @@ import {
   type SearchProviderId,
   type WebSearchResult,
 } from '../../core/search-provider.js';
-import { BaiduSearchProvider, YandexSearchProvider } from '../../core/search-engines.js';
+import { BaiduSearchProvider, YandexSearchProvider, NaverSearchProvider, YahooJapanSearchProvider } from '../../core/search-engines.js';
+import { crossVerifySearch } from '../../core/cross-verify.js';
 import {
   searchShopping,
   searchNews as searchNewsVertical,
@@ -102,7 +103,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
       // --- Search provider (new: BYOK Brave support) ---
       const providerParam = (req.query.provider as string || '').toLowerCase() || 'auto';
-      const validProviders: SearchProviderId[] = ['duckduckgo', 'brave', 'stealth', 'google', 'baidu', 'yandex'];
+      const validProviders: SearchProviderId[] = ['duckduckgo', 'brave', 'stealth', 'google', 'baidu', 'yandex', 'naver', 'yahoo_japan'];
       const providerId: SearchProviderId | 'auto' = validProviders.includes(providerParam as SearchProviderId)
         ? (providerParam as SearchProviderId)
         : providerParam === 'auto' ? 'auto' : 'duckduckgo';
@@ -249,6 +250,12 @@ export function createSearchRouter(authStore: AuthStore): Router {
           effectiveApiKey = undefined;
         } else if (providerId === 'yandex') {
           searchProvider = new YandexSearchProvider();
+          effectiveApiKey = undefined;
+        } else if (providerId === 'naver') {
+          searchProvider = new NaverSearchProvider();
+          effectiveApiKey = undefined;
+        } else if (providerId === 'yahoo_japan') {
+          searchProvider = new YahooJapanSearchProvider();
           effectiveApiKey = undefined;
         } else {
           searchProvider = getSearchProvider(providerId);
@@ -685,6 +692,41 @@ export function createSearchRouter(authStore: AuthStore): Router {
     } catch (err) {
       console.error('[search/images] error:', err);
       res.status(500).json({ success: false, error: { type: 'search_failed', message: 'Image search failed.' } });
+    }
+  });
+
+  // ── GET /v1/search/verify ────────────────────────────────────────────────
+  // Cross-source verification: searches multiple engines and computes consensus
+  // GET /v1/search/verify?q=...&engines=google,duckduckgo,baidu&count=10
+  router.get('/v1/search/verify', async (req: Request, res: Response) => {
+    const authId = req.auth?.keyInfo?.accountId || (req as any).user?.userId;
+    if (!authId) {
+      res.status(401).json({ success: false, error: { type: 'authentication_required', message: 'API key required.' } });
+      return;
+    }
+    const { q, engines, count } = req.query;
+    if (!q || typeof q !== 'string') {
+      res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Missing required "q" parameter.' } });
+      return;
+    }
+    const engineList = engines
+      ? (engines as string).split(',').map(e => e.trim()).filter(Boolean)
+      : undefined;
+    const resultCount = count ? Math.min(Math.max(parseInt(count as string, 10) || 10, 1), 20) : 10;
+    const startTime = Date.now();
+    try {
+      const result = await crossVerifySearch(q, { engines: engineList, count: resultCount });
+      const elapsed = Date.now() - startTime;
+      const pgStore = authStore as any;
+      if (req.auth?.keyInfo?.key && typeof pgStore.trackUsage === 'function') {
+        await pgStore.trackUsage(req.auth.keyInfo.key, 'search').catch(() => {});
+      }
+      res.setHeader('X-Credits-Used', '1');
+      res.setHeader('X-Processing-Time', elapsed.toString());
+      res.json({ success: true, data: result });
+    } catch (err) {
+      console.error('[search/verify] error:', err);
+      res.status(500).json({ success: false, error: { type: 'search_failed', message: 'Cross-verify search failed.' } });
     }
   });
 
