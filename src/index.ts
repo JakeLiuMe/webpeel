@@ -51,6 +51,7 @@ export {
   type LLMProviderId,
   type TokensUsed,
 } from './core/answer.js';
+export { parseGoogleSerp, type GoogleSerpResult } from './core/google-serp-parser.js';
 
 export { searchJobs, type JobCard, type JobDetail, type JobSearchOptions, type JobSearchResult } from './core/jobs.js';
 export {

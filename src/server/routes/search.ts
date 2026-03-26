@@ -16,6 +16,7 @@ import {
   type SearchProviderId,
   type WebSearchResult,
 } from '../../core/search-provider.js';
+import type { GoogleSerpResult } from '../../core/google-serp-parser.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
 import { checkAndSendDualAlert } from '../email-service.js';
 import { localSearch } from '../../core/local-search.js';
@@ -25,6 +26,7 @@ interface SearchResult {
   url: string;
   snippet: string;
   content?: string; // Added when scrapeResults=true
+  serp?: GoogleSerpResult; // Added when structured=true
   rank?: number;           // Credibility rank (1 = most trustworthy)
   credibility?: {
     tier: 'official' | 'established' | 'community' | 'new' | 'suspicious';
@@ -89,7 +91,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
       // scrapeResults=true: fetches full page content for each result (like Firecrawl's scrape_options).
       // Adds `content` field to each result. Significantly increases response time and credits used.
       // Documented in OpenAPI spec under /v1/search parameters.
-      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location, local, language } = req.query;
+      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location, local, language, structured } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---
       const providerParam = (req.query.provider as string || '').toLowerCase() || 'auto';
@@ -186,7 +188,8 @@ export function createSearchRouter(authStore: AuthStore): Router {
 
       // Build cache key (include all parameters)
       const enrichCount = enrich ? Math.min(Math.max(parseInt(enrich as string, 10) || 0, 0), 5) : 0;
-      const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${enrichCount}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}`;
+      const isStructured = structured === 'true' || structured === '1';
+      const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${enrichCount}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}:${isStructured}`;
       const sharedCacheKey = searchCache.getKey(cacheKey, {});
 
       // Check cache (local LRU first, then shared singleton)
@@ -245,6 +248,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
           tbs: tbsStr || undefined,
           country: countryStr || undefined,
           location: locationStr || undefined,
+          structured: isStructured,
         });
 
         // Map to SearchResult (with optional content field)
@@ -252,6 +256,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
           title: r.title,
           url: r.url,
           snippet: r.snippet,
+          ...(r.serp ? { serp: r.serp } : {}),
         }));
 
         // Apply category filtering if specified

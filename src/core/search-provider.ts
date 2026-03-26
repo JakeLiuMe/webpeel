@@ -32,6 +32,8 @@ export interface WebSearchResult {
   relevanceScore?: number;
   /** Thumbnail/image URL from SearXNG results (img_src or thumbnail field). */
   imageUrl?: string;
+  /** Structured SERP data when structured=true is passed in WebSearchOptions. */
+  serp?: import('./google-serp-parser.js').GoogleSerpResult;
 }
 
 export interface WebSearchOptions {
@@ -54,6 +56,8 @@ export interface WebSearchOptions {
   locale?: string;
   /** Optional AbortSignal */
   signal?: AbortSignal;
+  /** Return structured SERP data (knowledge panel, PAA, featured snippets, etc.) */
+  structured?: boolean;
 }
 
 export interface SearchProvider {
@@ -1563,7 +1567,18 @@ export class GoogleSearchProvider implements SearchProvider {
           results.push({ title, url: validated, snippet });
         });
 
-        if (results.length > 0) return results.slice(0, count);
+        if (results.length > 0) {
+          const sliced = results.slice(0, count);
+          // Attach structured SERP data to the first result when structured=true
+          if (options?.structured) {
+            const { parseGoogleSerp } = await import('./google-serp-parser.js');
+            const serp = parseGoogleSerp(html);
+            if (sliced.length > 0) {
+              sliced[0] = { ...sliced[0], serp };
+            }
+          }
+          return sliced;
+        }
       }
     } catch (e) {
       log.debug('Google stealth (peel) error:', (e as Error).message);
