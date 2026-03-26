@@ -75,27 +75,42 @@ export class NaverSearchProvider implements SearchProvider {
     const url = `https://search.naver.com/search.naver?${params}`;
 
     try {
-      const response = await simpleFetch(
-        url,
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        15000,
-      );
-      if (!response.html) return [];
+      // Naver is heavily JS-rendered — use peel with render for full content
+      const { peel } = await import('../index.js');
+      const result = await peel(url, { render: true, format: 'html', wait: 2000, timeout: 15000 });
+      const html = result.content || '';
+      if (!html) return [];
 
-      const $ = load(response.html);
+      const $ = load(html);
       const results: WebSearchResult[] = [];
+      const seen = new Set<string>();
 
-      // Naver web result selectors
-      $('.total_wrap, .api_txt_lines, .web_type_ann').each((_, elem) => {
+      // Naver uses .type-web class for web results, titles in *-title-text classes
+      $('.type-web').each((_, elem) => {
         const el = $(elem);
-        const title = el.find('.total_tit a, .api_txt_lines a, .link_tit').first().text().trim();
-        const href = el.find('a[href^="http"]').first().attr('href') || '';
-        const snippet = el.find('.dsc_txt, .api_txt_lines .desc, .total_dsc').first().text().trim();
+        const parent = el.closest('li, section, [class*=item]').length ? el.closest('li, section, [class*=item]') : el.parent();
+        const title = parent.find('[class*="title-text"], [class*="Title"]').first().text().trim();
+        const href = parent.find('a[href^="http"]').first().attr('href') || '';
+        const snippet = parent.find('[class*="text-type-body"], [class*="desc"]').first().text().trim();
 
-        if (title && href && !href.includes('naver.com/search')) {
+        if (title && href && !href.includes('naver.com/search') && !seen.has(href)) {
+          seen.add(href);
           results.push({ title, url: href, snippet });
         }
       });
+
+      // Fallback: try generic link extraction if .type-web yielded nothing
+      if (results.length === 0) {
+        $('a[href^="http"]').each((_, elem) => {
+          const el = $(elem);
+          const href = el.attr('href') || '';
+          const title = el.text().trim();
+          if (title.length > 5 && title.length < 200 && href && !href.includes('naver.com') && !seen.has(href)) {
+            seen.add(href);
+            results.push({ title, url: href, snippet: '' });
+          }
+        });
+      }
 
       return results.slice(0, count);
     } catch {
@@ -130,15 +145,21 @@ export class YahooJapanSearchProvider implements SearchProvider {
       const $ = load(response.html);
       const results: WebSearchResult[] = [];
 
-      // Yahoo Japan result selectors
-      $('.algo, .dd, #web .w').each((_, elem) => {
+      // Yahoo Japan result selectors (2026 layout uses sw-Card components)
+      const seen = new Set<string>();
+      $('.sw-Card__title, .algo, .dd').each((_, elem) => {
         const el = $(elem);
-        const title = el.find('h3 a, .hd a, .sw-Card__title').first().text().trim();
-        const href = el.find('a[href^="http"]').first().attr('href') || '';
-        const snippet = el.find('.sw-Card__description, p, .fc-falcon').first().text().trim();
+        // Walk up to the card container to find the link and snippet
+        const card = el.closest('[class*="sw-Card"], .algo, .dd, li').length
+          ? el.closest('[class*="sw-Card"], .algo, .dd, li')
+          : el.parent();
+        const title = el.find('.sw-Card__titleMain, h3, a').first().text().trim() || el.text().trim();
+        const href = card.find('a[href^="http"]').first().attr('href') || '';
+        const snippet = card.find('.sw-Card__description, .sw-Card__floatText, p').first().text().trim();
 
         // Filter Yahoo internal links
-        if (title && href && !href.includes('yahoo.co.jp/search') && !href.includes('cache.yahoofs')) {
+        if (title && title.length > 3 && href && !href.includes('yahoo.co.jp/search') && !href.includes('cache.yahoofs') && !seen.has(href)) {
+          seen.add(href);
           results.push({ title, url: href, snippet });
         }
       });
