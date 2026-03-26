@@ -237,28 +237,78 @@ export async function sendPasswordResetEmail(toEmail: string, resetUrl: string):
       from: `WebPeel <${from}>`,
       to: toEmail,
       subject: 'Reset your WebPeel password',
-      html: `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
-          <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="color: #f4f4f5; font-size: 24px; margin: 0;">WebPeel</h1>
-          </div>
-          <div style="background: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 32px;">
-            <h2 style="color: #f4f4f5; font-size: 20px; margin: 0 0 16px;">Reset your password</h2>
-            <p style="color: #a1a1aa; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-              We received a request to reset your WebPeel password. Click the button below to create a new password. This link expires in 1 hour.
-            </p>
-            <a href="${resetUrl}" style="display: inline-block; background: #5865F2; color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-size: 14px; font-weight: 600;">
-              Reset Password
-            </a>
-            <p style="color: #71717a; font-size: 12px; margin: 24px 0 0;">
-              If you didn't request this, you can safely ignore this email.
-            </p>
-          </div>
-          <p style="color: #52525b; font-size: 11px; text-align: center; margin-top: 24px;">
-            © ${new Date().getFullYear()} WebPeel · <a href="https://webpeel.dev" style="color: #52525b;">webpeel.dev</a>
-          </p>
-        </div>
-      `,
+      html: `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f6f6f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6f6f9;padding:40px 0;">
+<tr><td align="center">
+<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;">
+
+  <!-- Logo -->
+  <tr><td align="center" style="padding:0 0 32px;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td style="background-color:#5865F2;border-radius:10px;width:40px;height:40px;text-align:center;vertical-align:middle;">
+        <span style="color:#ffffff;font-size:20px;font-weight:700;line-height:40px;">W</span>
+      </td>
+      <td style="padding-left:12px;">
+        <span style="font-size:22px;font-weight:700;color:#1a1a2e;letter-spacing:-0.5px;">WebPeel</span>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Card -->
+  <tr><td>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:16px;border:1px solid #e5e5ea;overflow:hidden;">
+      
+      <!-- Purple accent bar -->
+      <tr><td style="background-color:#5865F2;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
+      
+      <!-- Content -->
+      <tr><td style="padding:40px 36px;">
+        <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#1a1a2e;">Reset your password</h1>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#4a4a5a;">Hi there,</p>
+        <p style="margin:0 0 28px;font-size:15px;line-height:1.6;color:#4a4a5a;">
+          We received a request to reset your WebPeel account password. Click the button below to choose a new one. This link expires in <strong>1 hour</strong>.
+        </p>
+        
+        <!-- Button -->
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+        <tr><td align="center" style="background-color:#5865F2;border-radius:10px;">
+          <a href="${resetUrl}" target="_blank" style="display:inline-block;padding:14px 36px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+            Reset Password
+          </a>
+        </td></tr>
+        </table>
+        
+        <!-- Fallback URL -->
+        <p style="margin:0 0 24px;font-size:12px;line-height:1.5;color:#9a9aaa;word-break:break-all;">
+          Or copy this link: <a href="${resetUrl}" style="color:#5865F2;">${resetUrl}</a>
+        </p>
+        
+        <hr style="border:none;border-top:1px solid #eeeef2;margin:0 0 20px;">
+        <p style="margin:0;font-size:13px;line-height:1.5;color:#9a9aaa;">
+          If you didn't request this, no action is needed — your password won't change.
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td align="center" style="padding:28px 0 0;">
+    <p style="margin:0 0 6px;font-size:12px;color:#9a9aaa;">
+      © ${new Date().getFullYear()} WebPeel — The web data platform for AI
+    </p>
+    <p style="margin:0;font-size:12px;">
+      <a href="https://webpeel.dev" style="color:#5865F2;text-decoration:none;">webpeel.dev</a>
+      &nbsp;·&nbsp;
+      <a href="https://app.webpeel.dev" style="color:#5865F2;text-decoration:none;">Dashboard</a>
+    </p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`,
     });
     console.log('[email] Password reset email sent to:', toEmail);
     return true;
