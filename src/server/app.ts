@@ -22,7 +22,7 @@ import { createRateLimitMiddleware, RateLimiter } from './middleware/rate-limit.
 import { createHealthRouter } from './routes/health.js';
 import { createFetchRouter } from './routes/fetch.js';
 import { createSearchRouter } from './routes/search.js';
-import { createSmartSearchRouter } from './routes/smart-search.js';
+import { createSmartSearchRouter } from './routes/smart-search/index.js';
 import { createUserRouter } from './routes/users.js';
 import { createStripeRouter, createBillingPortalRouter } from './routes/stripe.js';
 import { createOAuthRouter } from './routes/oauth.js';

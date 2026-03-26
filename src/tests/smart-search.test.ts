@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectSearchIntent } from '../server/routes/smart-search.js';
+import { detectSearchIntent } from '../server/routes/smart-search/index.js';
 
 describe('detectSearchIntent', () => {
   it('detects car search queries', () => {
