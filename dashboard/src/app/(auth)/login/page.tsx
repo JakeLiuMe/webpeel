@@ -107,7 +107,11 @@ export default function LoginPage() {
               </div>
 
               {/* Email input */}
-              <div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (email) setMode('email');
+                else toast.error('Please enter your email');
+              }}>
                 <input
                   type="email"
                   placeholder="Enter your email"
@@ -116,15 +120,12 @@ export default function LoginPage() {
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-[15px] text-zinc-100 placeholder-zinc-500 shadow-sm outline-none transition-all focus:border-[#5865F2] focus:ring-2 focus:ring-[#5865F2]/20"
                 />
                 <button
-                  onClick={() => {
-                    if (email) setMode('email');
-                    else toast.error('Please enter your email');
-                  }}
+                  type="submit"
                   className="mt-3 w-full rounded-xl bg-[#5865F2] px-4 py-3 text-[15px] font-medium text-white shadow-sm transition-all hover:bg-[#4752C4] active:scale-[0.99]"
                 >
                   Continue with email
                 </button>
-              </div>
+              </form>
             </>
           ) : (
             <>
