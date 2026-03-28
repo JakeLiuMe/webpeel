@@ -141,12 +141,14 @@ export async function handleRentalSearch(intent: SearchIntent): Promise<SmartSea
 
   // AI synthesis: use extracted prices + Reddit tips
   let answer: string | undefined;
-  if (process.env.OLLAMA_URL) {
+  try {
     const priceInfo = allListings.filter(l => l.price).map(l => `${l.company}: ${l.price}/day`).join(', ');
     const redditContent = redditResults.slice(0, 3).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
     const aiPrompt = `${PROMPT_INJECTION_DEFENSE}You are a car rental advisor. ONLY use information from the sources below. User wants to rent a car${location ? ' in ' + location : ''}.${dates ? ` Dates: ${dates.from} to ${dates.to}.` : ''}${budget ? ` Budget: $${budget}/day.` : ''} Prices found: ${priceInfo || 'no prices extracted yet — refer to sites below'}. Reddit tips: ${redditContent || 'none'}. Give a 2-3 sentence recommendation based ONLY on sources. Mention the cheapest option and actual price. Max 200 words. Cite sources inline as [1], [2], [3].`;
-    const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 5000, temperature: 0.4 });
+    const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 8000, temperature: 0.3 });
     if (aiText && aiText.length > 20) answer = aiText;
+  } catch (err) {
+    console.warn('[rental-search] LLM synthesis failed (graceful fallback):', (err as Error).message);
   }
 
   return {

@@ -35,6 +35,7 @@ export type ProgressEventType =
   | 'fetching'
   | 'scoring'
   | 'gap_check'
+  | 'quality_check'
   | 'researching'
   | 'verification'
   | 'synthesizing'
@@ -80,6 +81,14 @@ export interface DeepResearchResponse {
   llmProvider: string;
   tokensUsed: { input: number; output: number };
   elapsed: number;
+  /** Overall research quality score (0-100), computed deterministically */
+  qualityScore?: number;
+  /** Breakdown of quality score by dimension */
+  qualityBreakdown?: Record<string, number>;
+  /** Conflicts found between sources during research */
+  conflictsFound?: string[];
+  /** Conflicts that were resolved by additional research */
+  conflictsResolved?: string[];
 }
 
 /** Source credibility assessment */
@@ -460,6 +469,8 @@ interface GapDetectionResult {
   conflicts?: string[];
   /** Overall confidence level based on source quality */
   confidence?: 'high' | 'medium' | 'low';
+  /** Conflicts that were addressed/resolved in subsequent rounds */
+  conflictsResolved?: string[];
 }
 
 async function detectGaps(
@@ -644,6 +655,165 @@ export function computeVerificationSummary(
 }
 
 // ---------------------------------------------------------------------------
+// Quality Scoring (deterministic, no LLM calls)
+// ---------------------------------------------------------------------------
+
+export interface QualityScoreResult {
+  score: number;
+  breakdown: Record<string, number>;
+  suggestions: string[];
+}
+
+/**
+ * Compute a deterministic 0-100 quality score for the current research state.
+ *
+ * Dimensions:
+ *   - Source diversity   (0-20): unique domains vs total sources
+ *   - Credibility mix    (0-25): weighted score from official/verified/general
+ *   - Coverage breadth   (0-25): sub-queries with ≥2 relevant sources
+ *   - Conflict resolution(0-15): whether conflicts are detected and addressed
+ *   - Recency            (0-15): bonus for sources with recent year patterns
+ */
+export function scoreResearchQuality(
+  sources: FetchedSource[],
+  _question: string,
+  gapResult: GapDetectionResult,
+): QualityScoreResult {
+  const suggestions: string[] = [];
+
+  if (sources.length === 0) {
+    return {
+      score: 0,
+      breakdown: {
+        sourceDiversity: 0,
+        credibilityMix: 0,
+        coverageBreadth: 0,
+        conflictResolution: 0,
+        recency: 0,
+      },
+      suggestions: ['No sources found — try broader search queries.'],
+    };
+  }
+
+  // ── Source diversity (0-20) ─────────────────────────────────────────────
+  const domains = new Set(
+    sources.map((s) => extractDomain(s.result.url)).filter((d) => d.length > 0),
+  );
+  const uniqueDomainCount = domains.size;
+  let sourceDiversity: number;
+  if (uniqueDomainCount >= 5) {
+    sourceDiversity = 20;
+  } else if (uniqueDomainCount >= 4) {
+    sourceDiversity = 16;
+  } else if (uniqueDomainCount >= 3) {
+    sourceDiversity = 12;
+  } else if (uniqueDomainCount >= 2) {
+    sourceDiversity = 8;
+  } else {
+    sourceDiversity = 5;
+  }
+  if (uniqueDomainCount < 3) {
+    suggestions.push(`Low source diversity (${uniqueDomainCount} unique domains) — search for alternative perspectives.`);
+  }
+
+  // ── Credibility mix (0-25) ──────────────────────────────────────────────
+  const credibilities = sources.map(
+    (s) => s.credibility || getSourceCredibility(s.result.url),
+  );
+  const officialCount = credibilities.filter((c) => c.tier === 'official').length;
+  const verifiedCount = credibilities.filter((c) => c.tier === 'verified').length;
+  const generalCount = credibilities.filter((c) => c.tier === 'general').length;
+
+  // Weighted score: official=25, verified=15, general=5, normalize to 0-25
+  const rawCredScore =
+    officialCount * 25 + verifiedCount * 15 + generalCount * 5;
+  const maxPossibleCred = sources.length * 25;
+  const credibilityMix = maxPossibleCred > 0
+    ? Math.round((rawCredScore / maxPossibleCred) * 25)
+    : 0;
+  if (officialCount === 0) {
+    suggestions.push('No official sources found — search for .gov, .edu, or official documentation.');
+  }
+
+  // ── Coverage breadth (0-25) ─────────────────────────────────────────────
+  // Group sources by sub-query, count sub-queries with ≥2 relevant sources
+  const subQueryMap = new Map<string, number>();
+  for (const s of sources) {
+    if (s.relevanceScore > 0.3) {
+      const key = s.subQuery.toLowerCase();
+      subQueryMap.set(key, (subQueryMap.get(key) || 0) + 1);
+    }
+  }
+  const allSubQueries = new Set(sources.map((s) => s.subQuery.toLowerCase()));
+  const totalSubQueries = allSubQueries.size || 1;
+  const coveredSubQueries = [...subQueryMap.values()].filter((count) => count >= 2).length;
+  const coverageBreadth = Math.round((coveredSubQueries / totalSubQueries) * 25);
+  const uncoveredCount = totalSubQueries - coveredSubQueries;
+  if (uncoveredCount > 0) {
+    suggestions.push(`${uncoveredCount} sub-queries lack sufficient relevant sources — consider targeted searches.`);
+  }
+
+  // ── Conflict resolution (0-15) ──────────────────────────────────────────
+  const conflicts = gapResult.conflicts ?? [];
+  const resolvedConflicts = gapResult.conflictsResolved ?? [];
+  let conflictResolution: number;
+  if (conflicts.length === 0) {
+    // No conflicts detected — neutral score
+    conflictResolution = 10;
+  } else if (resolvedConflicts.length >= conflicts.length) {
+    // All conflicts addressed
+    conflictResolution = 15;
+  } else if (resolvedConflicts.length > 0) {
+    // Some conflicts addressed
+    conflictResolution = 10;
+  } else {
+    // Conflicts detected but none addressed
+    conflictResolution = 5;
+    suggestions.push(
+      `${conflicts.length} source conflict(s) remain unresolved — search for fact-checking sources.`,
+    );
+  }
+
+  // ── Recency (0-15) ─────────────────────────────────────────────────────
+  const currentYear = new Date().getFullYear();
+  const recentYears = new Set([currentYear, currentYear - 1].map(String));
+  let recentCount = 0;
+  for (const s of sources) {
+    const text = (s.content || '') + ' ' + (s.result.title || '') + ' ' + (s.result.snippet || '');
+    // Check if any recent year pattern appears
+    for (const year of recentYears) {
+      if (text.includes(year)) {
+        recentCount++;
+        break;
+      }
+    }
+  }
+  const recentRatio = recentCount / sources.length;
+  const recency = Math.round(recentRatio * 15);
+  if (recentRatio < 0.3) {
+    suggestions.push('Few recent sources found — consider adding date-specific search queries.');
+  }
+
+  const score = clamp(
+    sourceDiversity + credibilityMix + coverageBreadth + conflictResolution + recency,
+    0,
+    100,
+  );
+
+  return {
+    score,
+    breakdown: {
+      sourceDiversity,
+      credibilityMix,
+      coverageBreadth,
+      conflictResolution,
+      recency,
+    },
+    suggestions,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Step 7: Synthesis
 // ---------------------------------------------------------------------------
 
@@ -767,8 +937,13 @@ export async function runDeepResearch(req: DeepResearchRequest): Promise<DeepRes
   // All fetched sources across all rounds, deduplicated by URL
   const allSources: FetchedSource[] = [];
   const seenUrls = new Set<string>();
-  let usedQueries = new Set<string>();
+  const usedQueries = new Set<string>();
   let lastGapResult: GapDetectionResult | undefined;
+  let lastQualityScore: QualityScoreResult | undefined;
+
+  // Track all conflicts found and resolved across rounds
+  const allConflictsFound: string[] = [];
+  const allConflictsResolved: string[] = [];
 
   // ── Round 0..maxRounds ────────────────────────────────────────────────────
   let currentQueries: string[] = [];
@@ -829,6 +1004,14 @@ export async function runDeepResearch(req: DeepResearchRequest): Promise<DeepRes
     // Step 4: Relevance Scoring
     progress({ type: 'scoring', message: 'Scoring source relevance…', round });
     const scored = scoreSources(newSources, question);
+
+    // ── Quality-aware keep/discard logic ──────────────────────────────────
+    // Measure quality BEFORE adding new sources (baseline)
+    const preScore = allSources.length > 0 && lastGapResult
+      ? scoreResearchQuality(allSources, question, lastGapResult).score
+      : 0;
+
+    // Tentatively add new sources
     allSources.push(...scored);
 
     roundsCompleted = round + 1;
@@ -850,22 +1033,134 @@ export async function runDeepResearch(req: DeepResearchRequest): Promise<DeepRes
       if (isFreeTierLimitError(err)) throw err;
       break;
     }
+
+    // Track conflicts across rounds
+    if (gapResult.conflicts && gapResult.conflicts.length > 0) {
+      for (const conflict of gapResult.conflicts) {
+        if (!allConflictsFound.includes(conflict)) {
+          allConflictsFound.push(conflict);
+        }
+      }
+    }
+
+    // Check if previous conflicts are now resolved (new sources address them)
+    if (round > 0 && lastGapResult?.conflicts) {
+      const previousConflicts = lastGapResult.conflicts;
+      const currentConflicts = gapResult.conflicts ?? [];
+      for (const prev of previousConflicts) {
+        // A conflict is "resolved" if it no longer appears in the current round's conflicts
+        if (!currentConflicts.includes(prev) && !allConflictsResolved.includes(prev)) {
+          allConflictsResolved.push(prev);
+        }
+      }
+    }
+
+    // Propagate resolved conflicts into gap result for quality scoring
+    gapResult.conflictsResolved = [...allConflictsResolved];
     lastGapResult = gapResult;
+
+    // ── Quality scoring after gap detection ───────────────────────────────
+    const qualityResult = scoreResearchQuality(allSources, question, gapResult);
+    lastQualityScore = qualityResult;
+
+    // Emit quality_check progress event
+    progress({
+      type: 'quality_check',
+      message: `Round ${round + 1} quality: ${qualityResult.score}/100`,
+      round,
+      data: {
+        score: qualityResult.score,
+        breakdown: qualityResult.breakdown,
+        suggestions: qualityResult.suggestions,
+      },
+    });
+
+    // Keep/discard: if new sources DECREASED the quality score, discard them
+    if (round > 0 && preScore > 0 && qualityResult.score < preScore && scored.length > 0) {
+      // Remove the newly added sources
+      for (const s of scored) {
+        const idx = allSources.indexOf(s);
+        if (idx !== -1) {
+          allSources.splice(idx, 1);
+          // Also remove from seenUrls so they could be re-fetched later if needed
+          seenUrls.delete(normalizeUrl(s.result.url));
+        }
+      }
+      // Re-score without the discarded sources
+      lastQualityScore = scoreResearchQuality(allSources, question, gapResult);
+    }
+
+    // Early termination: score >= 85 AND hasEnoughInfo → stop
+    if (qualityResult.score >= 85 && gapResult.hasEnoughInfo) {
+      break;
+    }
 
     if (gapResult.hasEnoughInfo || gapResult.additionalQueries.length === 0) {
       break;
     }
 
-    // Step 6: Re-Search Loop
+    // Step 6: Re-Search Loop — combine gap queries with quality suggestions
+    // Generate conflict-specific fact-check queries
+    const conflictQueries: string[] = [];
+    if (gapResult.conflicts && gapResult.conflicts.length > 0) {
+      for (const conflict of gapResult.conflicts) {
+        // Extract the topic from the conflict description for a fact-check query
+        const shortConflict = conflict.length > 80 ? conflict.slice(0, 80) : conflict;
+        conflictQueries.push(`${question} fact check ${shortConflict}`);
+      }
+    }
+
+    // Merge: gap detection queries + quality suggestions + conflict queries (deduplicated)
+    const suggestionQueries = qualityResult.suggestions
+      .filter((s) => s.includes('\u2014'))
+      .map((s) => {
+        // Convert suggestion like "No official sources found — search for .gov..." into a search query
+        const afterDash = s.split('\u2014')[1]?.trim();
+        if (afterDash && afterDash.length > 10 && afterDash.length < 200) {
+          return `${question} ${afterDash.replace(/^search for\s*/i, '')}`;
+        }
+        return '';
+      })
+      .filter((q) => q.length > 0);
+
+    const allFollowUpQueries = [
+      ...gapResult.additionalQueries,
+      ...conflictQueries.slice(0, 2),
+      ...suggestionQueries.slice(0, 2),
+    ];
+
+    // Deduplicate
+    const seenQ = new Set<string>();
+    const dedupedFollowUp: string[] = [];
+    for (const q of allFollowUpQueries) {
+      const key = q.toLowerCase();
+      if (!seenQ.has(key) && !usedQueries.has(key)) {
+        seenQ.add(key);
+        dedupedFollowUp.push(q);
+      }
+    }
+
+    if (dedupedFollowUp.length === 0) break;
+
     progress({
       type: 'researching',
-      message: `Found ${gapResult.additionalQueries.length} gaps — searching more…`,
+      message: `Found ${dedupedFollowUp.length} gaps — searching more…`,
       round,
-      data: { additionalQueries: gapResult.additionalQueries },
+      data: { additionalQueries: dedupedFollowUp },
     });
 
-    currentQueries = gapResult.additionalQueries;
+    currentQueries = dedupedFollowUp;
   }
+
+  // ── Final quality score (compute if not yet available) ────────────────────
+  const finalGap: GapDetectionResult = lastGapResult ?? {
+    hasEnoughInfo: true,
+    gaps: [],
+    additionalQueries: [],
+    conflicts: [],
+    conflictsResolved: [...allConflictsResolved],
+  };
+  const finalQuality = lastQualityScore ?? scoreResearchQuality(allSources, question, finalGap);
 
   // Verification summary (emitted before synthesis so streaming clients can show status)
   const verifySummary = computeVerificationSummary(allSources, lastGapResult);
@@ -900,6 +1195,19 @@ export async function runDeepResearch(req: DeepResearchRequest): Promise<DeepRes
     },
   );
 
+  // Quality floor warning: if score < 40, prepend a warning to the report
+  let finalReport = report;
+  if (finalQuality.score < 40) {
+    const warning = [
+      '> \u26A0\uFE0F **Low Research Quality Warning** (Score: ' + finalQuality.score + '/100)',
+      '> The sources gathered for this report may be insufficient, lack credibility,',
+      '> or have unresolved conflicts. Please verify key claims independently.',
+      '',
+      '',
+    ].join('\n');
+    finalReport = warning + report;
+  }
+
   const elapsed = Date.now() - startTime;
 
   progress({
@@ -909,7 +1217,7 @@ export async function runDeepResearch(req: DeepResearchRequest): Promise<DeepRes
   });
 
   return {
-    report,
+    report: finalReport,
     citations,
     sourcesUsed: citations.length,
     roundsCompleted,
@@ -917,5 +1225,9 @@ export async function runDeepResearch(req: DeepResearchRequest): Promise<DeepRes
     llmProvider: config.provider,
     tokensUsed: tokens,
     elapsed,
+    qualityScore: finalQuality.score,
+    qualityBreakdown: finalQuality.breakdown,
+    conflictsFound: allConflictsFound.length > 0 ? allConflictsFound : undefined,
+    conflictsResolved: allConflictsResolved.length > 0 ? allConflictsResolved : undefined,
   };
 }

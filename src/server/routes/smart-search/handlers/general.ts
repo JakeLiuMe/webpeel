@@ -358,13 +358,13 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
       };
     });
 
-  // ── AI Synthesis via Qwen/Ollama ──────────────────────────────────────
+  // ── AI Synthesis (uses Groq/OpenAI/Glama/Ollama — callLLMQuick picks best) ──
   let answer: string | undefined;
+  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' | undefined;
   let llmMs = 0;
 
-  const ollamaUrl = process.env.OLLAMA_URL;
   // Only call LLM if at least one page was successfully peeled
-  if (ollamaUrl && anyPeelSucceeded) {
+  if (anyPeelSucceeded) {
     try {
       // Build numbered source content for the LLM
       const sourceContent = enriched
@@ -386,13 +386,33 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
 
       const tLlm = Date.now();
 
-      const text = await callLLMQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 250, timeoutMs: 5000, temperature: 0.3 });
-      console.log(`[smart-search] Ollama answered: ${text.length} chars`);
+      const text = await callLLMQuick(`${systemPrompt}\n\n${userMessage}`, { maxTokens: 250, timeoutMs: 8000, temperature: 0.3 });
+      console.log(`[smart-search] LLM answered: ${text.length} chars`);
       if (text) {
         answer = text;
       }
 
       llmMs = Date.now() - tLlm;
+
+      // ── Confidence scoring ──────────────────────────────────────────
+      // Compute confidence based on source agreement and credibility
+      const peeledSources = enriched.filter(
+        (s) => s.status === 'fulfilled' && (s as PromiseFulfilledResult<any>).value.content !== null
+      );
+      const peeledDomains = new Set(
+        peeledSources.map((s) => getDomain((s as PromiseFulfilledResult<any>).value.url))
+      );
+      const hasOfficialSource = results.slice(0, 5).some(
+        (r: any) => r.credibility?.tier === 'official' || r.credibility?.tier === 'established'
+      );
+
+      if (peeledDomains.size >= 3 && hasOfficialSource) {
+        confidence = 'HIGH';
+      } else if (peeledDomains.size >= 2) {
+        confidence = 'MEDIUM';
+      } else {
+        confidence = 'LOW';
+      }
     } catch (err) {
       // Graceful degradation: LLM failure → return raw results without answer
       console.warn('General search LLM synthesis failed (graceful fallback):', (err as Error).message);
@@ -412,6 +432,7 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
     tokens: content.split(/\s+/).length,
     fetchTimeMs: Date.now() - t0,
     ...(answer !== undefined ? { answer } : {}),
+    ...(confidence !== undefined ? { confidence } : {}),
     ...(sources.length > 0 ? { sources } : {}),
     timing: { searchMs, peelMs, llmMs },
     ...(mapUrl ? { mapUrl } : {}),

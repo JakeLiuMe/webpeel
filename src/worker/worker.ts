@@ -226,11 +226,14 @@ async function shutdown(): Promise<void> {
   process.exit(0);
 }
 
-// Force timeout after 30s (K8s terminationGracePeriodSeconds should be 35s)
-setTimeout(() => {
-  console.error('[worker] Forced shutdown after 30s');
-  process.exit(1);
-}, 30_000).unref();
-
-process.on('SIGTERM', () => { void shutdown(); });
+// Force timeout ONLY during shutdown (K8s terminationGracePeriodSeconds should be 35s)
+// NOTE: do NOT set this at module startup — it caused worker CrashLoopBackOff (exits after 30s idle)
+process.on('SIGTERM', () => {
+  // Set a hard deadline for the graceful shutdown path
+  setTimeout(() => {
+    console.error('[worker] Forced shutdown after 30s');
+    process.exit(1);
+  }, 30_000).unref();
+  void shutdown();
+});
 process.on('SIGINT', () => { void shutdown(); });

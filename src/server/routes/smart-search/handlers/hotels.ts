@@ -73,12 +73,14 @@ ${searchSection}## 📌 Book Directly
 
   // AI synthesis from search results + Reddit tips
   let answer: string | undefined;
-  if (process.env.OLLAMA_URL) {
+  try {
     const hotelInfo = parsedHotels.slice(0, 5).map(r => `${r.title}${r.price ? `: ${r.price}/night` : ''} — ${r.snippet || ''}`).join('\n');
     const redditSnippets = redditResults.slice(0, 2).map(r => `${r.title}: ${r.snippet || ''}`).join('\n');
     const aiPrompt = `${PROMPT_INJECTION_DEFENSE}You are a hotel booking advisor. ONLY use information from the sources below. Do NOT make up hotel names or prices not mentioned. User searched: "${sanitizeSearchQuery(intent.query)}". Hotels found: ${hotelInfo || 'no results found'}. Reddit tips: ${redditSnippets || 'none'}. Give a 2-3 sentence recommendation based ONLY on the sources. Mention the cheapest option and actual price if available. Max 200 words. Cite sources inline as [1], [2], [3].`;
-    const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 5000, temperature: 0.4 });
+    const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 8000, temperature: 0.3 });
     if (aiText && aiText.length > 20) answer = aiText;
+  } catch (err) {
+    console.warn('[hotel-search] LLM synthesis failed (graceful fallback):', (err as Error).message);
   }
 
   return {

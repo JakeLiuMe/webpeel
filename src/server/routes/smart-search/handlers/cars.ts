@@ -72,14 +72,16 @@ export async function handleCarSearch(intent: SearchIntent): Promise<SmartSearch
 
   // AI synthesis: summarize top listings + Reddit input
   let answer: string | undefined;
-  if (process.env.OLLAMA_URL) {
+  try {
     const listingSummary = carListings.slice(0, 5).map((l: any) =>
       `${l.title || l.name || 'Car'}: ${l.price || 'price N/A'}, ${l.mileage || ''} miles`
     ).join(', ');
     const redditSnippets = redditResults.slice(0, 2).map(r => r.snippet || '').join(' ');
     const aiPrompt = `${PROMPT_INJECTION_DEFENSE}You are a car buying advisor. The user searched: "${sanitizeSearchQuery(intent.query)}". Here are the top listings: ${listingSummary || 'no listings found'}. Reddit says: ${redditSnippets || 'no community input'}. Give a 2-3 sentence recommendation about the best value. Mention specific prices and models. Cite sources inline as [1], [2], etc. if available. Max 200 words.`;
-    const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 5000, temperature: 0.4 });
+    const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 8000, temperature: 0.3 });
     if (aiText && aiText.length > 20) answer = aiText;
+  } catch (err) {
+    console.warn('[car-search] LLM synthesis failed (graceful fallback):', (err as Error).message);
   }
 
   const content = carListings.length > 0

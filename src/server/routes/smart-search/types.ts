@@ -17,6 +17,7 @@ export interface SmartSearchResult {
   fetchTimeMs: number;
   loadingMessage?: string;
   answer?: string;
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW';
   sources?: Array<{ title: string; url: string; domain: string }>;
   timing?: { searchMs: number; peelMs: number; llmMs: number };
   mapUrl?: string;

@@ -206,7 +206,7 @@ export async function handleProductSearch(intent: SearchIntent): Promise<SmartSe
 
   // AI synthesis: recommend best value option
   let answer: string | undefined;
-  if (process.env.OLLAMA_URL) {
+  try {
     const productInfo = listings.length > 0
       ? listings.slice(0, 5).map(l => `${l.brand ? l.brand + ' ' : ''}${l.title}: ${l.price || 'N/A'} at ${l.store}${l.rating ? `, ${l.rating}★` : ''}${l.reviewCount ? ` (${l.reviewCount} reviews)` : ''}`).join(', ')
       : 'no specific listings found';
@@ -219,6 +219,8 @@ export async function handleProductSearch(intent: SearchIntent): Promise<SmartSe
       : `${PROMPT_INJECTION_DEFENSE}You are a shopping advisor. The user wants: "${sanitizeSearchQuery(intent.query)}". Products found: ${productInfo}. Reddit says: ${redditSnippets || 'no reviews'}. ${listings.length > 0 ? 'Recommend the best value option. Mention the brand name, specific model, price, and store. Be specific.' : 'Give general buying advice with specific brand and model recommendations based on Reddit.'} Max 200 words. Cite sources inline as [1], [2], [3].`;
     const aiText = await callLLMQuick(aiPrompt, { maxTokens: 250, timeoutMs: 5000, temperature: 0.4 });
     if (aiText && aiText.length > 20) answer = aiText;
+  } catch (err) {
+    console.warn('[product-search] LLM synthesis failed (graceful fallback):', (err as Error).message);
   }
 
   return {
