@@ -518,34 +518,45 @@ export type FetchErrorType =
   | 'network'
   | 'unknown';
 
-export class WebPeelError extends Error {
-  constructor(message: string, public code?: string) {
-    super(message);
+/**
+ * Backward-compatible WebPeelError wrapper.
+ *
+ * Extends the new typed WebPeelError from errors.ts so that:
+ * - `new WebPeelError('message')` still works (legacy callers)
+ * - `instanceof` checks work against both old and new versions
+ * - All the rich typed fields (retryable, statusCode, context, timestamp) are available
+ *
+ * New code should import from './errors.js' directly for the full typed API.
+ */
+import { WebPeelError as TypedWebPeelError, type ErrorCode } from './errors.js';
+export { type ErrorCode } from './errors.js';
+
+export class WebPeelError extends TypedWebPeelError {
+  constructor(message: string, code?: string) {
+    super((code as ErrorCode) || 'UNKNOWN', message, { retryable: false });
     this.name = 'WebPeelError';
   }
 }
 
-export class TimeoutError extends WebPeelError {
+export class TimeoutError extends TypedWebPeelError {
   constructor(message: string) {
-    super(message, 'TIMEOUT');
+    super('TIMEOUT', message, { retryable: true, statusCode: 504 });
     this.name = 'TimeoutError';
   }
 }
 
-export class BlockedError extends WebPeelError {
+export class BlockedError extends TypedWebPeelError {
   public readonly blocked = true;
-  public readonly retryable: boolean;
 
   constructor(message: string, retryable = true) {
-    super(message, 'BLOCKED');
+    super('BLOCKED', message, { retryable, statusCode: 403 });
     this.name = 'BlockedError';
-    this.retryable = retryable;
   }
 }
 
-export class NetworkError extends WebPeelError {
+export class NetworkError extends TypedWebPeelError {
   constructor(message: string) {
-    super(message, 'NETWORK');
+    super('NETWORK_ERROR', message, { retryable: true, statusCode: 502 });
     this.name = 'NetworkError';
   }
 }

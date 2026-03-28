@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [password, setPassword] = useState("");
@@ -136,5 +137,17 @@ export default function ResetPasswordPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#0A0A0F' }}>
+        <div className="w-8 h-8 border-2 border-[#5865F2] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

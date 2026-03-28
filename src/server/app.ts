@@ -29,6 +29,9 @@ import { createOAuthRouter } from './routes/oauth.js';
 import { createStatsRouter } from './routes/stats.js';
 import { createActivityRouter } from './routes/activity.js';
 import { createCLIUsageRouter } from './routes/cli-usage.js';
+import { createUsageRouter } from './routes/usage.js';
+import { createAdminStatsRouter } from './routes/admin-stats.js';
+import { createAdminActiveRouter } from './routes/admin-active.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { createBatchRouter } from './routes/batch.js';
 import { createAnswerRouter } from './routes/answer.js';
@@ -58,6 +61,7 @@ import { createExtractRouter } from './routes/extract.js';
 import { createAgentRouter } from './routes/agent.js';
 import { createSessionRouter } from './routes/session.js';
 import { createSentryHooks } from './sentry.js';
+import { createMetricsRouter, metricsMiddleware } from './routes/metrics.js';
 import { requireScope } from './middleware/scope-guard.js';
 import { auditMiddleware } from './middleware/audit-log.js';
 import { createCacheWarmRouter, startCacheWarmer } from './routes/cache-warm.js';
@@ -109,6 +113,11 @@ export interface ServerConfig {
   usePostgres?: boolean;
 }
 
+// ─── Graceful shutdown state ─────────────────────────────────────────────────
+// Shared between createApp (middleware reads it) and startServer (shutdown sets it).
+let isShuttingDown = false;
+const activeRequests = new Set<string>();
+
 export function createApp(config: ServerConfig = {}): Express {
   const app = express();
 
@@ -123,6 +132,34 @@ export function createApp(config: ServerConfig = {}): Express {
     res.setHeader('X-Request-Id', req.requestId);
     next();
   });
+
+  // ─── Shutdown-aware request tracking ────────────────────────────────────────
+  // Must be AFTER request ID (needs req.requestId) and BEFORE timeouts/auth.
+  // During shutdown: returns 503 to new requests; tracks active requests to drain.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (isShuttingDown) {
+      res.setHeader('Retry-After', '10');
+      res.status(503).json({
+        success: false,
+        error: {
+          type: 'service_unavailable',
+          message: 'Server is shutting down. Retry shortly.',
+          docs: 'https://webpeel.dev/docs/errors#service-unavailable',
+        },
+      });
+      return;
+    }
+    const id = req.requestId;
+    activeRequests.add(id);
+    const cleanup = () => activeRequests.delete(id);
+    res.on('finish', cleanup);
+    res.on('close', cleanup);
+    next();
+  });
+
+  // ─── Prometheus metrics middleware ──────────────────────────────────────────
+  // Records request counts, durations, and active request gauge.
+  app.use(metricsMiddleware());
 
   // Hard server-side timeouts — no request runs longer than this
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -296,6 +333,9 @@ export function createApp(config: ServerConfig = {}): Express {
   // Pass pool so /ready can check DB connectivity
   app.use(createHealthRouter(pool));
 
+  // Prometheus metrics — admin or internal IPs (K8s Prometheus scraper) only
+  app.use(createMetricsRouter());
+
   // Affiliate redirect — /go/:store/*path — public, no auth required
   app.use(createGoRouter());
 
@@ -393,6 +433,11 @@ export function createApp(config: ServerConfig = {}): Express {
   app.use(createStatsRouter(authStore));
   app.use(createActivityRouter(authStore));
   app.use(createCLIUsageRouter());
+  // Usage API — authenticated users (professional usage tracking)
+  app.use(createUsageRouter());
+  // Admin endpoints — admin tier only (routers check internally)
+  app.use(createAdminStatsRouter());
+  app.use(createAdminActiveRouter());
   app.use(createJobsRouter(jobQueue, authStore));
   // /v1/batch — full or read only (router uses absolute paths, guard before router)
   app.use('/v1/batch', requireScope('full', 'read'));
@@ -559,24 +604,50 @@ export function startServer(config: ServerConfig = {}): void {
   });
 
   // Graceful shutdown
-  const shutdown = () => {
-    log.info('Shutting down gracefully...');
+  const shutdown = async () => {
+    if (isShuttingDown) return; // prevent double-shutdown
+    isShuttingDown = true;
+    log.info('SIGTERM received — draining active requests...');
+
+    // Stop accepting new connections
     server.close(() => {
-      log.info('Server closed');
-      void cleanupFetcher().finally(() => {
-        process.exit(0);
-      });
+      log.info('HTTP server closed (no new connections)');
     });
 
-    // Force shutdown after 10 seconds
-    setTimeout(() => {
-      log.error('Forced shutdown after timeout');
-      process.exit(1);
-    }, 10000);
+    // Wait for active requests (max 25s, leaving 5s buffer for cleanup)
+    const drainDeadline = Date.now() + 25_000;
+    while (activeRequests.size > 0 && Date.now() < drainDeadline) {
+      log.info(`Waiting for ${activeRequests.size} active requests to complete...`);
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    if (activeRequests.size > 0) {
+      log.warn(`Force-closing ${activeRequests.size} active requests`);
+    }
+
+    // Cleanup resources
+    try {
+      await cleanupFetcher();
+      // Close the warmer DB pool (app pool is internal to createApp)
+      if (warmerPool) await warmerPool.end().catch(() => {});
+    } catch (err) {
+      log.error('Error during cleanup', { error: err });
+    }
+
+    log.info('Clean shutdown complete');
+    process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  // Force shutdown after 30s (K8s terminationGracePeriodSeconds should be 35s)
+  const forceShutdown = () => {
+    setTimeout(() => {
+      log.error('Forced shutdown after 30s timeout');
+      process.exit(1);
+    }, 30_000).unref();
+  };
+
+  process.on('SIGTERM', () => { forceShutdown(); void shutdown(); });
+  process.on('SIGINT', () => { forceShutdown(); void shutdown(); });
 
   // Catch unhandled promise rejections (e.g. Playwright/rebrowser-patches
   // throwing when a browser session closes mid-operation).

@@ -83,9 +83,13 @@ const sharedOpts: Bull.QueueOptions = {
       type: 'exponential',
       delay: 2000,
     },
-    removeOnComplete: false, // keep for result lookup
-    removeOnFail: false,
+    removeOnComplete: { age: 86400, count: 1000 }, // Keep 24h or 1000 jobs, whichever hits first
+    removeOnFail: { age: 259200 }, // Keep failed jobs 72h for debugging
     timeout: 120_000, // 2 min hard timeout per job
+  },
+  // Lock will be extended by workers every 30s — initial lock should be generous
+  settings: {
+    lockDuration: 60_000, // 60s initial lock (default: 30s)
   },
 };
 

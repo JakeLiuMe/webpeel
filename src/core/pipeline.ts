@@ -35,6 +35,7 @@ import { Timer } from './timing.js';
 import { chunkContent, type ChunkOptions } from './chunker.js';
 import type { PeelOptions, PeelResult, ImageInfo } from '../types.js';
 import { BlockedError } from '../types.js';
+import { Errors } from '../errors.js';
 import { sanitizeForLLM } from './prompt-guard.js';
 import { getSourceCredibility } from './source-credibility.js';
 import type { DomainVerification } from './domain-verify.js';
@@ -711,8 +712,7 @@ export async function fetchContent(ctx: PipelineContext): Promise<void> {
     const errMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
     if (errMsg.toLowerCase().includes('timeout') || errMsg.toLowerCase().includes('timed out') || errMsg.includes('AbortError')) {
       const ms = ctx.timeout ?? 30000;
-      const enhancedMsg = `Request timed out after ${Math.round(ms / 1000)}s. This site may require browser rendering — try \`render: true\`.`;
-      throw new Error(enhancedMsg);
+      throw Errors.fetchTimeout(ctx.url, ms);
     }
     throw fetchError;
   }

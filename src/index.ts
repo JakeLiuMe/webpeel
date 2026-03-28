@@ -20,6 +20,13 @@ import {
 import { checkUrlSafety } from './core/safe-browsing.js';
 
 export * from './types.js';
+export {
+  WebPeelError as TypedWebPeelError,
+  Errors,
+  isRetryable,
+  type ErrorCode,
+} from './errors.js';
+export { withRetry, DomainRateLimiter, domainLimiter, type RetryOptions } from './core/retry.js';
 // Domain extractors — compiled JS ships in npm, TypeScript source is .gitignore'd.
 // Re-export types from the basic stub (always available), runtime functions via lazy wrapper.
 export { getDomainExtractor, extractDomainData, type DomainExtractResult, type DomainExtractor } from './ee/domain-extractors.js';

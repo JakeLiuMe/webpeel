@@ -7,10 +7,12 @@
  * that works great for CLI / npm library usage.
  */
 
-import { simpleFetch, browserFetch, retryFetch, type FetchResult } from './fetcher.js';
+import { simpleFetch, browserFetch, type FetchResult } from './fetcher.js';
 import { getCached, setCached as setBasicCache } from './cache.js';
 import { resolveAndCache } from './dns-cache.js';
 import { BlockedError, NetworkError } from '../types.js';
+import { WebPeelError } from '../errors.js';
+import { withRetry, domainLimiter } from './retry.js';
 import { getWebshareProxyUrl, canUseProxy, recordProxyBytes } from './proxy-config.js';
 import { detectChallenge } from './challenge-detection.js';
 import { browserCircuitBreaker } from './circuit-breaker.js';
@@ -836,9 +838,11 @@ export async function smartFetch(
   if (!shouldUseBrowser) {
     const simpleAbortController = new AbortController();
 
-    const simplePromise = retryFetch(
-      () =>
-        simpleFetch(
+    const simplePromise = withRetry(
+      async () => {
+        // Throttle per-domain to avoid rate limits on target sites
+        await domainLimiter.throttle(url);
+        const result = await simpleFetch(
           url,
           userAgent,
           timeoutMs,
@@ -846,8 +850,32 @@ export async function smartFetch(
           simpleAbortController.signal,
           firstProxy,
           proxyContext,
-        ),
-      3,
+        );
+        // Record success/failure for adaptive rate limiting
+        domainLimiter.recordResult(url, result.statusCode ?? 200);
+        return result;
+      },
+      {
+        maxRetries: 2,
+        baseDelayMs: 500,
+        maxDelayMs: 2000,
+        label: `simple-fetch:${url}`,
+        // Don't retry on blocked errors — escalate to browser instead
+        retryOn: (err) => {
+          if (err instanceof BlockedError) return false;
+          if (err instanceof WebPeelError && !err.retryable) return false;
+          // Retry transient errors (network, timeout, connection reset)
+          const msg = err.message?.toLowerCase() || '';
+          return (
+            msg.includes('timeout') ||
+            msg.includes('econnreset') ||
+            msg.includes('econnrefused') ||
+            msg.includes('socket hang up') ||
+            msg.includes('getaddrinfo') ||
+            msg.includes('network')
+          );
+        },
+      },
     ).then((result) => {
       if (looksLikeShellPage(result) || hasSpaIndicators(result.html)) {
         throw new BlockedError(

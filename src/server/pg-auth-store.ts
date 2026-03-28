@@ -129,6 +129,12 @@ export class PostgresAuthStore implements AuthStore {
       )`,
       `CREATE INDEX IF NOT EXISTS idx_prt_token_hash ON password_reset_tokens(token_hash)`,
       `CREATE INDEX IF NOT EXISTS idx_prt_user_id ON password_reset_tokens(user_id)`,
+      // usage_logs + api_keys + users indexes for admin analytics queries
+      `CREATE INDEX IF NOT EXISTS idx_usage_logs_user_id ON usage_logs(user_id)`,
+      `CREATE INDEX IF NOT EXISTS idx_usage_logs_created_at ON usage_logs(created_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_usage_logs_endpoint ON usage_logs(endpoint)`,
+      `CREATE INDEX IF NOT EXISTS idx_api_keys_last_used ON api_keys(last_used_at)`,
+      `CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at)`,
     ];
 
     for (const sql of fixes) {

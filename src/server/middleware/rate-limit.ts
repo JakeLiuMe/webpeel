@@ -1,90 +1,24 @@
 /**
- * Sliding window rate limiting middleware
+ * Redis-backed rate limiting middleware.
+ *
+ * Uses `rate-limiter-flexible` for atomic Redis operations — works correctly
+ * across all 6 K8s API pods (shared state via Redis).
+ *
+ * Falls back to in-memory when REDIS_URL is not set (CLI/local dev).
+ *
+ * Features:
+ * - Per-key (API key or IP) rate limiting
+ * - Tier-based limits: free=50/hr, pro=100/hr, max=500/hr
+ * - Route-based cost weighting: crawl=5x, render=3x, batch/screenshot=2x
+ * - Per-IP rate limiting ON TOP of API key limits (abuse prevention)
+ * - Exempt paths for health/docs endpoints
  */
 
 import { Request, Response, NextFunction } from 'express';
-import '../types.js'; // Augments Express.Request with requestId
+import '../types.js';
 
-interface RateLimitEntry {
-  timestamps: number[];
-}
+// ─── Tier burst limits ───────────────────────────────────────────────────────
 
-export class RateLimiter {
-  private store = new Map<string, RateLimitEntry>();
-  private windowMs: number;
-
-  constructor(windowMs: number = 60000) {
-    this.windowMs = windowMs;
-  }
-
-  /**
-   * Check if request is allowed under rate limit
-   * @param cost - Number of credits this request costs (default: 1)
-   */
-  checkLimit(identifier: string, limit: number, cost: number = 1): {
-    allowed: boolean;
-    remaining: number;
-    retryAfter?: number;
-  } {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
-
-    // Get or create entry
-    let entry = this.store.get(identifier);
-    if (!entry) {
-      entry = { timestamps: [] };
-      this.store.set(identifier, entry);
-    }
-
-    // Remove timestamps outside the window
-    entry.timestamps = entry.timestamps.filter(ts => ts > windowStart);
-
-    // Check if limit would be exceeded by this request's cost
-    if (entry.timestamps.length + cost > limit) {
-      const oldestTimestamp = entry.timestamps[0];
-      const retryAfter = oldestTimestamp
-        ? Math.ceil((oldestTimestamp + this.windowMs - now) / 1000)
-        : 1;
-      
-      return {
-        allowed: false,
-        remaining: Math.max(0, limit - entry.timestamps.length),
-        retryAfter,
-      };
-    }
-
-    // Add `cost` timestamps to represent the weight of this request
-    for (let i = 0; i < cost; i++) {
-      entry.timestamps.push(now);
-    }
-
-    return {
-      allowed: true,
-      remaining: limit - entry.timestamps.length,
-    };
-  }
-
-  /**
-   * Clean up old entries (call periodically)
-   */
-  cleanup(): void {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
-
-    for (const [identifier, entry] of this.store.entries()) {
-      entry.timestamps = entry.timestamps.filter(ts => ts > windowStart);
-      if (entry.timestamps.length === 0) {
-        this.store.delete(identifier);
-      }
-    }
-  }
-}
-
-/**
- * Hourly burst limits per tier.
- * These are the hard caps enforced by the in-memory sliding window.
- * Free: 50/hr, Pro: 100/hr, Max: 500/hr (matches pricing page + stripe.ts).
- */
 const TIER_BURST_LIMITS: Record<string, number> = {
   free: 50,
   pro: 100,
@@ -92,10 +26,11 @@ const TIER_BURST_LIMITS: Record<string, number> = {
   admin: 999999,
 };
 
-/**
- * System/documentation endpoints that should be exempt from rate limiting.
- * These are low-cost informational endpoints that should never be throttled.
- */
+/** Global per-IP limit regardless of API key (prevents shared-key abuse) */
+const GLOBAL_IP_LIMIT = 1000; // per hour
+
+// ─── Exempt paths ────────────────────────────────────────────────────────────
+
 const EXEMPT_PATHS = [
   '/health',
   '/ready',
@@ -109,17 +44,184 @@ const EXEMPT_PATHS = [
   '/v1/stats',
 ];
 
-export function createRateLimitMiddleware(limiter: RateLimiter) {
-  return (req: Request, res: Response, next: NextFunction): void => {
+// ─── RateLimiter class (Redis or in-memory) ──────────────────────────────────
+
+export class RateLimiter {
+  private keyLimiter: any; // RateLimiterRedis or RateLimiterMemory
+  private ipLimiter: any;  // separate limiter for per-IP limits
+  private windowMs: number;
+  private initialized = false;
+  private initPromise: Promise<void>;
+
+  constructor(windowMs: number = 3_600_000) { // 1 hour
+    this.windowMs = windowMs;
+    this.initPromise = this.init();
+  }
+
+  private async init(): Promise<void> {
+    const duration = Math.floor(this.windowMs / 1000); // seconds
+
     try {
-      // Skip rate limiting for system/documentation endpoints
+      // Try Redis first
+      const redisUrl = process.env.REDIS_URL;
+      if (redisUrl) {
+        // Dynamic import to avoid hard dependency
+        const [{ RateLimiterRedis }, IoRedisModule] = await Promise.all([
+          import('rate-limiter-flexible'),
+          import('ioredis'),
+        ]);
+        const IoRedis = (IoRedisModule as any).default ?? IoRedisModule;
+
+        const parsed = new URL(redisUrl);
+        const redisClient = new IoRedis({
+          host: parsed.hostname,
+          port: parseInt(parsed.port || '6379', 10),
+          password: process.env.REDIS_PASSWORD || undefined,
+          db: parseInt(parsed.pathname?.slice(1) || '0', 10) || 0,
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: 1,
+          lazyConnect: true,
+        });
+
+        await redisClient.connect();
+
+        // Key-based limiter (per API key or unauthenticated IP)
+        this.keyLimiter = new RateLimiterRedis({
+          storeClient: redisClient,
+          keyPrefix: 'rl:key',
+          points: 500, // max tier limit — actual check done per-tier
+          duration,
+          blockDuration: 0, // don't block, just check
+        });
+
+        // IP-based limiter (global per-IP cap, on top of key limits)
+        this.ipLimiter = new RateLimiterRedis({
+          storeClient: redisClient,
+          keyPrefix: 'rl:ip',
+          points: GLOBAL_IP_LIMIT,
+          duration,
+          blockDuration: 0,
+        });
+
+        console.log('[rate-limit] Redis-backed rate limiting active (shared across pods)');
+        this.initialized = true;
+        return;
+      }
+    } catch (err) {
+      console.warn('[rate-limit] Failed to init Redis rate limiter, falling back to in-memory:', (err as Error).message);
+    }
+
+    // Fallback: in-memory
+    const { RateLimiterMemory } = await import('rate-limiter-flexible');
+    this.keyLimiter = new RateLimiterMemory({
+      keyPrefix: 'rl:key',
+      points: 500,
+      duration: Math.floor(this.windowMs / 1000),
+    });
+    this.ipLimiter = new RateLimiterMemory({
+      keyPrefix: 'rl:ip',
+      points: GLOBAL_IP_LIMIT,
+      duration: Math.floor(this.windowMs / 1000),
+    });
+    console.log('[rate-limit] In-memory rate limiting active (single-pod only)');
+    this.initialized = true;
+  }
+
+  async waitForInit(): Promise<void> {
+    if (!this.initialized) await this.initPromise;
+  }
+
+  /**
+   * Check if request is allowed.
+   * Returns { allowed, remaining, retryAfter? }
+   */
+  async checkLimit(identifier: string, limit: number, cost: number = 1): Promise<{
+    allowed: boolean;
+    remaining: number;
+    retryAfter?: number;
+  }> {
+    await this.waitForInit();
+
+    try {
+      const res = await this.keyLimiter.consume(identifier, cost);
+      // rate-limiter-flexible tracks points consumed; we need to check against the per-tier limit
+      const consumed = res.consumedPoints;
+      if (consumed > limit) {
+        // Over the tier limit — reject
+        const msBeforeNext = res.msBeforeNext;
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfter: Math.ceil(msBeforeNext / 1000),
+        };
+      }
+      return {
+        allowed: true,
+        remaining: Math.max(0, limit - consumed),
+      };
+    } catch (rejRes: any) {
+      // RateLimiterRes when rate limited
+      if (rejRes && rejRes.msBeforeNext !== undefined) {
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfter: Math.ceil(rejRes.msBeforeNext / 1000),
+        };
+      }
+      // Unexpected error — allow through (fail-open)
+      console.error('[rate-limit] Error checking rate limit:', rejRes);
+      return { allowed: true, remaining: limit };
+    }
+  }
+
+  /**
+   * Check per-IP limit (global cap regardless of API key).
+   */
+  async checkIpLimit(ip: string, cost: number = 1): Promise<{
+    allowed: boolean;
+    remaining: number;
+    retryAfter?: number;
+  }> {
+    await this.waitForInit();
+
+    try {
+      const res = await this.ipLimiter.consume(ip, cost);
+      return {
+        allowed: true,
+        remaining: Math.max(0, GLOBAL_IP_LIMIT - res.consumedPoints),
+      };
+    } catch (rejRes: any) {
+      if (rejRes && rejRes.msBeforeNext !== undefined) {
+        return {
+          allowed: false,
+          remaining: 0,
+          retryAfter: Math.ceil(rejRes.msBeforeNext / 1000),
+        };
+      }
+      return { allowed: true, remaining: GLOBAL_IP_LIMIT };
+    }
+  }
+
+  /**
+   * Backward compat: cleanup is no-op for Redis (TTL handles it).
+   * Kept for in-memory fallback and for app.ts which calls it on an interval.
+   */
+  cleanup(): void {
+    // No-op for Redis; RateLimiterMemory handles its own cleanup
+  }
+}
+
+// ─── Middleware ───────────────────────────────────────────────────────────────
+
+export function createRateLimitMiddleware(limiter: RateLimiter) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      // Skip rate limiting for exempt endpoints
       if (EXEMPT_PATHS.some(p => req.path === p || req.path.startsWith(p + '/'))) {
         return next();
       }
 
-      // Use API key or real client IP as identifier.
-      // Prefer Cloudflare CF-Connecting-IP, then x-forwarded-for first
-      // entry (real client), then x-real-ip, then req.ip.
+      // Resolve real client IP (Cloudflare → x-forwarded-for → x-real-ip → req.ip)
       const forwardedFor = req.headers['x-forwarded-for'];
       const firstForwardedIp = typeof forwardedFor === 'string'
         ? forwardedFor.split(',')[0].trim()
@@ -128,14 +230,17 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
       const clientIp = (req.headers['cf-connecting-ip'] as string)
         || firstForwardedIp
         || (req.headers['x-real-ip'] as string)
-        || req.ip 
+        || req.ip
         || 'unknown';
-      const identifier = req.auth?.keyInfo?.key || clientIp;
 
-      // Use tier-based hourly burst limits (matches the 1-hour sliding window)
-      const limit = TIER_BURST_LIMITS[req.auth?.tier || 'free'] || 50;
+      // Key-based identifier: prefer API key, fall back to IP
+      const keyIdentifier = req.auth?.keyInfo?.key || `ip:${clientIp}`;
 
-      // Weighted cost based on route — heavier operations consume more credits
+      // Tier-based limit
+      const tier = req.auth?.tier || 'free';
+      const limit = TIER_BURST_LIMITS[tier] || 50;
+
+      // Route-based cost weighting
       let cost = 1;
       const path = req.path;
       if (path.includes('/crawl') || path.includes('/map')) cost = 5;
@@ -143,55 +248,63 @@ export function createRateLimitMiddleware(limiter: RateLimiter) {
       else if (path.includes('/screenshot')) cost = 2;
       else if (req.query.render === 'true' || (req.body as any)?.render === true) cost = 3;
 
-      const result = limiter.checkLimit(identifier, limit, cost);
+      // Check 1: Per-key rate limit
+      const keyResult = await limiter.checkLimit(keyIdentifier, limit, cost);
 
-      // Calculate reset timestamp
+      // Check 2: Per-IP rate limit (on top of key limit, prevents shared-key abuse)
+      const ipResult = await limiter.checkIpLimit(clientIp, cost);
+
+      // Use the more restrictive result
+      const allowed = keyResult.allowed && ipResult.allowed;
+      const remaining = Math.min(keyResult.remaining, ipResult.remaining);
+      const retryAfter = !allowed
+        ? Math.max(keyResult.retryAfter || 0, ipResult.retryAfter || 0)
+        : undefined;
+
+      // Set rate limit headers
       const now = Date.now();
-      const resetTimestamp = Math.ceil((now + limiter['windowMs']) / 1000);
-
-      // Set rate limit headers on ALL responses
+      const resetTimestamp = Math.ceil((now + (limiter as any).windowMs) / 1000);
       res.setHeader('X-RateLimit-Limit', limit.toString());
-      res.setHeader('X-RateLimit-Remaining', Math.max(0, result.remaining).toString());
+      res.setHeader('X-RateLimit-Remaining', Math.max(0, remaining).toString());
       res.setHeader('X-RateLimit-Reset', resetTimestamp.toString());
 
-      // Add plan header if authenticated
       if (req.auth?.tier) {
         res.setHeader('X-WebPeel-Plan', req.auth.tier);
       }
 
-      if (!result.allowed) {
-        const retryAfterSecs = result.retryAfter!;
+      if (!allowed) {
+        const retryAfterSecs = retryAfter || 60;
         res.setHeader('Retry-After', retryAfterSecs.toString());
-        const tier = req.auth?.tier || 'free';
+
         const upgradeHint = tier === 'free'
           ? ' Upgrade to Pro ($9/mo) for 100/hr burst limit → https://webpeel.dev/pricing'
           : tier === 'pro'
           ? ' Upgrade to Max ($29/mo) for 500/hr burst limit → https://webpeel.dev/pricing'
           : '';
+
+        // Determine which limit was hit
+        const reason = !keyResult.allowed
+          ? `Hourly rate limit exceeded (${limit} requests/hr on ${tier} plan)`
+          : `Global IP rate limit exceeded (${GLOBAL_IP_LIMIT} requests/hr)`;
+
         res.status(429).json({
           success: false,
           error: {
             type: 'rate_limited',
-            message: `Hourly rate limit exceeded (${limit} requests/hr on ${tier} plan). Try again in ${retryAfterSecs}s.`,
+            message: `${reason}. Try again in ${retryAfterSecs}s.`,
             hint: `Retry after ${retryAfterSecs} seconds.${upgradeHint}`,
             docs: 'https://webpeel.dev/docs/errors#rate-limited',
           },
           metadata: { requestId: req.requestId },
         });
-        return; // Stop processing - rate limit exceeded
+        return;
       }
 
       next();
     } catch (_error) {
-      res.status(500).json({
-        success: false,
-        error: {
-          type: 'internal_error',
-          message: 'Rate limiting failed',
-          docs: 'https://webpeel.dev/docs/errors#internal-error',
-        },
-        metadata: { requestId: req.requestId },
-      });
+      // Fail-open: if rate limiter errors, allow the request through
+      console.error('[rate-limit] Middleware error, failing open:', _error);
+      next();
     }
   };
 }

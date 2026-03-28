@@ -411,7 +411,7 @@ export function createDemoRouter(options: DemoRouterOptions = {}): Router {
       // ── 4. Rate limiting ─────────────────────────────────────────────────────
       const clientIp = getClientIp(req);
 
-      const minuteResult = minuteLimiter.checkLimit(clientIp, 3);
+      const minuteResult = await minuteLimiter.checkLimit(clientIp, 3);
       if (!minuteResult.allowed) {
         res.setHeader('Retry-After', String(minuteResult.retryAfter || 60));
         res.setHeader('X-RateLimit-Limit', '3');
@@ -431,7 +431,7 @@ export function createDemoRouter(options: DemoRouterOptions = {}): Router {
         return;
       }
 
-      const dayResult = dayLimiter.checkLimit(clientIp, 30);
+      const dayResult = await dayLimiter.checkLimit(clientIp, 30);
       if (!dayResult.allowed) {
         res.setHeader('Retry-After', String(dayResult.retryAfter || 86400));
         res.setHeader('X-RateLimit-Limit', '30');

@@ -31,6 +31,7 @@ import {
   type FetchJobPayload,
   type JobResult,
 } from '../server/bull-queues.js';
+import { systemMonitor } from '../core/system-monitor.js';
 
 // ─── Redis client for result storage ────────────────────────────────────────
 
@@ -72,10 +73,33 @@ async function setResult(jobId: string, result: JobResult): Promise<void> {
   await redis.set(key, JSON.stringify(result), 'EX', RESULT_TTL_SECONDS);
 }
 
+// ─── Running job tracker ─────────────────────────────────────────────────────
+
+const runningJobs = new Set<string>();
+
 // ─── Job processor ───────────────────────────────────────────────────────────
 
 async function processJob(job: Bull.Job<FetchJobPayload>): Promise<void> {
   const { jobId, url, render, ...rest } = job.data;
+
+  // System health gate — reject if memory is too high
+  if (!systemMonitor.canAccept(render ?? false)) {
+    const health = systemMonitor.getHealth();
+    console.warn(`[worker] Rejecting job ${jobId} — memory ${(health.memory.usedPercent * 100).toFixed(1)}% (${health.memory.tier})`);
+    throw new Error(`System memory too high (${health.memory.tier})`);
+  }
+
+  runningJobs.add(jobId);
+
+  // Extend Bull lock every 30s for long-running jobs (prevents stale job detection)
+  const lockExtendInterval = setInterval(async () => {
+    try {
+      // Bull v3 uses job.lock() to get current lock token; extend via queue internals
+      await (job as any).extendLock?.(60_000);
+    } catch {
+      // Job may have been completed/failed already — ignore
+    }
+  }, 30_000);
 
   console.log(`[worker] Processing job ${jobId} — ${url} (render=${render ?? false})`);
 
@@ -135,6 +159,9 @@ async function processJob(job: Bull.Job<FetchJobPayload>): Promise<void> {
 
     // Re-throw so Bull marks the job as failed and retries per defaultJobOptions
     throw err;
+  } finally {
+    clearInterval(lockExtendInterval);
+    runningJobs.delete(jobId);
   }
 }
 
@@ -171,17 +198,39 @@ console.log(`[worker] Started. Concurrency: ${concurrency}. Listening on webpeel
 // ─── Graceful shutdown ───────────────────────────────────────────────────────
 
 async function shutdown(): Promise<void> {
-  console.log('[worker] Shutting down gracefully...');
+  console.log('[worker] SIGTERM — stopping job acceptance, draining running jobs...');
+
   try {
+    // Stop accepting new jobs
     await fetchQueue.pause(true);
     await renderQueue.pause(true);
+  } catch { /* best effort */ }
+
+  // Wait for running jobs (max 25s)
+  const deadline = Date.now() + 25_000;
+  while (runningJobs.size > 0 && Date.now() < deadline) {
+    console.log(`[worker] Waiting for ${runningJobs.size} running jobs...`);
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  if (runningJobs.size > 0) {
+    console.warn(`[worker] Force-closing with ${runningJobs.size} jobs still running`);
+  }
+
+  try {
     await closeQueues();
     await redis.quit();
-  } catch {
-    // Best effort
-  }
+  } catch { /* best effort */ }
+
+  console.log('[worker] Clean shutdown complete');
   process.exit(0);
 }
+
+// Force timeout after 30s (K8s terminationGracePeriodSeconds should be 35s)
+setTimeout(() => {
+  console.error('[worker] Forced shutdown after 30s');
+  process.exit(1);
+}, 30_000).unref();
 
 process.on('SIGTERM', () => { void shutdown(); });
 process.on('SIGINT', () => { void shutdown(); });
