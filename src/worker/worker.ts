@@ -133,6 +133,8 @@ async function processJob(job: Bull.Job<FetchJobPayload>): Promise<void> {
       noDomainApi: rest.noDomainApi,
       readable: rest.readable,
       question: rest.question,
+      highlightQuery: rest.highlightQuery,
+      highlightMaxChars: rest.highlightMaxChars,
       noEscalate: !render, // prevent surprise escalation on HTTP-only jobs
     };
 

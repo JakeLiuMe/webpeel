@@ -179,6 +179,8 @@ export function createQueueFetchRouter(): Router {
       noDomainApi: req.body?.noDomainApi ?? (req.query?.noDomainApi === 'true'),
       readable: req.body.readable,
       question: req.body.question,
+      highlightQuery: req.body.highlightQuery,
+      highlightMaxChars: req.body.highlightMaxChars,
       userId,
     };
 
@@ -238,6 +240,8 @@ export function createQueueFetchRouter(): Router {
         readable: req.body?.readable === true || req.query?.readable === 'true',
         wait: req.body?.wait ? Number(req.body.wait) : (req.query?.wait ? Number(req.query.wait) : undefined),
         question: req.body?.question || req.query?.question,
+        highlightQuery: req.body?.highlightQuery || req.query?.highlightQuery,
+        highlightMaxChars: req.body?.highlightMaxChars ? Number(req.body.highlightMaxChars) : (req.query?.highlightMaxChars ? Number(req.query.highlightMaxChars) : undefined),
         timeout: 25000, // 25s max (leave 5s buffer for response)
       };
 
@@ -273,6 +277,8 @@ export function createQueueFetchRouter(): Router {
     if (req.query.selector) req.body.selector = req.query.selector;
     if (req.query.readable) req.body.readable = req.query.readable === 'true';
     if (req.query.question) req.body.question = req.query.question;
+    if (req.query.highlightQuery) req.body.highlightQuery = req.query.highlightQuery;
+    if (req.query.highlightMaxChars) req.body.highlightMaxChars = Number(req.query.highlightMaxChars);
     void handleSyncFetch(req, res);
   });
   router.post('/v1/fetch/sync', (req, res) => void handleSyncFetch(req, res));
@@ -291,6 +297,8 @@ export function createQueueFetchRouter(): Router {
       readable: req.query.readable === 'true',
       budget: req.query.budget ? Number(req.query.budget) : undefined,
       question: req.query.question,
+      highlightQuery: req.query.highlightQuery,
+      highlightMaxChars: req.query.highlightMaxChars ? Number(req.query.highlightMaxChars) : undefined,
       screenshot: req.query.screenshot === 'true',
       fullPage: req.query.fullPage === 'true' || req.query['full-page'] === 'true',
       maxTokens: req.query.maxTokens ? Number(req.query.maxTokens) : undefined,

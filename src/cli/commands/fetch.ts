@@ -695,6 +695,8 @@ export async function runFetch(url: string | undefined, options: any): Promise<v
         cloaked: options.cloaked ? true : undefined,
         cycle: options.cycle ? true : undefined,
         tls: (options.tls || options.cycle) ? true : undefined,
+        highlightQuery: options.highlightQuery as string | undefined,
+        highlightMaxChars: options.highlightMaxChars as number | undefined,
       };
 
       if (options.cloaked) {
@@ -1407,6 +1409,8 @@ export function registerFetchCommands(program: Command): void {
     .option('-s, --silent', 'Silent mode')
     .option('--budget <n>', 'Token budget (default: 4000)', parseInt)
     .option('--focus <query>', 'Focus on content relevant to this query')
+    .option('--highlight-query <query>', 'Extract only passages relevant to this query (BM25-powered)')
+    .option('--highlight-max-chars <n>', 'Max characters for highlights (default: 1000)', parseInt)
     .action(async (url: string, opts: any) => {
       await runFetch(url, {
         ...opts,

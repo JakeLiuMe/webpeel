@@ -259,6 +259,10 @@ export interface PeelOptions {
    * Default: false (opt-in). Set to true to enable.
    */
   captionImages?: boolean;
+  /** Query to extract relevant highlights from the content (BM25-powered, no LLM needed) */
+  highlightQuery?: string;
+  /** Maximum characters for highlights (default: 1000) */
+  highlightMaxChars?: number;
   /** Chunk content for RAG pipelines */
   chunk?: boolean | {
     /** Max tokens per chunk (default: 512) */
@@ -403,6 +407,10 @@ export interface PeelResult {
     /** Human-readable safety warnings */
     warnings: string[];
   };
+  /** Query-relevant highlights (when highlightQuery option is set). BM25-ranked passages. */
+  highlights?: Array<{ text: string; score: number }>;
+  /** Convenience string: highlighted passages joined with double newlines */
+  highlightedContent?: string;
   /** Content chunks (when chunk option is enabled) */
   chunks?: Array<{
     index: number;

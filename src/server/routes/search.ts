@@ -6,6 +6,11 @@ import { Router, Request, Response } from 'express';
 import { fetch as undiciFetch } from 'undici';
 import { load } from 'cheerio';
 import { LRUCache } from 'lru-cache';
+// @ts-ignore — ioredis CJS/ESM interop
+import IoRedisModule from 'ioredis';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const IoRedis: any = (IoRedisModule as any).default ?? IoRedisModule;
+import type { Redis as RedisType } from 'ioredis';
 import { AuthStore } from '../auth-store.js';
 import { peel } from '../../index.js';
 import { simpleFetch } from '../../core/fetcher.js';
@@ -28,6 +33,79 @@ import type { GoogleSerpResult } from '../../core/google-serp-parser.js';
 import { getSourceCredibility } from '../../core/source-credibility.js';
 import { checkAndSendDualAlert } from '../email-service.js';
 import { localSearch } from '../../core/local-search.js';
+
+// ─── Redis client (lazy singleton for search instant cache) ───────────────
+
+function buildSearchRedis(): RedisType {
+  const url = process.env.REDIS_URL || 'redis://redis:6379';
+  const password = process.env.REDIS_PASSWORD || undefined;
+  try {
+    const parsed = new URL(url);
+    return new IoRedis({
+      host: parsed.hostname,
+      port: parseInt(parsed.port || '6379', 10),
+      password,
+      db: parseInt(parsed.pathname?.slice(1) || '0', 10) || 0,
+      lazyConnect: true,
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+    });
+  } catch {
+    return new IoRedis({ host: 'redis', port: 6379, password, lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false });
+  }
+}
+
+let _searchRedis: RedisType | null = null;
+function getSearchRedis(): RedisType {
+  if (!_searchRedis) _searchRedis = buildSearchRedis();
+  return _searchRedis;
+}
+
+// ─── Domain filter helpers ────────────────────────────────────────────────
+
+/**
+ * Parse comma-separated domain list, normalize, and cap at 100 entries.
+ */
+function parseDomainList(raw: string | undefined): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw
+    .split(',')
+    .map(d => d.trim().toLowerCase().replace(/^\./, ''))
+    .filter(Boolean)
+    .slice(0, 100);
+}
+
+/**
+ * Suffix-based domain match: `reuters.com` matches `www.reuters.com`, `uk.reuters.com`, etc.
+ */
+function domainMatches(hostname: string, filterDomain: string): boolean {
+  const h = hostname.toLowerCase();
+  const f = filterDomain.toLowerCase();
+  return h === f || h.endsWith('.' + f);
+}
+
+// ─── Date extraction helper ───────────────────────────────────────────────
+
+const DATE_REGEX = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2},?\s+\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4})/i;
+
+/**
+ * Try to extract a Date from a snippet/title string. Returns null if no date found.
+ */
+function extractDateFromText(text: string): Date | null {
+  const match = text.match(DATE_REGEX);
+  if (!match) return null;
+  const raw = match[1];
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) return parsed;
+  // Try MM/DD/YYYY → rewrite to YYYY-MM-DD for parsing
+  const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const [, m, d, y] = slashMatch;
+    const alt = new Date(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
+    if (!isNaN(alt.getTime())) return alt;
+  }
+  return null;
+}
 
 interface SearchResult {
   title: string;
@@ -99,7 +177,7 @@ export function createSearchRouter(authStore: AuthStore): Router {
       // scrapeResults=true: fetches full page content for each result (like Firecrawl's scrape_options).
       // Adds `content` field to each result. Significantly increases response time and credits used.
       // Documented in OpenAPI spec under /v1/search parameters.
-      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location, local, language, structured } = req.query;
+      const { q, count, scrapeResults, enrich, sources, categories, tbs, country, location, local, language, structured, includeDomains: includeDomainsParam, excludeDomains: excludeDomainsParam, startDate: startDateParam, endDate: endDateParam, instant: instantParam } = req.query;
 
       // --- Search provider (new: BYOK Brave support) ---
       const providerParam = (req.query.provider as string || '').toLowerCase() || 'auto';
@@ -194,11 +272,82 @@ export function createSearchRouter(authStore: AuthStore): Router {
         }
       }
 
-      // Build cache key (include all parameters)
+      // ── Parse domain and date filter params ──────────────────────────────
+      const includeDomains = parseDomainList(includeDomainsParam as string | undefined);
+      const excludeDomains = parseDomainList(excludeDomainsParam as string | undefined);
+      const startDate = startDateParam ? new Date(startDateParam as string) : null;
+      const endDate = endDateParam ? new Date(endDateParam as string) : null;
+      const isInstant = instantParam === 'true' || instantParam === '1';
+
+      // Validate date params if provided
+      if (startDateParam && (!startDate || isNaN(startDate.getTime()))) {
+        res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Invalid "startDate" parameter. Use ISO 8601 format (e.g., "2026-01-01").', docs: 'https://webpeel.dev/docs/api-reference#search' }, requestId: req.requestId });
+        return;
+      }
+      if (endDateParam && (!endDate || isNaN(endDate.getTime()))) {
+        res.status(400).json({ success: false, error: { type: 'invalid_request', message: 'Invalid "endDate" parameter. Use ISO 8601 format (e.g., "2026-12-31").', docs: 'https://webpeel.dev/docs/api-reference#search' }, requestId: req.requestId });
+        return;
+      }
+
+      // Build cache key (include all parameters — domain/date filters affect results)
       const enrichCount = enrich ? Math.min(Math.max(parseInt(enrich as string, 10) || 0, 0), 5) : 0;
       const isStructured = structured === 'true' || structured === '1';
-      const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${enrichCount}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}:${isStructured}`;
+      const filterSuffix = [
+        includeDomains.length ? `inc:${includeDomains.join('|')}` : '',
+        excludeDomains.length ? `exc:${excludeDomains.join('|')}` : '',
+        startDateParam ? `sd:${startDateParam}` : '',
+        endDateParam ? `ed:${endDateParam}` : '',
+      ].filter(Boolean).join(':');
+      const cacheKey = `search:${providerId}:${q}:${resultCount}:${sourcesStr}:${shouldScrape}:${enrichCount}:${categoriesStr}:${tbsStr}:${countryStr}:${locationStr}:${isStructured}${filterSuffix ? ':' + filterSuffix : ''}`;
       const sharedCacheKey = searchCache.getKey(cacheKey, {});
+
+      // ── Redis instant cache (30-min TTL, checked BEFORE LRU) ────────────
+      const redisInstantKey = `search:instant:${cacheKey}`;
+      try {
+        const redis = getSearchRedis();
+        const redisCached = await redis.get(redisInstantKey);
+        if (redisCached) {
+          const parsed = JSON.parse(redisCached) as { data: CacheEntry['data']; timestamp: number };
+          const age = Math.floor((Date.now() - parsed.timestamp) / 1000);
+          res.setHeader('X-Cache', 'INSTANT');
+          res.setHeader('X-Cache-Status', 'INSTANT');
+          res.setHeader('X-Cache-Age', age.toString());
+          res.json({
+            success: true,
+            data: parsed.data,
+          });
+          return;
+        }
+        // If instant=true and nothing in Redis, return 404 (instant-only mode)
+        if (isInstant) {
+          res.status(404).json({
+            success: false,
+            error: {
+              type: 'not_cached',
+              message: 'No cached result available for this query. Remove instant=true to perform a live search.',
+              docs: 'https://webpeel.dev/docs/api-reference#search',
+            },
+            requestId: req.requestId,
+          });
+          return;
+        }
+      } catch (err) {
+        // Redis unavailable — graceful degradation, continue to LRU
+        if (process.env.DEBUG) console.debug('[search] Redis instant cache error (non-fatal):', (err as Error).message);
+        // If instant=true and Redis is down, we can't serve cached results
+        if (isInstant) {
+          res.status(503).json({
+            success: false,
+            error: {
+              type: 'cache_unavailable',
+              message: 'Instant cache is temporarily unavailable. Try again without instant=true.',
+              docs: 'https://webpeel.dev/docs/api-reference#search',
+            },
+            requestId: req.requestId,
+          });
+          return;
+        }
+      }
 
       // Check cache (local LRU first, then shared singleton)
       const cached = cache.get(cacheKey);
@@ -270,6 +419,36 @@ export function createSearchRouter(authStore: AuthStore): Router {
           location: locationStr || undefined,
           structured: isStructured,
         });
+
+        // ── Domain filtering (suffix-based) ──────────────────────────────
+        if (includeDomains.length > 0) {
+          providerResults = providerResults.filter(r => {
+            try {
+              const hostname = new URL(r.url).hostname.toLowerCase();
+              return includeDomains.some(d => domainMatches(hostname, d));
+            } catch { return false; }
+          });
+        }
+        if (excludeDomains.length > 0) {
+          providerResults = providerResults.filter(r => {
+            try {
+              const hostname = new URL(r.url).hostname.toLowerCase();
+              return !excludeDomains.some(d => domainMatches(hostname, d));
+            } catch { return true; }
+          });
+        }
+
+        // ── Date filtering (fuzzy, from snippet/title text) ──────────────
+        if (startDate || endDate) {
+          providerResults = providerResults.filter(r => {
+            const text = `${r.title} ${r.snippet}`;
+            const detected = extractDateFromText(text);
+            if (!detected) return true; // Keep undatable results
+            if (startDate && detected < startDate) return false;
+            if (endDate && detected > endDate) return false;
+            return true;
+          });
+        }
 
         // Map to SearchResult (with optional content field)
         let results: SearchResult[] = providerResults.map(r => ({
@@ -547,10 +726,11 @@ export function createSearchRouter(authStore: AuthStore): Router {
         }
       }
 
-      // Cache results (local LRU + shared singleton for /health stats)
+      // Cache results (local LRU + shared singleton for /health stats + Redis instant)
+      const cacheTimestamp = Date.now();
       cache.set(cacheKey, {
         data,
-        timestamp: Date.now(),
+        timestamp: cacheTimestamp,
       });
       searchCache.set(sharedCacheKey, {
         content: JSON.stringify(data),
@@ -558,8 +738,15 @@ export function createSearchRouter(authStore: AuthStore): Router {
         metadata: {},
         method: 'search',
         tokens: 0,
-        timestamp: Date.now(),
+        timestamp: cacheTimestamp,
       });
+      // Write to Redis for instant cache (30-min TTL)
+      try {
+        const redis = getSearchRedis();
+        await redis.setex(redisInstantKey, 1800, JSON.stringify({ data, timestamp: cacheTimestamp }));
+      } catch (err) {
+        if (process.env.DEBUG) console.debug('[search] Redis instant cache write error (non-fatal):', (err as Error).message);
+      }
 
       // Add headers
       res.setHeader('X-Cache', 'MISS');

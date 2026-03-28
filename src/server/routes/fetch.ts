@@ -255,6 +255,8 @@ export function createFetchRouter(authStore: AuthStore): Router {
         schema,
         detail,
         captionImages,
+        highlightQuery,
+        highlightMaxChars,
       } = req.query;
       
       const detailMode = (detail as string) || 'standard';
@@ -353,7 +355,7 @@ export function createFetchRouter(authStore: AuthStore): Router {
 
       // Build cache key (include new parameters)
       const actionsKey = parsedActions ? JSON.stringify(parsedActions) : '';
-      const cacheKey = `fetch:${url}:${render}:${wait}:${format}:${includeTags}:${excludeTags}:${images}:${location}:${languages}:${onlyMainContent}:${stream}:${actionsKey}:${budget}:${question}:${summary}:${readable}:${stealth}:${screenshot}:${maxTokens}:${selector}:${exclude}:${fullPage}:${raw}`;
+      const cacheKey = `fetch:${url}:${render}:${wait}:${format}:${includeTags}:${excludeTags}:${images}:${location}:${languages}:${onlyMainContent}:${stream}:${actionsKey}:${budget}:${question}:${summary}:${readable}:${stealth}:${screenshot}:${maxTokens}:${selector}:${exclude}:${fullPage}:${raw}:${highlightQuery || ''}:${highlightMaxChars || ''}`;
 
       // Cache bypass: ?noCache=true or Cache-Control: no-cache header
       const bypassCache = noCache === 'true' || req.headers['cache-control'] === 'no-cache';
@@ -442,6 +444,8 @@ export function createFetchRouter(authStore: AuthStore): Router {
         lite: lite === 'true',
         timeout: timeout ? parseInt(timeout as string, 10) : undefined,
         captionImages: captionImages === 'true',
+        highlightQuery: highlightQuery as string | undefined,
+        highlightMaxChars: highlightMaxChars ? parseInt(highlightMaxChars as string, 10) : undefined,
         // Prevent auto-escalation to browser unless render=true is explicitly requested.
         // On 512MB containers, surprise browser launches cause OOM kills.
         // Domain extractors (GitHub, Wikipedia, npm etc.) use HTTP APIs, not the browser.
@@ -903,6 +907,8 @@ export function createFetchRouter(authStore: AuthStore): Router {
         blockResources,
         cloaked,
         schema: bodySchema,
+        highlightQuery: bodyHighlightQuery,
+        highlightMaxChars: bodyHighlightMaxChars,
       } = req.body as {
         url?: string;
         render?: boolean;
@@ -949,6 +955,8 @@ export function createFetchRouter(authStore: AuthStore): Router {
         blockResources?: string[];
         cloaked?: boolean;
         schema?: string;
+        highlightQuery?: string;
+        highlightMaxChars?: number;
       };
 
       // --- Validate URL -------------------------------------------------------
@@ -1204,6 +1212,8 @@ export function createFetchRouter(authStore: AuthStore): Router {
       };
 
       if (cloaked) options.cloaked = cloaked;
+      if (bodyHighlightQuery) options.highlightQuery = bodyHighlightQuery;
+      if (bodyHighlightMaxChars) options.highlightMaxChars = bodyHighlightMaxChars;
       if (chunk) options.chunk = chunk === true ? true : chunk;
 
       // Auto-budget: default to 4000 tokens for API requests when no budget specified

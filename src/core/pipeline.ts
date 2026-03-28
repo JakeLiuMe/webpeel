@@ -33,6 +33,7 @@ import { extractReadableContent, type ReadabilityResult } from './readability.js
 import { quickAnswer as runQuickAnswer, type QuickAnswerResult } from './quick-answer.js';
 import { Timer } from './timing.js';
 import { chunkContent, type ChunkOptions } from './chunker.js';
+import { splitIntoBlocks, scoreBM25 } from './bm25-filter.js';
 import type { PeelOptions, PeelResult, ImageInfo } from '../types.js';
 import { BlockedError } from '../types.js';
 import { Errors } from '../errors.js';
@@ -1787,6 +1788,42 @@ export function buildResult(ctx: PipelineContext): PeelResult {
     ctx.content = cleanForAI(ctx.content);
   }
 
+  // Query-dependent highlights (BM25-powered)
+  let highlights: PeelResult['highlights'] | undefined;
+  let highlightedContent: string | undefined;
+  if (ctx.options.highlightQuery && ctx.content) {
+    const highlightMaxChars = ctx.options.highlightMaxChars ?? 1000;
+    const queryTerms = ctx.options.highlightQuery
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(t => t.length > 0);
+
+    if (queryTerms.length > 0) {
+      const blocks = splitIntoBlocks(ctx.content);
+      const scores = scoreBM25(blocks, queryTerms);
+
+      // Pair blocks with scores and sort by score descending
+      const scored = blocks.map((block, i) => ({ text: block.raw, score: scores[i], index: i }));
+      scored.sort((a, b) => b.score - a.score);
+
+      // Take top blocks until highlightMaxChars is reached
+      const selected: Array<{ text: string; score: number }> = [];
+      let totalChars = 0;
+      for (const item of scored) {
+        if (item.score <= 0) break; // skip zero-score blocks
+        if (totalChars + item.text.length > highlightMaxChars && selected.length > 0) break;
+        selected.push({ text: item.text, score: Math.round(item.score * 10000) / 10000 });
+        totalChars += item.text.length;
+      }
+
+      if (selected.length > 0) {
+        highlights = selected;
+        highlightedContent = selected.map(h => h.text).join('\n\n');
+      }
+    }
+  }
+
   // Chunking for RAG pipelines
   let ragChunks: PeelResult['chunks'] | undefined;
   if (ctx.options.chunk) {
@@ -1829,6 +1866,8 @@ export function buildResult(ctx: PipelineContext): PeelResult {
     ...(ctx.jsonLdType !== undefined ? { jsonLdType: ctx.jsonLdType } : {}),
     ...(ctx.warnings.length > 0 ? { warnings: ctx.warnings } : {}),
     ...(ragChunks !== undefined ? { chunks: ragChunks } : {}),
+    ...(highlights !== undefined ? { highlights } : {}),
+    ...(highlightedContent !== undefined ? { highlightedContent } : {}),
     ...(ctx.serverMarkdown ? { serverMarkdown: true } : {}),
     ...(rawTokenEstimate !== undefined ? { rawTokenEstimate } : {}),
     ...(tokenSavingsPercent !== undefined ? { tokenSavingsPercent } : {}),

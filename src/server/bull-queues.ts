@@ -46,6 +46,8 @@ export interface FetchJobPayload {
   noDomainApi?: boolean;
   readable?: boolean;
   question?: string;
+  highlightQuery?: string;
+  highlightMaxChars?: number;
   // Auth context (userId for usage tracking)
   userId?: string;
 }
