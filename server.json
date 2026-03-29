@@ -3,7 +3,7 @@
   "name": "io.github.webpeel/webpeel",
   "title": "WebPeel",
   "description": "Web data API that just works. Pass any URL, get clean markdown — Cloudflare, JavaScript, CAPTCHAs handled automatically. 97.6% success rate across 500+ domains. 55+ built-in extractors for Amazon, Reddit, YouTube, Wikipedia, LinkedIn. 65-98% token savings. Zero config.",
-  "version": "0.21.87",
+  "version": "0.22.0",
   "websiteUrl": "https://webpeel.dev",
   "repository": {
     "url": "https://github.com/webpeel/webpeel",
@@ -13,7 +13,7 @@
     {
       "registryType": "npm",
       "identifier": "webpeel",
-      "version": "0.21.87",
+      "version": "0.22.0",
       "transport": {
         "type": "stdio"
       },

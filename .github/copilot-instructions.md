@@ -14,7 +14,7 @@ WebPeel is an open source web data platform — fetch, search, and extract struc
 
 ## Testing
 
-Run `npx vitest run` before committing. Current: 1172+ tests, 0 failures.
+Run `npx vitest run` before committing. Current: 1900+ tests, 0 failures.
 
 ## Architecture
 

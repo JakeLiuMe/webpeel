@@ -1,7 +1,7 @@
 {
   "name": "webpeel",
   "version": "0.22.0",
-  "description": "The web data layer for AI agents — fetch, search, crawl, extract, screenshot, and monitor the web with 50+ domain extractors and MCP.",
+  "description": "The web data layer for AI agents — fetch, search, crawl, extract, screenshot, and monitor the web with 55+ domain extractors and MCP.",
   "author": "Jake Liu",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",

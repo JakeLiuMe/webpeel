@@ -1,6 +1,6 @@
 # WebPeel — Complete Feature Registry
 
-Last updated: 2026-03-22
+Last updated: 2026-03-29
 
 ## 📦 CLI Commands
 
@@ -116,9 +116,9 @@ Last updated: 2026-03-22
 | DELETE | `/v1/account` | Delete account (GDPR) |
 | POST | `/v1/billing/portal` | Stripe customer portal |
 
-## 🏷️ Domain Extractors (29 domains)
+## 🏷️ Domain Extractors (55+ domains)
 
-Structured extraction without browser rendering:
+Structured extraction without browser rendering. Representative examples:
 
 | Domain | Data Returned |
 |--------|--------------|

@@ -97,9 +97,9 @@ curl "https://api.webpeel.dev/v1/fetch?url=https://stripe.com/pricing" \
 
 ## Why WebPeel
 
-### 🧠 50+ Domain Extractors — Not Just HTML-to-Markdown
+### 🧠 55+ Domain Extractors — Not Just HTML-to-Markdown
 
-Generic scrapers convert raw HTML to markdown and call it a day. WebPeel has **purpose-built extractors** for 50+ domains — Reddit, GitHub, YouTube, Amazon, ArXiv, Hacker News, Wikipedia, StackOverflow, Zillow, Polymarket, ESPN, and more. Each extractor understands the site's structure and returns clean, structured data without browser rendering.
+Generic scrapers convert raw HTML to markdown and call it a day. WebPeel has **purpose-built extractors** for 55+ domains — Reddit, GitHub, YouTube, Amazon, ArXiv, Hacker News, Wikipedia, StackOverflow, Zillow, Polymarket, ESPN, and more. Each extractor understands the site's structure and returns clean, structured data without browser rendering.
 
 ### ⚡ 65–98% Token Savings
 
@@ -236,7 +236,7 @@ Your Agent
 │  HTTP → Domain API → Browser   │
 │  → Stealth → Cloaked → Cache   │
 ├─────────────────────────────────┤
-│  50+ Domain Extractors          │
+│  55+ Domain Extractors          │
 │  reddit · github · youtube      │
 │  amazon · arxiv · zillow · ...  │
 ├─────────────────────────────────┤
