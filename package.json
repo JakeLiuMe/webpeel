@@ -1,9 +1,9 @@
 {
   "name": "webpeel",
   "version": "0.22.0",
-  "description": "The web data platform for AI agents — fetch, search, crawl, extract, monitor, screenshot. 55+ domain extractors, 65-98% token savings, MCP server included. One API call.",
+  "description": "The web data layer for AI agents — fetch, search, crawl, extract, screenshot, and monitor the web with 50+ domain extractors and MCP.",
   "author": "Jake Liu",
-  "license": "AGPL-3.0-only",
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

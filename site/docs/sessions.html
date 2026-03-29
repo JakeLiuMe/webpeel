@@ -141,7 +141,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/session" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://example.com" }'</code></pre>
 
@@ -160,7 +160,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/session/sess_abc123xyz" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h3>Response</h3>
       <pre><code class="language-json">{
@@ -183,7 +183,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/session/sess_abc123xyz/navigate" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://example.com/dashboard" }'</code></pre>
 
@@ -223,7 +223,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/session/sess_abc123xyz/act" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "actions": [
@@ -248,7 +248,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/session/sess_abc123xyz/screenshot" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   --output screenshot.png</code></pre>
 
       <p>Returns a PNG image directly (Content-Type: image/png).</p>
@@ -260,14 +260,14 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl -X DELETE "https://api.webpeel.dev/v1/session/sess_abc123xyz" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h2 id="full-example">Full Example: Login Flow</h2>
       <p>A complete multi-step example: create a session, log in, navigate to a protected page, and extract content.</p>
 
       <pre><code class="language-bash"># 1. Create session
 SESSION=$(curl -s -X POST "https://api.webpeel.dev/v1/session" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://app.example.com/login" }' \
   | jq -r '.id')
@@ -276,7 +276,7 @@ echo "Session: $SESSION"
 
 # 2. Log in
 curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/act" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "actions": [
@@ -289,17 +289,17 @@ curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/act" \
 
 # 3. Navigate to protected content
 curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/navigate" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://app.example.com/reports" }'
 
 # 4. Get the content
 curl "https://api.webpeel.dev/v1/session/$SESSION" \
-  -H "Authorization: Bearer wp_live_xxxx"
+  -H "Authorization: Bearer wp_your_key_here"
 
 # 5. Close session
 curl -X DELETE "https://api.webpeel.dev/v1/session/$SESSION" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h2 id="mcp">MCP Tool: webpeel_act</h2>
       <p>The <code>webpeel_act</code> MCP tool exposes browser session interaction directly to AI assistants like Claude and Cursor. When you configure the WebPeel MCP server, Claude can create sessions, navigate pages, and interact with UI elements on your behalf.</p>

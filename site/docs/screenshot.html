@@ -118,7 +118,7 @@
 
       <h2 id="post-screenshot">POST /v1/screenshot</h2>
       <pre><code class="language-bash">POST https://api.webpeel.dev/v1/screenshot
-Authorization: Bearer wp_live_xxxx
+Authorization: Bearer wp_your_key_here
 Content-Type: application/json
 
 {
@@ -168,7 +168,7 @@ Content-Type: application/json
       <p>Use <code>mode: "design-analysis"</code> to extract the visual design system of any page alongside the screenshot. Useful for competitive analysis, brand audits, or feeding design context to an AI.</p>
 
       <pre><code class="language-bash">POST https://api.webpeel.dev/v1/screenshot
-Authorization: Bearer wp_live_xxxx
+Authorization: Bearer wp_your_key_here
 Content-Type: application/json
 
 {
@@ -224,7 +224,7 @@ Content-Type: application/json
 
       <h3>curl — Full-page PNG</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/screenshot" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com","mode":"browser","fullPage":true}'</code></pre>
 
@@ -232,7 +232,7 @@ Content-Type: application/json
       <pre><code class="language-javascript">const response = await fetch('https://api.webpeel.dev/v1/screenshot', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer wp_live_xxxx',
+    'Authorization': 'Bearer wp_your_key_here',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -252,7 +252,7 @@ console.log('Fonts:', data.design.fonts);</code></pre>
 
 response = requests.post(
     'https://api.webpeel.dev/v1/screenshot',
-    headers={'Authorization': 'Bearer wp_live_xxxx'},
+    headers={'Authorization': 'Bearer wp_your_key_here'},
     json={
         'url': 'https://example.com',
         'mode': 'browser',

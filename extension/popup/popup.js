@@ -221,7 +221,7 @@ settingsBtn.addEventListener('click', () => {
   mainPanel.hidden = true;
   settingsPanel.hidden = false;
   apiKeyInput.value = apiKey ? '•'.repeat(Math.min(apiKey.length, 32)) : '';
-  apiKeyInput.placeholder = apiKey ? 'Key saved — enter new key to replace' : 'wp_live_xxxxxxxxxxxx';
+  apiKeyInput.placeholder = apiKey ? 'Key saved — enter new key to replace' : 'wp_your_key_here';
   settingsSaved.hidden = true;
 });
 
@@ -259,7 +259,7 @@ saveApiKeyBtn.addEventListener('click', async () => {
 clearApiKeyBtn.addEventListener('click', async () => {
   apiKey = '';
   apiKeyInput.value = '';
-  apiKeyInput.placeholder = 'wp_live_xxxxxxxxxxxx';
+  apiKeyInput.placeholder = 'wp_your_key_here';
   await storageSet('webpeel_api_key', '');
   updateModeBadge();
   settingsSaved.hidden = true;

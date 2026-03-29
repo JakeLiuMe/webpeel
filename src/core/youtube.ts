@@ -452,6 +452,7 @@ async function getTranscriptViaProxy(
   const MAX_RETRIES = 5;
   const usedSlots = new Set<number>();
 
+  // Public YouTube web-client InnerTube key embedded in their shipped client, not a WebPeel secret.
   const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {

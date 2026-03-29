@@ -17,7 +17,12 @@ for arg in "$@"; do
 done
 
 API_URL="${POSITIONAL[0]:-https://api.webpeel.dev}"
-API_KEY="${POSITIONAL[1]:-${WEBPEEL_API_KEY:-wp_live_5cf7c8362fdb0adb12619286091d76e7}}"
+API_KEY="${POSITIONAL[1]:-${WEBPEEL_API_KEY:-}}"
+
+if [[ -z "$API_KEY" ]]; then
+  echo "Missing API key. Pass it as the second argument or export WEBPEEL_API_KEY." >&2
+  exit 1
+fi
 
 # ── Colors ──────────────────────────────────────────
 RED='\033[0;31m'

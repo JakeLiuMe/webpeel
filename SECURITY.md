@@ -42,8 +42,8 @@ If you discover a security vulnerability in WebPeel, please report it responsibl
 
 | Version | Supported |
 |---------|-----------|
-| 0.8.x   | ✅ Yes    |
-| < 0.8   | ❌ No     |
+| Latest release / main | ✅ Yes |
+| Older releases | Best effort |
 
 ## Hall of Fame
 

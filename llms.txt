@@ -41,7 +41,7 @@ webpeel mcp                      Start MCP server for AI tools
 ## API
 
 POST https://api.webpeel.dev/v1/fetch
-Authorization: Bearer wp_live_YOUR_KEY
+Authorization: Bearer wp_your_key_here
 Content-Type: application/json
 
 {"url": "https://example.com", "format": "markdown"}

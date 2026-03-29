@@ -4,7 +4,12 @@
 set -euo pipefail
 
 API_URL="https://api.webpeel.dev"
-API_KEY="${WEBPEEL_API_KEY:-wp_live_c3b96132838b06d1e9ecb69f540f8381}"
+API_KEY="${WEBPEEL_API_KEY:-}"
+
+if [[ -z "$API_KEY" ]]; then
+  echo "Missing WEBPEEL_API_KEY." >&2
+  exit 1
+fi
 DISCORD_WEBHOOK="${DISCORD_WEBHOOK_URL:-}"
 FAIL=0
 RESULTS=""

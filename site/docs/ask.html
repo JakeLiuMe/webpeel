@@ -151,7 +151,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/ask?q=What+is+BM25+scoring&sources=3" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h2 id="post-request">POST /v1/ask</h2>
       <p>Ask a question with a JSON body — useful for longer or structured questions.</p>
@@ -164,7 +164,7 @@
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/ask" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "What is BM25 and how does it rank documents?",

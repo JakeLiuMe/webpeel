@@ -135,7 +135,7 @@
       <p>Pass a <code>proxy</code> parameter in the request body to route that specific fetch through a proxy.</p>
 
       <pre><code class="language-bash">POST https://api.webpeel.dev/v1/fetch
-Authorization: Bearer wp_live_xxxx
+Authorization: Bearer wp_your_key_here
 Content-Type: application/json
 
 {
@@ -145,7 +145,7 @@ Content-Type: application/json
 
       <h3>curl Example</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/fetch" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://geo-restricted-site.com",

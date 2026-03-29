@@ -1,8 +1,29 @@
-# CONTRIBUTING.md — Architecture Rules for Sub-Agents
+# Contributing to WebPeel
 
-**Read this FIRST before writing any code.** This file contains hard-won lessons from production bugs. Every rule exists because we shipped a broken release without it.
+Thanks for helping improve WebPeel.
+
+## Quick Start
+
+```bash
+git clone https://github.com/webpeel/webpeel.git
+cd webpeel
+npm install
+npm run build
+npm test
+```
+
+## Before You Open a PR
+
+- Keep diffs focused and avoid unrelated cleanup.
+- Test with real URLs when behavior changes.
+- Update docs/examples when public behavior changes.
+- If you touch MCP or CLI behavior, run the project-specific checks below.
 
 ---
+
+## Maintainer / Agent Guardrails
+
+The sections below are project-specific traps and verification rules learned from production bugs. They are especially important for maintainers and coding agents working across MCP, CLI, and API surfaces.
 
 ## Architecture Traps (Must Know)
 

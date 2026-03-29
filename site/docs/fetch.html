@@ -120,7 +120,7 @@
       <p>Fetch a URL via query parameters.</p>
 
       <pre><code class="language-bash">GET https://api.webpeel.dev/v1/fetch?url=https://example.com
-Authorization: Bearer wp_live_xxxx</code></pre>
+Authorization: Bearer wp_your_key_here</code></pre>
 
       <h3>Basic Parameters</h3>
       <table>
@@ -167,7 +167,7 @@ Authorization: Bearer wp_live_xxxx</code></pre>
       <p>Same parameters as GET, but passed as a JSON body. Useful for long URLs or complex configurations.</p>
 
       <pre><code class="language-bash">POST https://api.webpeel.dev/v1/fetch
-Authorization: Bearer wp_live_xxxx
+Authorization: Bearer wp_your_key_here
 Content-Type: application/json
 
 {
@@ -208,16 +208,16 @@ Content-Type: application/json
 
       <h3>curl — Basic fetch</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/fetch?url=https://news.ycombinator.com&format=markdown" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h3>curl — Ask a question</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/fetch?url=https://example.com&question=What+is+this+site+about%3F" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h3>Node.js — With summary</h3>
       <pre><code class="language-javascript">import { WebPeel } from 'webpeel';
 
-const wp = new WebPeel({ apiKey: 'wp_live_xxxx' });
+const wp = new WebPeel({ apiKey: 'wp_your_key_here' });
 
 const result = await wp.fetch('https://techcrunch.com/article/example', {
   summary: true,
@@ -233,7 +233,7 @@ console.log(result.tokenSavingsPercent); // e.g. 71</code></pre>
 
 response = requests.post(
     'https://api.webpeel.dev/v1/fetch',
-    headers={'Authorization': 'Bearer wp_live_xxxx'},
+    headers={'Authorization': 'Bearer wp_your_key_here'},
     json={
         'url': 'https://twitter.com/example',
         'render': True,

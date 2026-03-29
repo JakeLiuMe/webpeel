@@ -144,12 +144,12 @@ npx webpeel doctor</code></pre>
 
       <h3>curl</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h3>Node.js</h3>
       <pre><code class="language-javascript">import { WebPeel } from 'webpeel';
 
-const wp = new WebPeel({ apiKey: 'wp_live_xxxx' });
+const wp = new WebPeel({ apiKey: 'wp_your_key_here' });
 
 const result = await wp.fetch('https://example.com');
 console.log(result.content); // Clean markdown
@@ -159,7 +159,7 @@ console.log(result.tokens);  // Token count</code></pre>
       <h3>Python</h3>
       <pre><code class="language-python">from webpeel import WebPeel
 
-wp = WebPeel(api_key="wp_live_xxxx")
+wp = WebPeel(api_key="wp_your_key_here")
 
 result = wp.fetch("https://example.com")
 print(result.content)  # Clean markdown
@@ -183,7 +183,7 @@ npx webpeel webask "What is the capital of France?"
 
 # Or via the REST API
 curl "https://api.webpeel.dev/v1/ask?q=What+is+BM25" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <p>See the <a href="/docs/ask"><strong>/v1/ask documentation</strong></a> for the full response format and options.</p>
 

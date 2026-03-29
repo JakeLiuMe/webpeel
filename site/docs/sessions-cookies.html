@@ -156,7 +156,7 @@ webpeel "https://example.com/dashboard" \
 
       <h3 id="create-session">Create a Session</h3>
       <pre><code class="language-bash">curl -X POST "https://api.webpeel.dev/v1/session" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://instagram.com" }'
 
@@ -168,26 +168,26 @@ webpeel "https://example.com/dashboard" \
 
 # Navigate to login page
 curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/navigate" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://instagram.com/login" }'
 
 # Fill username
 curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/act" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "action": "fill", "selector": "#username", "value": "myuser" }'
 
 # Fill password and submit
 curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/act" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "action": "fill", "selector": "#password", "value": "mypass", "submit": true }'</code></pre>
 
       <h3 id="save-cookies">Save Cookies</h3>
       <p>Export all cookies from the current session to save for later:</p>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/session/$SESSION/cookies" \
-  -H "Authorization: Bearer wp_live_xxxx"
+  -H "Authorization: Bearer wp_your_key_here"
 
 # Returns:
 # {
@@ -201,13 +201,13 @@ curl -X POST "https://api.webpeel.dev/v1/session/$SESSION/act" \
       <p>Inject saved cookies into a new session to skip the login flow:</p>
       <pre><code class="language-bash"># Create a new session
 NEW_SESSION=$(curl -s -X POST "https://api.webpeel.dev/v1/session" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://instagram.com" }' | jq -r '.id')
 
 # Restore saved cookies
 curl -X POST "https://api.webpeel.dev/v1/session/$NEW_SESSION/cookies" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{
     "cookies": [
@@ -218,7 +218,7 @@ curl -X POST "https://api.webpeel.dev/v1/session/$NEW_SESSION/cookies" \
 
 # Now navigate to authenticated content
 curl -X POST "https://api.webpeel.dev/v1/session/$NEW_SESSION/navigate" \
-  -H "Authorization: Bearer wp_live_xxxx" \
+  -H "Authorization: Bearer wp_your_key_here" \
   -H "Content-Type: application/json" \
   -d '{ "url": "https://instagram.com/natgeo" }'</code></pre>
 

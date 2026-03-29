@@ -114,7 +114,7 @@
       <h2 id="api-key-auth">API Key Authentication</h2>
       <p>Pass your API key as a Bearer token in the <code>Authorization</code> header:</p>
 
-      <pre><code class="language-bash">Authorization: Bearer wp_live_xxxx</code></pre>
+      <pre><code class="language-bash">Authorization: Bearer wp_your_key_here</code></pre>
 
       <p>This applies to all API endpoints. Requests without a valid key return <code>401 Unauthorized</code>.</p>
 
@@ -145,12 +145,12 @@
 
       <h3>curl</h3>
       <pre><code class="language-bash">curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
-  -H "Authorization: Bearer wp_live_xxxx"</code></pre>
+  -H "Authorization: Bearer wp_your_key_here"</code></pre>
 
       <h3>Node.js</h3>
       <pre><code class="language-javascript">const response = await fetch('https://api.webpeel.dev/v1/fetch?url=https://example.com', {
   headers: {
-    'Authorization': 'Bearer wp_live_xxxx'
+    'Authorization': 'Bearer wp_your_key_here'
   }
 });
 const data = await response.json();
@@ -162,7 +162,7 @@ console.log(data.content);</code></pre>
 response = requests.get(
     'https://api.webpeel.dev/v1/fetch',
     params={'url': 'https://example.com'},
-    headers={'Authorization': 'Bearer wp_live_xxxx'}
+    headers={'Authorization': 'Bearer wp_your_key_here'}
 )
 data = response.json()
 print(data['content'])</code></pre>

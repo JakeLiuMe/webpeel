@@ -131,7 +131,7 @@ fi
 
 # 2b. Invalid key → should be rejected
 RESP=$(request POST "/v1/fetch" \
-  -H "Authorization: Bearer wp_live_INVALID_KEY_THAT_DOES_NOT_EXIST_123" \
+  -H "Authorization: Bearer wp_invalid_example_key" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://example.com"}')
 HTTP_CODE=$(echo "$RESP" | tail -1)

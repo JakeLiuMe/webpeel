@@ -86,7 +86,7 @@ For high-volume use, register at https://app.webpeel.dev for an API key:
 
 ```bash
 curl "https://api.webpeel.dev/v1/fetch?url=https://example.com" \
-  -H "Authorization: Bearer wp_live_YOUR_KEY"
+  -H "Authorization: Bearer wp_your_key_here"
 ```
 
 Free tier: 125 fetches/week. Pro ($9/mo): 1,250/week.

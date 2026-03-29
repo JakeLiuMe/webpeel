@@ -1,0 +1,77 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08111F"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="120" x2="1160" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.5" stop-color="#60A5FA"/>
+      <stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1280" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#020617" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="720" rx="28" fill="url(#bg)"/>
+  <rect x="48" y="48" width="1184" height="624" rx="28" fill="#0B1220" stroke="#1E293B" filter="url(#shadow)"/>
+
+  <text x="88" y="112" fill="#E2E8F0" font-size="42" font-family="Inter, Arial, sans-serif" font-weight="700">
+    Fetch the web once. Hand clean context to your agent.
+  </text>
+  <text x="88" y="148" fill="#94A3B8" font-size="22" font-family="Inter, Arial, sans-serif">
+    WebPeel auto-selects the right engine, strips noise, and returns markdown + structured metadata.
+  </text>
+
+  <rect x="88" y="186" width="470" height="360" rx="22" fill="#0F172A" stroke="#1E293B"/>
+  <text x="116" y="228" fill="#67E8F9" font-size="18" font-family="SFMono-Regular, Menlo, monospace">CLI / SDK / API input</text>
+  <text x="116" y="274" fill="#E2E8F0" font-size="24" font-family="SFMono-Regular, Menlo, monospace">$ npx webpeel https://docs.stripe.com</text>
+  <text x="116" y="314" fill="#CBD5E1" font-size="22" font-family="SFMono-Regular, Menlo, monospace">  --json --question "What changed?"</text>
+
+  <rect x="116" y="356" width="414" height="132" rx="16" fill="#020617" stroke="#1E293B"/>
+  <text x="140" y="392" fill="#94A3B8" font-size="17" font-family="Inter, Arial, sans-serif">WebPeel decides the fetch path automatically</text>
+  <text x="140" y="428" fill="#E2E8F0" font-size="22" font-family="SFMono-Regular, Menlo, monospace">HTTP → Domain API → Browser</text>
+  <text x="140" y="458" fill="#E2E8F0" font-size="22" font-family="SFMono-Regular, Menlo, monospace">→ Stealth → Cloaked → Cache</text>
+
+  <rect x="116" y="514" width="124" height="36" rx="18" fill="#082F49"/>
+  <text x="138" y="538" fill="#67E8F9" font-size="16" font-family="Inter, Arial, sans-serif">50+ extractors</text>
+  <rect x="250" y="514" width="132" height="36" rx="18" fill="#172554"/>
+  <text x="274" y="538" fill="#93C5FD" font-size="16" font-family="Inter, Arial, sans-serif">MCP / SDK / API</text>
+  <rect x="392" y="514" width="116" height="36" rx="18" fill="#2E1065"/>
+  <text x="414" y="538" fill="#C4B5FD" font-size="16" font-family="Inter, Arial, sans-serif">Trust + safety</text>
+
+  <path d="M586 366H694" stroke="url(#accent)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M682 348L716 366L682 384" stroke="url(#accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="606" y="334" fill="#94A3B8" font-size="16" font-family="Inter, Arial, sans-serif">clean + grounded output</text>
+
+  <rect x="722" y="186" width="470" height="414" rx="22" fill="#0F172A" stroke="#1E293B"/>
+  <text x="750" y="228" fill="#A5F3FC" font-size="18" font-family="SFMono-Regular, Menlo, monospace">JSON response your agent can actually use</text>
+
+  <text x="750" y="272" fill="#93C5FD" font-size="22" font-family="SFMono-Regular, Menlo, monospace">{</text>
+  <text x="780" y="304" fill="#F8FAFC" font-size="22" font-family="SFMono-Regular, Menlo, monospace">"title": "Stripe Docs — Billing",
+  </text>
+  <text x="780" y="338" fill="#F8FAFC" font-size="22" font-family="SFMono-Regular, Menlo, monospace">"engine": "domain-api",
+  </text>
+  <text x="780" y="372" fill="#F8FAFC" font-size="22" font-family="SFMono-Regular, Menlo, monospace">"markdown": "# Billing\n\nUse meters...",
+  </text>
+  <text x="780" y="406" fill="#F8FAFC" font-size="22" font-family="SFMono-Regular, Menlo, monospace">"tokens": 640,
+  </text>
+  <text x="780" y="440" fill="#F8FAFC" font-size="22" font-family="SFMono-Regular, Menlo, monospace">"savingsPct": 96,
+  </text>
+  <text x="780" y="474" fill="#F8FAFC" font-size="22" font-family="SFMono-Regular, Menlo, monospace">"trust": { "score": 0.97, "safe": true }
+  </text>
+  <text x="750" y="508" fill="#93C5FD" font-size="22" font-family="SFMono-Regular, Menlo, monospace">}</text>
+
+  <rect x="750" y="538" width="414" height="34" rx="12" fill="#111827"/>
+  <rect x="750" y="586" width="250" height="10" rx="5" fill="#22D3EE" fill-opacity="0.75"/>
+  <rect x="1008" y="586" width="86" height="10" rx="5" fill="#334155"/>
+  <text x="750" y="566" fill="#94A3B8" font-size="16" font-family="Inter, Arial, sans-serif">Clean markdown • structured data • screenshots • monitoring</text>
+
+  <text x="88" y="624" fill="#64748B" font-size="18" font-family="Inter, Arial, sans-serif">
+    WebPeel: the web data layer for AI agents
+  </text>
+  <text x="898" y="624" fill="#64748B" font-size="18" font-family="Inter, Arial, sans-serif">
+    webpeel.dev • API • CLI • MCP • SDKs
+  </text>
+</svg>

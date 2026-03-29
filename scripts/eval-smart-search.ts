@@ -24,7 +24,11 @@ const c = {
 };
 
 // ── Config ─────────────────────────────────────────────────────────────────
-const API_KEY = 'wp_live_5cf7c8362fdb0adb12619286091d76e7';
+const API_KEY = process.env.WEBPEEL_API_KEY || '';
+if (!API_KEY) {
+  console.error('Missing WEBPEEL_API_KEY. Export it before running smart-search evals.');
+  process.exit(1);
+}
 const CONCURRENCY = 5;
 
 const args = process.argv.slice(2);
