@@ -42,6 +42,38 @@ interface SmartResultMultiSource {
   videos?: Array<{ title: string; url: string; snippet?: string }>;
 }
 
+interface VerdictOption {
+  provider: string;
+  price: number;
+  currency: string;
+  route?: string;
+  url: string;
+  notes?: string;
+}
+
+interface TransactionalVerdict {
+  vertical: string;
+  headline: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  bestOption: VerdictOption;
+  alternatives: VerdictOption[];
+  totals?: {
+    oneWayLowest?: number;
+    returnLowest?: number;
+    roundTripLowest?: number;
+    currency: string;
+  };
+  caveats: string[];
+  query?: {
+    origin?: string;
+    destination?: string;
+    departDate?: string;
+    returnDate?: string;
+    isRoundTrip?: boolean;
+    mode?: string;
+  };
+}
+
 interface SmartResult {
   type: SmartResultType;
   source: string;
@@ -60,6 +92,7 @@ interface SmartResult {
   sources?: any[];
   timing?: { searchMs: number; peelMs: number; llmMs: number };
   mapUrl?: string; // Google Maps embed URL for local search results
+  verdict?: TransactionalVerdict;
 }
 
 interface ResultData {
@@ -80,6 +113,8 @@ interface ResultData {
   sources?: Source[];
   // Smart search result
   smartResult?: SmartResult;
+  // Transactional verdict (transit, gas, travel, etc.)
+  verdict?: TransactionalVerdict;
 }
 
 interface SearchResult {
@@ -473,6 +508,111 @@ function SearchResults({ results, onReadUrl }: { results: SearchResult[]; onRead
 
 // ─── Smart Result Cards ────────────────────────────────────────────────────────
 
+// ─── Verdict Card (transactional queries: transit, gas, travel) ───────────────
+
+const VERDICT_VERTICAL_ICONS: Record<string, string> = {
+  transit: '🚌',
+  gas: '⛽',
+  travel: '✈️',
+  equipment_rental: '🏗️',
+};
+
+const CONFIDENCE_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  HIGH:   { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: '✓ High confidence' },
+  MEDIUM: { bg: 'bg-amber-500/15',   text: 'text-amber-400',   label: '~ Medium confidence' },
+  LOW:    { bg: 'bg-zinc-700/40',     text: 'text-zinc-400',    label: '? Low confidence' },
+};
+
+function VerdictCard({ verdict }: { verdict: TransactionalVerdict }) {
+  if (!verdict?.bestOption) return null;
+
+  const best = verdict.bestOption;
+  const icon = VERDICT_VERTICAL_ICONS[verdict.vertical] || '💰';
+  const conf = CONFIDENCE_STYLES[verdict.confidence] || CONFIDENCE_STYLES.MEDIUM;
+  const prettyDate = (value?: string) => value ? value.replace(/\b[a-z]/g, (ch) => ch.toUpperCase()) : value;
+  const tripMeta = verdict.query?.departDate ? `Outbound ${prettyDate(verdict.query.departDate)}` : '';
+
+  return (
+    <div
+      className="mb-4 p-6 rounded-2xl border border-emerald-500/20 shadow-2xl shadow-black/20"
+      style={{ background: 'linear-gradient(135deg, rgba(52,211,153,0.08), rgba(129,140,248,0.06))' }}
+    >
+      <div className="flex items-center gap-2 flex-wrap mb-3.5">
+        <span className="text-lg">{icon}</span>
+        <span className="text-[11px] uppercase tracking-[0.08em] font-bold text-zinc-400">Best fare found</span>
+        <span className={`ml-auto text-[10px] px-2.5 py-1 rounded-full ${conf.bg} ${conf.text} whitespace-nowrap border border-white/10`}>
+          {conf.label}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-3.5 p-4 rounded-xl bg-white/[0.045] border border-white/[0.08] flex-wrap">
+        <div className="flex-1 min-w-0">
+          <div className="text-[13px] text-zinc-400 mb-1.5">Best one-way fare</div>
+          <div className="text-[32px] leading-none font-extrabold text-emerald-400 tracking-[-0.03em]">
+            ${best.price.toFixed(2)}
+          </div>
+          <div className="text-sm text-zinc-100 mt-2 font-semibold">
+            {best.provider}
+            {best.route ? ` · ${best.route}` : ''}
+          </div>
+          {tripMeta && <div className="text-xs text-zinc-500 mt-1">{tripMeta}</div>}
+        </div>
+        <a
+          href={best.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-5 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-extrabold transition-all shadow-lg shadow-indigo-500/25 whitespace-nowrap"
+        >
+          Book one-way ${best.price.toFixed(2)} →
+        </a>
+      </div>
+
+      {verdict.alternatives.length > 0 && (
+        <div className="mt-3.5">
+          <div className="text-[11px] uppercase tracking-[0.06em] font-bold text-zinc-500 mb-2">Compare other fares</div>
+          <div className="flex flex-wrap gap-2">
+            {verdict.alternatives.slice(0, 4).map((alt, i) => (
+              <a
+                key={i}
+                href={alt.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-indigo-400/30 transition-colors no-underline"
+              >
+                <span className="text-sm font-bold text-zinc-200">${alt.price.toFixed(2)}</span>
+                <span className="text-xs text-zinc-400">{alt.provider}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {verdict.totals?.roundTripLowest && (
+        <div className="mt-4 px-3.5 py-3 rounded-xl bg-indigo-500/[0.07] border border-indigo-400/[0.18]">
+          <div className="text-[11px] uppercase tracking-[0.06em] font-bold text-violet-300/90 mb-1">Estimated round-trip total</div>
+          <div className="text-sm text-zinc-100">
+            🔄 <strong className="ml-1">~${verdict.totals.roundTripLowest.toFixed(2)}</strong>
+          </div>
+          {(verdict.totals.oneWayLowest != null || verdict.totals.returnLowest != null || verdict.query?.returnDate) && (
+            <div className="mt-1 text-xs text-zinc-400">
+              {verdict.query?.returnDate ? `Return searched for ${prettyDate(verdict.query.returnDate)} • ` : ''}
+              Based on separate fares:
+              {verdict.totals.oneWayLowest != null ? ` outbound $${verdict.totals.oneWayLowest.toFixed(2)}` : ' outbound unavailable'}
+              {verdict.totals.returnLowest != null ? ` + return from $${verdict.totals.returnLowest.toFixed(2)}` : ''}
+            </div>
+          )}
+        </div>
+      )}
+
+      {verdict.caveats?.[0] && (
+        <p className="mt-3 text-[11px] text-zinc-500 leading-relaxed">{verdict.caveats[0]}</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Smart Result Cards ────────────────────────────────────────────────────────
+
 const SMART_SOURCE_ICONS: Record<string, string> = {
   cars: '🚗',
   flights: '✈️',
@@ -568,6 +708,9 @@ function SmartResultCard({ smartResult }: { smartResult: SmartResult }) {
           />
         </div>
       )}
+
+      {/* Verdict card — transactional queries (transit, gas, travel) */}
+      {smartResult.verdict && <VerdictCard verdict={smartResult.verdict} />}
 
       {/* AI Answer section — shown ABOVE listings when present */}
       {smartResult.answer && (
@@ -1280,6 +1423,9 @@ function ResultCard({
                 </div>
               )}
 
+              {/* Verdict card — transactional queries (transit, gas, travel) */}
+              {result.verdict && <VerdictCard verdict={result.verdict} />}
+
               {/* Source cards */}
               {result.sources && result.sources.length > 0 && (
                 <SourceCards sources={result.sources} />
@@ -1644,7 +1790,7 @@ export default function ReadPage() {
                 const totalSecs = cachedSmart.fetchTimeMs ? (cachedSmart.fetchTimeMs / 1000).toFixed(1) : undefined;
                 const sourceCount = cachedSmart.sources?.length || 0;
                 const timingNote = totalSecs ? `${sourceCount} source${sourceCount !== 1 ? 's' : ''} · ${totalSecs}s` : undefined;
-                data = { detectedMode: 'ask', answer: cachedSmart.answer, sources: cachedSmart.sources?.map((s: any) => ({ title: s.title || s.url, url: s.url, domain: s.domain, credibility: { tier: 'general' as const, score: 0.5, signals: [] } })) || [], fetchTimeMs: cachedSmart.fetchTimeMs, content: timingNote ? `<!-- timing: ${timingNote} -->` : '' };
+                data = { detectedMode: 'ask', answer: cachedSmart.answer, sources: cachedSmart.sources?.map((s: any) => ({ title: s.title || s.url, url: s.url, domain: s.domain, credibility: { tier: 'general' as const, score: 0.5, signals: [] } })) || [], fetchTimeMs: cachedSmart.fetchTimeMs, content: timingNote ? `<!-- timing: ${timingNote} -->` : '', verdict: cachedSmart.verdict };
               } else {
                 data = { detectedMode: 'search', smartResult: cachedSmart, content: cachedSmart.content, title: cachedSmart.title || `${cachedSmart.source} results`, tokens: cachedSmart.tokens, fetchTimeMs: cachedSmart.fetchTimeMs };
               }
@@ -1710,6 +1856,7 @@ export default function ReadPage() {
                   })) || [],
                   fetchTimeMs: finalSmart.fetchTimeMs,
                   content: timingNote ? `<!-- timing: ${timingNote} -->` : '',
+                  verdict: finalSmart.verdict,
                 });
               } else if (isGeneralSearch && finalSmart.results) {
                 const getDomain = (url: string) => {
@@ -1787,6 +1934,7 @@ export default function ReadPage() {
               fetchTimeMs: smartFallback.fetchTimeMs,
               // Encode timing note in content for display
               content: timingNote ? `<!-- timing: ${timingNote} -->` : '',
+              verdict: smartFallback.verdict,
             };
           } else if (isGeneralSearch && smartFallback.results) {
             // Fallback: LLM unavailable — render as classic search results

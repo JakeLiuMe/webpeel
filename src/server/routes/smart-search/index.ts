@@ -22,7 +22,7 @@ const IoRedis: any = (IoRedisModule as any).default ?? IoRedisModule;
 import type { Redis as RedisType } from 'ioredis';
 
 // Re-export types and key functions for external consumers
-export type { SearchIntent, SmartSearchResult } from './types.js';
+export type { SearchIntent, SmartSearchResult, TransactionalVerdict, VerdictOption } from './types.js';
 export { detectSearchIntent } from './intent.js';
 
 // Internal imports
@@ -186,7 +186,8 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
         /\b(compare|vs\.?|versus|which is better|difference between)\b/.test(queryLower) ||
         (/\b(near me|near\s+\w+|open now|open today|open on|what time|is .* open|hours|closest|nearest)\b/.test(queryLower) && /\b(buy|where|store|shop|near|close to|around)\b/.test(queryLower)) ||
         (/\b(plumber|electrician|mechanic|dentist|doctor|lawyer|therapist|vet|salon|barber|gym|daycare)\b/.test(queryLower) && /\b(near|in|around|open|best|cheap|emergency)\b/.test(queryLower)) ||
-        (/\b(cruise|vacation|resort|trip|travel|getaway|tour|safari|honeymoon|disneyland|disney|universal|six flags|theme park)\b/.test(queryLower) && /\b(cheap|cheapest|price|ticket|book|deal|package)\b/.test(queryLower))
+        (/\b(cruise|vacation|resort|trip|travel|getaway|tour|safari|honeymoon|disneyland|disney|universal|six flags|theme park)\b/.test(queryLower) && /\b(cheap|cheapest|price|ticket|book|deal|package)\b/.test(queryLower)) ||
+        (/\b(bus|buses|coach|greyhound|flixbus|megabus|busbud|wanderu|train|trains|amtrak|ferry|ferries)\b/.test(queryLower) && /\b(ticket|tickets|book|booking|cheap|cheapest|price|fare|fares|route|take|trip|from|to)\b/.test(queryLower))
       );
 
       if (intent.type === 'general' && !isExplicitGeneral && process.env.OLLAMA_URL) {

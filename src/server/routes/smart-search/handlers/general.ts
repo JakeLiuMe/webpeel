@@ -5,8 +5,105 @@ import {
 } from '../../../../core/search-provider.js';
 import { getSourceCredibility } from '../../../../core/source-credibility.js';
 import { splitIntoBlocks, scoreBM25 } from '../../../../core/bm25-filter.js';
-import type { SmartSearchResult } from '../types.js';
+import type { SmartSearchResult, TransactionalVerdict } from '../types.js';
 import { callLLMQuick, sanitizeSearchQuery, PROMPT_INJECTION_DEFENSE } from '../llm.js';
+import { buildTransitVerdict, type TransitSourceResult } from './transit-verdict.js';
+
+/**
+ * Parse a transit/travel booking query to extract origin, destination, dates, and trip type.
+ */
+export function parseTransitQuery(query: string): {
+  origin: string;
+  destination: string;
+  departDate: string;
+  returnDate: string;
+  isRoundTrip: boolean;
+  mode: string;
+} {
+  const q = query.toLowerCase();
+
+  // Detect transport mode
+  let mode = 'bus';
+  if (/\b(train|amtrak|acela|metro.?north|lirr|brightline)\b/.test(q)) mode = 'train';
+  else if (/\b(ferry|ferries|water taxi)\b/.test(q)) mode = 'ferry';
+
+  // Detect round trip
+  const isRoundTrip = /\b(round\s*trip|return|back|both\s*ways|come\s*back)\b/.test(q);
+
+  // Extract origin and destination
+  let origin = '';
+  let destination = '';
+
+  // Clean up noise words helper
+  const stripNoise = (s: string) => {
+    let cleaned = s.trim();
+    // Repeatedly strip trailing noise words
+    const noisePattern = /\b(i|want|to|the|a|an|take|cheap|cheapest|find|help|me|please|it|my|is|and|but|or)\s*$/i;
+    for (let i = 0; i < 5; i++) {
+      const before = cleaned;
+      cleaned = cleaned.replace(noisePattern, '').trim();
+      if (cleaned === before) break;
+    }
+    // Also strip leading noise words
+    const leadingNoise = /^\s*(i|want|to|the|a|an|take|cheap|cheapest|find|help|me|please|it|my|is|and|but|or)\b\s*/i;
+    for (let i = 0; i < 5; i++) {
+      const before = cleaned;
+      cleaned = cleaned.replace(leadingNoise, '').trim();
+      if (cleaned === before) break;
+    }
+    return cleaned;
+  };
+
+  // City name pattern: letters and spaces, not starting with common noise words
+  // We use a terminator approach: capture until we hit a known stop word or end of string
+  const STOP = '(?=\\s+(?:i\\b|on\\b|for\\b|cheap|bus\\b|train\\b|ferry|ticket|price|depart|return|round|one\\b|april|may|jun|jul|aug|sep|oct|nov|dec|jan|feb|mar|\\d)|\\s*[.,;!?]|\\s*$)';
+
+  // Pattern 1: "from <origin> to <destination>" — most common transit pattern
+  const fromToRe = new RegExp(`\\bfrom\\s+([a-z][a-z\\s.]{1,30}?)\\s+(?:to|→|->)\\s+([a-z][a-z\\s.]{1,30}?)${STOP}`, 'i');
+  const fromToMatch = q.match(fromToRe);
+  if (fromToMatch) {
+    const potentialOrigin = stripNoise(fromToMatch[1]);
+    const potentialDest = stripNoise(fromToMatch[2]);
+    if (potentialOrigin.length >= 2 && potentialDest.length >= 2) {
+      origin = potentialOrigin;
+      destination = potentialDest;
+    }
+  }
+
+  // Pattern 2: "<city> ticket from <city>" (e.g., "boston ticket from new york")
+  if (!origin || !destination) {
+    const ticketFromRe = new RegExp(`\\b([a-z][a-z\\s.]{1,30}?)\\s+ticket(?:s)?\\s+from\\s+([a-z][a-z\\s.]{1,30}?)${STOP}`, 'i');
+    const ticketFromMatch = q.match(ticketFromRe);
+    if (ticketFromMatch) {
+      const potentialDest = stripNoise(ticketFromMatch[1]);
+      const potentialOrigin = stripNoise(ticketFromMatch[2]);
+      if (potentialOrigin.length >= 2 && potentialDest.length >= 2) {
+        destination = potentialDest;
+        origin = potentialOrigin;
+      }
+    }
+  }
+
+  // Pattern 3: "to <destination> from <origin>"
+  if (!origin || !destination) {
+    const toFromRe = new RegExp(`\\b(?:to|→|->)\\s+([a-z][a-z\\s.]{1,30}?)\\s+from\\s+([a-z][a-z\\s.]{1,30}?)${STOP}`, 'i');
+    const toFromMatch = q.match(toFromRe);
+    if (toFromMatch) {
+      destination = stripNoise(toFromMatch[1]);
+      origin = stripNoise(toFromMatch[2]);
+    }
+  }
+
+  // Extract dates (basic: "april 2", "apr 5th", "4/2", etc.)
+  let departDate = '';
+  let returnDate = '';
+  const datePatterns = q.matchAll(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?|\b(\d{1,2})\/(\d{1,2})\b/gi);
+  const dates = [...datePatterns].map(m => m[0]);
+  if (dates.length >= 1) departDate = dates[0];
+  if (dates.length >= 2) returnDate = dates[1];
+
+  return { origin, destination, departDate, returnDate, isRoundTrip, mode };
+}
 
 export async function handleGeneralSearch(query: string): Promise<SmartSearchResult> {
   const t0 = Date.now();
@@ -17,8 +114,10 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
   const isServiceBusiness = /\b(plumber|electrician|mechanic|dentist|doctor|lawyer|locksmith|handyman|contractor|vet|salon|barber|spa|gym|daycare|moving|storage|cleaning|pest control|roofing|hvac|landscaping)\b/.test(query) && /\b(near|in|around|open|best|cheap|emergency|24.hour)\b/.test(query);
   const isGasStation = /\b(gas|gasoline|fuel|gas station|petrol|diesel)\b/.test(query) && /\b(cheap|cheapest|price|near|closest|best)\b/.test(query);
   const isTravelBooking = /\b(cruise|vacation|resort|all.inclusive|trip|package|tour|excursion|safari|honeymoon|disneyland|disney world|disney cruise|universal|theme park|spring break)\b/.test(query) && /\b(cheap|cheapest|price|ticket|book|deal|cost|per person)\b/.test(query);
+  const isTransitBooking = /\b(bus|buses|coach|greyhound|flixbus|megabus|busbud|wanderu|peter pan|ourbus|boltbus|train|trains|amtrak|acela|metro.?north|lirr|nj\s*transit|brightline|ferry|ferries|water taxi)\b/i.test(query) && /\b(ticket|tickets|book|booking|cheap|cheapest|price|schedule|ride|fare|fares|route|take|travel|trip|round\s*trip|one\s*way|depart|return|from|to)\b/i.test(query);
 
   let localBusinesses: any[] = [];
+  let transitVerdict: TransactionalVerdict | null = null;
 
   // ── Try Places API (New) for gas stations (has fuel prices) ──────────────
   if (isGasStation && GOOGLE_PLACES_KEY) {
@@ -293,6 +392,136 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
         }
       }
     } catch { /* travel price search failed */ }
+  } else if (isTransitBooking) {
+    // ── Transit / ground-travel booking (bus, train, ferry) ──────────────
+    // Parse origin, destination, and dates from query for targeted route searches
+    try {
+      const transitInfo = parseTransitQuery(query);
+      const { origin, destination, isRoundTrip } = transitInfo;
+
+      const TRANSIT_DOMAINS = ['wanderu.com', 'flixbus.com', 'greyhound.com', 'busbud.com', 'amtrak.com', 'rome2rio.com'];
+      const siteFilter = TRANSIT_DOMAINS.map(d => `site:${d}`).join(' OR ');
+
+      // Search outbound
+      const outboundQuery = origin && destination
+        ? `${origin} to ${destination} bus train ticket price ${siteFilter}`
+        : `${query} ${siteFilter}`;
+      const outboundResults = await searchProvider.searchWeb(outboundQuery, { count: 5 });
+
+      // Search return leg if round trip
+      let returnResults: WebSearchResult[] = [];
+      if (isRoundTrip && origin && destination) {
+        const returnQuery = `${destination} to ${origin} bus train ticket price ${siteFilter}`;
+        returnResults = await searchProvider.searchWeb(returnQuery, { count: 3 });
+      }
+
+      // Tag return results so we can propagate leg info downstream
+      const allTransitResults = [
+        ...outboundResults.map(r => ({ ...r, _leg: 'outbound' as const })),
+        ...returnResults.map(r => ({ ...r, _leg: 'return' as const })),
+      ];
+      const transitPrices: string[] = [];
+
+      // Peel top route pages from booking sites (up to 6 — reserve 2 for return)
+      const outboundPeelTargets = allTransitResults
+        .filter(r => r._leg === 'outbound' && TRANSIT_DOMAINS.some(d => r.url.includes(d)))
+        .slice(0, 4);
+      const returnPeelTargets = allTransitResults
+        .filter(r => r._leg === 'return' && TRANSIT_DOMAINS.some(d => r.url.includes(d)))
+        .slice(0, 2);
+      const peelTargets = [...outboundPeelTargets, ...returnPeelTargets];
+
+      const transitPeeled = await Promise.allSettled(
+        peelTargets.map(async (r) => {
+          const peeled = await peel(r.url, { timeout: 6000, maxTokens: 3000 });
+          return { url: r.url, title: r.title || peeled.title || '', content: peeled.content || '', snippet: r.snippet || '', legHint: r._leg };
+        })
+      );
+
+      for (const settled of transitPeeled) {
+        if (settled.status === 'fulfilled' && settled.value.content) {
+          const v = settled.value;
+          const text = `${v.content} ${v.snippet}`;
+          const priceMatches = text.match(/\$\d+(?:\.\d{2})?/g);
+          if (priceMatches) transitPrices.push(...priceMatches);
+
+          (results as any[]).push({
+            title: v.title,
+            url: v.url,
+            snippet: v.snippet,
+            domain: getDomain(v.url),
+            content: v.content.substring(0, 3000),
+            isPricing: true,
+            isTransitSource: true,
+            legHint: v.legHint,
+          });
+        }
+      }
+
+      // Also add non-peeled transit results with snippets
+      for (const r of allTransitResults) {
+        if (!peelTargets.some(pt => pt.url === r.url) && r.snippet) {
+          const text = `${r.title || ''} ${r.snippet}`;
+          const priceMatches = text.match(/\$\d+(?:\.\d{2})?/g);
+          if (priceMatches) transitPrices.push(...priceMatches);
+          (results as any[]).push({
+            title: r.title,
+            url: r.url,
+            snippet: r.snippet,
+            domain: getDomain(r.url),
+            content: r.snippet,
+            isPricing: true,
+            isTransitSource: true,
+            legHint: r._leg,
+          });
+        }
+      }
+
+      // ── Build structured transit verdict ──────────────────────────────
+      const transitSourcesForVerdict: TransitSourceResult[] = (results as any[])
+        .filter((r: any) => r.isTransitSource)
+        .map((r: any) => ({
+          url: r.url,
+          domain: r.domain || getDomain(r.url),
+          title: r.title || '',
+          content: r.content || '',
+          snippet: r.snippet || '',
+          isTransitSource: true,
+          legHint: r.legHint,
+        }));
+
+      transitVerdict = buildTransitVerdict({
+        query,
+        transitSources: transitSourcesForVerdict,
+        parsedQuery: transitInfo,
+      });
+
+      // Build pricingInfo from the verdict (single source of truth) or fall back to raw prices
+      if (transitVerdict) {
+        const routeLabel = origin && destination
+          ? `${origin.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} → ${destination.split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`
+          : 'this route';
+        const allAltPrices = transitVerdict.alternatives.map(a => `$${a.price.toFixed(2)} (${a.provider})`);
+        pricingInfo = `\n\n## 🚌 Transit Prices Found\nCheapest: **$${transitVerdict.bestOption.price.toFixed(2)}** on ${transitVerdict.bestOption.provider} for ${routeLabel}`;
+        if (allAltPrices.length > 0) {
+          pricingInfo += `\nAlternatives: ${allAltPrices.join(', ')}`;
+        }
+        if (transitVerdict.totals?.roundTripLowest) {
+          pricingInfo += `\n🔄 Round trip from **$${transitVerdict.totals.roundTripLowest.toFixed(2)}**`;
+        }
+        console.log(`[smart-search] Transit verdict built: ${transitVerdict.headline} (${transitVerdict.confidence})`);
+      } else if (transitPrices.length > 0) {
+        const uniquePrices = [...new Set(transitPrices)]
+          .map(p => parseFloat(p.replace('$', '')))
+          .filter(p => p > 0 && p < 1000)
+          .sort((a, b) => a - b);
+        if (uniquePrices.length > 0) {
+          const cheapest = uniquePrices[0];
+          const routeLabel = origin && destination ? `${origin} → ${destination}` : 'this route';
+          pricingInfo = `\n\n## 🚌 Transit Prices Found\nCheapest: **$${cheapest.toFixed(2)}** for ${routeLabel}\nAll prices found: ${uniquePrices.slice(0, 10).map(p => `$${p.toFixed(2)}`).join(', ')}`;
+        }
+      }
+    } catch { /* transit price search failed — non-fatal */ }
   } else if (isEquipmentRental) {
     try {
       const pricingResults = await searchProvider.searchWeb(`${query} cost price per day rate 2025`, { count: 3 });
@@ -345,19 +574,39 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
       isOpenNow: b.isOpenNow,
       ...(b.fuelPrices && Object.keys(b.fuelPrices).length > 0 ? { fuelPrices: b.fuelPrices } : {}),
     })));
+  } else if (pricingInfo) {
+    content = `${pricingInfo.trim()}\n\n---\n\n## 🔍 Web Results\n\n${content}`;
   }
 
-  // Build sources array from successfully peeled results (all 5)
-  const sources = enriched
-    .filter((s) => s.status === 'fulfilled' && s.value.content !== null)
-    .map((s) => {
-      const v = (s as PromiseFulfilledResult<any>).value;
-      return {
-        title: v.title,
-        url: v.url,
-        domain: getDomain(v.url),
-      };
-    });
+  const extraPricingSources = (results as any[])
+    .filter((r: any) => r.isPricing && r.url && (r.content || r.snippet))
+    .slice(0, 4)
+    .map((r: any, i: number) => ({
+      index: i + 1,
+      title: r.title,
+      url: r.url,
+      domain: r.domain || getDomain(r.url),
+      content: (r.content || r.snippet || '').slice(0, 800),
+    }));
+
+  // Build sources array from successfully peeled results plus extra pricing sources
+  const sources = [
+    ...enriched
+      .filter((s) => s.status === 'fulfilled' && s.value.content !== null)
+      .map((s) => {
+        const v = (s as PromiseFulfilledResult<any>).value;
+        return {
+          title: v.title,
+          url: v.url,
+          domain: getDomain(v.url),
+        };
+      }),
+    ...extraPricingSources.map((s) => ({
+      title: s.title,
+      url: s.url,
+      domain: s.domain,
+    })),
+  ].filter((source, index, arr) => arr.findIndex((s) => s.url === source.url) === index).slice(0, 8);
 
   // ── AI Synthesis (uses Groq/OpenAI/Glama/Ollama — callLLMQuick picks best) ──
   let answer: string | undefined;
@@ -403,7 +652,7 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
         .filter(Boolean)
         .join('\n\n---\n\n');
 
-      const systemPrompt = `${PROMPT_INJECTION_DEFENSE}Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources inline as [1], [2], [3] etc. At the end, list Sources with their URLs. If sources disagree, note the difference.${isEquipmentRental ? ' IMPORTANT: Include specific rental prices/rates per day or week if available in the sources. Mention the cheapest option.' : ''}${isServiceBusiness ? ' IMPORTANT: Include business hours, phone numbers, and whether they are open now.' : ''}${isGasStation ? ' IMPORTANT: Include gas prices per gallon if available. Mention the cheapest station, its address, and current price. Sort by price.' : ''}${isTravelBooking ? ' IMPORTANT: List specific prices per person for different cruise lines/options. Format as a comparison: cruise line, ship name, duration, departure port, price. Sort cheapest first. Include dates if available.' : ''} Max 200 words.`;
+      const systemPrompt = `${PROMPT_INJECTION_DEFENSE}Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources inline as [1], [2], [3] etc. At the end, list Sources with their URLs. If sources disagree, note the difference.${isEquipmentRental ? ' IMPORTANT: Include specific rental prices/rates per day or week if available in the sources. Mention the cheapest option.' : ''}${isServiceBusiness ? ' IMPORTANT: Include business hours, phone numbers, and whether they are open now.' : ''}${isGasStation ? ' IMPORTANT: Include gas prices per gallon if available. Mention the cheapest station, its address, and current price. Sort by price.' : ''}${isTravelBooking ? ' IMPORTANT: List specific prices per person for different cruise lines/options. Format as a comparison: cruise line, ship name, duration, departure port, price. Sort cheapest first. Include dates if available.' : ''}${isTransitBooking ? ' IMPORTANT: This is a bus/train/ferry ticket query. Lead with the cheapest price found, the provider (e.g. FlixBus, Greyhound), route, and a direct link. If a round trip is implied, list cheapest outbound AND cheapest return separately, then total. Use ONLY prices that appear in the source data — do NOT invent prices. If multiple providers have prices, compare them. Never say "check with bus companies directly" if you have concrete prices from the sources.' : ''} Max 200 words.`;
 
       // BM25 highlights are already lean (~800 chars/source) — allow more total for 8 sources
       const truncatedSources = sourceContent.substring(0, 4000);
@@ -461,5 +710,6 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
     ...(sources.length > 0 ? { sources } : {}),
     timing: { searchMs, peelMs, llmMs },
     ...(mapUrl ? { mapUrl } : {}),
+    ...(transitVerdict ? { verdict: transitVerdict } : {}),
   };
 }

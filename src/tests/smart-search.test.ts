@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { detectSearchIntent } from '../server/routes/smart-search/index.js';
+import { parseTransitQuery } from '../server/routes/smart-search/handlers/general.js';
 
 describe('detectSearchIntent', () => {
   it('detects car search queries', () => {
@@ -78,5 +79,82 @@ describe('detectSearchIntent', () => {
     // (typos, creative/colloquial phrasing that doesn't match the keyword lists)
     expect(detectSearchIntent('I need wheels for the weekend').type).toBe('general');
     expect(detectSearchIntent('craving some brgr near me').type).toBe('general'); // typo: brgr
+  });
+
+  // ── Transit / ground-travel ticket queries must NOT be products ──
+  it('detects transit/bus ticket queries as general (not products)', () => {
+    // Jake's exact failing query
+    const jakeQuery = 'help me find the cheapest boston ticket from new york i want to take bus. april 2 and i want to take the bus back at april 5th';
+    const result = detectSearchIntent(jakeQuery);
+    expect(result.type).toBe('general');
+    expect(result.type).not.toBe('products');
+    expect(result.params.isTransit).toBe('true');
+  });
+
+  it('detects various transit booking queries as general with isTransit', () => {
+    // Bus queries
+    expect(detectSearchIntent('cheap bus ticket from NYC to Boston').type).toBe('general');
+    expect(detectSearchIntent('greyhound bus from new york to philadelphia').type).toBe('general');
+    expect(detectSearchIntent('flixbus ticket NYC to DC cheapest').type).toBe('general');
+    expect(detectSearchIntent('book a bus from chicago to detroit').type).toBe('general');
+
+    // Train queries
+    expect(detectSearchIntent('amtrak tickets from DC to New York').type).toBe('general');
+    expect(detectSearchIntent('cheapest train from boston to NYC').type).toBe('general');
+    expect(detectSearchIntent('acela ticket price DC to NYC').type).toBe('general');
+
+    // Ferry queries
+    expect(detectSearchIntent('ferry tickets from manhattan to staten island').type).toBe('general');
+
+    // Round trip
+    expect(detectSearchIntent('bus round trip NYC to Boston April 2 return April 5').type).toBe('general');
+
+    // All should have isTransit param
+    expect(detectSearchIntent('cheap bus ticket from NYC to Boston').params.isTransit).toBe('true');
+    expect(detectSearchIntent('amtrak tickets from DC to New York').params.isTransit).toBe('true');
+  });
+
+  it('transit queries have suggestedDomains for booking sites', () => {
+    const result = detectSearchIntent('cheap bus ticket from NYC to Boston');
+    expect(result.suggestedDomains).toBeDefined();
+    expect(result.suggestedDomains).toContain('wanderu.com');
+    expect(result.suggestedDomains).toContain('flixbus.com');
+    expect(result.suggestedDomains).toContain('greyhound.com');
+  });
+});
+
+describe('parseTransitQuery', () => {
+  it('parses origin and destination from "from X to Y" pattern', () => {
+    const result = parseTransitQuery('cheap bus ticket from new york to boston');
+    expect(result.origin).toBe('new york');
+    expect(result.destination).toBe('boston');
+    expect(result.mode).toBe('bus');
+  });
+
+  it('parses Jake exact query with "boston ticket from new york" pattern', () => {
+    const result = parseTransitQuery('help me find the cheapest boston ticket from new york i want to take bus. april 2 and i want to take the bus back at april 5th');
+    expect(result.origin).toBeTruthy();
+    expect(result.destination).toBeTruthy();
+    expect(result.isRoundTrip).toBe(true);
+    expect(result.mode).toBe('bus');
+  });
+
+  it('detects round trip intent', () => {
+    expect(parseTransitQuery('bus round trip NYC to Boston').isRoundTrip).toBe(true);
+    expect(parseTransitQuery('bus from NYC to Boston and back').isRoundTrip).toBe(true);
+    expect(parseTransitQuery('bus from NYC to Boston return April 5').isRoundTrip).toBe(true);
+    expect(parseTransitQuery('one way bus NYC to Boston').isRoundTrip).toBe(false);
+  });
+
+  it('detects transport mode', () => {
+    expect(parseTransitQuery('amtrak tickets NYC to DC').mode).toBe('train');
+    expect(parseTransitQuery('ferry from manhattan to staten island').mode).toBe('ferry');
+    expect(parseTransitQuery('greyhound bus from NYC to Philly').mode).toBe('bus');
+  });
+
+  it('extracts dates', () => {
+    const result = parseTransitQuery('bus from NYC to Boston april 2 return april 5');
+    expect(result.departDate).toMatch(/april 2/i);
+    expect(result.returnDate).toMatch(/april 5/i);
   });
 });

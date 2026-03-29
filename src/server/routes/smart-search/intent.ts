@@ -129,6 +129,19 @@ export function detectSearchIntent(query: string): SearchIntent {
   if (/\b(disneyland|disney world|disney cruise|universal studios|six flags|legoland|seaworld|knott|cedar point|theme park|amusement park|water park)\b/.test(q) && /\b(ticket|tickets|pass|price|cheap|deal|cheapest)\b/.test(q)) {
     return addDomainSuggestions({ type: 'general', query: q, params: {} });
   }
+  // ── Transit / ground-travel booking queries (bus, train, ferry) ──
+  // Must come BEFORE the generic products check so "cheapest bus ticket" → general, not products
+  if (
+    /\b(bus|buses|coach|greyhound|flixbus|megabus|busbud|wanderu|peter pan|ourbus|boltbus|train|trains|amtrak|acela|metro.?north|lirr|nj\s*transit|brightline|ferry|ferries|water taxi)\b/.test(q) &&
+    /\b(ticket|tickets|book|booking|cheap|cheapest|price|schedule|ride|fare|fares|route|take|travel|trip|round\s*trip|one\s*way|depart|return|from|to)\b/.test(q)
+  ) {
+    return addDomainSuggestions({
+      type: 'general',
+      query: q,
+      params: { isTransit: 'true' },
+      suggestedDomains: ['wanderu.com', 'flixbus.com', 'greyhound.com', 'busbud.com', 'amtrak.com', 'rome2rio.com'],
+    });
+  }
   if (
     (/\b(buy|shop|shopping|purchase|order|cheap|cheapest|best price|under \$|price|deal|discount|sale)\b/.test(q) && !/\b(near|near me|close to|around|open|store|where)\b/.test(q)) ||
     /\b(shoes|sneakers|boots|sandals|heels|loafers|watch|watches|headphones|earbuds|earphones|laptop|laptops|phone|phones|iphone|android|tablet|camera|skincare|face wash|facewash|moisturizer|serum|shampoo|conditioner|sunscreen|sunblock|backpack|bag|jacket|hoodie|shirt|pants|jeans|shorts|dress|coat|glasses|sunglasses|keyboard|mouse|monitor|charger|cable|speaker|bluetooth|tv|television|mattress|pillow|sheets|towel|desk|chair|lamp|wallet|purse|handbag|belt|socks|underwear|perfume|cologne|makeup|lipstick|foundation|mascara|blush|toner)\b/.test(q)

@@ -156,6 +156,111 @@
     }).join('');
   }
 
+  // ─── Render: transactional verdict card (transit, gas, travel) ────────────────
+  function renderVerdictCard(verdict) {
+    if (!verdict || !verdict.bestOption) return '';
+
+    var best = verdict.bestOption;
+    var confidenceColors = {
+      HIGH: 'rgba(52,211,153,0.15)',
+      MEDIUM: 'rgba(251,191,36,0.15)',
+      LOW: 'rgba(161,161,170,0.1)',
+    };
+    var confidenceTextColors = {
+      HIGH: '#34d399',
+      MEDIUM: '#fbbf24',
+      LOW: '#a1a1aa',
+    };
+    var confidenceLabels = {
+      HIGH: '✓ High confidence',
+      MEDIUM: '~ Medium confidence',
+      LOW: '? Low confidence',
+    };
+    var conf = verdict.confidence || 'MEDIUM';
+    var confBg = confidenceColors[conf] || confidenceColors.MEDIUM;
+    var confText = confidenceTextColors[conf] || confidenceTextColors.MEDIUM;
+    var confLabel = confidenceLabels[conf] || '';
+
+    var vertIcons = { transit: '🚌', gas: '⛽', travel: '✈️', equipment_rental: '🏗️' };
+    var icon = vertIcons[verdict.vertical] || '💰';
+
+    var bestPrice = '$' + best.price.toFixed(2);
+    var bestProvider = esc(best.provider);
+    var bestRoute = best.route ? esc(best.route) : '';
+    var bestUrl = esc(best.url || '#');
+    var tripMeta = '';
+    var prettyDate = function(s) {
+      return String(s || '').replace(/\b[a-z]/g, function(ch) { return ch.toUpperCase(); });
+    };
+    if (verdict.query && verdict.query.departDate) {
+      tripMeta = 'Outbound ' + esc(prettyDate(verdict.query.departDate));
+    }
+
+    var html = '<div style="padding:22px;border-radius:16px;background:linear-gradient(135deg,rgba(52,211,153,0.08),rgba(129,140,248,0.06));border:1px solid rgba(52,211,153,0.22);margin-bottom:18px;box-shadow:0 12px 32px rgba(0,0,0,0.18);">';
+
+    html += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
+      + '<span style="font-size:18px;">' + icon + '</span>'
+      + '<span style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;color:#a1a1aa;">Best fare found</span>'
+      + '<span style="font-size:10px;color:' + confText + ';background:' + confBg + ';padding:4px 10px;border-radius:20px;white-space:nowrap;margin-left:auto;border:1px solid rgba(255,255,255,0.08);">' + confLabel + '</span>'
+      + '</div>';
+
+    html += '<div style="display:flex;align-items:center;gap:14px;padding:16px;border-radius:12px;background:rgba(255,255,255,0.045);border:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;">'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:13px;color:#a1a1aa;margin-bottom:6px;">Best one-way fare</div>'
+      + '<div style="font-size:32px;line-height:1;font-weight:800;color:#34d399;letter-spacing:-0.8px;">' + bestPrice + '</div>'
+      + '<div style="font-size:14px;color:#e4e4e7;margin-top:8px;font-weight:600;">' + bestProvider + (bestRoute ? ' · ' + bestRoute : '') + '</div>'
+      + (tripMeta ? '<div style="font-size:12px;color:#71717a;margin-top:4px;">' + tripMeta + '</div>' : '')
+      + '</div>'
+      + '<a href="' + bestUrl + '" target="_blank" rel="noopener noreferrer" '
+      + 'style="display:inline-flex;align-items:center;gap:6px;padding:12px 18px;border-radius:11px;background:#6366f1;color:#ffffff;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap;transition:all 0.2s;box-shadow:0 10px 24px rgba(99,102,241,0.28);" '
+      + 'onmouseover="this.style.background=\'#5855eb\';this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.background=\'#6366f1\';this.style.transform=\'translateY(0)\'">'
+      + 'Book one-way ' + bestPrice + ' →</a>'
+      + '</div>';
+
+    var alts = verdict.alternatives || [];
+    if (alts.length > 0) {
+      html += '<div style="margin-top:14px;">'
+        + '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;color:#71717a;margin-bottom:8px;">Compare other fares</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px;">';
+      alts.slice(0, 4).forEach(function(alt) {
+        var altPrice = '$' + alt.price.toFixed(2);
+        var altProvider = esc(alt.provider);
+        var altUrl = esc(alt.url || '#');
+        html += '<a href="' + altUrl + '" target="_blank" rel="noopener noreferrer" '
+          + 'style="display:inline-flex;align-items:center;gap:7px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);text-decoration:none;transition:all 0.2s;" '
+          + 'onmouseover="this.style.borderColor=\'rgba(129,140,248,0.3)\'" onmouseout="this.style.borderColor=\'rgba(255,255,255,0.08)\'">'
+          + '<span style="font-size:14px;font-weight:700;color:#e4e4e7;">' + altPrice + '</span>'
+          + '<span style="font-size:12px;color:#a1a1aa;">' + altProvider + '</span>'
+          + '</a>';
+      });
+      html += '</div></div>';
+    }
+
+    if (verdict.totals && verdict.totals.roundTripLowest) {
+      html += '<div style="margin-top:14px;padding:11px 14px;border-radius:10px;background:rgba(129,140,248,0.07);border:1px solid rgba(129,140,248,0.16);font-size:12px;color:#c4b5fd;">'
+        + '<div style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;font-weight:700;color:#a78bfa;margin-bottom:4px;">Estimated round-trip total</div>'
+        + '<div>🔄 <strong style="color:#f4f4f5; margin-left:4px;">~$' + verdict.totals.roundTripLowest.toFixed(2) + '</strong></div>'
+        + ((verdict.totals.oneWayLowest || verdict.totals.returnLowest || (verdict.query && verdict.query.returnDate))
+          ? '<div style="margin-top:4px;color:#a1a1aa;">'
+            + ((verdict.query && verdict.query.returnDate) ? 'Return searched for ' + esc(prettyDate(verdict.query.returnDate)) + ' • ' : '')
+            + 'Based on separate fares: '
+            + (verdict.totals.oneWayLowest ? 'outbound $' + verdict.totals.oneWayLowest.toFixed(2) : 'outbound unavailable')
+            + (verdict.totals.returnLowest ? ' + return from $' + verdict.totals.returnLowest.toFixed(2) : '')
+            + '</div>'
+          : '')
+        + '</div>';
+    }
+
+    if (verdict.caveats && verdict.caveats.length > 0) {
+      html += '<div style="margin-top:12px;font-size:11px;color:#71717a;line-height:1.6;">'
+        + esc(verdict.caveats[0])
+        + '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
   // ─── Render: source attribution row ─────────────────────────────────────────
   function renderSourceRow(sources) {
     if (!sources || !sources.length) return '';
@@ -360,6 +465,11 @@
         + '@media(max-width:480px){.wp-title-link{font-size:13px !important}.wp-snippet{font-size:12px !important}.wp-card{padding:12px !important}}'
         + '</style>';
 
+      // ── Verdict card (transactional queries — transit, gas, etc.) ──────
+      if (smart.verdict && smart.verdict.bestOption) {
+        html += renderVerdictCard(smart.verdict);
+      }
+
       // ── AI Summary card ──────────────────────────────────────────────────
       var resolvedAnswer = answerText || smart.answer || '';
       if (resolvedAnswer) {
@@ -485,6 +595,7 @@ var rawAnswer = smart.answer;
         + '<div style="display:inline-block;width:20px;height:20px;border:2px solid #52525b;border-top-color:#818CF8;border-radius:50%;animation:wp-spin 0.6s linear infinite;vertical-align:middle;margin-right:8px;"></div>'
         + '<span id="wp-stream-msg" style="font-size:13px;font-family:inherit;">Searching...</span>'
         + '</div>'
+        + '<div id="wp-stream-verdict"></div>'
         + '<div id="wp-stream-answer" style="display:none;padding:20px;border-radius:12px;background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.18);margin-bottom:16px;">'
         + '<div style="font-size:11px;color:#818CF8;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em;">✨ AI Summary</div>'
         + '<div id="wp-stream-text" style="font-size:14px;color:#d4d4d8;line-height:1.65;min-height:20px;"></div>'
@@ -582,6 +693,16 @@ var rawAnswer = smart.answer;
           // Non-restaurant full result
           smartResult = event;
           if (event.answer) collectedAnswer = event.answer;
+          // Show verdict card immediately if present
+          if (event.verdict && event.verdict.bestOption) {
+            var verdictDiv = document.getElementById('wp-stream-verdict');
+            if (verdictDiv) {
+              verdictDiv.innerHTML = renderVerdictCard(event.verdict);
+              // Hide spinner once verdict shows
+              var statusEl = document.getElementById('wp-stream-status');
+              if (statusEl) statusEl.style.display = 'none';
+            }
+          }
         }
         // 'done' is handled after the read loop
       }

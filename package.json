@@ -69,7 +69,8 @@
     "eval": "npx tsx scripts/eval-smart-search.ts --production",
     "eval:fetch": "npx tsx scripts/eval-fetch.ts --production",
     "eval:local": "npx tsx scripts/eval-smart-search.ts --local",
-    "eval:deploy": "bash scripts/workflow/eval-on-deploy.sh"
+    "eval:deploy": "bash scripts/workflow/eval-on-deploy.sh",
+    "verify:verdict-ui": "npx tsx scripts/verify-transit-verdict-ui.ts --screenshot"
   },
   "repository": {
     "type": "git",

@@ -205,6 +205,56 @@ function expectFetchTimeReasonable(maxMs: number = 60000) {
   };
 }
 
+// ── Transit verdict graders ────────────────────────────────────────────────
+function expectVerdict() {
+  return (res: any): GraderResult => {
+    const verdict = res?.data?.verdict;
+    if (!verdict) return { pass: false, reason: 'missing verdict object' };
+    if (!verdict.bestOption) return { pass: false, reason: 'verdict missing bestOption' };
+    if (typeof verdict.bestOption.price !== 'number') return { pass: false, reason: 'verdict bestOption.price not a number' };
+    if (!verdict.headline) return { pass: false, reason: 'verdict missing headline' };
+    return { pass: true, reason: `verdict present: ${verdict.headline} ✓` };
+  };
+}
+
+function expectVerdictVertical(vertical: string) {
+  return (res: any): GraderResult => {
+    const v = res?.data?.verdict?.vertical;
+    if (v === vertical) return { pass: true, reason: `verdict.vertical="${v}" ✓` };
+    return { pass: false, reason: `expected verdict.vertical="${vertical}", got "${v}"` };
+  };
+}
+
+function expectVerdictPriceBelow(maxPrice: number) {
+  return (res: any): GraderResult => {
+    const price = res?.data?.verdict?.bestOption?.price;
+    if (typeof price !== 'number') return { pass: false, reason: 'no verdict price to check' };
+    if (price <= maxPrice) return { pass: true, reason: `verdict price $${price} ≤ $${maxPrice} ✓` };
+    return { pass: false, reason: `verdict price $${price} > $${maxPrice}` };
+  };
+}
+
+function expectVerdictConfidence(levels: string[]) {
+  return (res: any): GraderResult => {
+    const conf = res?.data?.verdict?.confidence;
+    if (levels.includes(conf)) return { pass: true, reason: `verdict confidence="${conf}" ✓` };
+    return { pass: false, reason: `expected verdict confidence in [${levels.join(',')}], got "${conf}"` };
+  };
+}
+
+function expectNoJunkDomains(junkDomains: string[]) {
+  return (res: any): GraderResult => {
+    const results = res?.data?.results;
+    if (!Array.isArray(results)) return { pass: true, reason: 'no results to check (ok)' };
+    const junkFound = results.filter((r: any) => junkDomains.some(d => r.domain?.includes(d) || r.url?.includes(d)));
+    if (junkFound.length > 0) {
+      const domains = junkFound.map((r: any) => r.domain || r.url).slice(0, 3).join(', ');
+      return { pass: false, reason: `junk domains found: ${domains}` };
+    }
+    return { pass: true, reason: `no junk domains (${junkDomains.join(', ')}) ✓` };
+  };
+}
+
 // ── Geo-routing grader (checks response headers on /v1/search) ─────────────
 function expectGeoHeader(expected: string) {
   return (_res: any, headers?: Headers): GraderResult => {
@@ -463,6 +513,57 @@ const testCases: TestCase[] = [
     category: 'structure',
     query: 'weather in New York',
     graders: [expectSuccess(), expectFetchTimeReasonable(60000)],
+  },
+
+  // ━━━ TRANSIT VERDICT (Jake's exact failing query + variants) ━━━━━━━━━━━
+  {
+    name: 'Transit: bus NYC→Boston routes as general (not products)',
+    category: 'transit',
+    critical: true,
+    query: 'help me find the cheapest boston ticket from new york i want to take bus. april 2 and i want to take the bus back at april 5th',
+    graders: [
+      expectSuccess(),
+      expectType('general'),
+      expectVerdict(),
+      expectVerdictVertical('transit'),
+      expectVerdictPriceBelow(100),
+      expectVerdictConfidence(['HIGH', 'MEDIUM']),
+      expectNoJunkDomains(['amazon.com', 'walmart.com', 'bestbuy.com', 'target.com']),
+    ],
+  },
+  {
+    name: 'Transit: simple bus query has verdict',
+    category: 'transit',
+    query: 'cheap bus ticket from NYC to Boston',
+    graders: [
+      expectSuccess(),
+      expectType('general'),
+      expectVerdict(),
+      expectVerdictVertical('transit'),
+      expectVerdictPriceBelow(100),
+    ],
+  },
+  {
+    name: 'Transit: train query routes correctly',
+    category: 'transit',
+    query: 'amtrak tickets from DC to New York cheapest',
+    graders: [
+      expectSuccess(),
+      expectType('general'),
+      expectVerdict(),
+      expectVerdictVertical('transit'),
+    ],
+  },
+  {
+    name: 'Transit: greyhound brand query is transit',
+    category: 'transit',
+    query: 'greyhound bus from new york to philadelphia price',
+    graders: [
+      expectSuccess(),
+      expectType('general'),
+      expectVerdict(),
+      expectNoJunkDomains(['amazon.com', 'walmart.com']),
+    ],
   },
 ];
 
