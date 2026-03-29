@@ -403,20 +403,40 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
       const transitInfo = parseTransitQuery(query);
       const { origin, destination, isRoundTrip } = transitInfo;
 
-      const TRANSIT_DOMAINS = ['wanderu.com', 'flixbus.com', 'greyhound.com', 'busbud.com', 'amtrak.com', 'rome2rio.com'];
+      const TRANSIT_DOMAINS = [
+        'wanderu.com', 'flixbus.com', 'greyhound.com', 'busbud.com', 'amtrak.com', 'rome2rio.com',
+        'coachrun.com', 'checkmybus.com', 'peterpanbus.com', 'ourbus.com', 'omio.com', 'gotobus.com', 'megabus.com', 'trailways.com'
+      ];
       const siteFilter = TRANSIT_DOMAINS.map(d => `site:${d}`).join(' OR ');
 
-      // Search outbound
+      // Search outbound (focused booking-site query first)
       const outboundQuery = origin && destination
         ? `${origin} to ${destination} bus train ticket price ${siteFilter}`
         : `${query} ${siteFilter}`;
-      const outboundResults = await searchProvider.searchWeb(outboundQuery, { count: 5 });
+      let outboundResults = await searchProvider.searchWeb(outboundQuery, { count: 6 });
+
+      // If the site-filtered query underperforms in production, fall back to a broader transit search
+      if (outboundResults.length === 0 || !outboundResults.some(r => TRANSIT_DOMAINS.some(d => r.url.includes(d)))) {
+        const broadOutboundQuery = origin && destination
+          ? `${origin} to ${destination} cheapest bus train ticket`
+          : `${query} cheapest bus train ticket`;
+        const broadResults = await searchProvider.searchWeb(broadOutboundQuery, { count: 10 });
+        outboundResults = broadResults.filter(r => TRANSIT_DOMAINS.some(d => r.url.includes(d))).slice(0, 8);
+        console.log(`[smart-search] Transit outbound fallback search used: ${outboundResults.length} filtered results`);
+      }
 
       // Search return leg if round trip
       let returnResults: WebSearchResult[] = [];
       if (isRoundTrip && origin && destination) {
         const returnQuery = `${destination} to ${origin} bus train ticket price ${siteFilter}`;
-        returnResults = await searchProvider.searchWeb(returnQuery, { count: 3 });
+        returnResults = await searchProvider.searchWeb(returnQuery, { count: 4 });
+
+        if (returnResults.length === 0 || !returnResults.some(r => TRANSIT_DOMAINS.some(d => r.url.includes(d)))) {
+          const broadReturnQuery = `${destination} to ${origin} cheapest bus train ticket`;
+          const broadReturnResults = await searchProvider.searchWeb(broadReturnQuery, { count: 8 });
+          returnResults = broadReturnResults.filter(r => TRANSIT_DOMAINS.some(d => r.url.includes(d))).slice(0, 5);
+          console.log(`[smart-search] Transit return fallback search used: ${returnResults.length} filtered results`);
+        }
       }
 
       // Tag return results so we can propagate leg info downstream
@@ -524,8 +544,13 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
           const routeLabel = origin && destination ? `${origin} → ${destination}` : 'this route';
           pricingInfo = `\n\n## 🚌 Transit Prices Found\nCheapest: **$${cheapest.toFixed(2)}** for ${routeLabel}\nAll prices found: ${uniquePrices.slice(0, 10).map(p => `$${p.toFixed(2)}`).join(', ')}`;
         }
+        console.log(`[smart-search] Transit pricing fallback used: ${transitPrices.length} raw price hits, no structured verdict`);
+      } else {
+        console.warn(`[smart-search] Transit search returned no usable prices or verdict for query: ${query}`);
       }
-    } catch { /* transit price search failed — non-fatal */ }
+    } catch (err) {
+      console.warn('[smart-search] Transit price search failed (non-fatal):', (err as Error).message);
+    }
   } else if (isEquipmentRental) {
     try {
       const pricingResults = await searchProvider.searchWeb(`${query} cost price per day rate 2025`, { count: 3 });
