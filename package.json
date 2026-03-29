@@ -65,7 +65,11 @@
     "serve": "node dist/server/app.js",
     "mcp": "node dist/mcp/server.js",
     "preversion": "npm run build && npm test && bash scripts/pre-publish-gate.sh",
-    "version": "bash scripts/postversion.sh"
+    "version": "bash scripts/postversion.sh",
+    "eval": "npx tsx scripts/eval-smart-search.ts --production",
+    "eval:fetch": "npx tsx scripts/eval-fetch.ts --production",
+    "eval:local": "npx tsx scripts/eval-smart-search.ts --local",
+    "eval:deploy": "bash scripts/workflow/eval-on-deploy.sh"
   },
   "repository": {
     "type": "git",
