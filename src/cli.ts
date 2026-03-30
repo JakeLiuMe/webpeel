@@ -49,6 +49,7 @@ import { registerGuideCommand } from './cli/commands/guide.js';
 import { registerDoctorCommand } from './cli/commands/doctor.js';
 import { registerSetupCommand } from './cli/commands/setup.js';
 import { registerSkillCommand } from './cli/commands/skill.js';
+import { registerObserveCommand } from './cli/commands/observe.js';
 
 // ── Early silent/log-level detection (must happen before any async module code) ──
 // Set WEBPEEL_LOG_LEVEL early so logger checks see it when async IIFEs fire.
@@ -106,6 +107,7 @@ registerAuthCommands(program);
 registerScreenshotCommands(program);
 registerJobsCommands(program);
 registerMonitorCommands(program);
+registerObserveCommand(program);
 registerGuideCommand(program);
 registerFetchCommands(program);
 

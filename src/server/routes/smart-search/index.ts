@@ -120,7 +120,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
       const isAnonymous = !authId;
 
       if (isAnonymous) {
-        // Rate limit anonymous users: 10 searches per day per IP
+        // Rate limit anonymous users: 5 searches per day per IP
         const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
           || req.headers['cf-connecting-ip'] as string
           || req.socket.remoteAddress
@@ -138,7 +138,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
               success: false,
               error: {
                 type: 'anonymous_limit_exceeded',
-                message: 'Free search limit reached (5/day). Sign up for unlimited searches.',
+                message: 'Free search limit reached (5/day). Sign up for 500 fetches/week free.',
                 signupUrl: 'https://app.webpeel.dev/signup',
               },
               requestId: req.requestId,

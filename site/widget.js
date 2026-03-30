@@ -5,13 +5,27 @@
   const SIGNUP_URL = 'https://app.webpeel.dev/signup';
   const MAX_FREE_SEARCHES = 5;
   const SEARCH_COUNT_KEY = 'wp_search_count';
+  const SEARCH_DATE_KEY = 'wp_search_date';
   const HISTORY_KEY = 'wp_search_history';
 
-  // Track searches in localStorage
+  // Track searches in localStorage with daily reset
+  function getTodayDateStr() {
+    return new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+  }
   function getSearchCount() {
+    var storedDate = localStorage.getItem(SEARCH_DATE_KEY) || '';
+    var today = getTodayDateStr();
+    if (storedDate !== today) {
+      // New day — reset counter
+      localStorage.setItem(SEARCH_COUNT_KEY, '0');
+      localStorage.setItem(SEARCH_DATE_KEY, today);
+      return 0;
+    }
     return parseInt(localStorage.getItem(SEARCH_COUNT_KEY) || '0', 10);
   }
   function incrementSearchCount() {
+    var today = getTodayDateStr();
+    localStorage.setItem(SEARCH_DATE_KEY, today);
     const count = getSearchCount() + 1;
     localStorage.setItem(SEARCH_COUNT_KEY, String(count));
     return count;
@@ -119,7 +133,11 @@
         : '';
       // Price level from AI summary (fuzzy match: "Da Andrea" matches "Da Andrea - Chelsea")
       var itemNameLower = (item.name || '').toLowerCase().trim();
-      var pl = priceLevels[itemNameLower] || item.priceLevel || item.price || '';
+      var rawPl = priceLevels[itemNameLower] || item.priceLevel || item.price || '';
+      // Convert numeric price levels (1-4 from Google Places) to dollar signs
+      var pl = (typeof rawPl === 'number' && rawPl >= 1 && rawPl <= 4)
+        ? '$'.repeat(rawPl)
+        : rawPl;
       if (!pl) {
         for (var plKey in priceLevels) {
           if (itemNameLower.indexOf(plKey) === 0 || plKey.indexOf(itemNameLower) === 0) {
@@ -131,8 +149,9 @@
       var pricePill = pl
         ? '<span style="color:#34d399;font-weight:600;font-size:12px;">' + esc(pl) + '</span>'
         : '';
-      var openStatus = item.isOpenNow !== undefined
-        ? (item.isOpenNow
+      var isOpen = item.isOpenNow !== undefined ? item.isOpenNow : item.isOpen;
+      var openStatus = isOpen !== undefined
+        ? (isOpen
           ? '<span style="color:#34d399;font-size:12px;">● Open</span>'
           : '<span style="color:#f87171;font-size:12px;">● Closed</span>')
         : '';
@@ -346,8 +365,8 @@
         <div id="wp-signup-wall" style="display: none; text-align: center; padding: 40px 20px;\
              background: rgba(129,140,248,0.05); border: 1px solid rgba(129,140,248,0.2);\
              border-radius: 16px; margin-top: 20px;">\
-          <h3 style="color: #e4e4e7; font-size: 20px; margin: 0 0 8px; font-family: inherit;">You\'ve used your 5 free searches</h3>\
-          <p style="color: #a1a1aa; font-size: 14px; margin: 0 0 20px; font-family: inherit;">Sign up for free to get 500 searches/week + AI summaries</p>\
+          <h3 style="color: #e4e4e7; font-size: 20px; margin: 0 0 8px; font-family: inherit;">You\'ve used your 5 free searches today</h3>\
+          <p style="color: #a1a1aa; font-size: 14px; margin: 0 0 20px; font-family: inherit;">Sign up for free to get 500 fetches/week + AI-powered search</p>\
           <a href="' + SIGNUP_URL + '"\
             style="display: inline-block; padding: 12px 32px; background: #818CF8; color: white;\
                    border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 14px;\
@@ -562,8 +581,8 @@
       var remaining = MAX_FREE_SEARCHES - getSearchCount();
       if (remaining > 0) {
         html += '<div style="text-align:center;margin-top:8px;font-size:11px;color:#52525b;">'
-          + remaining + ' free search' + (remaining === 1 ? '' : 'es') + ' remaining &middot; '
-          + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;text-decoration:none;">Sign up for unlimited</a>'
+          + remaining + ' free search' + (remaining === 1 ? '' : 'es') + ' remaining today &middot; '
+          + '<a href="' + SIGNUP_URL + '" style="color:#818CF8;text-decoration:none;">Sign up for more</a>'
           + '</div>';
       } else {
         setTimeout(function() {

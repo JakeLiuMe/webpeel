@@ -304,6 +304,56 @@ export const toolDefinitions: Tool[] = [
     },
   },
   {
+    name: 'webpeel_observe',
+    description:
+      "Give yourself eyes — discover all interactive elements on a web page without needing a vision model. " +
+      "Returns structured data: links, buttons, inputs, forms, selects, and media with CSS selectors and text labels. " +
+      "Each element has a ref (e.g. 'button-0', 'input-2') for easy reference in follow-up actions. " +
+      "Use this BEFORE webpeel_act to discover what's on the page. " +
+      "The observe → decide → act → observe loop gives agents full web autonomy. " +
+      "Use viewport='mobile' or 'tablet' to see responsive layouts. " +
+      "Use selector= to scope observation to a specific part of the page.",
+    annotations: {
+      title: 'Observe Page Elements',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL to observe' },
+        selector: {
+          type: 'string',
+          description: 'CSS selector to scope observation (e.g. "main", "#content")',
+        },
+        viewport: {
+          type: 'string',
+          enum: ['desktop', 'mobile', 'tablet'],
+          description: "Viewport to use (default: 'desktop')",
+          default: 'desktop',
+        },
+        screenshot: {
+          type: 'boolean',
+          description: 'Include a screenshot alongside structured element data',
+          default: false,
+        },
+        max_elements: {
+          type: 'number',
+          description: 'Max elements per category (default: 50)',
+          default: 50,
+        },
+        stealth: {
+          type: 'boolean',
+          description: 'Use stealth mode for bot-protected sites',
+          default: false,
+        },
+      },
+      required: ['url'],
+    },
+  },
+  {
     name: 'webpeel_act',
     description:
       "Automate interactions with any web page using a real browser. " +

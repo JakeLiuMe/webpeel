@@ -12,6 +12,7 @@ import { handleFind } from './find.js';
 import { handleExtract } from './extract.js';
 import { handleMonitor } from './monitor.js';
 import { handleAct } from './act.js';
+import { handleObserve } from './observe.js';
 import { handleFetch } from './fetch.js';
 import * as legacy from './legacy.js';
 
@@ -24,6 +25,7 @@ export const handlers: Map<string, McpHandler> = new Map([
   ['webpeel_extract', handleExtract],
   ['webpeel_monitor', handleMonitor],
   ['webpeel_act', handleAct],
+  ['webpeel_observe', handleObserve],
 ]);
 
 // ── Legacy tool names → route to appropriate handler ───────────────────────

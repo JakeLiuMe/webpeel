@@ -116,6 +116,12 @@ export {
   type AssertionResult,
 } from './core/watch.js';
 export {
+  observe,
+  type ObserveOptions,
+  type ObserveResult,
+  type ObservedElement,
+} from './core/observe.js';
+export {
   diffUrl,
   type DiffOptions,
   type DiffResult,
