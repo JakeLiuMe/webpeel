@@ -31,6 +31,7 @@ interface Source {
   title?: string;
   domain?: string;
   authority?: 'Official' | 'Verified' | 'General';
+  citedAs?: string;
 }
 
 interface SmartResultMultiSource {
@@ -93,6 +94,9 @@ interface SmartResult {
   timing?: { searchMs: number; peelMs: number; llmMs: number };
   mapUrl?: string; // Google Maps embed URL for local search results
   verdict?: TransactionalVerdict;
+  requestedLocation?: string;
+  requestedLocationLabel?: string;
+  requestedLocationSource?: 'manual' | 'browser';
 }
 
 interface ResultData {
@@ -160,6 +164,40 @@ function downloadMarkdown(content: string, title?: string) {
   URL.revokeObjectURL(url);
 }
 
+function getDomainFromUrl(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function getSourceActionLabel(url: string): 'Shop' | 'Buy' | 'Book' | 'Directions' | 'Open' {
+  const host = getDomainFromUrl(url).toLowerCase();
+
+  if (/(amazon|walmart|target|bestbuy|ebay|etsy|newegg|shopify)/.test(host)) return 'Shop';
+  if (/(stripe\.com\/pricing|checkout|buy)/.test(url.toLowerCase())) return 'Buy';
+  if (/(booking|expedia|kayak|tripadvisor|airbnb|flightaware|googleflights)/.test(host)) return 'Book';
+  if (/(maps|yelp|openstreetmap|mapquest)/.test(host)) return 'Directions';
+  return 'Open';
+}
+
+function linkifyCitationRefs(markdown: string, sources?: Source[]): string {
+  if (!markdown || !sources?.length) return markdown;
+
+  const citationToUrl = new Map<string, string>();
+  sources.forEach((source, index) => {
+    if (!source.url) return;
+    citationToUrl.set(`[${index + 1}]`, source.url);
+    if (source.citedAs) citationToUrl.set(source.citedAs, source.url);
+  });
+
+  return markdown.replace(/\[(\d+)\]/g, (match, n) => {
+    const url = citationToUrl.get(`[${n}]`);
+    return url ? `[[${n}]](${url})` : match;
+  });
+}
+
 /** Detect intent from user input — URL only, URL+text, or plain text */
 function detectIntent(input: string): { mode: DetectedMode; url?: string; question?: string } {
   const lines = input.trim().split('\n').map((l) => l.trim()).filter(Boolean);
@@ -174,6 +212,56 @@ function detectIntent(input: string): { mode: DetectedMode; url?: string; questi
     return { mode: 'read', url: urlLine };
   }
   return { mode: 'search', question: input.trim() };
+}
+
+const LOCAL_SEARCH_HINT_RE = /\b(?:near me|nearby|closest|nearest|my local|local|in stock|inventory|availability|pickup|open now|open today|hours)\b/i;
+const COORDINATE_LOCATION_RE = /^-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?$/;
+
+function normalizeLocationInput(value?: string | null): string {
+  return (value || '').trim().replace(/\s+/g, ' ');
+}
+
+function queryNeedsLocationHelp(query: string): boolean {
+  return LOCAL_SEARCH_HINT_RE.test(query);
+}
+
+function formatCoordinateLocationLabel(value?: string | null): string {
+  const normalized = normalizeLocationInput(value);
+  if (!COORDINATE_LOCATION_RE.test(normalized)) return normalized;
+  const [lat, lng] = normalized.split(',').map((part) => Number(part.trim()));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return normalized;
+  return `Current location (${lat.toFixed(3)}, ${lng.toFixed(3)})`;
+}
+
+function buildSmartSearchRequest(
+  rawQuery: string,
+  locationInput?: string | null,
+  currentLocationCoords?: string | null,
+): {
+  q: string;
+  location?: string;
+  locationLabel?: string;
+  locationSource?: 'manual' | 'browser';
+} {
+  const manualLocation = normalizeLocationInput(locationInput);
+  const browserLocation = normalizeLocationInput(currentLocationCoords);
+  const location = manualLocation || browserLocation;
+  const locationSource = manualLocation ? 'manual' : (browserLocation ? 'browser' : undefined);
+  const locationLabel = manualLocation || (browserLocation ? formatCoordinateLocationLabel(browserLocation) : undefined);
+
+  let q = rawQuery.trim();
+  if (manualLocation && !q.toLowerCase().includes(manualLocation.toLowerCase())) {
+    if (/\bnear me\b/i.test(q)) q = q.replace(/\bnear me\b/gi, `in ${manualLocation}`);
+    else if (/\bnearby\b/i.test(q)) q = q.replace(/\bnearby\b/gi, `in ${manualLocation}`);
+    else if (/\b(?:closest|nearest|my local|local)\b/i.test(q)) q = `${q} in ${manualLocation}`;
+  }
+
+  return {
+    q,
+    location: location || undefined,
+    locationLabel,
+    locationSource,
+  };
 }
 
 /** Strip JSON/HTML artifacts + music markers from transcript content */
@@ -364,37 +452,51 @@ function SourceCards({ sources }: { sources: Source[] }) {
   return (
     <div className="mb-4">
       <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2">Sources</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {sources.map((src, i) => {
-          const domain = src.domain || (() => {
-            try { return new URL(src.url).hostname.replace(/^www\./, ''); }
-            catch { return src.url; }
-          })();
+          const domain = src.domain || getDomainFromUrl(src.url);
           const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
+          const actionLabel = getSourceActionLabel(src.url);
           return (
             <a
               key={i}
               href={src.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 transition-all group max-w-[220px]"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-zinc-800/60 border border-zinc-700 hover:bg-zinc-800 hover:border-zinc-600 transition-all group min-w-0"
+              aria-label={`${actionLabel} source ${src.title || domain}`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={faviconUrl}
-                alt=""
-                className="w-3.5 h-3.5 rounded-sm shrink-0 opacity-75"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-              />
-              <span className="text-xs text-zinc-400 group-hover:text-zinc-300 truncate transition-colors flex-1 min-w-0">
-                {src.title ? (src.title.length > 28 ? src.title.slice(0, 28) + '…' : src.title) : domain}
-              </span>
-              {src.authority && src.authority !== 'General' && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full border shrink-0 font-medium ${authorityStyles[src.authority] || authorityStyles.General}`}>
-                  {src.authority}
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {src.citedAs && (
+                  <span className="text-[10px] font-semibold text-[#818CF8] bg-[#5865F2]/15 border border-[#5865F2]/25 px-1.5 py-0.5 rounded-md shrink-0">
+                    {src.citedAs}
+                  </span>
+                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={faviconUrl}
+                  alt=""
+                  className="w-3.5 h-3.5 rounded-sm shrink-0 opacity-75"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-zinc-200 group-hover:text-white truncate transition-colors">
+                    {src.title || domain}
+                  </div>
+                  <div className="text-[11px] text-zinc-500 truncate">{domain}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {src.authority && src.authority !== 'General' && (
+                  <span className={`hidden sm:inline-flex text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${authorityStyles[src.authority] || authorityStyles.General}`}>
+                    {src.authority}
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#818CF8] bg-[#5865F2]/10 border border-[#5865F2]/20 px-2 py-1 rounded-lg">
+                  {actionLabel}
+                  <ExternalLink className="h-3 w-3" />
                 </span>
-              )}
-              <ExternalLink className="h-2.5 w-2.5 text-zinc-700 group-hover:text-zinc-500 shrink-0 transition-colors" />
+              </div>
             </a>
           );
         })}
@@ -623,6 +725,102 @@ const SMART_SOURCE_ICONS: Record<string, string> = {
   general: '🔍',
 };
 
+function LocalRetailSummary({ smartResult }: { smartResult: SmartResult }) {
+  const localRetail = smartResult.structured?.localRetail;
+  const requestedStore = smartResult.structured?.requestedStore;
+  if (!localRetail?.requested) return null;
+
+  const locationLabel = smartResult.requestedLocationLabel || localRetail.location;
+  const nearbyTone = localRetail.nearbyStoresStatus === 'resolved'
+    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    : localRetail.nearbyStoresStatus === 'needs-location'
+      ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+      : 'bg-zinc-800 text-zinc-300 border-zinc-700';
+  const catalogTone = localRetail.catalogExistence === 'verified'
+    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    : localRetail.catalogExistence === 'search-result'
+      ? 'bg-blue-500/10 text-blue-300 border-blue-500/20'
+      : 'bg-zinc-800 text-zinc-300 border-zinc-700';
+  const inventoryTone = localRetail.localInventoryVerified
+    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    : 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+
+  return (
+    <div className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-zinc-100">📍 Local retail check</span>
+        {requestedStore?.store && (
+          <span className="text-[10px] px-2 py-1 rounded-full border border-zinc-700 bg-zinc-800 text-zinc-300">{requestedStore.store}</span>
+        )}
+        {locationLabel && (
+          <span className="text-[10px] px-2 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/10 text-indigo-300">Search area: {locationLabel}</span>
+        )}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className={`rounded-xl border px-3 py-2 ${nearbyTone}`}>
+          <div className="text-[11px] uppercase tracking-wide opacity-75">Nearby stores</div>
+          <div className="mt-1 text-sm font-medium">
+            {localRetail.nearbyStoresStatus === 'resolved'
+              ? `${localRetail.nearbyStores?.length || 0} found`
+              : localRetail.nearbyStoresStatus === 'needs-location'
+                ? 'Need location'
+                : localRetail.nearbyStoresStatus === 'not-found'
+                  ? 'None found'
+                  : 'Lookup unresolved'}
+          </div>
+        </div>
+        <div className={`rounded-xl border px-3 py-2 ${catalogTone}`}>
+          <div className="text-[11px] uppercase tracking-wide opacity-75">Catalog evidence</div>
+          <div className="mt-1 text-sm font-medium">
+            {localRetail.catalogExistence === 'verified'
+              ? 'Verified product page'
+              : localRetail.catalogExistence === 'search-result'
+                ? 'Search-result only'
+                : 'Not verified'}
+          </div>
+        </div>
+        <div className={`rounded-xl border px-3 py-2 ${inventoryTone}`}>
+          <div className="text-[11px] uppercase tracking-wide opacity-75">Local inventory</div>
+          <div className="mt-1 text-sm font-medium">
+            {localRetail.localInventoryVerified
+              ? (localRetail.localInventoryStatus || 'Verified on a public page')
+              : 'Not publicly verifiable'}
+          </div>
+        </div>
+      </div>
+
+      {localRetail.nearbyStoresMessage && (
+        <p className="text-xs text-zinc-400 leading-relaxed">{localRetail.nearbyStoresMessage}</p>
+      )}
+
+      {Array.isArray(localRetail.nearbyStores) && localRetail.nearbyStores.length > 0 && (
+        <div className="space-y-2">
+          {localRetail.nearbyStores.slice(0, 3).map((store: any, index: number) => (
+            <div key={`${store.name || 'store'}-${index}`} className="rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-3">
+              <div className="flex flex-wrap items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-zinc-100">{store.name || `Store ${index + 1}`}</div>
+                  {store.address && <div className="mt-1 text-xs text-zinc-400">📍 {store.address}</div>}
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                    {store.rating && <span>⭐ {store.rating}{store.reviewCount ? ` (${store.reviewCount.toLocaleString()} reviews)` : ''}</span>}
+                    {store.isOpen === true && <span className="text-emerald-400">🟢 Open now</span>}
+                    {store.isOpen === false && <span className="text-red-400">🔴 Closed</span>}
+                    {Array.isArray(store.hours) && store.hours[0] && <span>🕐 {store.hours[0]}</span>}
+                  </div>
+                </div>
+                {store.googleMapsUrl && (
+                  <a href={store.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#818CF8] hover:underline shrink-0">Maps →</a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SmartResultCard({ smartResult }: { smartResult: SmartResult }) {
   const icon = SMART_SOURCE_ICONS[smartResult.type] || '🔍';
 
@@ -711,6 +909,8 @@ function SmartResultCard({ smartResult }: { smartResult: SmartResult }) {
 
       {/* Verdict card — transactional queries (transit, gas, travel) */}
       {smartResult.verdict && <VerdictCard verdict={smartResult.verdict} />}
+
+      <LocalRetailSummary smartResult={smartResult} />
 
       {/* AI Answer section — shown ABOVE listings when present */}
       {smartResult.answer && (
@@ -1067,6 +1267,9 @@ function SmartListingCard({ item, type }: { item: any; type: SmartResultType }) 
     const fullStars = Math.floor(stars);
     const hasHalf = stars - fullStars >= 0.5;
     const starDisplay = '★'.repeat(fullStars) + (hasHalf ? '½' : '') + '☆'.repeat(Math.max(0, 5 - fullStars - (hasHalf ? 1 : 0)));
+    const productStatus = [item.localInventoryStatus, item.availability, item.condition, item.snippet]
+      .filter((value, index, arr) => !!value && arr.indexOf(value) === index)
+      .join(' • ');
 
     return (
       <a href={productUrl} target="_blank" rel="noopener noreferrer"
@@ -1108,10 +1311,21 @@ function SmartListingCard({ item, type }: { item: any; type: SmartResultType }) 
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 mt-2">
+            {productStatus && (
+              <div className="mt-2 text-xs text-zinc-400 leading-relaxed">
+                {productStatus}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/20">
                 {item.store || 'Shop'}
               </span>
+              {item.localInventoryVerified && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  Public pickup signal
+                </span>
+              )}
               <span className="text-xs text-zinc-600">View on {item.store || 'store'} →</span>
             </div>
           </div>
@@ -1433,7 +1647,7 @@ function ResultCard({
 
               <div className="prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown components={markdownComponents}>
-                  {sanitizeContent(result.answer || '')}
+                  {linkifyCitationRefs(sanitizeContent(result.answer || ''), result.sources)}
                 </ReactMarkdown>
               </div>
 
@@ -1577,6 +1791,10 @@ export default function ReadPage() {
   const token = (session as any)?.apiToken as string | undefined;
 
   const [input, setInput] = useState('');
+  const [searchLocation, setSearchLocation] = useState('');
+  const [currentLocationCoords, setCurrentLocationCoords] = useState<string | null>(null);
+  const [locationState, setLocationState] = useState<'idle' | 'resolving' | 'ready' | 'error'>('idle');
+  const [locationError, setLocationError] = useState('');
   const [appState, setAppState] = useState<AppState>('idle');
   const [result, setResult] = useState<ResultData | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -1599,11 +1817,50 @@ export default function ReadPage() {
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
   };
 
+  const handleUseCurrentLocation = useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setLocationState('error');
+      setLocationError('Location access is unavailable here. Add a city or ZIP manually.');
+      return;
+    }
+
+    setLocationState('resolving');
+    setLocationError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`;
+        setCurrentLocationCoords(coords);
+        setLocationState('ready');
+      },
+      (error) => {
+        const fallback = error.code === error.PERMISSION_DENIED
+          ? 'Location permission was denied. Add a city or ZIP manually.'
+          : 'Could not get your current location. Add a city or ZIP manually.';
+        setLocationState('error');
+        setLocationError(fallback);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, []);
+
   /** Core submit logic — accepts a raw input string so it can be called programmatically */
   const handleSubmitRaw = useCallback(async (raw: string) => {
     if (!raw.trim()) return;
 
     const intent = detectIntent(raw.trim());
+    const smartSearchRequest = intent.mode === 'search'
+      ? buildSmartSearchRequest(intent.question || raw, searchLocation, currentLocationCoords)
+      : null;
+    const applyLocationContext = (smartValue: SmartResult): SmartResult => {
+      if (!smartSearchRequest?.locationLabel) return smartValue;
+      return {
+        ...smartValue,
+        requestedLocation: smartSearchRequest.location,
+        requestedLocationLabel: smartSearchRequest.locationLabel,
+        requestedLocationSource: smartSearchRequest.locationSource,
+      };
+    };
     // CRITICAL: clear results immediately before any async work so stale results don't show
     setResult(null);
     setErrorMsg('');
@@ -1644,7 +1901,7 @@ export default function ReadPage() {
           if (typeof updater === 'function') {
             setResult((prev) => {
               const prevSmart = (prev as any)?._sseSmartResult ?? null;
-              const next = updater(prevSmart);
+              const next = applyLocationContext(updater(prevSmart));
               smart = next;
               return {
                 detectedMode: 'search',
@@ -1657,15 +1914,16 @@ export default function ReadPage() {
               } as any;
             });
           } else {
-            smart = updater;
+            const next = applyLocationContext(updater);
+            smart = next;
             setResult({
               detectedMode: 'search',
-              smartResult: updater,
-              content: updater.content,
-              title: updater.title || `${updater.source || ''} results`,
-              tokens: updater.tokens,
-              fetchTimeMs: updater.fetchTimeMs,
-              _sseSmartResult: updater,
+              smartResult: next,
+              content: next.content,
+              title: next.title || `${next.source || ''} results`,
+              tokens: next.tokens,
+              fetchTimeMs: next.fetchTimeMs,
+              _sseSmartResult: next,
             } as any);
           }
         };
@@ -1773,7 +2031,7 @@ export default function ReadPage() {
           const sseRes = await fetch(`${API_URL}/v1/search/smart`, {
             method: 'POST',
             headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ q: intent.question || raw, stream: true }),
+            body: JSON.stringify({ q: smartSearchRequest?.q || intent.question || raw, stream: true, ...(smartSearchRequest?.location ? { location: smartSearchRequest.location } : {}) }),
           });
 
           const sseContentType = sseRes.headers.get('content-type') || '';
@@ -1790,7 +2048,7 @@ export default function ReadPage() {
                 const totalSecs = cachedSmart.fetchTimeMs ? (cachedSmart.fetchTimeMs / 1000).toFixed(1) : undefined;
                 const sourceCount = cachedSmart.sources?.length || 0;
                 const timingNote = totalSecs ? `${sourceCount} source${sourceCount !== 1 ? 's' : ''} · ${totalSecs}s` : undefined;
-                data = { detectedMode: 'ask', answer: cachedSmart.answer, sources: cachedSmart.sources?.map((s: any) => ({ title: s.title || s.url, url: s.url, domain: s.domain, credibility: { tier: 'general' as const, score: 0.5, signals: [] } })) || [], fetchTimeMs: cachedSmart.fetchTimeMs, content: timingNote ? `<!-- timing: ${timingNote} -->` : '', verdict: cachedSmart.verdict };
+                data = { detectedMode: 'ask', answer: cachedSmart.answer, sources: cachedSmart.sources?.map((s: any) => ({ title: s.title || s.url, url: s.url, domain: s.domain, citedAs: s.citedAs, credibility: { tier: 'general' as const, score: 0.5, signals: [] } })) || [], fetchTimeMs: cachedSmart.fetchTimeMs, content: timingNote ? `<!-- timing: ${timingNote} -->` : '', verdict: cachedSmart.verdict };
               } else {
                 data = { detectedMode: 'search', smartResult: cachedSmart, content: cachedSmart.content, title: cachedSmart.title || `${cachedSmart.source} results`, tokens: cachedSmart.tokens, fetchTimeMs: cachedSmart.fetchTimeMs };
               }
@@ -1852,6 +2110,7 @@ export default function ReadPage() {
                     title: s.title || s.url,
                     url: s.url,
                     domain: s.domain,
+                    citedAs: s.citedAs,
                     credibility: { tier: 'general' as const, score: 0.5, signals: [] },
                   })) || [],
                   fetchTimeMs: finalSmart.fetchTimeMs,
@@ -1882,7 +2141,7 @@ export default function ReadPage() {
               } else {
                 setResult({
                   detectedMode: 'search',
-                  smartResult: { ...finalSmart, loading: false },
+                  smartResult: applyLocationContext({ ...finalSmart, loading: false }),
                   content: finalSmart.content,
                   title: finalSmart.title || `${finalSmart.source} results`,
                   tokens: finalSmart.tokens,
@@ -1909,12 +2168,12 @@ export default function ReadPage() {
           const res = await fetch(`${API_URL}/v1/search/smart`, {
             method: 'POST',
             headers: smartHeaders,
-            body: JSON.stringify({ q: intent.question || raw }),
+            body: JSON.stringify({ q: smartSearchRequest?.q || intent.question || raw, ...(smartSearchRequest?.location ? { location: smartSearchRequest.location } : {}) }),
           });
           const json = await res.json();
           if (!res.ok) throw new Error(json.error?.message || json.message || json.error || 'Search failed');
 
-          const smartFallback: SmartResult = json.data;
+          const smartFallback: SmartResult = applyLocationContext(json.data);
           const isGeneralSearch = smartFallback.type === 'general';
 
           if (isGeneralSearch && smartFallback.answer) {
@@ -1929,6 +2188,7 @@ export default function ReadPage() {
                 title: s.title || s.url,
                 url: s.url,
                 domain: s.domain,
+                citedAs: s.citedAs,
                 credibility: { tier: 'general' as const, score: 0.5, signals: [] },
               })) || [],
               fetchTimeMs: smartFallback.fetchTimeMs,
@@ -1995,6 +2255,7 @@ export default function ReadPage() {
             title: s.title,
             domain: s.domain,
             authority: s.authority,
+            citedAs: s.citedAs,
           })),
         };
 
@@ -2068,7 +2329,7 @@ export default function ReadPage() {
       setErrorMsg(msg || 'Something went wrong. Please try again.');
       setAppState('error');
     }
-  }, [token]);
+  }, [token, searchLocation, currentLocationCoords]);
 
   const handleSubmit = useCallback(() => {
     handleSubmitRaw(input);
@@ -2103,6 +2364,8 @@ export default function ReadPage() {
   const isLoading = appState === 'loading';
   const isSuccess = appState === 'success';
   const isError = appState === 'error';
+  const locationLabel = normalizeLocationInput(searchLocation) || (currentLocationCoords ? formatCoordinateLocationLabel(currentLocationCoords) : '');
+  const showLocationHint = queryNeedsLocationHelp(input) && !locationLabel;
 
   return (
     <div className="flex flex-col min-h-full">
@@ -2152,6 +2415,57 @@ export default function ReadPage() {
                   <ArrowRight className="h-4 w-4 text-white" />
                 )}
               </button>
+            </div>
+
+            <div className="px-4 pb-4 -mt-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={searchLocation}
+                  onChange={(e) => {
+                    setSearchLocation(e.target.value);
+                    setLocationError('');
+                    if (locationState === 'error') setLocationState('idle');
+                  }}
+                  placeholder="Optional location for nearby/local searches (city, ZIP, or address)"
+                  disabled={isLoading}
+                  className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950/70 px-3 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-700 disabled:opacity-50"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={isLoading || locationState === 'resolving'}
+                    className="px-3 py-2.5 rounded-xl border border-zinc-800 bg-zinc-950/70 text-xs text-zinc-300 hover:bg-zinc-900 disabled:opacity-40 transition-colors"
+                  >
+                    {locationState === 'resolving' ? 'Finding…' : 'Use current location'}
+                  </button>
+                  {(searchLocation || currentLocationCoords) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchLocation('');
+                        setCurrentLocationCoords(null);
+                        setLocationState('idle');
+                        setLocationError('');
+                      }}
+                      disabled={isLoading}
+                      className="px-3 py-2.5 rounded-xl border border-zinc-800 bg-transparent text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className={`mt-2 text-xs ${locationError ? 'text-red-400' : showLocationHint ? 'text-amber-400' : 'text-zinc-500'}`}>
+                {locationError
+                  ? locationError
+                  : locationLabel
+                    ? `Using location context: ${locationLabel}`
+                    : showLocationHint
+                      ? 'This search sounds local. Add a city/ZIP or use your current location so “near me” stays honest.'
+                      : 'Optional for nearby/local searches. Manual text beats GPS if both are set.'}
+              </div>
             </div>
           </div>
 

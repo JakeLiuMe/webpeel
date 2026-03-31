@@ -57,6 +57,48 @@ describe('detectSearchIntent', () => {
     expect(detectSearchIntent('buy headphones under $100').type).toBe('products');
     expect(detectSearchIntent('cheap laptop deals').type).toBe('products');
     expect(detectSearchIntent('best backpack for travel').type).toBe('products');
+    expect(detectSearchIntent('Sony WH-1000XM6').type).toBe('products');
+    expect(detectSearchIntent('Apple AirPods Pro 2').type).toBe('products');
+  });
+
+  it('preserves explicit retailer intent for product queries', () => {
+    const bestBuy = detectSearchIntent('Sony WH-1000XM6 Best Buy price');
+    expect(bestBuy.type).toBe('products');
+    expect(bestBuy.params.requestedStoreId).toBe('bestbuy');
+    expect(bestBuy.params.requestedStore).toBe('Best Buy');
+    expect(bestBuy.params.requestedStoreDomain).toBe('bestbuy.com');
+
+    const walmart = detectSearchIntent('Apple AirPods Pro 2 Walmart price');
+    expect(walmart.type).toBe('products');
+    expect(walmart.params.requestedStoreId).toBe('walmart');
+    expect(walmart.params.requestedStore).toBe('Walmart');
+    expect(walmart.params.requestedStoreDomain).toBe('walmart.com');
+  });
+
+  it('detects local retail availability intent and preserves store + location params', () => {
+    const traderJoes = detectSearchIntent("Grilled Chimichurri Chicken Thigh Skewers Trader Joe's near me");
+    expect(traderJoes.type).toBe('products');
+    expect(traderJoes.params.requestedStoreId).toBe('traderjoes');
+    expect(traderJoes.params.requestedStore).toBe("Trader Joe's");
+    expect(traderJoes.params.localIntent).toBe('true');
+    expect(traderJoes.params.localIntentMode).toBe('near-me');
+    expect(traderJoes.params.localNeedsUserLocation).toBe('true');
+
+    const costco = detectSearchIntent('Dyson Ball Animal 3+ Upright Vacuum Costco near 11101');
+    expect(costco.type).toBe('products');
+    expect(costco.params.requestedStoreId).toBe('costco');
+    expect(costco.params.requestedStore).toBe('Costco');
+    expect(costco.params.localIntent).toBe('true');
+    expect(costco.params.location).toBe('11101');
+    expect(costco.params.localLocationSource).toBe('zip');
+  });
+
+  it('treats store-specific local product availability as products, not generic local search', () => {
+    const result = detectSearchIntent("is Grilled Chimichurri Chicken Thigh Skewers in my local Trader Joe's");
+    expect(result.type).toBe('products');
+    expect(result.params.requestedStoreId).toBe('traderjoes');
+    expect(result.params.localIntent).toBe('true');
+    expect(result.params.localIntentMode).toBe('local');
   });
 
   it('falls back to general for unrecognized queries', () => {

@@ -167,6 +167,7 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
       }
 
       const query = q.trim();
+      const normalizedLocation = typeof location === 'string' ? location.trim() : '';
       const intent = detectSearchIntent(query);
 
       // If regex returned 'general' as fallback (not from an explicit pattern match),
@@ -200,15 +201,21 @@ export function createSmartSearchRouter(authStore: AuthStore): Router {
         intent.params.zip = zip;
       }
 
-      // Also try to extract location context from query if "location" is provided
-      if (location && intent.type === 'restaurants') {
-        // Will be passed in URL construction
-        (intent as any).location = location;
+      // Also try to extract location context from request body when provided
+      if (normalizedLocation && intent.type === 'restaurants') {
+        intent.params = { ...(intent.params || {}), location: normalizedLocation };
+        (intent as any).location = normalizedLocation;
+      }
+      if (normalizedLocation && intent.params?.localIntent === 'true') {
+        intent.params.location = normalizedLocation;
+        intent.params.localLocation = normalizedLocation;
+        intent.params.localNeedsUserLocation = 'false';
       }
 
       // ── Cache check (before streaming — HIT skips SSE entirely) ─────────
-      const SMART_CACHE_VERSION = 'v5'; // bump when intent routing changes
-      const cacheKey = `smart:${SMART_CACHE_VERSION}:${intent.type}:${query.toLowerCase().trim().replace(/\s+/g, ' ')}`;
+      const SMART_CACHE_VERSION = 'v7'; // bump when intent routing or location wiring changes
+      const cacheLocation = normalizedLocation || intent.params?.location || intent.params?.localLocation || intent.params?.zip || '';
+      const cacheKey = `smart:${SMART_CACHE_VERSION}:${intent.type}:${query.toLowerCase().trim().replace(/\s+/g, ' ')}:${cacheLocation.toLowerCase().replace(/\s+/g, ' ') || 'none'}`;
       try {
         const redis = getSmartRedis();
         const cached = await redis.get(cacheKey);

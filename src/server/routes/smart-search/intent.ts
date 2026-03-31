@@ -1,5 +1,6 @@
 import type { SearchIntent } from './types.js';
 import { sanitizeSearchQuery, callLLMQuick } from './llm.js';
+import { detectRequestedStore, stripRequestedStoreFromQuery, type RequestedStore } from './utils.js';
 
 const METRO_ZIPS: Record<string, string> = {
   'new york': '10001', 'nyc': '10001', 'manhattan': '10001',
@@ -54,8 +55,101 @@ function addDomainSuggestions(intent: SearchIntent): SearchIntent {
   return intent;
 }
 
+function extractLocalRetailParams(query: string, requestedStore: RequestedStore | null): Record<string, string> {
+  const params: Record<string, string> = {};
+  const q = query.toLowerCase();
+  const zipMatch = q.match(/\b(\d{5})(?:-\d{4})?\b/);
+  const nearMe = /\bnear me\b/.test(q);
+  const nearby = /\bnearby\b/.test(q);
+  const nearest = /\bnearest\b/.test(q);
+  const closest = /\bclosest\b/.test(q);
+  const localStore = /\b(?:my\s+local|local)\b/.test(q);
+
+  const stripped = stripRequestedStoreFromQuery(q, requestedStore)
+    .replace(/\b(?:near me|nearby|nearest|closest|my local|local)\b/gi, ' ')
+    .replace(/\b(?:inventory|availability|available|in stock|stock|pickup|store pickup|same day|today|tonight)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  let explicitLocation = '';
+  const explicitMatch = stripped.match(/\b(?:near|around|in|at)\s+([a-z0-9][a-z0-9\s,.'-]{1,50})(?:\s+(?:pickup|availability|inventory|stock|today|tonight|right now))?\s*$/i);
+  if (explicitMatch) {
+    explicitLocation = explicitMatch[1]
+      .replace(/^my\s+/i, '')
+      .replace(/[?.!,]+$/g, '')
+      .trim();
+    if (requestedStore && detectRequestedStore(explicitLocation)?.id === requestedStore.id) {
+      explicitLocation = '';
+    }
+  }
+
+  const hasLocalIntent = Boolean(zipMatch || explicitLocation || nearMe || nearby || nearest || closest || localStore);
+  if (!hasLocalIntent) return params;
+
+  params.localIntent = 'true';
+  if (nearMe) params.localIntentMode = 'near-me';
+  else if (nearby) params.localIntentMode = 'nearby';
+  else if (nearest) params.localIntentMode = 'nearest';
+  else if (closest) params.localIntentMode = 'closest';
+  else if (localStore) params.localIntentMode = 'local';
+
+  if (zipMatch) {
+    params.zip = zipMatch[1];
+    params.location = zipMatch[1];
+    params.localLocation = zipMatch[1];
+    params.localLocationSource = 'zip';
+  } else if (explicitLocation) {
+    params.location = explicitLocation;
+    params.localLocation = explicitLocation;
+    params.localLocationSource = 'query';
+  } else {
+    params.localNeedsUserLocation = 'true';
+  }
+
+  return params;
+}
+
+function hasLocalRetailProductShape(query: string, requestedStore: RequestedStore | null): boolean {
+  const q = query.toLowerCase();
+  if (/\b(open|hours|closed|closing|address|phone|directions|location)\b/.test(q)) return false;
+
+  const stripped = stripRequestedStoreFromQuery(q, requestedStore)
+    .replace(/\b(?:is|are|do|does|did|my|local|near me|nearby|closest|nearest|available|availability|inventory|in stock|stock|have|has|carry|sell|at|in|near|around|store|shop|please|find|show|check)\b/gi, ' ')
+    .replace(/\b\d{5}(?:-\d{4})?\b/g, ' ')
+    .replace(/[^a-z0-9+\s-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!stripped) return false;
+  const tokens = stripped.split(' ').filter(Boolean);
+  if (tokens.length >= 3) return true;
+
+  return /\b(vacuum|headphones|earbuds|tv|monitor|laptop|phone|iphone|airpods|roomba|dyson|skewers|chicken|milk|eggs|bread|butter|cheese|produce|snack|soda|juice)\b/.test(stripped)
+    || /\b[a-z]{1,8}-?\d[a-z0-9+\-]*\b/.test(stripped);
+}
+
+function buildProductIntent(query: string, params: Record<string, string> = {}): SearchIntent {
+  const requestedStore = detectRequestedStore(query);
+  const localRetailParams = extractLocalRetailParams(query, requestedStore);
+  return {
+    type: 'products',
+    query,
+    params: requestedStore
+      ? {
+          ...params,
+          ...localRetailParams,
+          requestedStoreId: requestedStore.id,
+          requestedStore: requestedStore.store,
+          requestedStoreDomain: requestedStore.domain,
+        }
+      : { ...params, ...localRetailParams },
+  };
+}
+
 export function detectSearchIntent(query: string): SearchIntent {
   const q = query.toLowerCase();
+  const requestedStore = detectRequestedStore(q);
+  const localRetailParams = extractLocalRetailParams(q, requestedStore);
   const VEHICLE_WORDS = /\b(car|cars|vehicle|suv|sedan|truck|honda|toyota|tesla|bmw|ford|chevy|chevrolet|nissan|hyundai|kia|mazda|subaru|lexus|audi|mercedes|volkswagen|jeep|dodge|ram|buick|cadillac|gmc|chrysler|acura|infiniti|volvo|porsche|mini|fiat|mitsubishi)\b/;
   if ((/\b(rent|rental|renting)\b/.test(q) && VEHICLE_WORDS.test(q)) || /\bcar\s+rental\b/.test(q)) {
     return { type: 'rental', query: q, params: {} };
@@ -114,8 +208,11 @@ export function detectSearchIntent(query: string): SearchIntent {
   if (/\b(compare|vs\.?|versus|which is better|difference between)\b/.test(q)) {
     return addDomainSuggestions({ type: 'general', query: q, params: {} });
   }
-  if (/\b(grocery|groceries|milk|eggs|bread|butter|cheese|chicken|beef|pork|fruit|vegetables|cereal|rice|pasta|snack|drink|soda|juice|water|organic|produce)\b/.test(q) && /\b(price|cheap|cheapest|buy|cost|near|where|compare)\b/.test(q)) {
-    return { type: 'products', query: q, params: { isGrocery: 'true' } };
+  if (/\b(grocery|groceries|milk|eggs|bread|butter|cheese|chicken|beef|pork|fruit|vegetables|cereal|rice|pasta|snack|drink|soda|juice|water|organic|produce)\b/.test(q) && /\b(price|cheap|cheapest|buy|cost|near|where|compare|local|nearby|nearest|closest|available|availability|inventory|stock)\b/.test(q)) {
+    return buildProductIntent(q, { isGrocery: 'true' });
+  }
+  if (requestedStore && localRetailParams.localIntent === 'true' && hasLocalRetailProductShape(q, requestedStore)) {
+    return buildProductIntent(q);
   }
   if ((/\b(near me|near\s+\w+|open now|open today|open on|what time|is .* open|hours|closest|nearest)\b/.test(q)) && (/\b(buy|where|store|shop)\b/.test(q) || /\b(near|close to|around)\b/.test(q))) {
     return addDomainSuggestions({ type: 'general', query: q, params: {} });
@@ -142,11 +239,19 @@ export function detectSearchIntent(query: string): SearchIntent {
       suggestedDomains: ['wanderu.com', 'flixbus.com', 'greyhound.com', 'busbud.com', 'amtrak.com', 'rome2rio.com'],
     });
   }
+
+  const hasConsumerBrand = /\b(sony|apple|samsung|bose|beats|jbl|sennheiser|audio-technica|anker|soundcore|google|microsoft|lenovo|asus|acer|dell|hp)\b/.test(q);
+  const hasModelLikeToken = /\b[a-z]{1,8}-?\d[a-z0-9-]*\b/.test(q) || /\b\d+(?:st|nd|rd|th)?\s+generation\b/.test(q);
+  const hasKnownProductLine = /\b(airpods|iphone|ipad|macbook|galaxy|pixel|thinkpad|kindle|echo|surface|playstation|ps5|xbox|switch|roomba)\b/.test(q);
+  if ((hasConsumerBrand && hasModelLikeToken) || hasKnownProductLine) {
+    return buildProductIntent(q);
+  }
+
   if (
     (/\b(buy|shop|shopping|purchase|order|cheap|cheapest|best price|under \$|price|deal|discount|sale)\b/.test(q) && !/\b(near|near me|close to|around|open|store|where)\b/.test(q)) ||
     /\b(shoes|sneakers|boots|sandals|heels|loafers|watch|watches|headphones|earbuds|earphones|laptop|laptops|phone|phones|iphone|android|tablet|camera|skincare|face wash|facewash|moisturizer|serum|shampoo|conditioner|sunscreen|sunblock|backpack|bag|jacket|hoodie|shirt|pants|jeans|shorts|dress|coat|glasses|sunglasses|keyboard|mouse|monitor|charger|cable|speaker|bluetooth|tv|television|mattress|pillow|sheets|towel|desk|chair|lamp|wallet|purse|handbag|belt|socks|underwear|perfume|cologne|makeup|lipstick|foundation|mascara|blush|toner)\b/.test(q)
   ) {
-    return { type: 'products', query: q, params: {} };
+    return buildProductIntent(q);
   }
   return addDomainSuggestions({ type: 'general', query: q, params: {} });
 }

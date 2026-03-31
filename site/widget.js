@@ -49,6 +49,47 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  var LOCAL_SEARCH_HINT_RE = /\b(?:near me|nearby|closest|nearest|my local|local|in stock|inventory|availability|pickup|open now|open today|hours)\b/i;
+  var COORDINATE_LOCATION_RE = /^-?\d+(?:\.\d+)?,\s*-?\d+(?:\.\d+)?$/;
+
+  function normalizeLocationInput(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ');
+  }
+
+  function queryNeedsLocationHelp(query) {
+    return LOCAL_SEARCH_HINT_RE.test(String(query || ''));
+  }
+
+  function formatCoordinateLocationLabel(value) {
+    var normalized = normalizeLocationInput(value);
+    if (!COORDINATE_LOCATION_RE.test(normalized)) return normalized;
+    var parts = normalized.split(',').map(function(part) { return Number(part.trim()); });
+    if (!isFinite(parts[0]) || !isFinite(parts[1])) return normalized;
+    return 'Current location (' + parts[0].toFixed(3) + ', ' + parts[1].toFixed(3) + ')';
+  }
+
+  function buildSmartSearchRequest(rawQuery, locationInput, currentLocationCoords) {
+    var manualLocation = normalizeLocationInput(locationInput);
+    var browserLocation = normalizeLocationInput(currentLocationCoords);
+    var location = manualLocation || browserLocation || '';
+    var locationLabel = manualLocation || (browserLocation ? formatCoordinateLocationLabel(browserLocation) : '');
+    var locationSource = manualLocation ? 'manual' : (browserLocation ? 'browser' : '');
+    var q = String(rawQuery || '').trim();
+
+    if (manualLocation && q.toLowerCase().indexOf(manualLocation.toLowerCase()) === -1) {
+      if (/\bnear me\b/i.test(q)) q = q.replace(/\bnear me\b/gi, 'in ' + manualLocation);
+      else if (/\bnearby\b/i.test(q)) q = q.replace(/\bnearby\b/gi, 'in ' + manualLocation);
+      else if (/\b(?:closest|nearest|my local|local)\b/i.test(q)) q = q + ' in ' + manualLocation;
+    }
+
+    return {
+      q: q,
+      location: location || undefined,
+      locationLabel: locationLabel || undefined,
+      locationSource: locationSource || undefined,
+    };
+  }
+
   // ─── Utility: Clean and truncate snippet text ───────────────────────────────
   function cleanSnippet(text, maxLen) {
     if (!text) return '';
@@ -80,7 +121,7 @@
       var meta = (price || source)
         ? '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;">' + price + source + '</div>'
         : '';
-      var snippet = cleanSnippet(item.snippet || '', 120);
+      var snippet = cleanSnippet(item.localInventoryStatus || item.availability || item.snippet || '', 120);
       var snippetHtml = snippet
         ? '<div class="wp-snippet" style="font-size:13px;color:#a1a1aa;line-height:1.5;margin-top:6px;">' + esc(snippet) + '</div>'
         : '';
@@ -283,29 +324,35 @@
   // ─── Render: source attribution row ─────────────────────────────────────────
   function renderSourceRow(sources) {
     if (!sources || !sources.length) return '';
-    var domains = [];
+    var sourceLinks = [];
+    var seen = {};
     sources.forEach(function(s) {
-      var addDomain = function(urlStr) {
+      var addSource = function(urlStr) {
         try {
           var h = new URL(urlStr).hostname.replace(/^www\./, '');
-          if (h && domains.indexOf(h) === -1) domains.push(h);
+          if (h && !seen[h]) {
+            seen[h] = true;
+            sourceLinks.push({ domain: h, url: urlStr });
+          }
         } catch (e) {}
       };
-      if (s.url) addDomain(s.url);
+      if (s.url) addSource(s.url);
       if (s.threads) {
-        s.threads.forEach(function(t) { if (t.url) addDomain(t.url); });
+        s.threads.forEach(function(t) { if (t.url) addSource(t.url); });
       }
     });
-    var uniq = domains.slice(0, 6);
+    var uniq = sourceLinks.slice(0, 6);
     if (!uniq.length) return '';
-    var pills = uniq.map(function(d) {
-      return '<span style="display:inline-flex;align-items:center;gap:3px;white-space:nowrap;">'
-        + '<img src="https://www.google.com/s2/favicons?domain=' + esc(d) + '&sz=12" width="12" height="12" '
-        + 'style="border-radius:2px;opacity:0.55;vertical-align:middle;" onerror="this.style.display=\'none\'">'
-        + '<span>' + esc(d) + '</span>'
-        + '</span>';
-    }).join('<span style="color:#3f3f46;margin:0 1px;"> · </span>');
-    return '<div style="margin-top:10px;font-size:11px;color:#52525b;display:flex;flex-wrap:wrap;align-items:center;gap:4px;line-height:1.8;">'
+    var pills = uniq.map(function(source) {
+      return '<a href="' + esc(source.url) + '" target="_blank" rel="noopener noreferrer" '
+        + 'style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;color:#818cf8;text-decoration:none;border:1px solid rgba(129,140,248,0.18);background:rgba(129,140,248,0.08);padding:4px 8px;border-radius:999px;">'
+        + '<img src="https://www.google.com/s2/favicons?domain=' + esc(source.domain) + '&sz=12" width="12" height="12" '
+        + 'style="border-radius:2px;opacity:0.7;vertical-align:middle;" onerror="this.style.display=\'none\'">'
+        + '<span>' + esc(source.domain) + '</span>'
+        + '<span style="font-size:10px;opacity:0.8;">↗</span>'
+        + '</a>';
+    }).join('');
+    return '<div style="margin-top:10px;font-size:11px;color:#52525b;display:flex;flex-wrap:wrap;align-items:center;gap:6px;line-height:1.8;">'
       + '<span style="color:#3f3f46;">Sources:</span>'
       + pills
       + '</div>';
@@ -357,6 +404,15 @@
             onmouseout="this.style.background=\'#818CF8\'"\
           >→</button>\
         </form>\
+        <div id="wp-location-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">\
+          <input id="wp-location-input" type="text"\
+            placeholder="Optional location for nearby/local searches (city, ZIP, or address)"\
+            style="flex:1 1 320px; min-width:0; padding:12px 14px; font-size:14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#e4e4e7; outline:none; box-sizing:border-box; font-family:inherit;"\
+          />\
+          <button type="button" id="wp-location-btn" style="padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:#d4d4d8; cursor:pointer; font-size:12px; font-weight:600; font-family:inherit;">Use my location</button>\
+          <button type="button" id="wp-location-clear" style="display:none; padding:12px 14px; border-radius:12px; border:1px solid rgba(255,255,255,0.08); background:transparent; color:#71717a; cursor:pointer; font-size:12px; font-weight:600; font-family:inherit;">Clear</button>\
+        </div>\
+        <div id="wp-location-status" style="margin-top:6px; text-align:center; font-size:11px; color:#71717a; line-height:1.5;">Optional for nearby/local searches. Add a city/ZIP or use your current location for honest &quot;near me&quot; results.</div>\
         <div id="wp-examples" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; justify-content: center;">\
           ' + exampleButtons + '\
         </div>\
@@ -430,6 +486,7 @@
       var isMobile = window.innerWidth <= 480;
       var input = document.getElementById('wp-search-input');
       var examples = document.getElementById('wp-examples');
+      var locationRow = document.getElementById('wp-location-row');
 
       if (input) {
         input.placeholder = isMobile
@@ -443,6 +500,11 @@
       if (examples) {
         examples.style.gap = isMobile ? '6px' : '8px';
       }
+
+      if (locationRow) {
+        locationRow.style.flexDirection = isMobile ? 'column' : 'row';
+        locationRow.style.alignItems = isMobile ? 'stretch' : 'center';
+      }
     }
 
     applyMobileStyles();
@@ -453,6 +515,38 @@
 
     var activeSearchId = 0;
     var activeSearchController = null;
+    var currentLocationCoords = '';
+
+    function updateLocationStatus(queryOverride, errorText) {
+      var statusEl = document.getElementById('wp-location-status');
+      var locationInput = document.getElementById('wp-location-input');
+      var clearBtn = document.getElementById('wp-location-clear');
+      var searchInput = document.getElementById('wp-search-input');
+      var query = queryOverride != null ? String(queryOverride) : ((searchInput && searchInput.value) || '');
+      var manualLocation = normalizeLocationInput(locationInput && locationInput.value);
+      var locationLabel = manualLocation || (currentLocationCoords ? formatCoordinateLocationLabel(currentLocationCoords) : '');
+
+      if (clearBtn) clearBtn.style.display = (manualLocation || currentLocationCoords) ? 'inline-block' : 'none';
+      if (!statusEl) return;
+
+      if (errorText) {
+        statusEl.style.color = '#f87171';
+        statusEl.textContent = errorText;
+        return;
+      }
+      if (locationLabel) {
+        statusEl.style.color = '#a1a1aa';
+        statusEl.textContent = 'Using location context: ' + locationLabel;
+        return;
+      }
+      if (queryNeedsLocationHelp(query)) {
+        statusEl.style.color = '#fbbf24';
+        statusEl.textContent = 'This search sounds local. Add a city/ZIP or use your current location so “near me” stays honest.';
+        return;
+      }
+      statusEl.style.color = '#71717a';
+      statusEl.textContent = 'Optional for nearby/local searches. Add a city/ZIP or use your current location for honest “near me” results.';
+    }
 
     function isActiveSearch(searchId) {
       return searchId === activeSearchId;
@@ -465,6 +559,49 @@
       }
     }
 
+    var locationInput = document.getElementById('wp-location-input');
+    var locationBtn = document.getElementById('wp-location-btn');
+    var locationClearBtn = document.getElementById('wp-location-clear');
+    var searchInputEl = document.getElementById('wp-search-input');
+
+    if (searchInputEl) {
+      searchInputEl.addEventListener('input', function() { updateLocationStatus(searchInputEl.value); });
+    }
+    if (locationInput) {
+      locationInput.addEventListener('input', function() { updateLocationStatus(null); });
+    }
+    if (locationClearBtn) {
+      locationClearBtn.addEventListener('click', function() {
+        if (locationInput) locationInput.value = '';
+        currentLocationCoords = '';
+        updateLocationStatus(null);
+      });
+    }
+    if (locationBtn) {
+      locationBtn.addEventListener('click', function() {
+        if (!navigator.geolocation) {
+          updateLocationStatus(null, 'Location access is unavailable here. Add a city or ZIP manually.');
+          return;
+        }
+        locationBtn.textContent = 'Finding…';
+        locationBtn.disabled = true;
+        navigator.geolocation.getCurrentPosition(function(position) {
+          currentLocationCoords = position.coords.latitude.toFixed(6) + ', ' + position.coords.longitude.toFixed(6);
+          locationBtn.textContent = 'Use my location';
+          locationBtn.disabled = false;
+          updateLocationStatus(null);
+        }, function(error) {
+          locationBtn.textContent = 'Use my location';
+          locationBtn.disabled = false;
+          updateLocationStatus(null, error && error.code === error.PERMISSION_DENIED
+            ? 'Location permission was denied. Add a city or ZIP manually.'
+            : 'Could not get your current location. Add a city or ZIP manually.');
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 });
+      });
+    }
+
+    updateLocationStatus('');
+
     // Example button click handlers (safe, no inline onclick with data)
     container.querySelectorAll('.wp-example-btn').forEach(function(btn) {
       btn.addEventListener('click', function() {
@@ -476,6 +613,63 @@
     });
 
     // Search handler
+    function renderLocalRetailSummary(smart) {
+      var structured = smart.structured || (smart.domainData && smart.domainData.structured) || {};
+      var localRetail = structured.localRetail;
+      var requestedStore = structured.requestedStore;
+      if (!localRetail || !localRetail.requested) return '';
+
+      var locationLabel = smart.requestedLocationLabel || localRetail.location || '';
+      var nearbyLabel = localRetail.nearbyStoresStatus === 'resolved'
+        ? ((localRetail.nearbyStores || []).length + ' found')
+        : localRetail.nearbyStoresStatus === 'needs-location'
+          ? 'Need location'
+          : localRetail.nearbyStoresStatus === 'not-found'
+            ? 'None found'
+            : 'Lookup unresolved';
+      var catalogLabel = localRetail.catalogExistence === 'verified'
+        ? 'Verified product page'
+        : localRetail.catalogExistence === 'search-result'
+          ? 'Search-result only'
+          : 'Not verified';
+      var inventoryLabel = localRetail.localInventoryVerified
+        ? (localRetail.localInventoryStatus || 'Verified on a public page')
+        : 'Not publicly verifiable';
+      var stores = Array.isArray(localRetail.nearbyStores) ? localRetail.nearbyStores.slice(0, 3) : [];
+      var storeHtml = stores.map(function(store) {
+        var meta = [];
+        if (store.rating) meta.push('⭐ ' + esc(store.rating) + (store.reviewCount ? ' (' + Number(store.reviewCount).toLocaleString() + ' reviews)' : ''));
+        if (store.isOpen === true) meta.push('<span style="color:#34d399">🟢 Open now</span>');
+        if (store.isOpen === false) meta.push('<span style="color:#f87171">🔴 Closed</span>');
+        if (Array.isArray(store.hours) && store.hours[0]) meta.push('🕐 ' + esc(store.hours[0]));
+        return '<div style="padding:12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-top:8px;">'
+          + '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">'
+          + '<div style="flex:1;min-width:0;">'
+          + '<div style="font-size:13px;font-weight:600;color:#e4e4e7;">' + esc(store.name || 'Store') + '</div>'
+          + (store.address ? '<div style="margin-top:4px;font-size:12px;color:#a1a1aa;">📍 ' + esc(store.address) + '</div>' : '')
+          + (meta.length ? '<div style="margin-top:4px;font-size:11px;color:#71717a;display:flex;gap:8px;flex-wrap:wrap;">' + meta.join('') + '</div>' : '')
+          + '</div>'
+          + (store.googleMapsUrl ? '<a href="' + esc(store.googleMapsUrl) + '" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#818CF8;text-decoration:none;white-space:nowrap;">Maps →</a>' : '')
+          + '</div>'
+          + '</div>';
+      }).join('');
+
+      return '<div style="padding:18px;border-radius:14px;background:rgba(24,24,27,0.9);border:1px solid rgba(255,255,255,0.08);margin-bottom:16px;">'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+        + '<span style="font-size:14px;font-weight:600;color:#e4e4e7;">📍 Local retail check</span>'
+        + (requestedStore && requestedStore.store ? '<span style="font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#d4d4d8;">' + esc(requestedStore.store) + '</span>' : '')
+        + (locationLabel ? '<span style="font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid rgba(129,140,248,0.2);background:rgba(129,140,248,0.1);color:#c7d2fe;">Search area: ' + esc(locationLabel) + '</span>' : '')
+        + '</div>'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">'
+        + '<div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);"><div style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;">Nearby stores</div><div style="margin-top:4px;font-size:13px;font-weight:600;color:#e4e4e7;">' + esc(nearbyLabel) + '</div></div>'
+        + '<div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);"><div style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;">Catalog evidence</div><div style="margin-top:4px;font-size:13px;font-weight:600;color:#e4e4e7;">' + esc(catalogLabel) + '</div></div>'
+        + '<div style="padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);"><div style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;">Local inventory</div><div style="margin-top:4px;font-size:13px;font-weight:600;color:#e4e4e7;">' + esc(inventoryLabel) + '</div></div>'
+        + '</div>'
+        + (localRetail.nearbyStoresMessage ? '<div style="margin-top:10px;font-size:12px;color:#a1a1aa;line-height:1.5;">' + esc(localRetail.nearbyStoresMessage) + '</div>' : '')
+        + storeHtml
+        + '</div>';
+    }
+
     // ─── Render: final results HTML from a smart result object ──────────────────
     function renderFinalHTML(smart, answerText, elapsed) {
       var elapsedStr = elapsed < 10000 ? (elapsed / 1000).toFixed(1) + 's' : '~2s avg';
@@ -488,6 +682,8 @@
       if (smart.verdict && smart.verdict.bestOption) {
         html += renderVerdictCard(smart.verdict);
       }
+
+      html += renderLocalRetailSummary(smart);
 
       // ── AI Summary card ──────────────────────────────────────────────────
       var resolvedAnswer = answerText || smart.answer || '';
@@ -600,7 +796,7 @@
     }
 
     // ─── SSE streaming search ────────────────────────────────────────────────
-    async function doSSESearch(query, resultsDiv, startTime, signal, searchId) {
+    async function doSSESearch(request, resultsDiv, startTime, signal, searchId) {
       // Show streaming skeleton immediately
       resultsDiv.innerHTML = '<style>'
         + '@keyframes wp-spin{to{transform:rotate(360deg)}}'
@@ -624,7 +820,7 @@
       var res = await fetch(API_URL + '/v1/search/smart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-        body: JSON.stringify({ q: query, stream: true }),
+        body: JSON.stringify({ q: request.q, stream: true, ...(request.location ? { location: request.location } : {}) }),
         signal: signal,
       });
 
@@ -762,6 +958,11 @@
 
       // Build final smart object for renderFinalHTML
       var finalSmart = smartResult || {};
+      if (request.locationLabel) {
+        finalSmart.requestedLocation = request.location;
+        finalSmart.requestedLocationLabel = request.locationLabel;
+        finalSmart.requestedLocationSource = request.locationSource;
+      }
       if (collectedBusinesses.length > 0) {
         finalSmart = finalSmart || {};
         if (!finalSmart.structured) finalSmart.structured = {};
@@ -788,6 +989,9 @@
     async function submitSearch(rawQuery) {
       var query = String(rawQuery || '').trim();
       if (!query) return;
+
+      var request = buildSmartSearchRequest(query, locationInput && locationInput.value, currentLocationCoords);
+      updateLocationStatus(query);
 
       var count = getSearchCount();
       if (count >= MAX_FREE_SEARCHES) {
@@ -818,7 +1022,7 @@
       // ── SSE streaming path (modern browsers) ────────────────────────────
       if (typeof ReadableStream !== 'undefined') {
         try {
-          var streamStatus = await doSSESearch(query, resultsDiv, startTime, signal, searchId);
+          var streamStatus = await doSSESearch(request, resultsDiv, startTime, signal, searchId);
           if (streamStatus === 'stale') return;
           if (streamStatus === '429') {
             localStorage.setItem(SEARCH_COUNT_KEY, String(MAX_FREE_SEARCHES));
@@ -847,7 +1051,7 @@
         var res = await fetch(API_URL + '/v1/search/smart', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ q: query }),
+          body: JSON.stringify({ q: request.q, ...(request.location ? { location: request.location } : {}) }),
           signal: signal,
         });
 
@@ -866,6 +1070,11 @@
         var data = await res.json();
         if (!isActiveSearch(searchId)) return;
         var smart = data.data || data;
+        if (request.locationLabel) {
+          smart.requestedLocation = request.location;
+          smart.requestedLocationLabel = request.locationLabel;
+          smart.requestedLocationSource = request.locationSource;
+        }
         var elapsed = Date.now() - startTime;
 
         resultsDiv.innerHTML = renderFinalHTML(smart, smart.answer || '', elapsed);
