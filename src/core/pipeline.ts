@@ -1386,40 +1386,40 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
     }
   }
 
-  // === Challenge / bot-protection page detection ===
-  // If the extracted content looks like a challenge page (not real content),
-  // mark it and try the search-as-proxy fallback to get the real info.
-  // Fast path: skip this check for HTTP fetches that completed in < 500ms —
+  // === Challenge / bot-protection page detection (post-extraction) ===
+  // After content extraction, verify the raw HTML isn't actually a challenge/block page
+  // that slipped through the fetch-level checks (e.g. a 200-status challenge page with
+  // enough HTML to pass content-length gates).
+  //
+  // Uses the proper detectChallenge() function on raw HTML instead of fragile string
+  // matching on extracted markdown — this avoids false positives from articles that
+  // mention security terms and correctly handles 404 pages, real content with security
+  // keywords, and vendor-specific challenge patterns.
+  //
+  // Fast path: skip for HTTP fetches that completed in < 500ms with 200 status —
   // a fast successful response is virtually never a challenge page.
-  if (!ctx.fastPath && ctx.content && ctx.content.length < 2000) {
-    const lowerContent = ctx.content.toLowerCase();
-    const challengeSignals = [
-      'please verify you are a human',
-      'access denied',
-      'enable javascript and cookies',
-      'checking your browser',
-      'cloudflare',
-      'just a moment',
-      'ray id',
-      'attention required',
-      'please wait while we verify',
-      'bot protection',
-      'are you a robot',
-      'captcha',
-      'page not found',
-      'not found',
-      'forbidden',
-      'error 403',
-      'error 404',
-      '403 forbidden',
-      '404 not found',
-      'sorry, this page',
-      'blocked',
-    ];
-    const isChallengeContent = challengeSignals.some(s => lowerContent.includes(s))
-      || (ctx.content.length < 100 && (ctx.stealth || ctx.fetchResult?.method === 'stealth' || ctx.fetchResult?.method === 'browser'));
+  //
+  // Also flag very thin content from stealth/browser fetches as suspicious — if the
+  // browser rendered a page but extracted almost nothing, it's likely a challenge page
+  // that rendered its JS but produced no meaningful text.
+  if (!ctx.fastPath && ctx.fetchResult?.html) {
+    const { detectChallenge } = await import('./challenge-detection.js');
+    const rawHtml = ctx.fetchResult.html;
+    const statusCode = ctx.fetchResult.statusCode ?? ctx.fetchResult.status;
+    const postExtractChallenge = detectChallenge(rawHtml, statusCode);
+
+    // Also flag very thin browser/stealth results — challenge pages that execute JS
+    // often produce minimal extracted text even though the HTML is large
+    const isThinBrowserResult = ctx.content
+      && ctx.content.length < 100
+      && (ctx.stealth || ctx.fetchResult?.method === 'stealth' || ctx.fetchResult?.method === 'browser');
+
+    const isChallengeContent = (postExtractChallenge.isChallenge && postExtractChallenge.confidence >= 0.7)
+      || isThinBrowserResult;
 
     if (isChallengeContent) {
+      const challengeType = postExtractChallenge.type || 'generic-block';
+      log.debug(`Post-extraction challenge detected: ${challengeType} (confidence: ${postExtractChallenge.confidence.toFixed(2)}) for ${ctx.url}`);
       ctx.warnings.push('Bot protection detected. Content is a challenge page, not the actual page content.');
       if (ctx.metadata) {
         (ctx.metadata as any).blocked = true;
@@ -1430,13 +1430,9 @@ export async function postProcess(ctx: PipelineContext): Promise<void> {
       let solvedViaChallengeSolver = false;
       const hasBrowserWorker = !!process.env.BROWSER_WORKER_URL;
       const canSolve = hasBrowserWorker || process.env.ENABLE_LOCAL_CHALLENGE_SOLVE === 'true';
-      if (canSolve && ctx.fetchResult?.html) {
+      if (canSolve) {
         try {
           const { solveChallenge } = await import('../ee/challenge-solver.js');
-          const { detectChallenge } = await import('./challenge-detection.js');
-          const rawHtml = ctx.fetchResult.html;
-          const detectionResult = detectChallenge(rawHtml, ctx.fetchResult.statusCode);
-          const challengeType = detectionResult.type || 'cloudflare';
           const solveResult = await solveChallenge(ctx.url, challengeType, rawHtml, {
             timeout: 15000,
           });
