@@ -17,6 +17,10 @@ import { peel } from '../index.js';
 import { getSearchProvider, type WebSearchResult } from './search-provider.js';
 import { scoreBM25, splitIntoBlocks } from './bm25-filter.js';
 import {
+  selectEvidence,
+  type EvidenceSource,
+} from './selective-evidence.js';
+import {
   callLLM,
   getDefaultLLMConfig,
   isFreeTierLimitError,
@@ -835,15 +839,43 @@ async function synthesizeReport(
     })
     .slice(0, 15);
 
-  // Build context with credibility labels
+  // Use selective evidence to pick the best blocks across all sources
+  // (AttnRes-inspired: query-aware, credibility-weighted, domain-diverse)
+  const evidenceSources: EvidenceSource[] = topSources.map(s => ({
+    url: s.result.url,
+    title: s.result.title,
+    content: s.content || s.result.snippet || '',
+    snippet: s.result.snippet,
+  }));
+
+  const evidenceResult = selectEvidence({
+    query: question,
+    sources: evidenceSources,
+    maxBlocks: 20,
+    maxChars: 12000,
+  });
+
+  // Build context from selected evidence, grouped by source with credibility labels
   const contextParts: string[] = [];
   const citations: Citation[] = [];
 
-  topSources.forEach((source, i) => {
-    const idx = i + 1;
+  // Group selected blocks by source URL to maintain source-level structure
+  const blocksBySource = new Map<string, string[]>();
+  for (const block of evidenceResult.blocks) {
+    if (!blocksBySource.has(block.sourceUrl)) blocksBySource.set(block.sourceUrl, []);
+    blocksBySource.get(block.sourceUrl)!.push(block.text);
+  }
+
+  // Build context in credibility-sorted order from topSources
+  let idx = 0;
+  for (const source of topSources) {
+    const blocks = blocksBySource.get(source.result.url);
+    if (!blocks || blocks.length === 0) continue;
+    idx++;
+
     const cred = source.credibility;
     const stars = starsString(cred.stars);
-    const sanitized = sanitizeForLLM(truncate(source.content || source.result.snippet || '', 3000));
+    const sanitized = sanitizeForLLM(blocks.join('\n\n'));
     contextParts.push(
       [
         `SOURCE [${idx}] ${stars}`,
@@ -861,7 +893,7 @@ async function synthesizeReport(
       snippet: source.result.snippet || '',
       relevanceScore: source.relevanceScore,
     });
-  });
+  }
 
   const context = contextParts.join('\n\n---\n\n');
 

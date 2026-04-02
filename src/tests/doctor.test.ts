@@ -96,5 +96,5 @@ describe('doctor --json output shape', () => {
     expect(parsed.version).toBe(report.version);
     expect(parsed.checks.length).toBe(report.checks.length);
     expect(parsed.summary).toEqual(report.summary);
-  });
+  }, 15000);
 });

@@ -34,6 +34,11 @@ import {
   scoreFetchedSources,
   type ScoredSource,
 } from '../../core/source-scoring.js';
+import {
+  selectEvidence,
+  type EvidenceSource,
+  isUnusableEvidenceContent,
+} from '../../core/selective-evidence.js';
 
 // ---------------------------------------------------------------------------
 // In-memory result cache — 5-minute TTL for repeated identical questions
@@ -223,9 +228,17 @@ export function createAskRouter(): Router {
           maxPassages: 2,
         });
 
+        const unusableFetchedContent = isUnusableEvidenceContent(result.content);
+        const effectiveAnswer = unusableFetchedContent
+          ? (searchResult.snippet || '')
+          : qa.answer;
+        const effectiveConfidence = unusableFetchedContent
+          ? Math.min(qa.confidence, 0.15)
+          : qa.confidence;
+
         answers.push({
-          answer: qa.answer,
-          bm25Score: qa.confidence,
+          answer: effectiveAnswer,
+          bm25Score: effectiveConfidence,
           searchResult,
           fetchedUrl: result.url,
           fetchedTitle: result.title || searchResult.title,
@@ -234,8 +247,8 @@ export function createAskRouter(): Router {
         });
 
         // Early termination on high confidence
-        if (qa.confidence >= HIGH_CONFIDENCE_THRESHOLD) {
-          if (process.env.DEBUG) console.debug(`[ask] early exit confidence=${qa.confidence.toFixed(2)} at ${elapsed()}ms`);
+        if (effectiveConfidence >= HIGH_CONFIDENCE_THRESHOLD) {
+          if (process.env.DEBUG) console.debug(`[ask] early exit confidence=${effectiveConfidence.toFixed(2)} at ${elapsed()}ms`);
           break;
         }
       }
@@ -261,10 +274,33 @@ export function createAskRouter(): Router {
       // Sort by final score — best answer is the highest-scored source
       scoredSources.sort((a, b) => b.finalScore - a.finalScore);
 
-      // Map back to answer text — use BM25 answer from the corresponding fetch
+      // -----------------------------------------------------------------------
+      // Step 5b: Selective evidence aggregation (AttnRes-inspired)
+      // Re-rank evidence blocks across all fetched sources using query-aware
+      // scoring, credibility weighting, and domain diversity caps.
+      // -----------------------------------------------------------------------
+      const evidenceSources: EvidenceSource[] = answers.map(a => ({
+        url: a.fetchedUrl,
+        title: a.fetchedTitle,
+        content: a.answer || '',
+        snippet: a.searchResult.snippet,
+        metadata: a.metadata,
+      }));
+
+      const evidenceSelection = selectEvidence({
+        query: question.trim(),
+        sources: evidenceSources,
+        maxBlocks: 5,
+        maxChars: 3000,
+      });
+
+      // Map back to answer text — prefer the top evidence block when available,
+      // fall back to BM25 answer from the highest-scored source
       const answerMap = new Map(answers.map(a => [a.fetchedUrl, a.answer]));
       const bestSource = scoredSources[0];
-      const bestAnswer = bestSource ? answerMap.get(bestSource.url) : undefined;
+      const topEvidenceBlock = evidenceSelection.blocks[0];
+      const bestAnswer = topEvidenceBlock?.text
+        || (bestSource ? answerMap.get(bestSource.url) : undefined);
 
       clearTimeout(totalTimer);
 
@@ -286,6 +322,8 @@ export function createAskRouter(): Router {
         sources: enrichedSources,
         method: 'bm25',
         elapsed: elapsed(),
+        evidencePolicy: evidenceSelection.policy.type,
+        evidenceSourcesUsed: evidenceSelection.sourcesUsed,
       };
 
       if (timedOut) {

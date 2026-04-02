@@ -4,7 +4,13 @@ import {
   type WebSearchResult,
 } from '../../../../core/search-provider.js';
 import { getSourceCredibility } from '../../../../core/source-credibility.js';
-import { splitIntoBlocks, scoreBM25 } from '../../../../core/bm25-filter.js';
+import { isFactualQuery } from '../../../../core/source-scoring.js';
+import {
+  selectEvidence,
+  formatEvidenceForLLM,
+  type EvidenceSource,
+  isUnusableEvidenceContent,
+} from '../../../../core/selective-evidence.js';
 import type { SmartSearchResult, TransactionalVerdict } from '../types.js';
 import { callLLMQuick, sanitizeSearchQuery, PROMPT_INJECTION_DEFENSE } from '../llm.js';
 import { buildTransitVerdict, type TransitSourceResult } from './transit-verdict.js';
@@ -270,6 +276,7 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
         snippet: r.snippet,
         domain: getDomain(r.url),
         credibility: cred,
+        ...(r.imageUrl ? { imageUrl: r.imageUrl } : {}),
       };
     })
     .sort((a, b) => {
@@ -316,6 +323,11 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
       if (match) {
         match.content = settled.value.content;
         match.fetchTimeMs = settled.value.fetchTimeMs;
+        // Preserve provider thumbnail when present; otherwise use peeled OG image
+        const ogImage = settled.value.metadata?.image;
+        if (ogImage && !match.imageUrl) {
+          match.imageUrl = ogImage;
+        }
       }
     }
   }
@@ -648,45 +660,34 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
   // Only call LLM if at least one page was successfully peeled
   if (anyPeelSucceeded) {
     try {
-      // Build numbered source content for the LLM using BM25 highlights
-      // Extract only query-relevant passages instead of raw truncation
-      const queryTerms = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(t => t.length > 1);
-      const sourceContent = enriched
-        .map((s, i) => {
-          if (s.status !== 'fulfilled' || !(s.value as any).content) return null;
-          const v = s.value as any;
-          // Include structured data if available
-          const structuredInfo = v.structured ? `\nKey data: ${JSON.stringify(v.structured).substring(0, 300)}` : '';
+      // Build evidence context for the LLM using selective evidence aggregation
+      // (AttnRes-inspired: query-aware scoring, credibility weighting, domain diversity)
+      const evidenceSources: EvidenceSource[] = enriched
+        .filter(s => s.status === 'fulfilled' && (s as PromiseFulfilledResult<any>).value.content)
+        .map(s => {
+          const v = (s as PromiseFulfilledResult<any>).value;
+          const matchingResult = results.find((r: any) => r.url === v.url);
+          return {
+            url: v.url,
+            title: v.title || '',
+            content: v.content || '',
+            snippet: matchingResult?.snippet,
+            structured: v.structured,
+            metadata: v.metadata,
+          };
+        });
 
-          // Use BM25 to extract only the most relevant passages (800 chars max)
-          let highlight = '';
-          if (v.content) {
-            const blocks = splitIntoBlocks(v.content);
-            const scores = scoreBM25(blocks, queryTerms);
-            // Pair blocks with scores and sort by relevance
-            const scored = blocks.map((b: { raw: string; index: number }, idx: number) => ({ raw: b.raw, score: scores[idx] }));
-            scored.sort((a: { score: number }, b: { score: number }) => b.score - a.score);
-            // Take top blocks until 800 chars total
-            let charBudget = 800;
-            const topPassages: string[] = [];
-            for (const block of scored) {
-              if (charBudget <= 0) break;
-              if (block.score <= 0 && topPassages.length > 0) break; // skip zero-score blocks if we have content
-              const text = block.raw.substring(0, charBudget);
-              topPassages.push(text);
-              charBudget -= text.length;
-            }
-            highlight = topPassages.join('\n\n');
-          }
+      const evidenceResult = selectEvidence({
+        query,
+        sources: evidenceSources,
+        maxBlocks: 10,
+        maxChars: 4000,
+      });
 
-          return `[${i + 1}] ${v.title}\nURL: ${v.url}${structuredInfo}\n\n${highlight}`;
-        })
-        .filter(Boolean)
-        .join('\n\n---\n\n');
+      const sourceContent = formatEvidenceForLLM(evidenceResult);
 
-      const systemPrompt = `${PROMPT_INJECTION_DEFENSE}Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources inline as [1], [2], [3] etc. At the end, list Sources with their URLs. If sources disagree, note the difference.${isEquipmentRental ? ' IMPORTANT: Include specific rental prices/rates per day or week if available in the sources. Mention the cheapest option.' : ''}${isServiceBusiness ? ' IMPORTANT: Include business hours, phone numbers, and whether they are open now.' : ''}${isGasStation ? ' IMPORTANT: Include gas prices per gallon if available. Mention the cheapest station, its address, and current price. Sort by price.' : ''}${isTravelBooking ? ' IMPORTANT: List specific prices per person for different cruise lines/options. Format as a comparison: cruise line, ship name, duration, departure port, price. Sort cheapest first. Include dates if available.' : ''}${isTransitBooking ? ' IMPORTANT: This is a bus/train/ferry ticket query. Lead with the cheapest price found, the provider (e.g. FlixBus, Greyhound), route, and a direct link. If a round trip is implied, list cheapest outbound AND cheapest return separately, then total. Use ONLY prices that appear in the source data — do NOT invent prices. If multiple providers have prices, compare them. Never say "check with bus companies directly" if you have concrete prices from the sources.' : ''} Max 200 words.`;
+      const systemPrompt = `${PROMPT_INJECTION_DEFENSE}Answer the query using these sources. Be specific with names, numbers, dates, and prices. Bold key facts. Cite sources inline as [1], [2], [3] etc. At the end, list Sources with their URLs. If sources disagree, note the difference.${isFactualQuery(query) ? ' IMPORTANT: For pricing/spec/limit questions, prefer official sources. If an official source appears only as a [snippet] fallback, treat it as weaker than a full successful fetch and avoid overclaiming confidence.' : ''}${isEquipmentRental ? ' IMPORTANT: Include specific rental prices/rates per day or week if available in the sources. Mention the cheapest option.' : ''}${isServiceBusiness ? ' IMPORTANT: Include business hours, phone numbers, and whether they are open now.' : ''}${isGasStation ? ' IMPORTANT: Include gas prices per gallon if available. Mention the cheapest station, its address, and current price. Sort by price.' : ''}${isTravelBooking ? ' IMPORTANT: List specific prices per person for different cruise lines/options. Format as a comparison: cruise line, ship name, duration, departure port, price. Sort cheapest first. Include dates if available.' : ''}${isTransitBooking ? ' IMPORTANT: This is a bus/train/ferry ticket query. Lead with the cheapest price found, the provider (e.g. FlixBus, Greyhound), route, and a direct link. If a round trip is implied, list cheapest outbound AND cheapest return separately, then total. Use ONLY prices that appear in the source data — do NOT invent prices. If multiple providers have prices, compare them. Never say "check with bus companies directly" if you have concrete prices from the sources.' : ''} Max 200 words.`;
 
-      // BM25 highlights are already lean (~800 chars/source) — allow more total for 8 sources
       const truncatedSources = sourceContent.substring(0, 4000);
       const userMessage = `Query: ${sanitizeSearchQuery(query)}\n\nSources:\n${truncatedSources}`;
 
@@ -701,20 +702,37 @@ export async function handleGeneralSearch(query: string): Promise<SmartSearchRes
       llmMs = Date.now() - tLlm;
 
       // ── Confidence scoring ──────────────────────────────────────────
-      // Compute confidence based on source agreement and credibility
-      const peeledSources = enriched.filter(
-        (s) => s.status === 'fulfilled' && (s as PromiseFulfilledResult<any>).value.content !== null
+      // Compute confidence from USABLE evidence, not placeholder block pages.
+      const usablePeeledSources = enriched.filter((s) => {
+        if (s.status !== 'fulfilled') return false;
+        const content = (s as PromiseFulfilledResult<any>).value.content;
+        return !isUnusableEvidenceContent(content);
+      });
+      const usableDomains = new Set(
+        usablePeeledSources.map((s) => getDomain((s as PromiseFulfilledResult<any>).value.url))
       );
-      const peeledDomains = new Set(
-        peeledSources.map((s) => getDomain((s as PromiseFulfilledResult<any>).value.url))
+      const usableUrls = new Set(
+        usablePeeledSources.map((s) => (s as PromiseFulfilledResult<any>).value.url)
       );
-      const hasOfficialSource = results.slice(0, 5).some(
+      const topOfficialCandidates = results.slice(0, 5).filter(
         (r: any) => r.credibility?.tier === 'official' || r.credibility?.tier === 'established'
       );
+      const hasUsableOfficialFetch = topOfficialCandidates.some((r: any) => usableUrls.has(r.url));
+      const hasOfficialSnippetFallback = topOfficialCandidates.some(
+        (r: any) => !usableUrls.has(r.url) && typeof r.snippet === 'string' && r.snippet.trim().length > 20
+      );
 
-      if (peeledDomains.size >= 3 && hasOfficialSource) {
+      if (isFactualQuery(query)) {
+        if (hasUsableOfficialFetch && usableDomains.size >= 2) {
+          confidence = 'HIGH';
+        } else if ((hasUsableOfficialFetch || hasOfficialSnippetFallback) && usableDomains.size >= 1) {
+          confidence = 'MEDIUM';
+        } else {
+          confidence = 'LOW';
+        }
+      } else if (usableDomains.size >= 3 && hasUsableOfficialFetch) {
         confidence = 'HIGH';
-      } else if (peeledDomains.size >= 2) {
+      } else if (usableDomains.size >= 2) {
         confidence = 'MEDIUM';
       } else {
         confidence = 'LOW';
